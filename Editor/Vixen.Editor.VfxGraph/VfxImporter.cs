@@ -7,6 +7,7 @@ using Vixen.Core.Yaml;
 using Vixen.Core.Yaml.Meta;
 using Vixen.Editor.Assets;
 using Vixen.Editor.NodeGraph;
+using Vixen.NodeGraph;
 using Vixen.Rendering.Vfx;
 
 namespace Vixen.Editor.VfxGraph;

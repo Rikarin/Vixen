@@ -5,10 +5,11 @@ using System.Globalization;
 using Vixen.Core.Mathematics;
 using Vixen.Editor.Inspector;
 using Vixen.Editor.NodeGraph;
+using Vixen.NodeGraph;
 using Vixen.Ui;
 using Vixen.Ui.Controls.Advanced;
 using Xunit;
-using PortDirection = Vixen.Editor.NodeGraph.PortDirection;
+using PortDirection = Vixen.NodeGraph.PortDirection;
 
 namespace Tests;
 

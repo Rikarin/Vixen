@@ -4,6 +4,7 @@
 using System.Collections.Immutable;
 using Vixen.Editor.NodeGraph;
 using Vixen.Editor.TextureGraph;
+using Vixen.NodeGraph;
 
 namespace Vixen.Editor.Texturing;
 
@@ -31,7 +32,7 @@ sealed record TextureLibrary(
 ///     <para>
 ///         <b>One line for the generated half, because the generator already wrote the list.</b>
 ///         <c>Vixen.Editor.TextureGraph.NodeTypes</c> is emitted by
-///         <c>Vixen.Editor.NodeGraph.Generator</c> over that assembly's own <c>[Node]</c> classes, so
+///         <c>Vixen.NodeGraph.Generator</c> over that assembly's own <c>[Node]</c> classes, so
 ///         the library here cannot drift from the library the compiler walks: adding a node there
 ///         puts it in this menu with no edit anywhere.
 ///     </para>

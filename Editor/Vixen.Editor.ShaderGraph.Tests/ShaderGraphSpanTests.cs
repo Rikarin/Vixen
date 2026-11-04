@@ -3,6 +3,7 @@
 
 using Vixen.Editor.NodeGraph;
 using Vixen.Editor.ShaderGraph;
+using Vixen.NodeGraph;
 using Vixen.Raven;
 using Vixen.Raven.Syntax;
 using Xunit;

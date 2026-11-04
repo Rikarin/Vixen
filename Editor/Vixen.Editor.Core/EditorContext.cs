@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Authoring;
 using Vixen.Core;
 
 namespace Vixen.Editor.Core;
@@ -21,7 +22,7 @@ namespace Vixen.Editor.Core;
 ///         interaction is one documented rule instead of a per-feature guess.
 ///     </para>
 /// </remarks>
-public sealed class EditorContext {
+public sealed class EditorContext : ICommandContext {
     readonly List<EditorDocument> touched = [];
     bool recording;
 
@@ -62,6 +63,9 @@ public sealed class EditorContext {
 
         touched.Add(document);
     }
+
+    /// <inheritdoc />
+    void ICommandContext.Touch(IAuthoredDocument document) => Touch((EditorDocument)document);
 
     internal void BeginRecording() {
         touched.Clear();

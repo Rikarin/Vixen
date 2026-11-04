@@ -44,6 +44,7 @@
 @namespace Vixen.Editor.NodeGraph
 @inherits Vixen.Ui.UiElement
 @tag node-inspector
+@using Vixen.NodeGraph
 @using System.Collections.Immutable
 @using System.Globalization
 @using Vixen.Editor.Core

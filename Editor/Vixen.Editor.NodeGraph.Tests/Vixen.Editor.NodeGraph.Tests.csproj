@@ -38,12 +38,15 @@
     </ItemGroup>
 
     <ItemGroup>
+        <!-- The fixture nodes are shared, and they compile here so the generator runs over them here. -->
+        <Compile Include="..\..\Tools\Vixen.NodeGraph.Tests\Fixtures.cs" Link="Fixtures.cs" />
         <ProjectReference Include="..\Vixen.Editor.NodeGraph\Vixen.Editor.NodeGraph.csproj" />
+        <ProjectReference Include="..\..\Tools\Vixen.NodeGraph\Vixen.NodeGraph.csproj" />
 
         <!-- The generator, over this assembly's own fixture nodes: the test that the generator works
              is a test that a class with marked fields becomes a usable node type, and that needs the
              generator to have run over a class it has never seen. -->
-        <ProjectReference Include="..\Vixen.Editor.NodeGraph.Generator\Vixen.Editor.NodeGraph.Generator.csproj"
+        <ProjectReference Include="..\..\Tools\Vixen.NodeGraph.Generator\Vixen.NodeGraph.Generator.csproj"
                           OutputItemType="Analyzer"
                           ReferenceOutputAssembly="false" />
 

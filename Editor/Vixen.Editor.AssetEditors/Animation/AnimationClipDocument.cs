@@ -3,6 +3,7 @@
 
 using Vixen.Animation;
 using Vixen.Animation.Constraints;
+using Vixen.Authoring;
 using Vixen.Core;
 using Vixen.Core.Curves;
 using Vixen.Core.Yaml;

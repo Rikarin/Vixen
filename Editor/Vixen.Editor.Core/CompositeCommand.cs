@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Authoring;
+
 namespace Vixen.Editor.Core;
 
 /// <summary>Several commands that undo and redo as one.</summary>
@@ -10,18 +12,18 @@ namespace Vixen.Editor.Core;
 ///     ran would try to unparent something that no longer exists.
 /// </remarks>
 public sealed class CompositeCommand : IEditorCommand {
-    readonly IEditorCommand[] commands;
+    readonly IAuthoringCommand[] commands;
 
     /// <inheritdoc />
     public string Name { get; }
 
     /// <summary>What this is made of, in the order it runs.</summary>
-    public IReadOnlyList<IEditorCommand> Commands => commands;
+    public IReadOnlyList<IAuthoringCommand> Commands => commands;
 
     /// <summary>Groups commands into one entry.</summary>
     /// <param name="name">What the entry is called.</param>
     /// <param name="commands">The commands, in the order they should run.</param>
-    public CompositeCommand(string name, params IEditorCommand[] commands) {
+    public CompositeCommand(string name, params IAuthoringCommand[] commands) {
         ArgumentException.ThrowIfNullOrEmpty(name);
         ArgumentNullException.ThrowIfNull(commands);
 

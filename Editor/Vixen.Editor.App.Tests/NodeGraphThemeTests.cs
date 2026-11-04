@@ -6,6 +6,7 @@ using Vixen.Editor.AssetEditors.Shading;
 using Vixen.Editor.NodeGraph;
 using Vixen.Editor.Plugin;
 using Vixen.Editor.Testing;
+using Vixen.NodeGraph;
 using Vixen.Ui.Styling;
 using Xunit;
 

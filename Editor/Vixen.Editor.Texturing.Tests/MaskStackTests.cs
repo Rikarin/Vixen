@@ -79,7 +79,7 @@ public class MaskStackTests(ITestOutputHelper output) {
             Path.Combine(folder, "Grunge" + TextureGraphDocument.Extension)
         );
 
-        compound.Graph.Interface.Add(new("Out", NodeGraph.PortDirection.Output, NodeGraph.PortKind.Image));
+        compound.Graph.Interface.Add(new("Out", global::Vixen.NodeGraph.PortDirection.Output, global::Vixen.NodeGraph.PortKind.Image));
         compound.Save();
 
         var named = LayerStackCompiler.Library(out var withProject, fixture.Paths.Assets);
@@ -451,7 +451,7 @@ public class MaskStackTests(ITestOutputHelper output) {
 
         var dropped = Assert.Single(compilation.Problems);
 
-        Assert.Equal(NodeGraph.NodeSeverity.Warning, dropped.Severity);
+        Assert.Equal(global::Vixen.NodeGraph.NodeSeverity.Warning, dropped.Severity);
         Assert.Contains("Input", dropped.Message, StringComparison.Ordinal);
 
         // And the levels still reads the mask rather than a constant.

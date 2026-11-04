@@ -3,14 +3,16 @@
 
 using System.Globalization;
 using System.Text;
+using Vixen.Authoring;
 using Vixen.Editor.NodeGraph;
 using Vixen.Editor.Texturing.Layers;
 using Vixen.Editor.Texturing.Painting;
+using Vixen.NodeGraph;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
 using Vixen.Ui.Controls.Advanced;
 using Vixen.Ui.Reactive;
-using GraphPortDirection = Vixen.Editor.NodeGraph.PortDirection;
+using GraphPortDirection = Vixen.NodeGraph.PortDirection;
 
 namespace Vixen.Editor.Texturing;
 

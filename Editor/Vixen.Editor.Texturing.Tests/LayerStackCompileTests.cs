@@ -907,7 +907,7 @@ public class LayerStackCompileTests {
         var compilation = LayerStackCompiler.Compile(stack, stack.Sets[0]);
 
         Assert.Null(compilation.Plan);
-        Assert.Contains(compilation.Problems, problem => problem.Severity == NodeGraph.NodeSeverity.Error);
+        Assert.Contains(compilation.Problems, problem => problem.Severity == global::Vixen.NodeGraph.NodeSeverity.Error);
     }
 
     /// <summary>A number a filter does not take is dropped and reported, never written to a port.</summary>
@@ -931,7 +931,7 @@ public class LayerStackCompileTests {
 
         var problem = Assert.Single(compilation.Problems);
 
-        Assert.Equal(NodeGraph.NodeSeverity.Warning, problem.Severity);
+        Assert.Equal(global::Vixen.NodeGraph.NodeSeverity.Warning, problem.Severity);
         Assert.Contains("Input", problem.Message, StringComparison.Ordinal);
 
         // And the blur still reads the layers beneath it rather than a constant.

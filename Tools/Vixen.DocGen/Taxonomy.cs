@@ -23,7 +23,7 @@ static class Taxonomy {
     const string ComponentAttribute = "Vixen.Core.ComponentAttribute";
     const string DataContractAttribute = "Vixen.Core.DataContractAttribute";
     const string ReplicatedAttribute = "Vixen.Net.Replication.ReplicatedAttribute";
-    const string NodeAttribute = "Vixen.Editor.NodeGraph.NodeAttribute";
+    const string NodeAttribute = "Vixen.NodeGraph.NodeAttribute";
     const string ImporterAttribute = "Vixen.Editor.Assets.ImporterAttribute";
     const string SystemInterface = "Vixen.Ecs.Systems.ISystem";
     const string BehaviorBase = "Vixen.Engine.Behaviors.Behavior";

@@ -7,6 +7,7 @@ using Vixen.Editor.Inspector;
 using Vixen.Editor.NodeGraph;
 using Vixen.Editor.Profiler;
 using Vixen.Editor.Ui;
+using Vixen.NodeGraph;
 using Xunit;
 
 namespace Vixen.Editor.App.Tests;

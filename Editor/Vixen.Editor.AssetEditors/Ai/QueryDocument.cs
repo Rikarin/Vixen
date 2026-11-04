@@ -3,6 +3,7 @@
 
 using System.Diagnostics.CodeAnalysis;
 using Vixen.Ai;
+using Vixen.Authoring;
 using Vixen.Core;
 using Vixen.Core.Mathematics;
 using Vixen.Core.Yaml;

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Diagnostics.CodeAnalysis;
+using Vixen.Authoring;
 
 namespace Vixen.Editor.Core;
 
@@ -20,15 +21,7 @@ namespace Vixen.Editor.Core;
 ///         exists to make obvious.
 ///     </para>
 /// </remarks>
-public interface IEditorCommand {
-    /// <summary>What this is called in the undo history, as a person would say it.</summary>
-    /// <remarks>
-    ///     Shown in a menu item — "Undo Set Roughness" — so it reads best as a verb phrase in the
-    ///     imperative, and it is not localised here: the shell's string table is what turns an id
-    ///     into a language.
-    /// </remarks>
-    string Name { get; }
-
+public interface IEditorCommand : IAuthoringCommand {
     /// <summary>Applies the change.</summary>
     /// <param name="context">The project, the selection, and the document this is running in.</param>
     /// <remarks>
@@ -58,6 +51,26 @@ public interface IEditorCommand {
     ///     </para>
     /// </remarks>
     bool TryMergeWith(IEditorCommand previous, [NotNullWhen(true)] out IEditorCommand? merged) {
+        merged = null;
+        return false;
+    }
+
+    /// <inheritdoc />
+    void IAuthoringCommand.Do(ICommandContext context) => Do((EditorContext)context);
+
+    /// <inheritdoc />
+    void IAuthoringCommand.Undo(ICommandContext context) => Undo((EditorContext)context);
+
+    /// <inheritdoc />
+    bool IAuthoringCommand.TryMergeWith(
+        IAuthoringCommand previous,
+        [NotNullWhen(true)] out IAuthoringCommand? merged
+    ) {
+        if (previous is IEditorCommand command && TryMergeWith(command, out var result)) {
+            merged = result;
+            return true;
+        }
+
         merged = null;
         return false;
     }

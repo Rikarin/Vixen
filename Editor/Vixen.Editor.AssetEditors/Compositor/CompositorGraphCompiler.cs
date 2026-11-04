@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Editor.NodeGraph;
+using Vixen.NodeGraph;
 using Vixen.Rendering.Compositor;
 
 namespace Vixen.Editor.AssetEditors.Compositor;

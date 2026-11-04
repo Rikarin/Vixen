@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Authoring;
+
 namespace Vixen.Editor.Inspector;
 
 /// <summary>Reads a member of <typeparamref name="TOwner" /> by reference.</summary>
@@ -165,7 +167,7 @@ public abstract class InspectorMember : Core.IEditMember {
     ///     them out would mean <c>MakeGenericType</c> — the one thing the whole descriptor layer
     ///     exists to avoid.
     /// </remarks>
-    public abstract Core.IEditorCommand CreateSetCommand(
+    public abstract Vixen.Authoring.IAuthoringCommand CreateSetCommand(
         IReadOnlyList<object> targets,
         object? value,
         Core.EditorDocument? document
@@ -313,7 +315,7 @@ public sealed class InspectorMember<TOwner, TValue> : InspectorMember where TOwn
     public override void SetBoxed(object owner, object? value) => Set(Cast(owner), (TValue) value!);
 
     /// <inheritdoc />
-    public override Core.IEditorCommand CreateSetCommand(
+    public override Vixen.Authoring.IAuthoringCommand CreateSetCommand(
         IReadOnlyList<object> targets,
         object? value,
         Core.EditorDocument? document

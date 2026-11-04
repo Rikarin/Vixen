@@ -3,6 +3,7 @@
 
 using Vixen.Editor.Inspector;
 using Vixen.Editor.NodeGraph;
+using Vixen.NodeGraph;
 using Xunit;
 
 namespace Tests;

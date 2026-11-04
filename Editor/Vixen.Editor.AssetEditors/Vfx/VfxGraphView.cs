@@ -6,6 +6,7 @@ using Vixen.Editor.Core;
 using Vixen.Editor.NodeGraph;
 using Vixen.Editor.Ui.Documents;
 using Vixen.Editor.VfxGraph;
+using Vixen.NodeGraph;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
 using Vixen.Ui.Controls.Advanced;

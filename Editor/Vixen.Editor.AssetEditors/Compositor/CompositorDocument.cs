@@ -5,6 +5,7 @@ using Vixen.Core;
 using Vixen.Core.Yaml;
 using Vixen.Editor.Core;
 using Vixen.Editor.NodeGraph;
+using Vixen.NodeGraph;
 using Vixen.Rendering.Compositor;
 
 namespace Vixen.Editor.AssetEditors.Compositor;

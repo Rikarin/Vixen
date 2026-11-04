@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Diagnostics.CodeAnalysis;
+using Vixen.Authoring;
 using Xunit;
 
 namespace Vixen.Editor.Core.Tests;
@@ -59,7 +60,7 @@ sealed class TestMember(
 
     public void Write(object owner, object? value) => write((Widget) owner, value);
 
-    public IEditorCommand CreateSetCommand(
+    public Vixen.Authoring.IAuthoringCommand CreateSetCommand(
         IReadOnlyList<object> targets,
         object? value,
         EditorDocument? document

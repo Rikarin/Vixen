@@ -8,6 +8,7 @@ using Vixen.Editor.ShaderGraph;
 using Vixen.Editor.Testing;
 using Vixen.Graphics;
 using Vixen.Graphics.Vulkan;
+using Vixen.NodeGraph;
 using Vixen.Rendering;
 using Vixen.Ui.Desktop;
 using Vixen.Ui.Renderer;

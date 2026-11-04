@@ -260,7 +260,7 @@ static string Kind(INamedTypeSymbol type) {
         return "replicated-component";
     }
 
-    if (attributes.Contains("Vixen.Editor.NodeGraph.NodeAttribute")) {
+    if (attributes.Contains("Vixen.NodeGraph.NodeAttribute")) {
         return "graph-node";
     }
 

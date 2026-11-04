@@ -7,6 +7,7 @@ using System.Text.RegularExpressions;
 using Vixen.Editor.NodeGraph;
 using Vixen.Editor.TextureGraph;
 using Vixen.Graphics;
+using Vixen.NodeGraph;
 using Vixen.Shaders;
 using Xunit;
 

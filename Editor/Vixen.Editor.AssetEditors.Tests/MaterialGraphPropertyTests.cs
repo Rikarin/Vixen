@@ -7,6 +7,7 @@ using Vixen.Core.Yaml;
 using Vixen.Editor.AssetEditors.Materials;
 using Vixen.Editor.NodeGraph;
 using Vixen.Editor.ShaderGraph;
+using Vixen.NodeGraph;
 using Vixen.Rendering.Materials;
 using Vixen.Ui;
 using Vixen.Ui.Controls;

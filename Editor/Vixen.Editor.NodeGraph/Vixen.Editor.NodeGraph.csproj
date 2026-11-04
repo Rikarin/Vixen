@@ -19,7 +19,7 @@
             `<Description>` promises "the generated registry that turns [Node]-attributed C# classes
             into a node library" — which is precisely the half a consumer did not get. Analyzers do
             not flow through a `ProjectReference`, so in-tree every graph toolset names
-            `Vixen.Editor.NodeGraph.Generator` itself and nothing in a green build could notice; the
+            `Vixen.NodeGraph.Generator` itself and nothing in a green build could notice; the
             only place the answer exists is the `.nupkg` bytes. Same arrangement and same reason as
             `Vixen.Editor.Inspector`, which is the other half of a plugin's authoring surface.
 
@@ -49,7 +49,7 @@
         property and the MSBuild task hands global properties to the project it invokes.
     -->
     <Target Name="PackNodeGraphGenerator">
-        <MSBuild Projects="..\Vixen.Editor.NodeGraph.Generator\Vixen.Editor.NodeGraph.Generator.csproj"
+        <MSBuild Projects="..\..\Tools\Vixen.NodeGraph.Generator\Vixen.NodeGraph.Generator.csproj"
                  Targets="GetTargetPath"
                  Properties="Configuration=$(Configuration)"
                  RemoveProperties="TargetFramework">
@@ -63,6 +63,8 @@
 
     <ItemGroup>
         <ProjectReference Include="..\..\Core\Vixen.Core\Vixen.Core.csproj" />
+        <ProjectReference Include="..\..\Tools\Vixen.NodeGraph\Vixen.NodeGraph.csproj" />
+        <ProjectReference Include="..\..\Tools\Vixen.Authoring\Vixen.Authoring.csproj" />
         <ProjectReference Include="..\..\Core\Vixen.Core.Mathematics\Vixen.Core.Mathematics.csproj" />
 
         <!--
@@ -113,7 +115,7 @@
           And the generator that reads [Node] classes. Same arrangement, and the reason a node
           library is a folder of classes rather than a table somebody has to remember to update.
         -->
-        <ProjectReference Include="..\Vixen.Editor.NodeGraph.Generator\Vixen.Editor.NodeGraph.Generator.csproj"
+        <ProjectReference Include="..\..\Tools\Vixen.NodeGraph.Generator\Vixen.NodeGraph.Generator.csproj"
                           OutputItemType="Analyzer"
                           ReferenceOutputAssembly="false" />
 

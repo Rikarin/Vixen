@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Authoring</RootNamespace>
+        <Description>
+            The two types every authoring tool shares and no interface needs: an undoable command and
+            a reactive selection. They sit below the editor so that a headless host can run the same
+            graph and layer edits the editor runs.
+        </Description>
+        <PackageTags>editor;undo;selection;vixen</PackageTags>
+        <!-- `Do` is the verb a command has, as it is on the editor's `IEditorCommand`. -->
+        <NoWarn>$(NoWarn);CA1716</NoWarn>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <!-- Signals only. `Selection<T>` is observed by panels, and this assembly references Core and
+             nothing with a widget in it. -->
+        <ProjectReference Include="..\..\Core\Vixen.Ui.Reactive\Vixen.Ui.Reactive.csproj" />
+    </ItemGroup>
+
+</Project>

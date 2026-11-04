@@ -55,6 +55,7 @@
             than three is the reason it is this one.
         -->
         <ProjectReference Include="..\Vixen.Editor.NodeGraph\Vixen.Editor.NodeGraph.csproj" />
+        <ProjectReference Include="..\..\Tools\Vixen.NodeGraph\Vixen.NodeGraph.csproj" />
 
         <!--
             The VFX node library and its compiler. That assembly deliberately knows nothing about a
@@ -134,7 +135,7 @@
         <ProjectReference Include="..\Vixen.Editor.Inspector.Generator\Vixen.Editor.Inspector.Generator.csproj"
                           OutputItemType="Analyzer"
                           ReferenceOutputAssembly="false" />
-        <ProjectReference Include="..\Vixen.Editor.NodeGraph.Generator\Vixen.Editor.NodeGraph.Generator.csproj"
+        <ProjectReference Include="..\..\Tools\Vixen.NodeGraph.Generator\Vixen.NodeGraph.Generator.csproj"
                           OutputItemType="Analyzer"
                           ReferenceOutputAssembly="false" />
         <ProjectReference Include="..\..\Core\Vixen.Core.Reflection.Generator\Vixen.Core.Reflection.Generator.csproj"

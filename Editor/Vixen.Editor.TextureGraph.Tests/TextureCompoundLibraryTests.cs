@@ -5,6 +5,7 @@ using System.Runtime.CompilerServices;
 using Vixen.Core.Yaml;
 using Vixen.Editor.NodeGraph;
 using Vixen.Editor.TextureGraph;
+using Vixen.NodeGraph;
 using Xunit;
 
 namespace Tests;

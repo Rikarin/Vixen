@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Authoring;
+
 namespace Vixen.Editor.AssetEditors.Scenes;
 
 /// <summary>A scene's entities as a tree: what is in it, what is selected, and what things are called.</summary>

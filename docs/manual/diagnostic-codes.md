@@ -16,7 +16,7 @@ step. Where to look:
 | `VXNET` | `Vixen.Net.Generators` — replicators and RPC senders |
 | `VXSH` | `Vixen.Shaders.Generators` |
 | `VXIN` | `Vixen.Input.Generators` |
-| `VXN` | `Vixen.Editor.NodeGraph.Generator` |
+| `VXN` | `Vixen.NodeGraph.Generator` |
 | `VXI` | `Vixen.Editor.Inspector.Generator` |
 | `VXP` | `Vixen.Editor.Plugin.Generator` — an in-tree module's declaration attributes |
 | `VXIO` | `Vixen.Core.IO.Analyzers` — the `System.IO.Path` ban |

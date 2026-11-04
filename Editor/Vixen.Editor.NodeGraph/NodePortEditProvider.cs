@@ -3,9 +3,12 @@
 
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
+using Vixen.Authoring;
 using Vixen.Core.Mathematics;
 using Vixen.Editor.Core;
 using Vixen.Editor.Inspector;
+using Vixen.NodeGraph;
+using GraphNode = Vixen.NodeGraph.GraphNode;
 
 namespace Vixen.Editor.NodeGraph;
 
@@ -114,7 +117,7 @@ public sealed class NodePortMember : InspectorMember {
     }
 
     /// <inheritdoc />
-    public override IEditorCommand CreateSetCommand(
+    public override Vixen.Authoring.IAuthoringCommand CreateSetCommand(
         IReadOnlyList<object> targets,
         object? value,
         EditorDocument? document
@@ -347,7 +350,7 @@ public sealed class NodeSettingMember : InspectorMember {
     }
 
     /// <inheritdoc />
-    public override IEditorCommand CreateSetCommand(
+    public override Vixen.Authoring.IAuthoringCommand CreateSetCommand(
         IReadOnlyList<object> targets,
         object? value,
         EditorDocument? document
@@ -544,7 +547,7 @@ public sealed class NodePortEditProvider : IEditProvider {
             // ⚠ A detached node, deliberately never added to the graph. It is read once, for the
             // members' defaults, and a node that were added would be a node in the document that
             // nobody put there.
-            () => new GraphNode(NodeId.None, definition.Path, default)
+            () => GraphNode.Detached(definition.Path)
         );
 
         return new(definition, descriptor, connected);

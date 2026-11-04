@@ -5,10 +5,11 @@ using Vixen.Editor.Core;
 using Vixen.Editor.NodeGraph;
 using Vixen.Editor.TextureGraph;
 using Vixen.Editor.Texturing.Layers;
+using Vixen.NodeGraph;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
 using Xunit;
-using GraphPortDirection = Vixen.Editor.NodeGraph.PortDirection;
+using GraphPortDirection = Vixen.NodeGraph.PortDirection;
 
 namespace Vixen.Editor.Texturing.Tests;
 

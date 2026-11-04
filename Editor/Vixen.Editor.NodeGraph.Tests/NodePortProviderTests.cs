@@ -5,6 +5,7 @@ using Vixen.Core.Mathematics;
 using Vixen.Editor.Core;
 using Vixen.Editor.Inspector;
 using Vixen.Editor.NodeGraph;
+using Vixen.NodeGraph;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
 using Xunit;

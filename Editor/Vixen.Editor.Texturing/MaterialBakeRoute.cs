@@ -12,6 +12,7 @@ using Vixen.Editor.TextureGraph;
 using Vixen.Editor.Texturing.Layers;
 using Vixen.Editor.Texturing.Painting;
 using Vixen.Graphics;
+using Vixen.NodeGraph;
 
 namespace Vixen.Editor.Texturing;
 

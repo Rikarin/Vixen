@@ -6,6 +6,7 @@ using Vixen.Editor.AssetEditors.Shading;
 using Vixen.Editor.NodeGraph;
 using Vixen.Editor.ShaderGraph;
 using Vixen.Graphics.Null;
+using Vixen.NodeGraph;
 using Vixen.Ui;
 using Vixen.Ui.Controls.Advanced;
 using Xunit;
@@ -178,7 +179,7 @@ public class ShaderGraphTests {
     ) {
         var graph = new NodeGraphModel { Name = "Tint" };
 
-        graph.Interface.Add(new("Colour", NodeGraph.PortDirection.Output, PortKind.Float4));
+        graph.Interface.Add(new("Colour", global::Vixen.NodeGraph.PortDirection.Output, PortKind.Float4));
 
         var colour = graph.Add("Input/Colour Property");
         var exit = graph.Add(SubGraphs.OutputType);
@@ -279,7 +280,7 @@ public class ShaderGraphTests {
         // commonest thing to find inside somebody else's sub-graph.
         var inner = new NodeGraphModel { Name = "Stale" };
 
-        inner.Interface.Add(new("Colour", NodeGraph.PortDirection.Output, PortKind.Float4));
+        inner.Interface.Add(new("Colour", global::Vixen.NodeGraph.PortDirection.Output, PortKind.Float4));
 
         var missing = inner.Add("Plugin/Missing");
         var exit = inner.Add(SubGraphs.OutputType);

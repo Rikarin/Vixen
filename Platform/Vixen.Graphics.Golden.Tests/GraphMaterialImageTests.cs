@@ -5,6 +5,7 @@ using Vixen.Core.Imaging;
 using Vixen.Core.Mathematics;
 using Vixen.Editor.NodeGraph;
 using Vixen.Editor.ShaderGraph;
+using Vixen.NodeGraph;
 using Vixen.Rendering;
 using Vixen.Rendering.Compositor;
 using Vixen.Rendering.Materials;

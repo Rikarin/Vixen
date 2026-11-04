@@ -4,6 +4,7 @@
 using Vixen.Editor.Inspector;
 using Vixen.Editor.NodeGraph;
 using Vixen.Editor.NodeGraph.Tests;
+using Vixen.NodeGraph;
 using Vixen.Ui.Controls;
 using Xunit;
 

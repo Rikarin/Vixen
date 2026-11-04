@@ -39,6 +39,7 @@
 @using System.Collections.Immutable
 @using System.Globalization
 @using Vixen.Editor.NodeGraph
+@using Vixen.NodeGraph
 @using Vixen.Editor.VfxGraph
 @using Vixen.Ui
 @using Vixen.Ui.Controls

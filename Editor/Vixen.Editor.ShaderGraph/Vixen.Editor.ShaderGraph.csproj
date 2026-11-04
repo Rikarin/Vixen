@@ -39,6 +39,7 @@
 
     <ItemGroup>
         <ProjectReference Include="..\Vixen.Editor.NodeGraph\Vixen.Editor.NodeGraph.csproj" />
+        <ProjectReference Include="..\..\Tools\Vixen.NodeGraph\Vixen.NodeGraph.csproj" />
 
         <!--
           The preview renderer's three, and nothing else: a device to make a target on, the effect
@@ -80,7 +81,7 @@
           a ProjectReference, so every assembly declaring nodes references it directly — which is
           also what a third-party plugin does, and the reason the arrangement is worth keeping plain.
         -->
-        <ProjectReference Include="..\Vixen.Editor.NodeGraph.Generator\Vixen.Editor.NodeGraph.Generator.csproj"
+        <ProjectReference Include="..\..\Tools\Vixen.NodeGraph.Generator\Vixen.NodeGraph.Generator.csproj"
                           OutputItemType="Analyzer"
                           ReferenceOutputAssembly="false" />
     </ItemGroup>

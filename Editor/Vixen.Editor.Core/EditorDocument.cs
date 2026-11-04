@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Authoring;
 using Vixen.Core;
 using Vixen.Ui;
 using Vixen.Ui.Reactive;
@@ -61,7 +62,7 @@ namespace Vixen.Editor.Core;
 ///         disk, which saving writes.
 ///     </para>
 /// </remarks>
-public abstract class EditorDocument : IEditableDocument {
+public abstract class EditorDocument : IEditableDocument, IAuthoredDocument {
     readonly Signal<string?> location = new(null);
     string? file;
     readonly Signal<bool> modifiedExternally = new(false);

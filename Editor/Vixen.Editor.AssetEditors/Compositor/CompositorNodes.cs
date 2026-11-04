@@ -3,6 +3,7 @@
 
 using Vixen.Editor.NodeGraph;
 using Vixen.Graphics;
+using Vixen.NodeGraph;
 using Vixen.Rendering;
 using Vixen.Rendering.Compositor;
 

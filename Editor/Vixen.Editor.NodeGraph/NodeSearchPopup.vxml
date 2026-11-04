@@ -51,6 +51,7 @@
 @namespace Vixen.Editor.NodeGraph
 @inherits Vixen.Ui.Controls.Overlay
 @tag node-search
+@using Vixen.NodeGraph
 @using System.Collections.Immutable
 @using Vixen.Input
 @using Vixen.Ui

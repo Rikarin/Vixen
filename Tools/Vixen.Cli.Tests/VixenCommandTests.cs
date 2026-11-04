@@ -696,13 +696,13 @@ public sealed class VixenCommandTests : IDisposable {
         Asset("hero.txt", "hero", address: "ui/hero", group: "UiCore");
         Group("UiCore");
 
-        var graph = new Vixen.Editor.NodeGraph.NodeGraphModel { Name = "Painted" };
+        var graph = new Vixen.NodeGraph.NodeGraphModel { Name = "Painted" };
 
         graph.Add("Master/Surface");
 
         Asset(
             "Painted.vxshadergraph",
-            YamlSerializer.ToYaml(Vixen.Editor.NodeGraph.NodeGraphDocument.Save(graph))
+            YamlSerializer.ToYaml(Vixen.NodeGraph.NodeGraphDocument.Save(graph))
         );
 
         // The variant a material naming this graph would ask for: the forward pass, with the graph
@@ -760,13 +760,13 @@ public sealed class VixenCommandTests : IDisposable {
         // A graph the editor would have saved, with an input node and nothing to write it to.
         // Written through the real document writer, so the fixture cannot pass by being a file the
         // reader happens to reject for a different reason than the one under test.
-        var graph = new Vixen.Editor.NodeGraph.NodeGraphModel { Name = "Unfinished" };
+        var graph = new Vixen.NodeGraph.NodeGraphModel { Name = "Unfinished" };
 
         graph.Add("Input/UV");
 
         Asset(
             "Unfinished.vxshadergraph",
-            YamlSerializer.ToYaml(Vixen.Editor.NodeGraph.NodeGraphDocument.Save(graph))
+            YamlSerializer.ToYaml(Vixen.NodeGraph.NodeGraphDocument.Save(graph))
         );
 
         var (code, output) = await Run("content", "build");

@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.NodeGraph;
+
 namespace Vixen.Editor.NodeGraph;
 
 /// <summary>The selected nodes' inline values, as rows beside the canvas.</summary>

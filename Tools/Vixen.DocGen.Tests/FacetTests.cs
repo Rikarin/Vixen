@@ -213,7 +213,7 @@ public class FacetTests {
     public void AGraphNodeCarriesItsMenuPath() {
         var facets = Read(
             """
-            [Vixen.Editor.NodeGraph.Node("Math/Add", Summary = "Adds two numbers.")]
+            [Vixen.NodeGraph.Node("Math/Add", Summary = "Adds two numbers.")]
             public partial class AddNode;
             """, "AddNode");
 

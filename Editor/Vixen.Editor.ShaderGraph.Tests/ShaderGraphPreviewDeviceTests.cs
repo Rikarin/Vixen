@@ -5,6 +5,7 @@ using Vixen.Editor.NodeGraph;
 using Vixen.Editor.ShaderGraph;
 using Vixen.Graphics;
 using Vixen.Graphics.Vulkan;
+using Vixen.NodeGraph;
 using Xunit;
 
 namespace Tests;

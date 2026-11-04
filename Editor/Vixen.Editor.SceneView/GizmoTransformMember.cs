@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Authoring;
 using Vixen.Core.Mathematics;
 using Vixen.Editor.Core;
 
@@ -63,7 +64,7 @@ sealed class GizmoTransformMember : IEditMember {
     }
 
     /// <inheritdoc />
-    public IEditorCommand CreateSetCommand(IReadOnlyList<object> targets, object? value, EditorDocument? document) {
+    public Vixen.Authoring.IAuthoringCommand CreateSetCommand(IReadOnlyList<object> targets, object? value, EditorDocument? document) {
         ArgumentNullException.ThrowIfNull(targets);
 
         return new SetValuesCommand(this, targets, [.. targets.Select(Read)], value, document);

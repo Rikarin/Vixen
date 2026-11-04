@@ -21,6 +21,7 @@
 
     <ItemGroup>
         <ProjectReference Include="..\Vixen.Editor.NodeGraph\Vixen.Editor.NodeGraph.csproj" />
+        <ProjectReference Include="..\..\Tools\Vixen.NodeGraph\Vixen.NodeGraph.csproj" />
 
         <!--
           The runtime, because the artefact *is* a VfxCompiledGraph. There is no editor-side model of
@@ -41,7 +42,7 @@
                           OutputItemType="Analyzer"
                           ReferenceOutputAssembly="false" />
 
-        <ProjectReference Include="..\Vixen.Editor.NodeGraph.Generator\Vixen.Editor.NodeGraph.Generator.csproj"
+        <ProjectReference Include="..\..\Tools\Vixen.NodeGraph.Generator\Vixen.NodeGraph.Generator.csproj"
                           OutputItemType="Analyzer"
                           ReferenceOutputAssembly="false" />
     </ItemGroup>

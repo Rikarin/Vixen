@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Authoring;
+
 namespace Vixen.Editor.Core;
 
 /// <summary>One editable thing on an object, reached without knowing what type either of them is.</summary>
@@ -86,7 +88,7 @@ public interface IEditMember {
     /// <param name="value">What to set it to, boxed.</param>
     /// <param name="document">The document the objects belong to, if any.</param>
     /// <returns>The command.</returns>
-    IEditorCommand CreateSetCommand(IReadOnlyList<object> targets, object? value, EditorDocument? document);
+    Vixen.Authoring.IAuthoringCommand CreateSetCommand(IReadOnlyList<object> targets, object? value, EditorDocument? document);
 
     /// <summary>Builds the command that records a change the caller has <i>already applied</i>.</summary>
     /// <param name="targets">What changed.</param>

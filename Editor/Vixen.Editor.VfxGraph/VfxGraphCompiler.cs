@@ -3,6 +3,7 @@
 
 using System.Globalization;
 using Vixen.Editor.NodeGraph;
+using Vixen.NodeGraph;
 using Vixen.Vfx;
 
 namespace Vixen.Editor.VfxGraph;

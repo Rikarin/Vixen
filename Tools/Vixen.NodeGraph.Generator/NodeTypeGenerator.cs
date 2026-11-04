@@ -1,0 +1,673 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+using System;
+using System.Collections.Immutable;
+using System.Globalization;
+using System.Text;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
+
+namespace Vixen.NodeGraph.Generator;
+
+/// <summary>
+///     Turns <c>[Node]</c>-attributed classes into a node library.
+/// </summary>
+/// <remarks>
+///     <para>
+///         <b>What it writes.</b> For each node class: a <c>Definition</c> describing its ports, and
+///         the <c>Bind</c> override that fills its port fields from what the compiler resolved. For
+///         each assembly: one <c>NodeTypes.Register</c> listing every definition in it.
+///     </para>
+///     <para>
+///         <b>Why generated rather than reflected.</b> The obvious implementation walks the loaded
+///         assemblies looking for the attribute, and costs a reflection pass at startup, an AOT
+///         hazard, and a library whose contents depend on what happened to be loaded. Generating it
+///         costs a build step and makes the library a compile-time fact — which is also what lets
+///         <c>Create</c> be a <c>new</c> rather than an <c>Activator</c> call.
+///     </para>
+///     <para>
+///         <b>Why the port metadata comes from the same text as the fields.</b> A node's ports could
+///         have been declared in the attribute and its fields written by hand to match. They would
+///         then be two lists that have to agree, and a port renamed in one place is an edge that
+///         silently stops arriving. Reading both off one declaration is the only arrangement where
+///         that cannot happen.
+///     </para>
+/// </remarks>
+[Generator(LanguageNames.CSharp)]
+public sealed class NodeTypeGenerator : IIncrementalGenerator {
+    const string NodeAttribute = "Vixen.NodeGraph.NodeAttribute";
+    const string InputAttribute = "Vixen.NodeGraph.InputAttribute";
+    const string OutputAttribute = "Vixen.NodeGraph.OutputAttribute";
+    const string SettingAttribute = "Vixen.NodeGraph.SettingAttribute";
+
+    static readonly DiagnosticDescriptor MustBePartial = new(
+        "VXN0101",
+        "A [Node] class has to be partial",
+        "{0}",
+        "Vixen.NodeGraph",
+        DiagnosticSeverity.Error,
+        true
+    );
+
+    static readonly DiagnosticDescriptor NotAPortType = new(
+        "VXN0102",
+        "A port field's type is not a port type",
+        "{0}",
+        "Vixen.NodeGraph",
+        DiagnosticSeverity.Error,
+        true
+    );
+
+    static readonly DiagnosticDescriptor MustDeriveFromNode = new(
+        "VXN0103",
+        "A [Node] class has to derive from Node",
+        "{0}",
+        "Vixen.NodeGraph",
+        DiagnosticSeverity.Error,
+        true
+    );
+
+    static readonly DiagnosticDescriptor SettingMustBeString = new(
+        "VXN0104",
+        "A [Setting] field has to be a string",
+        "{0}",
+        "Vixen.NodeGraph",
+        DiagnosticSeverity.Error,
+        true
+    );
+
+    static readonly DiagnosticDescriptor AcceptedFromMustBeAnEnum = new(
+        "VXN0105",
+        "A [Setting]'s AcceptedFrom has to name an enum, and not also list Accepted",
+        "{0}",
+        "Vixen.NodeGraph",
+        DiagnosticSeverity.Error,
+        true
+    );
+
+    /// <inheritdoc />
+    public void Initialize(IncrementalGeneratorInitializationContext context) {
+        var nodes = context.SyntaxProvider
+            .ForAttributeWithMetadataName(
+                NodeAttribute,
+                static (node, _) => node is ClassDeclarationSyntax,
+                static (syntax, _) => Read(syntax)
+            )
+            .Where(static model => model is not null)
+            .Select(static (model, _) => model!);
+
+        context.RegisterSourceOutput(nodes, static (production, model) => Emit(production, model));
+
+        var all = nodes.Collect().Combine(context.CompilationProvider.Select(static (c, _) => c.AssemblyName ?? "Nodes"));
+
+        context.RegisterSourceOutput(all, static (production, pair) => Library(production, pair.Left, pair.Right));
+    }
+
+    /// <summary>Reads one node class into a model, or nothing when it is not one.</summary>
+    static NodeModel? Read(GeneratorAttributeSyntaxContext syntax) {
+        if (syntax.TargetSymbol is not INamedTypeSymbol type || syntax.TargetNode is not ClassDeclarationSyntax declaration) {
+            return null;
+        }
+
+        var problems = ImmutableArray.CreateBuilder<DiagnosticModel>();
+        var location = declaration.Identifier.GetLocation();
+
+        if (!declaration.Modifiers.Any(modifier => modifier.ValueText == "partial")) {
+            problems.Add(Problem(MustBePartial.Id, string.Format(CultureInfo.InvariantCulture, "'{0}' is a node type, so the generator writes its Bind method into it. Add 'partial'.", type.Name), location));
+        }
+
+        if (!DerivesFromNode(type)) {
+            problems.Add(Problem(MustDeriveFromNode.Id, string.Format(CultureInfo.InvariantCulture, "'{0}' is a node type but does not derive from Vixen.NodeGraph.Node, so there is no Bind for the generator to override.", type.Name), location));
+        }
+
+        var attribute = syntax.Attributes[0];
+        var path = attribute.ConstructorArguments.Length > 0 ? attribute.ConstructorArguments[0].Value as string ?? "" : "";
+        var summary = Named(attribute, "Summary") as string ?? "";
+        var preview = Named(attribute, "Preview") is bool flag && flag;
+
+        var ports = ImmutableArray.CreateBuilder<PortModel>();
+        var settings = ImmutableArray.CreateBuilder<SettingModel>();
+
+        foreach (var member in Fields(type)) {
+            if (member is not IFieldSymbol field) {
+                continue;
+            }
+
+            if (Attribute(field, SettingAttribute) is { } setting) {
+                if (field.Type.SpecialType != SpecialType.System_String) {
+                    problems.Add(Problem(
+                        SettingMustBeString.Id,
+                        string.Format(
+                            CultureInfo.InvariantCulture,
+                            "'{0}' is marked as a setting and is a {1}. A setting holds a name the author typed, so its field has to be a string. If it is a number, mark it [Input] instead and it becomes a port that can also be wired.",
+                            field.Name,
+                            field.Type.Name
+                        ),
+                        field.Locations.Length > 0 ? field.Locations[0] : location
+                    ));
+
+                    continue;
+                }
+
+                settings.Add(new(
+                    field.Name,
+                    Named(setting, "Name") as string is { Length: > 0 } called ? called : field.Name,
+                    Text(setting, field, syntax.SemanticModel),
+                    Named(setting, "Summary") as string ?? "",
+
+                    Kind(setting),
+                    Named(setting, "Minimum") is float low ? low : float.NegativeInfinity,
+                    Named(setting, "Maximum") is float high ? high : float.PositiveInfinity,
+                    Named(setting, "Group") as string ?? "",
+                    Accepted(setting, problems, field.Locations.Length > 0 ? field.Locations[0] : location)
+                ));
+
+                continue;
+            }
+
+            var input = Attribute(field, InputAttribute);
+            var output = Attribute(field, OutputAttribute);
+
+            if (input is null && output is null) {
+                continue;
+            }
+
+            var marker = input ?? output!;
+            var kind = KindOf(field.Type);
+
+            if (kind is null) {
+                problems.Add(Problem(
+                    NotAPortType.Id,
+                    string.Format(
+                        CultureInfo.InvariantCulture,
+                        "'{0}' is marked as a port and is a {1}. A port field's type says what the port carries, so it has to be one of the port value types — Scalar, Float2, Float3, Float4, DynamicVector, Bool, Int, Texture, Sampler or Image.",
+                        field.Name,
+                        field.Type.Name
+                    ),
+                    field.Locations.Length > 0 ? field.Locations[0] : location
+                ));
+
+                continue;
+            }
+
+            ports.Add(new(
+                field.Name,
+                Named(marker, "Name") as string is { Length: > 0 } named ? named : field.Name,
+                input is not null,
+                kind,
+                Default(marker, field, syntax.SemanticModel),
+                field.Type.Name,
+                Named(marker, "Summary") as string ?? ""
+            ));
+        }
+
+        // Inputs before outputs, and declaration order within each. What a create menu draws and what
+        // a golden test reads, so it is decided here rather than left to member order.
+        var ordered = ports.Where(port => port.IsInput).Concat(ports.Where(port => !port.IsInput)).ToImmutableArray();
+
+        return new(
+            type.ContainingNamespace.IsGlobalNamespace ? "" : type.ContainingNamespace.ToDisplayString(),
+            type.Name,
+            type.DeclaredAccessibility == Accessibility.Public ? "public" : "internal",
+            path,
+            summary,
+            preview,
+            ordered,
+            settings.ToImmutable(),
+            problems.ToImmutable()
+        );
+    }
+
+    /// <summary>Writes one node class's half.</summary>
+    static void Emit(SourceProductionContext production, NodeModel model) {
+        foreach (var problem in model.Problems) {
+            production.ReportDiagnostic(Diagnostic.Create(Descriptor(problem.Id), problem.Where(), problem.Message));
+        }
+
+        if (model.Problems.Length > 0) {
+            return;
+        }
+
+        var text = new StringBuilder();
+
+        text.AppendLine("// <auto-generated/>")
+            .AppendLine("#nullable enable")
+            .AppendLine()
+            .AppendLine("using System.Collections.Immutable;")
+            .AppendLine("using Vixen.NodeGraph;")
+            .AppendLine();
+
+        if (model.Namespace.Length > 0) {
+            text.AppendLine($"namespace {model.Namespace};").AppendLine();
+        }
+
+        text.AppendLine($"partial class {model.TypeName} {{")
+            .AppendLine("    /// <summary>What this node type is, for the registry. Generated.</summary>")
+            .AppendLine("    public static NodeTypeDefinition Definition { get; } = new(")
+            .AppendLine($"        {Quote(model.Path)},")
+            .AppendLine("        [");
+
+        for (var index = 0; index < model.Ports.Length; index++) {
+            var port = model.Ports[index];
+            var comma = index == model.Ports.Length - 1 ? "" : ",";
+            var direction = port.IsInput ? "Input" : "Output";
+            var defaults = port.Default.IsEmpty
+                ? "[]"
+                : "[" + string.Join(", ", port.Default.Select(Float)) + "]";
+
+            text.AppendLine(
+                $"            new({Quote(port.Name)}, PortDirection.{direction}, PortKind.{port.Kind}, "
+                + $"{defaults}, {Quote(port.Summary)}){comma}"
+            );
+        }
+
+        text.AppendLine("        ],")
+            .AppendLine($"        static () => new {model.TypeName}(),")
+            .AppendLine($"        {Quote(model.Summary)},")
+            .AppendLine($"        {(model.Preview ? "true" : "false")},")
+            .AppendLine("        [");
+
+        for (var index = 0; index < model.Settings.Length; index++) {
+            var setting = model.Settings[index];
+            var comma = index == model.Settings.Length - 1 ? "" : ",";
+
+            var accepted = setting.Accepted.IsEmpty
+                ? "[]"
+                : "[" + string.Join(", ", setting.Accepted.Select(Quote)) + "]";
+
+            text.AppendLine(
+                $"            new({Quote(setting.Name)}, {Quote(setting.Default)}, {Quote(setting.Summary)}, "
+                + $"SettingKind.{setting.Kind}, {Number(setting.Minimum)}, {Number(setting.Maximum)}, "
+                + $"{Quote(setting.Group)}, {accepted}){comma}"
+            );
+        }
+
+        text.AppendLine("        ]")
+            .AppendLine("    );")
+            .AppendLine()
+            .AppendLine("    /// <inheritdoc />")
+            .AppendLine("    public override void Bind(NodeBinding binding) {");
+
+        foreach (var port in model.Ports) {
+            var side = port.IsInput ? "Input" : "Output";
+
+            text.AppendLine($"        {port.Field} = new {port.Type}(binding.{side}({Quote(port.Name)}));");
+        }
+
+        foreach (var setting in model.Settings) {
+            // A setting is read off the node rather than resolved through an edge, and `Text` answers
+            // for one the node has never been given — the compiler seeds it with the declared default
+            // — so there is no missing-key path here of the sort `Input` has.
+            text.AppendLine($"        {setting.Field} = binding.Text({Quote(setting.Name)});");
+        }
+
+        text.AppendLine("    }")
+            .AppendLine("}");
+
+        production.AddSource($"{model.FullName}.Node.g.cs", text.ToString());
+    }
+
+    /// <summary>Writes the assembly's registration list.</summary>
+    static void Library(SourceProductionContext production, ImmutableArray<NodeModel> models, string assembly) {
+        if (models.IsEmpty) {
+            return;
+        }
+
+        var text = new StringBuilder();
+
+        text.AppendLine("// <auto-generated/>")
+            .AppendLine("#nullable enable")
+            .AppendLine()
+            .AppendLine("using Vixen.NodeGraph;")
+            .AppendLine()
+            .AppendLine($"namespace {assembly};")
+            .AppendLine()
+            .AppendLine("/// <summary>Every node type this assembly declares. Generated.</summary>")
+            .AppendLine("/// <remarks>")
+            .AppendLine("///     A host registers the libraries it wants rather than everything that happens to be")
+            .AppendLine("///     loaded, which is what makes a shader graph's create menu contain no spawner nodes.")
+            .AppendLine("/// </remarks>")
+            .AppendLine("public static class NodeTypes {")
+            .AppendLine("    /// <summary>Adds them all to a registry.</summary>")
+            .AppendLine("    /// <param name=\"registry\">The registry.</param>")
+            .AppendLine("    public static void Register(NodeTypeRegistry registry) {")
+            .AppendLine("        System.ArgumentNullException.ThrowIfNull(registry);")
+            .AppendLine();
+
+        foreach (var model in models.Where(model => model.Problems.IsEmpty).OrderBy(model => model.Path, StringComparer.Ordinal)) {
+            // Fully qualified from the root, because the registration list is emitted into a
+            // namespace derived from the assembly name and a node's own namespace may be a prefix of
+            // it — `Tests.Thing` inside `Vixen.NodeGraph.Tests` resolves to the wrong thing,
+            // or to nothing.
+            text.AppendLine($"        registry.Add(global::{model.FullName}.Definition);");
+        }
+
+        text.AppendLine("    }")
+            .AppendLine("}");
+
+        production.AddSource("NodeTypes.g.cs", text.ToString());
+    }
+
+    // ⚠ Every id is named. The wildcard used to answer `MustDeriveFromNode`, which was true while
+    // VXN0103 was the last id left over — and silently wrong the moment VXN0105 arrived, so a
+    // misdeclared `AcceptedFrom` was reported with "A [Node] class has to derive from Node". A
+    // forgotten arm now stops the generator rather than borrowing another rule's sentence.
+    static DiagnosticDescriptor Descriptor(string id) => id switch {
+        "VXN0101" => MustBePartial,
+        "VXN0102" => NotAPortType,
+        "VXN0103" => MustDeriveFromNode,
+        "VXN0104" => SettingMustBeString,
+        "VXN0105" => AcceptedFromMustBeAnEnum,
+        _ => throw new ArgumentOutOfRangeException(nameof(id), id, "No descriptor is mapped for this id.")
+    };
+
+    static DiagnosticModel Problem(string id, string message, Location location) {
+        var span = location.GetLineSpan();
+
+        return new(
+            id,
+            message,
+            span.Path,
+            location.SourceSpan.Start,
+            location.SourceSpan.Length,
+            span.StartLinePosition.Line,
+            span.StartLinePosition.Character,
+            span.EndLinePosition.Line,
+            span.EndLinePosition.Character
+        );
+    }
+
+    /// <summary>
+    ///     Every field of a node class, its base classes' first.
+    /// </summary>
+    /// <remarks>
+    ///     Inherited ports are the point of a shared base: a VFX block declares an ordering wire in
+    ///     and one out, and every block that derives from it has them without saying so. Roslyn's
+    ///     <c>GetMembers</c> returns only what a type declares itself, so the walk is explicit — and
+    ///     it goes base-first so an inherited port appears before the ones the leaf added, which is
+    ///     the order a node is drawn in.
+    /// </remarks>
+    static IEnumerable<ISymbol> Fields(INamedTypeSymbol type) {
+        List<INamedTypeSymbol> chain = [];
+
+        for (var current = type; current is not null; current = current.BaseType) {
+            if (current.ToDisplayString() == "Vixen.NodeGraph.Node") {
+                break;
+            }
+
+            chain.Add(current);
+        }
+
+        chain.Reverse();
+
+        foreach (var link in chain) {
+            foreach (var member in link.GetMembers()) {
+                yield return member;
+            }
+        }
+    }
+
+    static bool DerivesFromNode(INamedTypeSymbol type) {
+        for (var current = type.BaseType; current is not null; current = current.BaseType) {
+            if (current.ToDisplayString() == "Vixen.NodeGraph.Node") {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    static AttributeData? Attribute(ISymbol symbol, string name) {
+        foreach (var attribute in symbol.GetAttributes()) {
+            if (attribute.AttributeClass?.ToDisplayString() == name) {
+                return attribute;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>A <c>[Setting]</c>'s kind, as the enum member's own name.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Read off the enum <em>symbol</em> rather than off a copy of the member list kept
+    ///     here.</b> A generator cannot reference the assembly it generates into, so the obvious
+    ///     spelling is a mirror of <c>SettingKind</c> in this project — which is a second list to keep
+    ///     in step with the first, and the day they disagree every node's settings quietly acquire the
+    ///     wrong kind. The member whose constant matches is the one the author wrote, whatever the
+    ///     numbers are.
+    /// </remarks>
+    static string Kind(AttributeData setting) {
+        foreach (var argument in setting.NamedArguments) {
+            if (argument.Key != "Kind" || argument.Value.Type is not INamedTypeSymbol type) {
+                continue;
+            }
+
+            foreach (var member in type.GetMembers()) {
+                if (member is IFieldSymbol { HasConstantValue: true } field
+                    && Equals(field.ConstantValue, argument.Value.Value)) {
+                    return field.Name;
+                }
+            }
+        }
+
+        return "Text";
+    }
+
+    static object? Named(AttributeData attribute, string name) {
+        foreach (var argument in attribute.NamedArguments) {
+            if (argument.Key == name) {
+                return argument.Value.Kind == TypedConstantKind.Array ? argument.Value.Values : argument.Value.Value;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>The values a setting states it accepts, or empty when it states none.</summary>
+    /// <param name="setting">The <c>[Setting]</c> attribute.</param>
+    /// <param name="problems">Where a declaration that disagrees with itself is reported.</param>
+    /// <param name="location">The field, for a diagnostic to point at.</param>
+    /// <returns>The values, in the order a picker offers them.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A null entry is dropped rather than emitted.</b> <c>Accepted = new string?[] { null }</c>
+    ///         compiles, and a generated file containing <c>new("", …, [null])</c> would not — so the
+    ///         one shape an author can write that this cannot spell is discarded here, where the list
+    ///         is read, instead of at the line that writes it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><c>AcceptedFrom</c> is read off the enum <em>symbol</em>, which is the whole
+    ///         point of it.</b> A generator cannot call <c>Enum.GetNames</c> on a type it is
+    ///         compiling, and it does not need to: an enum's members are constant fields, and their
+    ///         names in constant order are exactly what that method answers at runtime. So the list
+    ///         a picker offers is the enum, generated, rather than a transcription of it that agrees
+    ///         until someone adds a member.
+    ///     </para>
+    /// </remarks>
+    static ImmutableArray<string> Accepted(
+        AttributeData setting,
+        ImmutableArray<DiagnosticModel>.Builder problems,
+        Location location
+    ) {
+        var listed = Named(setting, "Accepted") as ImmutableArray<TypedConstant>? ?? [];
+        var from = Named(setting, "AcceptedFrom") as INamedTypeSymbol;
+
+        if (from is not null && listed.Length > 0) {
+            problems.Add(Problem(
+                AcceptedFromMustBeAnEnum.Id,
+                string.Format(
+                    CultureInfo.InvariantCulture,
+                    "A setting states both an Accepted list and AcceptedFrom = typeof({0}). They are two answers to one question, and the day they disagree the picker offers what the compiler refuses. Keep the enum and delete the list.",
+                    from.Name
+                ),
+                location
+            ));
+
+            return [];
+        }
+
+        if (from is not null) {
+            if (from.TypeKind != TypeKind.Enum) {
+                problems.Add(Problem(
+                    AcceptedFromMustBeAnEnum.Id,
+                    string.Format(
+                        CultureInfo.InvariantCulture,
+                        "'{0}' is not an enum, so it has no member names for a picker to offer. AcceptedFrom names the enum a setting holds one member of; for a set of legal names that is not a CLR type, write them out with Accepted.",
+                        from.Name
+                    ),
+                    location
+                ));
+
+                return [];
+            }
+
+            return Members(from);
+        }
+
+        if (listed.Length == 0) {
+            return [];
+        }
+
+        var accepted = ImmutableArray.CreateBuilder<string>(listed.Length);
+
+        foreach (var value in listed) {
+            if (value.Value is string name) {
+                accepted.Add(name);
+            }
+        }
+
+        return accepted.ToImmutable();
+    }
+
+    /// <summary>An enum's member names, in the order they are written.</summary>
+    /// <param name="type">The enum.</param>
+    /// <returns>The names, in declaration order.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Declaration order, and <c>Enum.GetNames</c> is <em>not</em> that order.</b> That
+    ///         method sorts by the underlying value read as <em>unsigned</em>, so a member declared
+    ///         <c>-2</c> comes out last rather than first. <c>TextureResampleSize</c> is written
+    ///         <c>Quadruple = -2 … Quarter = 2</c> — largest picture to smallest, the sign being the
+    ///         mip-level offset itself — and <c>Enum.GetNames</c> answers
+    ///         <c>Same, Half, Quarter, Quadruple, Double</c>. Offering that in a dropdown would be
+    ///         offering an artefact of a bit pattern as if it were an ordering somebody chose.
+    ///     </para>
+    ///     <para>
+    ///         <b>So the two lists are the same set and not the same sequence</b>, which is what the
+    ///         roll call over them asserts. The declaration is the authored order —
+    ///         <c>SettingAttribute.Accepted</c> promises exactly that for a literal list — and this
+    ///         keeps the promise for a generated one.
+    ///     </para>
+    /// </remarks>
+    static ImmutableArray<string> Members(INamedTypeSymbol type) {
+        var names = ImmutableArray.CreateBuilder<string>();
+
+        foreach (var member in type.GetMembers()) {
+            if (member is IFieldSymbol { HasConstantValue: true, IsStatic: true } field) {
+                names.Add(field.Name);
+            }
+        }
+
+        return names.ToImmutable();
+    }
+
+    /// <summary>The port's default: the attribute's if it has one, else the field's initializer.</summary>
+    static ImmutableArray<float> Default(AttributeData marker, IFieldSymbol field, SemanticModel model) {
+        if (Named(marker, "Default") is ImmutableArray<TypedConstant> values && values.Length > 0) {
+            var lanes = ImmutableArray.CreateBuilder<float>(values.Length);
+
+            foreach (var value in values) {
+                lanes.Add(System.Convert.ToSingle(value.Value ?? 0f, CultureInfo.InvariantCulture));
+            }
+
+            return lanes.ToImmutable();
+        }
+
+        foreach (var reference in field.DeclaringSyntaxReferences) {
+            if (reference.GetSyntax() is not VariableDeclaratorSyntax { Initializer.Value: { } expression }) {
+                continue;
+            }
+
+            // The initializer is read, not evaluated: the port value types hold an expression, so
+            // `= 0.5f` is an implicit conversion whose result is overwritten before anything sees it.
+            // The constant is what has to reach a create menu that never instantiates the node.
+            //
+            // A partial class may declare its fields in a different file from the one the attribute
+            // was found in, and a semantic model only answers about its own tree.
+            if (expression.SyntaxTree != model.SyntaxTree) {
+                continue;
+            }
+
+            var constant = model.GetConstantValue(expression);
+
+            if (constant.HasValue && constant.Value is not null) {
+                return constant.Value switch {
+                    bool flag => [flag ? 1f : 0f],
+                    _ => [System.Convert.ToSingle(constant.Value, CultureInfo.InvariantCulture)]
+                };
+            }
+        }
+
+        return [];
+    }
+
+    /// <summary>A setting's default: the attribute's if it has one, else the field's initializer.</summary>
+    /// <remarks>
+    ///     The same arrangement <see cref="Default" /> has and for the same two reasons — the
+    ///     initializer is how a person writes it, and a partial class may declare the field in a tree
+    ///     this semantic model cannot answer about, which is what the attribute is the escape from.
+    /// </remarks>
+    static string Text(AttributeData marker, IFieldSymbol field, SemanticModel model) {
+        if (Named(marker, "Default") is string declared && declared.Length > 0) {
+            return declared;
+        }
+
+        foreach (var reference in field.DeclaringSyntaxReferences) {
+            if (reference.GetSyntax() is not VariableDeclaratorSyntax { Initializer.Value: { } expression }
+                || expression.SyntaxTree != model.SyntaxTree) {
+                continue;
+            }
+
+            var constant = model.GetConstantValue(expression);
+
+            if (constant.HasValue && constant.Value is string value) {
+                return value;
+            }
+        }
+
+        return "";
+    }
+
+    static string? KindOf(ITypeSymbol type) => type.ToDisplayString() switch {
+        "Vixen.NodeGraph.Scalar" => "Float",
+        "Vixen.NodeGraph.Float2" => "Float2",
+        "Vixen.NodeGraph.Float3" => "Float3",
+        "Vixen.NodeGraph.Float4" => "Float4",
+        "Vixen.NodeGraph.DynamicVector" => "Dynamic",
+        "Vixen.NodeGraph.Bool" => "Bool",
+        "Vixen.NodeGraph.Int" => "Int",
+        "Vixen.NodeGraph.Texture" => "Texture",
+        "Vixen.NodeGraph.Sampler" => "Sampler",
+        "Vixen.NodeGraph.Image" => "Image",
+        "Vixen.NodeGraph.Flow" => "Flow",
+        _ => null
+    };
+
+    static string Quote(string value) => "\"" + value.Replace("\\", "\\\\").Replace("\"", "\\\"") + "\"";
+
+    static string Float(float value) => Number(value);
+
+    /// <summary>One float as C# source.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The infinities are named rather than formatted.</b> <c>"R"</c> writes an infinity as
+    ///     the word <c>Infinity</c>, and a generated file containing <c>Infinityf</c> does not
+    ///     compile — which is what an unbounded range's two open ends are, on every setting that does
+    ///     not declare one.
+    /// </remarks>
+    static string Number(float value) =>
+        float.IsNegativeInfinity(value) ? "float.NegativeInfinity"
+        : float.IsPositiveInfinity(value) ? "float.PositiveInfinity"
+        : float.IsNaN(value) ? "float.NaN"
+        : value.ToString("R", CultureInfo.InvariantCulture) + "f";
+}

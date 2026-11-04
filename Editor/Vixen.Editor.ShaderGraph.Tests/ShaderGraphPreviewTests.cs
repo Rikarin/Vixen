@@ -5,6 +5,7 @@ using Vixen.Core.Syntax.Diagnostics;
 using Vixen.Editor.NodeGraph;
 using Vixen.Editor.ShaderGraph;
 using Vixen.Graphics;
+using Vixen.NodeGraph;
 using Vixen.Raven;
 using Vixen.Raven.IR;
 using Vixen.Raven.Lowering;

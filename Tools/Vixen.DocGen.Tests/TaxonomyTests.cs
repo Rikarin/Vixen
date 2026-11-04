@@ -97,7 +97,7 @@ public class TaxonomyTests {
     public void NodeAttributeMakesAGraphNode() {
         var compilation = Fixture.Compile(
             """
-            [Vixen.Editor.NodeGraph.Node("Math/Add")]
+            [Vixen.NodeGraph.Node("Math/Add")]
             public partial class AddNode;
             """);
 

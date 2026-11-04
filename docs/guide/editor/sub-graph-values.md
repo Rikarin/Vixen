@@ -4,7 +4,7 @@ slug: editor/sub-graph-values
 kind: guide
 area: Editor
 summary: A published graph is inlined rather than called, so what its unfed ports are worth is decided during the walk — this is the seam that lets a front end compute one instead of only reading a number.
-api: [T:Vixen.Editor.NodeGraph.ISubGraphValues, T:Vixen.Editor.NodeGraph.SubGraphScope]
+api: [T:Vixen.NodeGraph.ISubGraphValues, T:Vixen.NodeGraph.SubGraphScope]
 tags: [editor, node-graph, sub-graph, texture-graph, material-authoring]
 since: 0.1
 status: preview

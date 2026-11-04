@@ -3,6 +3,7 @@
 
 using System.Diagnostics.CodeAnalysis;
 using Vixen.Editor.NodeGraph;
+using Vixen.NodeGraph;
 
 namespace Vixen.Editor.TextureGraph;
 

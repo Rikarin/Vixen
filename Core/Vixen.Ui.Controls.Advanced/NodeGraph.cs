@@ -65,7 +65,7 @@ public interface IPortContent {
 /// <remarks>
 ///     <para>
 ///         <b>A picture of a value, not the value.</b> What a port's number <i>is</i> lives in the
-///         document — <c>Vixen.Editor.NodeGraph.GraphNode.Values</c> — because that is what is saved,
+///         document — <c>Vixen.NodeGraph.GraphNode.Values</c> — because that is what is saved,
 ///         undone and compiled. This is what the canvas draws and what a gesture writes into before
 ///         anything is recorded, the same bargain <see cref="NodeGraph.Connect" /> makes: the picture
 ///         moves first and the command follows, because a field that waited for a round trip through
@@ -406,7 +406,7 @@ public sealed class GraphGroup {
 ///     <para>
 ///         ⚠ <b>The rules are not this type's.</b> The cycle refusal, the cascade a deletion causes
 ///         and the one-wire-per-input rule are <see cref="GraphInvariants" />'s, and the document
-///         model — <c>Vixen.Editor.NodeGraph.NodeGraphModel</c> — calls the same three methods with
+///         model — <c>Vixen.NodeGraph.NodeGraphModel</c> — calls the same three methods with
 ///         the same <see cref="GraphConnectionError" /> coming back. That is deliberate and it is the
 ///         only thing keeping two graph types from drifting into two sets of rules. What differs is
 ///         how a refusal is delivered: see <see cref="Connect" />.
@@ -537,7 +537,7 @@ public sealed class NodeGraph {
     ///     <para>
     ///         <see cref="GraphConnectionError.WrongDirection" /> is the one reason only this model
     ///         can give: a port here knows which side it is on, and a
-    ///         <c>Vixen.Editor.NodeGraph.PortRef</c> is a name and does not.
+    ///         <c>Vixen.NodeGraph.PortRef</c> is a name and does not.
     ///     </para>
     /// </remarks>
     public GraphWire? TryConnect(GraphPort from, GraphPort to, out GraphConnectionError error) {

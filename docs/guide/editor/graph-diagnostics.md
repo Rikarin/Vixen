@@ -4,7 +4,7 @@ slug: editor/graph-diagnostics
 kind: guide
 area: Editor
 summary: How a complaint about a line of generated shader source becomes a complaint about a node the author can select, across sub-graph inlining.
-api: [T:Vixen.Editor.NodeGraph.NodeSpan, T:Vixen.Editor.NodeGraph.NodeOrigin, T:Vixen.Editor.NodeGraph.NodeGraphInlining, T:Vixen.Editor.NodeGraph.SubGraphExpansion, T:Vixen.Editor.ShaderGraph.ShaderGraphSpan]
+api: [T:Vixen.NodeGraph.NodeSpan, T:Vixen.NodeGraph.NodeOrigin, T:Vixen.NodeGraph.NodeGraphInlining, T:Vixen.NodeGraph.SubGraphExpansion, T:Vixen.Editor.ShaderGraph.ShaderGraphSpan]
 tags: [editor, node-graph, shader-graph, diagnostics, raven, sub-graphs]
 since: 0.1
 status: preview

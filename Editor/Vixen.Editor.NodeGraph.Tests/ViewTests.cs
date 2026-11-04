@@ -4,9 +4,10 @@
 using Vixen.Core.Mathematics;
 using Vixen.Editor.NodeGraph;
 using Vixen.Input;
+using Vixen.NodeGraph;
 using Vixen.Ui;
 using Xunit;
-using PortDirection = Vixen.Editor.NodeGraph.PortDirection;
+using PortDirection = Vixen.NodeGraph.PortDirection;
 
 namespace Tests;
 

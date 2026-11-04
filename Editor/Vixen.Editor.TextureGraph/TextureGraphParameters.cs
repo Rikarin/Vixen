@@ -4,6 +4,7 @@
 using System.Collections.Immutable;
 using System.Globalization;
 using Vixen.Editor.NodeGraph;
+using Vixen.NodeGraph;
 
 namespace Vixen.Editor.TextureGraph;
 

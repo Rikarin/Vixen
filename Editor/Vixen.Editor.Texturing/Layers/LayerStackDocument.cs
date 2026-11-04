@@ -1,10 +1,12 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Authoring;
 using Vixen.Core;
 using Vixen.Core.Yaml;
 using Vixen.Editor.Core;
 using Vixen.Editor.NodeGraph;
+using Vixen.NodeGraph;
 using Vixen.Ui.Reactive;
 
 namespace Vixen.Editor.Texturing.Layers;

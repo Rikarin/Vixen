@@ -3,6 +3,7 @@
 
 using System.Collections;
 using System.Globalization;
+using Vixen.Authoring;
 using Vixen.Editor.Core;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
@@ -93,7 +94,7 @@ public sealed class ListElementMember : InspectorMember {
     ///     undos. This is here so that a caller who does bind one gets a working command rather than
     ///     an exception out of a code path nothing exercises.
     /// </remarks>
-    public override IEditorCommand CreateSetCommand(
+    public override Vixen.Authoring.IAuthoringCommand CreateSetCommand(
         IReadOnlyList<object> targets,
         object? value,
         EditorDocument? document

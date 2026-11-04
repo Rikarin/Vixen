@@ -7,6 +7,7 @@ using Vixen.Editor.AssetEditors.Code;
 using Vixen.Editor.Core;
 using Vixen.Editor.NodeGraph;
 using Vixen.Editor.ShaderGraph;
+using Vixen.NodeGraph;
 using Vixen.Raven;
 using Vixen.Raven.Syntax;
 using Vixen.Ui.Controls.Advanced;
@@ -321,7 +322,7 @@ public sealed class ShaderGraphDocument : EditorDocument, INodePreviewSource {
     /// </remarks>
     public bool TryGet(
         NodeGraphModel graph,
-        NodeGraph.GraphNode node,
+        global::Vixen.NodeGraph.GraphNode node,
         NodeTypeDefinition definition,
         out NodePreview preview
     ) {

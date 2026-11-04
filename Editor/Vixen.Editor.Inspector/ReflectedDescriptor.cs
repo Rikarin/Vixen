@@ -3,6 +3,7 @@
 
 using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
+using Vixen.Authoring;
 using Vixen.Core.Reflection;
 using Vixen.Editor.Core;
 
@@ -109,7 +110,7 @@ public sealed class ReflectedMember : InspectorMember {
     ///     and records one command over the whole component; this is here so that a caller who does
     ///     bind one gets something that works rather than an exception.
     /// </remarks>
-    public override IEditorCommand CreateSetCommand(
+    public override Vixen.Authoring.IAuthoringCommand CreateSetCommand(
         IReadOnlyList<object> targets,
         object? value,
         EditorDocument? document

@@ -195,6 +195,7 @@
           that caller exists is a seam built ahead of its caller rather than a fix for one.
         -->
         <ProjectReference Include="..\Vixen.Editor.NodeGraph\Vixen.Editor.NodeGraph.csproj" />
+        <ProjectReference Include="..\..\Tools\Vixen.NodeGraph\Vixen.NodeGraph.csproj" />
 
         <!--
           And the editor's project model, for `TextureProjectImages` —
@@ -266,7 +267,7 @@
           a ProjectReference, so every assembly declaring nodes references it directly — which is
           also what a third-party plugin does.
         -->
-        <ProjectReference Include="..\Vixen.Editor.NodeGraph.Generator\Vixen.Editor.NodeGraph.Generator.csproj"
+        <ProjectReference Include="..\..\Tools\Vixen.NodeGraph.Generator\Vixen.NodeGraph.Generator.csproj"
                           OutputItemType="Analyzer"
                           ReferenceOutputAssembly="false" />
     </ItemGroup>

@@ -5,6 +5,7 @@ using System.Collections.Immutable;
 using System.Security.Cryptography;
 using System.Text;
 using Vixen.Editor.NodeGraph;
+using Vixen.NodeGraph;
 using Vixen.Raven;
 using Vixen.Raven.Syntax;
 

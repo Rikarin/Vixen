@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Authoring;
 using Vixen.Ui;
 using Vixen.Ui.Reactive;
 
@@ -42,9 +43,9 @@ public sealed class CommandStack : IUndoManager {
     /// <summary>How many entries a stack keeps before the oldest starts falling off.</summary>
     public const int DefaultCapacity = 256;
 
-    readonly List<IEditorCommand> undoable = [];
-    readonly List<IEditorCommand> redoable = [];
-    readonly List<IEditorCommand> transacted = [];
+    readonly List<IAuthoringCommand> undoable = [];
+    readonly List<IAuthoringCommand> redoable = [];
+    readonly List<IAuthoringCommand> transacted = [];
     readonly Signal<int> revision = new(0);
 
     /// <summary>How deep the undo list was when the document was last saved, or null when that point is gone.</summary>
@@ -82,7 +83,7 @@ public sealed class CommandStack : IUndoManager {
 
     /// <summary>The undo entries, oldest first.</summary>
     /// <remarks>For an undo-history panel, and for a crash report, which is worth more than it sounds.</remarks>
-    public IReadOnlyList<IEditorCommand> History => undoable;
+    public IReadOnlyList<IAuthoringCommand> History => undoable;
 
     /// <summary>Whether a transaction is open.</summary>
     public bool InTransaction => transactionDepth > 0;
@@ -125,7 +126,7 @@ public sealed class CommandStack : IUndoManager {
     ///     The command is executed first and merged second, so a merge replaces the top entry with
     ///     one that has already been applied rather than re-running anything.
     /// </remarks>
-    public void Execute(IEditorCommand command) {
+    public void Execute(IAuthoringCommand command) {
         ArgumentNullException.ThrowIfNull(command);
 
         if (transactionAbandoned) {
@@ -297,7 +298,7 @@ public sealed class CommandStack : IUndoManager {
         transacted.Clear();
     }
 
-    void Record(IEditorCommand command) {
+    void Record(IAuthoringCommand command) {
         // The redo check is implied by the seal — Undo and Redo both set it, and they are the only
         // things that leave a redo entry behind — and it is written out anyway, because it states the
         // invariant where it matters rather than making it a fact about two other methods.
@@ -323,7 +324,7 @@ public sealed class CommandStack : IUndoManager {
     ///     Setting it for an ordinary execute would make the stack refuse every edit made by a
     ///     command, which is most of them.
     /// </remarks>
-    void Perform(IEditorCommand command, bool undo) {
+    void Perform(IAuthoringCommand command, bool undo) {
         IsPerforming = true;
 
         try {
@@ -333,7 +334,7 @@ public sealed class CommandStack : IUndoManager {
         }
     }
 
-    void Run(IEditorCommand command, bool undo) {
+    void Run(IAuthoringCommand command, bool undo) {
         Context.BeginRecording();
 
         try {

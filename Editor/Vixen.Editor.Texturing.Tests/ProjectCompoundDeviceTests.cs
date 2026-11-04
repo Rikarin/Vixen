@@ -4,6 +4,7 @@
 using Vixen.Editor.NodeGraph;
 using Vixen.Editor.Texturing.Layers;
 using Vixen.Editor.Texturing.Painting;
+using Vixen.NodeGraph;
 using Xunit;
 
 namespace Vixen.Editor.Texturing.Tests;

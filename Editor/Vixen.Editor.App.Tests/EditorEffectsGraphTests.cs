@@ -5,6 +5,7 @@ using Vixen.Core.Yaml;
 using Vixen.Editor.NodeGraph;
 using Vixen.Editor.Testing;
 using Vixen.Graphics.Null;
+using Vixen.NodeGraph;
 using Xunit;
 
 namespace Vixen.Editor.App.Tests;

@@ -3,6 +3,7 @@
 
 using System.Text;
 using Vixen.Editor.NodeGraph;
+using Vixen.NodeGraph;
 
 namespace Vixen.Editor.ShaderGraph;
 

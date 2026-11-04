@@ -1,0 +1,49 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.NodeGraph</RootNamespace>
+        <Description>
+            The headless half of the node-graph framework: the document model with its ports, edges,
+            groups and comments; the generated registry that turns [Node]-attributed C# classes into a
+            node library; the undoable commands; and the compiler that walks a graph in dependency
+            order. Nothing here draws: Vixen.Editor.NodeGraph is the view over it.
+        </Description>
+        <PackageTags>node-graph;shader-graph;vfx;source-generator;game-engine;vixen</PackageTags>
+        <TargetsForTfmSpecificContentInPackage>
+            $(TargetsForTfmSpecificContentInPackage);PackNodeGraphGenerator
+        </TargetsForTfmSpecificContentInPackage>
+    </PropertyGroup>
+
+    <Target Name="PackNodeGraphGenerator">
+        <MSBuild Projects="..\Vixen.NodeGraph.Generator\Vixen.NodeGraph.Generator.csproj"
+                 Targets="GetTargetPath"
+                 Properties="Configuration=$(Configuration)"
+                 RemoveProperties="TargetFramework">
+            <Output TaskParameter="TargetOutputs" ItemName="NodeGraphGeneratorAssembly" />
+        </MSBuild>
+
+        <ItemGroup>
+            <TfmSpecificPackageFile Include="@(NodeGraphGeneratorAssembly)" PackagePath="analyzers/dotnet/cs" />
+        </ItemGroup>
+    </Target>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.NodeGraph.Tests" />
+        <InternalsVisibleTo Include="Vixen.Editor.NodeGraph.Tests" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\..\Core\Vixen.Core\Vixen.Core.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Core.Mathematics\Vixen.Core.Mathematics.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Core.Reflection\Vixen.Core.Reflection.csproj" />
+        <ProjectReference Include="..\Vixen.Authoring\Vixen.Authoring.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Core.Reflection.Generator\Vixen.Core.Reflection.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+        <ProjectReference Include="..\Vixen.NodeGraph.Generator\Vixen.NodeGraph.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+    </ItemGroup>
+
+</Project>

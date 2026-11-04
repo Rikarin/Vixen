@@ -3,6 +3,7 @@
 
 using System.Collections.Immutable;
 using Vixen.Editor.NodeGraph;
+using Vixen.NodeGraph;
 
 namespace Vixen.Editor.TextureGraph.Nodes;
 

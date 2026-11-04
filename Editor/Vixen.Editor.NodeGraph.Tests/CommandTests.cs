@@ -5,6 +5,7 @@ using Vixen.Core;
 using Vixen.Core.Mathematics;
 using Vixen.Editor.Core;
 using Vixen.Editor.NodeGraph;
+using Vixen.NodeGraph;
 using Xunit;
 
 namespace Tests;

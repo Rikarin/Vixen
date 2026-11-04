@@ -58,6 +58,7 @@
             shape, exactly as a `.vxshadergraph`'s is, and `NodeGraphView` is what edits one.
         -->
         <ProjectReference Include="..\Vixen.Editor.NodeGraph\Vixen.Editor.NodeGraph.csproj" />
+        <ProjectReference Include="..\..\Tools\Vixen.NodeGraph\Vixen.NodeGraph.csproj" />
 
         <!--
             And the node library, which is the only thing this assembly takes from the evaluator.

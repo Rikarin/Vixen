@@ -7,6 +7,7 @@ using Vixen.Editor.NodeGraph;
 using Vixen.Editor.Plugin;
 using Vixen.Editor.SceneView;
 using Vixen.Editor.Ui.Documents;
+using Vixen.NodeGraph;
 using Vixen.Ui.HotReload;
 
 namespace Vixen.Editor.AssetEditors;

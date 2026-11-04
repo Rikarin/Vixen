@@ -4,6 +4,7 @@
 using Vixen.Core.Mathematics;
 using Vixen.Editor.NodeGraph;
 using Vixen.Editor.ShaderGraph;
+using Vixen.NodeGraph;
 using Vixen.Rendering;
 using Vixen.Rendering.Materials;
 using Vixen.ShaderCompiler;

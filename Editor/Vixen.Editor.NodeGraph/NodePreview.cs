@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Mathematics;
+using Vixen.NodeGraph;
 using Vixen.Ui;
 
 namespace Vixen.Editor.NodeGraph;

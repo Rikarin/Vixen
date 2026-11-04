@@ -29,7 +29,7 @@ static class Facets {
     const string Replicated = "Vixen.Net.Replication.ReplicatedAttribute";
     const string Quantize = "Vixen.Net.Replication.QuantizeAttribute";
     const string Importer = "Vixen.Editor.Assets.ImporterAttribute";
-    const string Node = "Vixen.Editor.NodeGraph.NodeAttribute";
+    const string Node = "Vixen.NodeGraph.NodeAttribute";
     const string AttributeUsage = "System.AttributeUsageAttribute";
     const string DeclaredAccess = "Vixen.Ecs.Systems.IDeclaredAccess";
 

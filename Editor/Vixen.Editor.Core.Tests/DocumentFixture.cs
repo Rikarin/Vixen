@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Authoring;
 using Vixen.Core;
 
 namespace Vixen.Editor.Core.Tests;
@@ -113,7 +114,7 @@ public sealed class Dial<T> {
 
         public void Write(object owner, object? value) => write((Knob)owner, (T)value!);
 
-        public IEditorCommand CreateSetCommand(IReadOnlyList<object> targets, object? value, EditorDocument? document) {
+        public Vixen.Authoring.IAuthoringCommand CreateSetCommand(IReadOnlyList<object> targets, object? value, EditorDocument? document) {
             var previous = new object?[targets.Count];
 
             for (var index = 0; index < targets.Count; index++) {

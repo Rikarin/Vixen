@@ -3,6 +3,7 @@
 
 using Vixen.Core;
 using Vixen.Editor.NodeGraph;
+using Vixen.NodeGraph;
 using Xunit;
 using CanvasGraph = Vixen.Ui.Controls.Advanced.NodeGraph;
 using CanvasNode = Vixen.Ui.Controls.Advanced.GraphNode;

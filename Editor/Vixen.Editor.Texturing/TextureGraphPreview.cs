@@ -6,6 +6,7 @@ using Vixen.Editor.NodeGraph;
 using Vixen.Editor.Plugin;
 using Vixen.Editor.TextureGraph;
 using Vixen.Graphics;
+using Vixen.NodeGraph;
 
 namespace Vixen.Editor.Texturing;
 

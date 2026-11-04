@@ -9,6 +9,7 @@ using Vixen.Editor.NodeGraph;
 using Vixen.Editor.TextureGraph;
 using Vixen.Geometry;
 using Vixen.Geometry.Remeshing;
+using Vixen.NodeGraph;
 using Xunit;
 
 namespace Vixen.Editor.App.Tests;

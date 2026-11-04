@@ -11,6 +11,7 @@ using Vixen.Editor.TextureGraph;
 using Vixen.Editor.Texturing.Layers;
 using Vixen.Editor.Texturing.Painting;
 using Vixen.Graphics;
+using Vixen.NodeGraph;
 
 namespace Vixen.Editor.Texturing;
 
@@ -312,7 +313,7 @@ sealed class LayerStackPreview : IDisposable {
     /// </remarks>
     static string Refused(LayerStackCompilation compilation) {
         var problems = compilation.Problems.Select(problem => problem.Message)
-            .Concat(compilation.Diagnostics.Where(one => one.Severity == NodeGraph.NodeSeverity.Error)
+            .Concat(compilation.Diagnostics.Where(one => one.Severity == global::Vixen.NodeGraph.NodeSeverity.Error)
                 .Select(one => one.Id + ": " + one.Message))
             .ToArray();
 

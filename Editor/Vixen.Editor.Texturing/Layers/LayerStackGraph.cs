@@ -7,6 +7,7 @@ using System.Numerics;
 using Vixen.Core;
 using Vixen.Editor.NodeGraph;
 using Vixen.Editor.Texturing.Painting;
+using Vixen.NodeGraph;
 
 namespace Vixen.Editor.Texturing.Layers;
 

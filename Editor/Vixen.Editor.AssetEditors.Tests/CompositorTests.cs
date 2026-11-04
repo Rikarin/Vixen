@@ -4,6 +4,7 @@
 using Vixen.Core;
 using Vixen.Editor.AssetEditors.Compositor;
 using Vixen.Editor.NodeGraph;
+using Vixen.NodeGraph;
 using Vixen.Rendering.Compositor;
 using Vixen.Ui;
 using Vixen.Ui.Controls;

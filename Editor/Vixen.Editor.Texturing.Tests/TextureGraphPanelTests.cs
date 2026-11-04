@@ -4,6 +4,7 @@
 using Vixen.Core;
 using Vixen.Editor.NodeGraph;
 using Vixen.Input;
+using Vixen.NodeGraph;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
 using Vixen.Ui.Controls.Advanced;
@@ -632,7 +633,7 @@ public class TextureGraphPanelTests {
             System.IO.Path.Combine(folder, "Grunge" + TextureGraphDocument.Extension)
         );
 
-        compound.Graph.Interface.Add(new("Out", NodeGraph.PortDirection.Output, PortKind.Image));
+        compound.Graph.Interface.Add(new("Out", global::Vixen.NodeGraph.PortDirection.Output, PortKind.Image));
         compound.Save();
 
         var (view, canvas) = Opened(fixture, "Material");

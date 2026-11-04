@@ -9,6 +9,7 @@ using Vixen.Editor.Assets.Materials;
 using Vixen.Editor.Assets.Textures;
 using Vixen.Editor.NodeGraph;
 using Vixen.Editor.TextureGraph;
+using Vixen.NodeGraph;
 using Vixen.Rendering;
 using Vixen.Rendering.Compositor;
 using Vixen.Rendering.Materials;

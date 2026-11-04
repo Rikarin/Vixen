@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Globalization;
+using Vixen.Authoring;
 using Vixen.Editor.AssetEditors;
 using Vixen.Editor.Assets.Content;
 using Vixen.Editor.Core;

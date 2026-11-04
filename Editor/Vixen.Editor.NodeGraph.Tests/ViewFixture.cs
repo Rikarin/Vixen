@@ -6,11 +6,12 @@ using Vixen.Core;
 using Vixen.Editor.Core;
 using Vixen.Editor.NodeGraph;
 using Vixen.Input;
+using Vixen.NodeGraph;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
 using Vixen.Ui.Controls.Advanced;
 using Vixen.Ui.Text;
-using PortDirection = Vixen.Editor.NodeGraph.PortDirection;
+using PortDirection = Vixen.NodeGraph.PortDirection;
 
 namespace Tests;
 

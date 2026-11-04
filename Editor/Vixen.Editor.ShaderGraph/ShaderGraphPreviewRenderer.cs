@@ -5,6 +5,7 @@ using System.Runtime.InteropServices;
 using Vixen.Core.Mathematics;
 using Vixen.Editor.NodeGraph;
 using Vixen.Graphics;
+using Vixen.NodeGraph;
 using Vixen.ShaderCompiler;
 using Vixen.Shaders;
 

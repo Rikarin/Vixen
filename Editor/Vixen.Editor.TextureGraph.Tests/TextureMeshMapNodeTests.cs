@@ -4,6 +4,7 @@
 using Vixen.Editor.NodeGraph;
 using Vixen.Editor.TextureGraph;
 using Vixen.Editor.TextureGraph.Nodes;
+using Vixen.NodeGraph;
 using Xunit;
 
 namespace Tests;

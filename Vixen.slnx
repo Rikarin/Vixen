@@ -930,8 +930,11 @@
     <Project Path="Editor/Vixen.Editor.Core.Tests/Vixen.Editor.Core.Tests.csproj" />
     <Project Path="Editor/Vixen.Editor.Assets/Vixen.Editor.Assets.csproj" />
     <Project Path="Editor/Vixen.Editor.Assets.Tests/Vixen.Editor.Assets.Tests.csproj" />
+    <Project Path="Tools/Vixen.Authoring/Vixen.Authoring.csproj" />
+    <Project Path="Tools/Vixen.NodeGraph/Vixen.NodeGraph.csproj" />
+    <Project Path="Tools/Vixen.NodeGraph.Tests/Vixen.NodeGraph.Tests.csproj" />
     <Project Path="Editor/Vixen.Editor.NodeGraph/Vixen.Editor.NodeGraph.csproj" />
-    <Project Path="Editor/Vixen.Editor.NodeGraph.Generator/Vixen.Editor.NodeGraph.Generator.csproj" />
+    <Project Path="Tools/Vixen.NodeGraph.Generator/Vixen.NodeGraph.Generator.csproj" />
     <Project Path="Editor/Vixen.Editor.NodeGraph.Tests/Vixen.Editor.NodeGraph.Tests.csproj" />
     <Project Path="Editor/Vixen.Editor.ShaderGraph/Vixen.Editor.ShaderGraph.csproj" />
     <Project Path="Editor/Vixen.Editor.ShaderGraph.Tests/Vixen.Editor.ShaderGraph.Tests.csproj" />

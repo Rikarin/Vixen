@@ -3,6 +3,7 @@
 
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
+using Vixen.Authoring;
 using Vixen.Editor.Core;
 
 namespace Vixen.Editor.Texturing.Layers;

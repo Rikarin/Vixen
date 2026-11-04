@@ -46,6 +46,7 @@
 
     <ItemGroup>
         <ProjectReference Include="..\..\Core\Vixen.Core\Vixen.Core.csproj" />
+        <ProjectReference Include="..\..\Tools\Vixen.Authoring\Vixen.Authoring.csproj" />
         <ProjectReference Include="..\..\Core\Vixen.Core.Yaml\Vixen.Core.Yaml.csproj" />
 
         <!--

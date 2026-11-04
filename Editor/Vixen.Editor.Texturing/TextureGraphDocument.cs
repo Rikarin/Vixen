@@ -8,6 +8,7 @@ using Vixen.Core.Yaml;
 using Vixen.Editor.Core;
 using Vixen.Editor.NodeGraph;
 using Vixen.Editor.TextureGraph;
+using Vixen.NodeGraph;
 
 namespace Vixen.Editor.Texturing;
 

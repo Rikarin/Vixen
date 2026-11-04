@@ -4,7 +4,7 @@ slug: editor/node-port-editing
 kind: guide
 area: Editor
 summary: The editing pipeline's second IEditProvider — a graph node's inline port values and its string-valued settings described as inspector members, so the ordinary inspector panel and a .vxml tree edit them by name instead of a hand-written panel per graph.
-api: [T:Vixen.Editor.NodeGraph.NodePortEditProvider, T:Vixen.Editor.NodeGraph.NodePortMember, T:Vixen.Editor.NodeGraph.NodeSettingMember, T:Vixen.Editor.NodeGraph.NodeInspector, T:Vixen.Editor.NodeGraph.SettingAttribute, T:Vixen.Editor.NodeGraph.SettingDefinition]
+api: [T:Vixen.Editor.NodeGraph.NodePortEditProvider, T:Vixen.Editor.NodeGraph.NodePortMember, T:Vixen.Editor.NodeGraph.NodeSettingMember, T:Vixen.Editor.NodeGraph.NodeInspector, T:Vixen.NodeGraph.SettingAttribute, T:Vixen.NodeGraph.SettingDefinition]
 tags: [editor, node-graph, inspector, undo, multi-object-editing]
 since: 0.2
 status: preview

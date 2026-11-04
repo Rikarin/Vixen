@@ -3,10 +3,12 @@
 
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
+using Vixen.Authoring;
 using Vixen.Core.Mathematics;
 using Vixen.Editor.Core;
 using Vixen.Editor.Inspector;
 using Vixen.Input;
+using Vixen.NodeGraph;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
 using Vixen.Ui.Controls.Advanced;
@@ -15,6 +17,9 @@ using CanvasGraph = Vixen.Ui.Controls.Advanced.NodeGraph;
 using CanvasGroup = Vixen.Ui.Controls.Advanced.GraphGroup;
 using CanvasNode = Vixen.Ui.Controls.Advanced.GraphNode;
 using CanvasPort = Vixen.Ui.Controls.Advanced.GraphPort;
+using GraphGroup = Vixen.NodeGraph.GraphGroup;
+using GraphNode = Vixen.NodeGraph.GraphNode;
+using PortDirection = Vixen.NodeGraph.PortDirection;
 
 namespace Vixen.Editor.NodeGraph;
 
@@ -1041,7 +1046,7 @@ public sealed class NodeGraphView : Control {
         Search.Show(registry, null, x, y);
     }
 
-    bool Run(IEditorCommand command) {
+    bool Run(IAuthoringCommand command) {
         if (Stack is not { } stack) {
             return false;
         }
