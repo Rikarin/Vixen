@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Interchange;
 using Vixen.Core.Imaging;
 using Vixen.Editor.Texturing.Painting;
 using Vixen.Graphics;
@@ -199,7 +200,7 @@ public class TextureExternalPassTests : IDisposable {
 
         File.WriteAllBytes(file, [1, 2, 3, 4]);
 
-        var picture = Vixen.Editor.Assets.Textures.ImageDecoders.DecodeFile(new SavingDecoder(file), file, ".png");
+        var picture = Vixen.Interchange.ImageDecoders.DecodeFile(new SavingDecoder(file), file, ".png");
 
         Assert.Equal(2, picture.Width);
         Assert.Equal([5, 6, 7, 8], File.ReadAllBytes(file));
@@ -207,7 +208,7 @@ public class TextureExternalPassTests : IDisposable {
 
     /// <summary>A decoder that saves over its own file mid-decode, as an artist's paint program would.</summary>
     /// <param name="path">The file to write over.</param>
-    sealed class SavingDecoder(string path) : Vixen.Editor.Assets.Textures.IImageDecoder {
+    sealed class SavingDecoder(string path) : Vixen.Interchange.IImageDecoder {
         /// <inheritdoc />
         public IReadOnlyList<string> Extensions { get; } = [".png"];
 

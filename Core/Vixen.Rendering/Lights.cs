@@ -124,7 +124,7 @@ public struct RenderLight {
     ///         tiles fitted, in what order, and which lights it had to drop — so the number travels
     ///         <em>inside the light</em> rather than in a parallel array a host would have to keep in
     ///         step. A point light's six faces follow this one consecutively, in
-    ///         <see cref="CubeFace" /> order.
+    ///         <c>CubeFace</c> order.
     ///     </para>
     ///     <para>
     ///         ⚠ <strong>Counted from one so that the default is the safe answer.</strong> A struct
@@ -364,7 +364,7 @@ public struct PunctualLightData {
     /// <remarks>
     ///     <para>
     ///         The <em>first</em> of its tiles: a spot light has one and a point light six, laid out in
-    ///         <see cref="CubeFace" /> order, so a fragment adds the face it is on to this. −1 is a
+    ///         <c>CubeFace</c> order, so a fragment adds the face it is on to this. −1 is a
     ///         light nothing shadows — an area light, a directional one, or one
     ///         <see cref="Compositor.PunctualShadowRenderer" /> had no room for.
     ///     </para>

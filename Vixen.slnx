@@ -931,6 +931,8 @@
     <Project Path="Editor/Vixen.Editor.Assets/Vixen.Editor.Assets.csproj" />
     <Project Path="Editor/Vixen.Editor.Assets.Tests/Vixen.Editor.Assets.Tests.csproj" />
     <Project Path="Tools/Vixen.Authoring/Vixen.Authoring.csproj" />
+    <Project Path="Tools/Vixen.Interchange/Vixen.Interchange.csproj" />
+    <Project Path="Tools/Vixen.Interchange.Tests/Vixen.Interchange.Tests.csproj" />
     <Project Path="Tools/Vixen.NodeGraph/Vixen.NodeGraph.csproj" />
     <Project Path="Tools/Vixen.NodeGraph.Tests/Vixen.NodeGraph.Tests.csproj" />
     <Project Path="Editor/Vixen.Editor.NodeGraph/Vixen.Editor.NodeGraph.csproj" />

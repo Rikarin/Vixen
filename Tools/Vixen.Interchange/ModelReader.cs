@@ -3,7 +3,7 @@
 
 using Silk.NET.Assimp;
 using Vixen.Core.Mathematics;
-using Vixen.Rendering;
+using Vixen.Geometry;
 using AssimpAnimation = Silk.NET.Assimp.Animation;
 using AssimpApi = Silk.NET.Assimp.Assimp;
 using AssimpMesh = Silk.NET.Assimp.Mesh;
@@ -12,7 +12,7 @@ using AssimpScene = Silk.NET.Assimp.Scene;
 using NumericsMatrix = System.Numerics.Matrix4x4;
 using NumericsVector = System.Numerics.Vector3;
 
-namespace Vixen.Editor.Assets.Models;
+namespace Vixen.Interchange;
 
 /// <summary>A file that says it is a model and is not readable as one.</summary>
 /// <param name="message">What is wrong with it.</param>
@@ -33,7 +33,7 @@ public sealed record ReadModel(
 /// <summary>Reads a model file through Assimp and converts what comes out into engine data.</summary>
 /// <remarks>
 ///     <para>
-///         Separate from <see cref="ModelImporter" /> so that the conversion — which is where all the
+///         Separate from <c>ModelImporter</c> so that the conversion — which is where all the
 ///         decisions and all the ways to be wrong are — can be tested against a file without an
 ///         import context, a virtual file system or a settings binder in the way.
 ///     </para>
@@ -109,7 +109,7 @@ public static class ModelReader {
         ReadOnlySpan<byte> bytes,
         string extension,
         string name,
-        ModelImportSettings settings,
+        IModelReadOptions settings,
         Action<ImportSeverity, string>? report = null
     ) {
         ArgumentNullException.ThrowIfNull(settings);
@@ -156,7 +156,7 @@ public static class ModelReader {
         }
     }
 
-    static uint Flags(ModelImportSettings settings) {
+    static uint Flags(IModelReadOptions settings) {
         var flags = PostProcessSteps.Triangulate
             | PostProcessSteps.JoinIdenticalVertices
             | PostProcessSteps.ImproveCacheLocality
@@ -183,7 +183,7 @@ public static class ModelReader {
         AssimpApi assimp,
         AssimpScene* scene,
         string name,
-        ModelImportSettings settings,
+        IModelReadOptions settings,
         Action<ImportSeverity, string>? report
     ) {
         var nodes = new List<ModelNode>();
@@ -352,7 +352,7 @@ public static class ModelReader {
         AssimpMesh* mesh,
         string name,
         Dictionary<string, OrderedJoint> joints,
-        ModelImportSettings settings,
+        IModelReadOptions settings,
         Action<ImportSeverity, string>? report
     ) {
         var count = (int)mesh->MNumVertices;
@@ -473,7 +473,7 @@ public static class ModelReader {
         Vector3[] positions,
         Vector3[] normals,
         string name,
-        ModelImportSettings settings,
+        IModelReadOptions settings,
         Action<ImportSeverity, string>? report
     ) {
         var shapes = (int)mesh->MNumAnimMeshes;

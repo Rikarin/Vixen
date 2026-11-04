@@ -6,6 +6,7 @@ using Vixen.Core.Mathematics;
 using Vixen.Core.Yaml.Meta;
 using Vixen.Geometry.Remeshing;
 using Vixen.Geometry.Uv;
+using Vixen.Interchange;
 using Vixen.Rendering.DistanceFields;
 using Vixen.Rendering.VirtualGeometry;
 
@@ -32,7 +33,7 @@ namespace Vixen.Editor.Assets.Models;
 ///     </para>
 /// </remarks>
 [DataContract("ModelImporter")]
-public sealed record ModelImportSettings : IImportSettings {
+public sealed record ModelImportSettings : IImportSettings, IModelReadOptions {
     /// <inheritdoc />
     public int Version { get; init; } = 1;
 

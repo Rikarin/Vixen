@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Geometry;
 using BenchmarkDotNet.Attributes;
 using Vixen.Animation;
 using Vixen.Rendering;

@@ -73,7 +73,7 @@ static class Topology {
     /// <param name="welded">What <see cref="Weld" /> produced.</param>
     /// <returns>One flag per vertex, meaningful at the representative's index.</returns>
     /// <remarks>
-    ///     A seam vertex neither moves nor is moved onto — see <see cref="MeshSimplifier" /> for why
+    ///     A seam vertex neither moves nor is moved onto — see <c>MeshSimplifier</c> for why
     ///     both halves are needed. What is <em>not</em> a seam is a vertex an exporter split for no
     ///     reason, which happens constantly: two copies with identical attributes are the same vertex
     ///     and are welded into one, and the simplification is free to collapse it like any other.
@@ -133,8 +133,7 @@ static class Topology {
     /// <param name="left">One end.</param>
     /// <param name="right">The other.</param>
     /// <returns>A key that does not depend on which end was given first.</returns>
-    public static long Edge(int left, int right) =>
-        left < right ? ((long)left << 32) | (uint)right : ((long)right << 32) | (uint)left;
+    public static long Edge(int left, int right) => Geometry.MeshSimplifier.EdgeKey(left, right);
 
     /// <summary>The graph whose nodes are triangles and whose edges are shared mesh edges.</summary>
     /// <param name="corners">Three vertex indices per triangle.</param>

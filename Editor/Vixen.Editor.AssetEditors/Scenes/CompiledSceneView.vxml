@@ -44,6 +44,7 @@
 @namespace Vixen.Editor.AssetEditors.Scenes
 @inherits Vixen.Ui.Controls.Control
 @tag compiled-scene
+@using Vixen.Interchange
 @using System.Collections.Immutable
 @using System.Globalization
 @using Vixen.Editor.Assets

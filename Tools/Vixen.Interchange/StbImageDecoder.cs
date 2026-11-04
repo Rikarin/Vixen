@@ -6,7 +6,7 @@ using StbImageSharp;
 using Vixen.Core.Imaging;
 using Vixen.Graphics;
 
-namespace Vixen.Editor.Assets.Textures;
+namespace Vixen.Interchange;
 
 /// <summary>Reads the authoring formats artists actually save.</summary>
 /// <remarks>

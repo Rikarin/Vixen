@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Interchange;
 using Vixen.Audio;
 using Vixen.Audio.Assets;
 using Vixen.Audio.Devices;

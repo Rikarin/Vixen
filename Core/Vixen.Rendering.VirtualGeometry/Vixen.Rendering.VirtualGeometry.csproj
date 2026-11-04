@@ -21,6 +21,7 @@
     <ItemGroup>
         <ProjectReference Include="..\Vixen.Core\Vixen.Core.csproj" />
         <ProjectReference Include="..\Vixen.Core.Mathematics\Vixen.Core.Mathematics.csproj" />
+        <ProjectReference Include="..\Vixen.Geometry\Vixen.Geometry.csproj" />
         <ProjectReference Include="..\Vixen.Core.Serialization\Vixen.Core.Serialization.csproj" />
     </ItemGroup>
 

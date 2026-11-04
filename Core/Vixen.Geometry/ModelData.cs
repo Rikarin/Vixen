@@ -4,7 +4,7 @@
 using Vixen.Core;
 using Vixen.Core.Mathematics;
 
-namespace Vixen.Rendering;
+namespace Vixen.Geometry;
 
 /// <summary>One node of a model's hierarchy.</summary>
 /// <remarks>

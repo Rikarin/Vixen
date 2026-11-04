@@ -1,10 +1,10 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Geometry;
+using Vixen.Interchange;
 using System.Text;
 using Vixen.Core.Mathematics;
-using Vixen.Editor.Assets.Models;
-using Vixen.Rendering;
 using Xunit;
 
 namespace Vixen.Editor.Assets.Tests;
@@ -15,7 +15,7 @@ namespace Vixen.Editor.Assets.Tests;
 ///     tests is a thing nobody can edit and nobody can read the diff of.
 /// </summary>
 public sealed class ModelReaderTests {
-    static readonly ModelImportSettings Default = new();
+    static readonly ModelReadOptions Default = new();
 
     [Fact]
     public void ATriangleComesOutAsOneMeshWithItsAttributes() {

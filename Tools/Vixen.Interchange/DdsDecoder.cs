@@ -5,7 +5,7 @@ using System.Buffers.Binary;
 using Vixen.Core.Imaging;
 using Vixen.Graphics;
 
-namespace Vixen.Editor.Assets.Textures;
+namespace Vixen.Interchange;
 
 /// <summary>Reads a DDS, which is mostly a header over block-compressed data the engine already speaks.</summary>
 /// <remarks>

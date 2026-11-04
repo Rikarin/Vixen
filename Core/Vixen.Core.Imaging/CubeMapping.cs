@@ -3,7 +3,7 @@
 
 using Vixen.Core.Mathematics;
 
-namespace Vixen.Rendering.Lighting;
+namespace Vixen.Core.Imaging;
 
 /// <summary>
 ///     Which direction a cube-map texel looks in, and which texel a direction lands on.
@@ -18,7 +18,7 @@ namespace Vixen.Rendering.Lighting;
 ///     </para>
 ///     <para>
 ///         <strong>The convention is not invented here.</strong> <see cref="Direction" /> is derived
-///         from <see cref="ShadowProjections.Cube" /> by unprojecting the face's own matrix, which is
+///         from <see cref="Cube" /> by unprojecting the face's own matrix, which is
 ///         the same matrix a point light renders its shadow cube with and which is already asserted to
 ///         tile the sphere with no gap and no overlap. Two conventions in one engine is how a probe
 ///         ends up disagreeing with a shadow, so there is one.
@@ -70,7 +70,7 @@ public static class CubeMapping {
     ///         and a convention that is internally consistent and externally wrong passes every test
     ///         that compares the two halves to each other. It shipped that way once: the four side
     ///         faces came out a half turn round, and the sky read as a box with a blue lid. See
-    ///         <see cref="ShadowProjections.CubeAxes" /> for the other end of it.
+    ///         <see cref="CubeAxes" /> for the other end of it.
     ///     </para>
     /// </remarks>
     public static (CubeFace Face, float U, float V) Locate(Vector3 direction) {
@@ -125,11 +125,68 @@ public static class CubeMapping {
     /// <summary>The solid angle of the rectangle from the face's origin out to (u, v).</summary>
     static float Area(float u, float v) => MathF.Atan2(u * v, MathF.Sqrt((u * u) + (v * v) + 1f));
 
+    /// <summary>
+    ///     The world-to-clip transform one face of a point light's cube map casts through.
+    /// </summary>
+    /// <param name="position">Where the light is.</param>
+    /// <param name="face">Which face.</param>
+    /// <param name="range">Where its contribution reaches zero.</param>
+    /// <param name="near">Its near plane.</param>
+    /// <remarks>
+    ///     Ninety degrees exactly, and that is not a tuning choice: six 90° frusta from one point
+    ///     tile the whole sphere of directions with no gap and no overlap, which is what makes a cube
+    ///     map a cube map. Anything else leaves seams or renders the same caster twice.
+    /// </remarks>
+    public static Matrix4x4 Cube(Vector3 position, CubeFace face, float range, float near = 0.05f) {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(range);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(near);
+        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(range, near);
+
+        var (forward, up) = CubeAxes(face);
+
+        var view = Matrix4x4.LookAt(position, position + forward, up);
+        var projection = Matrix4x4.PerspectiveFieldOfView(MathF.PI / 2f, 1f, near, range);
+
+        return view * projection;
+    }
+
+    /// <summary>Which way a cube face looks, and which way is up on it.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The four side faces are up-negative, and that is the published table rather than a
+    ///         sign slip.</b> A cube map's <c>t</c> runs from <c>−y</c> on every face but the poles, so
+    ///         a face rendered with a conventional <c>+Y</c> up comes out a half turn round from the
+    ///         one <c>textureLod(samplerCube, …)</c> reads — the same face, rotated 180°, on ±X and ±Z
+    ///         while the poles stay right.
+    ///     </para>
+    ///     <para>
+    ///         Which is a whole class of bug that looks like nothing at all: an environment is still an
+    ///         environment upside down, a probe still reflects <em>something</em>, and every
+    ///         self-consistency test passes because both halves of the convention were wrong together.
+    ///         What it does show is <b>seams</b> — four faces disagreeing with two at every edge — and
+    ///         a baked sky reads as a box with a correctly-coloured lid.
+    ///         <c>Locating_a_direction_agrees_with_the_hardware</c> is what holds this to the table.
+    ///     </para>
+    /// </remarks>
+    public static (Vector3 Forward, Vector3 Up) CubeAxes(CubeFace face) =>
+        face switch {
+            CubeFace.PositiveX => (new(1f, 0f, 0f), new(0f, -1f, 0f)),
+            CubeFace.NegativeX => (new(-1f, 0f, 0f), new(0f, -1f, 0f)),
+
+            // The poles take their up from Z, because a face looking along ±Y has no Y left to use.
+            CubeFace.PositiveY => (new(0f, 1f, 0f), new(0f, 0f, 1f)),
+            CubeFace.NegativeY => (new(0f, -1f, 0f), new(0f, 0f, -1f)),
+
+            CubeFace.PositiveZ => (new(0f, 0f, 1f), new(0f, -1f, 0f)),
+            CubeFace.NegativeZ => (new(0f, 0f, -1f), new(0f, -1f, 0f)),
+            _ => throw new ArgumentOutOfRangeException(nameof(face))
+        };
+
     static Matrix4x4[] BuildUnprojections() {
         var inverses = new Matrix4x4[6];
 
         foreach (var face in Faces) {
-            if (!Matrix4x4.Invert(ShadowProjections.Cube(Vector3.Zero, face, 2f, 1f), out var inverse)) {
+            if (!Matrix4x4.Invert(Cube(Vector3.Zero, face, 2f, 1f), out var inverse)) {
                 throw new InvalidOperationException(
                     $"The cube projection for {face} is singular, which it cannot be — a 90° "
                     + "perspective with a positive range always inverts."

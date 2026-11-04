@@ -4,7 +4,7 @@
 using Vixen.Core;
 using Vixen.Core.Mathematics;
 
-namespace Vixen.Rendering;
+namespace Vixen.Geometry;
 
 /// <summary>One blend shape: what a named expression does to the vertices it touches.</summary>
 /// <remarks>
@@ -31,14 +31,14 @@ namespace Vixen.Rendering;
 ///     <para>
 ///         ⚠ <b>The normal delta is stored as a delta and is not renormalised anywhere.</b> A morphed
 ///         normal is <c>n + Σ wᵢ Δnᵢ</c>, whose length is not one and is not meant to be — see
-///         <see cref="MorphKernel" /> for why nothing in the pre-pass normalises it, and why that is
+///         <c>MorphKernel</c> for why nothing in the pre-pass normalises it, and why that is
 ///         the safe choice rather than the lazy one.
 ///     </para>
 ///     <para>
 ///         <b>Sorted by index, ascending.</b> The scatter writes in index order, so a sorted entry list
 ///         is a coalesced write; and two targets sorted the same way are two runs a merge could walk in
 ///         step, which is what the union optimisation named in
-///         <see cref="MorphKernel" />'s remarks would need.
+///         <c>MorphKernel</c>'s remarks would need.
 ///     </para>
 /// </remarks>
 [DataContract("MorphTarget")]

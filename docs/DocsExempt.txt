@@ -1233,11 +1233,11 @@ T:Vixen.Editor.Assets.ImportedArtifact sweep-pending
 T:Vixen.Editor.Assets.InProcessImportExecutor sweep-pending
 T:Vixen.Editor.Assets.Materials.MaterialImportSettings sweep-pending
 T:Vixen.Editor.Assets.Models.ModelCompiler sweep-pending
-T:Vixen.Editor.Assets.Models.ModelFormatException sweep-pending
+T:Vixen.Interchange.ModelFormatException sweep-pending
 T:Vixen.Editor.Assets.Models.ModelImportSettings sweep-pending
 T:Vixen.Editor.Assets.Models.ModelImporter sweep-pending
-T:Vixen.Editor.Assets.Models.ModelReader sweep-pending
-T:Vixen.Editor.Assets.Models.ReadModel sweep-pending
+T:Vixen.Interchange.ModelReader sweep-pending
+T:Vixen.Interchange.ReadModel sweep-pending
 T:Vixen.Editor.Assets.NativeFormatImportSettings sweep-pending
 T:Vixen.Editor.Assets.NativeFormatImporter sweep-pending
 T:Vixen.Editor.Assets.Navigation.NavMeshImportSettings sweep-pending
@@ -2419,7 +2419,7 @@ T:Vixen.Platform.Windows.WindowsProcessorTopology sweep-pending
 T:Vixen.Platform.Windows.WindowsSemanticColors	the semantic palette read that fills CanvasText and its ten siblings while a high-contrast scheme is on; documented on IPlatform.SemanticColors and on SystemSemanticColors, beside WindowsAccent for the same reason
 T:Vixen.Raven.Symbols.InterpolationMode raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
 T:Vixen.Rendering.AnimationChannel sweep-pending
-T:Vixen.Rendering.AnimationClipData sweep-pending
+T:Vixen.Geometry.AnimationClipData sweep-pending
 T:Vixen.Rendering.Barycentrics sweep-pending
 T:Vixen.Rendering.ClusterAttributes sweep-pending
 T:Vixen.Rendering.ClusterGrid sweep-pending
@@ -2567,9 +2567,9 @@ T:Vixen.Rendering.IrradianceFields.TracedIrradianceFiller sweep-pending
 T:Vixen.Rendering.LightAssignment sweep-pending
 T:Vixen.Rendering.LightKind sweep-pending
 T:Vixen.Rendering.Lighting.CapturedIrradianceFiller sweep-pending
-T:Vixen.Rendering.Lighting.CubeImage sweep-pending
-T:Vixen.Rendering.Lighting.CubeMapping sweep-pending
-T:Vixen.Rendering.Lighting.EnvironmentBaker sweep-pending
+T:Vixen.Core.Imaging.CubeImage sweep-pending
+T:Vixen.Core.Imaging.CubeMapping sweep-pending
+T:Vixen.Core.Imaging.EnvironmentBaker sweep-pending
 T:Vixen.Rendering.Lighting.EnvironmentLight sweep-pending
 T:Vixen.Rendering.Lighting.GlobalDistanceFieldTexture sweep-pending
 T:Vixen.Rendering.Lighting.IIrradianceCaptureSource sweep-pending
@@ -2712,8 +2712,8 @@ T:Vixen.Rendering.ScreenProbes.TracedScreenProbeGather sweep-pending
 T:Vixen.Rendering.ShadowCascade sweep-pending
 T:Vixen.Rendering.ShadowCascades sweep-pending
 T:Vixen.Rendering.ShadowProjections sweep-pending
-T:Vixen.Rendering.SkeletonData sweep-pending
-T:Vixen.Rendering.SkeletonJoint sweep-pending
+T:Vixen.Geometry.SkeletonData sweep-pending
+T:Vixen.Geometry.SkeletonJoint sweep-pending
 T:Vixen.Rendering.SoftwareRaster sweep-pending
 T:Vixen.Rendering.SortKey sweep-pending
 T:Vixen.Rendering.Sprites.Sprite sweep-pending

@@ -3,7 +3,7 @@
 
 using Vixen.Core.Mathematics;
 
-namespace Vixen.Rendering.Lighting;
+namespace Vixen.Core.Imaging;
 
 /// <summary>
 ///     Turns an environment into the two things a frame reads: a prefiltered mip chain and nine

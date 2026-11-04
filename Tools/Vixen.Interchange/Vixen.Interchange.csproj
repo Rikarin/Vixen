@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Interchange</RootNamespace>
+        <Description>
+            Reading and writing the files other tools make: meshes through Assimp, and images through
+            StbImageSharp and Vixen's own DDS and KTX2 readers. Nothing here knows about a project, an
+            asset or a renderer.
+        </Description>
+        <PackageTags>mesh;image;import;assimp;vixen</PackageTags>
+        <!-- Assimp hands back a scene as a tree of native pointers. -->
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <!-- Authoring formats only. A shipped game reads KTX2 and bundles, and CheckArchitecture keeps
+             Assimp out of anything a game links. -->
+        <PackageReference Include="StbImageSharp" />
+        <PackageReference Include="Silk.NET.Assimp" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\..\Core\Vixen.Core\Vixen.Core.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Core.Imaging\Vixen.Core.Imaging.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Core.Mathematics\Vixen.Core.Mathematics.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Geometry\Vixen.Geometry.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Geometry.Uv\Vixen.Geometry.Uv.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Graphics\Vixen.Graphics.csproj" />
+    </ItemGroup>
+
+</Project>

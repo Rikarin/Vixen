@@ -5,9 +5,8 @@ using System.Globalization;
 using System.Text;
 using Vixen.Core.Mathematics;
 using Vixen.Geometry;
-using Vixen.Rendering;
 
-namespace Vixen.Editor.Assets.Models;
+namespace Vixen.Interchange;
 
 /// <summary>Writes meshes back out as a file a DCC opens: OBJ, glTF or GLB.</summary>
 /// <remarks>

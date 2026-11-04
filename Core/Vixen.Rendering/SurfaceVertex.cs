@@ -21,7 +21,7 @@ namespace Vixen.Rendering;
 ///         <b>Interleaved, and one layout rather than a layout per mesh.</b> Every surface goes through
 ///         one <see cref="GeometryBuffer" /> so that meshes share a vertex and index buffer and a run of
 ///         draws can become one command; a buffer has a single stride, so the stride is a decision made
-///         once here rather than per asset. <see cref="MeshData" /> is stored the other way round —
+///         once here rather than per asset. <c>MeshData</c> is stored the other way round —
 ///         parallel typed arrays — because a compiler decides what to keep, and this is where that
 ///         decision has already been made.
 ///     </para>
@@ -34,7 +34,7 @@ namespace Vixen.Rendering;
 ///     </para>
 ///     <para>
 ///         ⚠ <b>No bone indices and no bone weights, which is why GPU skinning cannot reach this
-///         path.</b> <see cref="MeshData" /> carries both and an import fills them;
+///         path.</b> <c>MeshData</c> carries both and an import fills them;
 ///         <see cref="SurfaceGeometry.Pack" /> drops them, because this struct has nowhere to put
 ///         them. So the buffer a skinned mesh is drawn from has no influences in it, and
 ///         <see cref="Schema" />'s four channels are what a stage is matched against by name — which

@@ -4,9 +4,8 @@
 using Vixen.Core.Mathematics;
 using Vixen.Geometry;
 using Vixen.Geometry.Uv;
-using Vixen.Rendering;
 
-namespace Vixen.Editor.Assets.Models;
+namespace Vixen.Interchange;
 
 /// <summary>The copy between a model file's geometry and the mesh kernel that remeshes and unwraps it.</summary>
 /// <remarks>

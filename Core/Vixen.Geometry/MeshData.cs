@@ -4,12 +4,12 @@
 using Vixen.Core;
 using Vixen.Core.Mathematics;
 
-namespace Vixen.Rendering;
+namespace Vixen.Geometry;
 
 /// <summary>The geometry of one mesh, as it came out of an authoring tool.</summary>
 /// <remarks>
 ///     <para>
-///         The CPU side of <see cref="MeshDraw" />. That struct holds buffer handles and a range,
+///         The CPU side of <c>MeshDraw</c>. That struct holds buffer handles and a range,
 ///         because it is read once per object in a frame; this holds arrays, because it is read once
 ///         per build by something deciding what those buffers should contain.
 ///     </para>
@@ -29,7 +29,7 @@ namespace Vixen.Rendering;
 ///     <para>
 ///         ⚠ <b>There is no vertex-colour channel and no second texture coordinate set, and that is
 ///         a decision rather than an omission.</b> Both were here — read from Assimp, serialized,
-///         round-trip tested — and both were dropped by <see cref="SurfaceGeometry.Pack" /> on the
+///         round-trip tested — and both were dropped by <c>SurfaceGeometry.Pack</c> on the
 ///         way to the only vertex layout the engine draws through, for the whole time they existed.
 ///         An importer that carries a channel nothing draws is the worst of the three available
 ///         states: it costs bytes in every mesh chunk, it reads as support in the type's own
@@ -38,8 +38,8 @@ namespace Vixen.Rendering;
 ///     </para>
 ///     <para>
 ///         <b>The objection that kept them undrawn was wrong, and correcting it did not make the
-///         change small.</b> Widening <see cref="SurfaceVertex" /> was recorded as costing sixteen
-///         bytes a vertex; <see cref="Vixen.Graphics.VertexFormat.UNorm8X4" /> is four, is documented
+///         change small.</b> Widening <c>SurfaceVertex</c> was recorded as costing sixteen
+///         bytes a vertex; <c>Vixen.Graphics.VertexFormat.UNorm8X4</c> is four, is documented
 ///         for exactly this, and translates on all three backends. What the arithmetic does not
 ///         reach is the shape of the change: the interleaved stream is one of three ways a vertex
 ///         attribute gets to a shader, and the other two — <c>ModelCompiler.PageAttributes</c> for
@@ -147,7 +147,7 @@ public sealed record MeshData {
     ///     </para>
     ///     <para>
     ///         Sparse and quantised; <see cref="MorphTargetData" /> says what an entry costs and
-    ///         <see cref="MorphKernel" /> what is done with it.
+    ///         <c>MorphKernel</c> what is done with it.
     ///     </para>
     /// </remarks>
     public MorphTargetData[] MorphTargets { get; set; } = [];

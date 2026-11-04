@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Interchange;
 using System.Text;
 using Vixen.Core.Yaml.Meta;
 using Vixen.Editor.Assets.Content;
@@ -144,7 +145,7 @@ public sealed class EditorContentTests : IDisposable {
         var problems = new List<string>();
 
         var rebuilt = content.Rebuild(diagnostic => {
-            if (diagnostic.Severity >= Vixen.Editor.Assets.ImportSeverity.Warning) {
+            if (diagnostic.Severity >= Vixen.Interchange.ImportSeverity.Warning) {
                 problems.Add(diagnostic.Message);
             }
         });

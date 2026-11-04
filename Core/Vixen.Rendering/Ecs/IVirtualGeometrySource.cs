@@ -66,7 +66,7 @@ public interface IVirtualGeometrySource {
     /// <see cref="ClusterState.Ready" /> for it.</param>
     /// <param name="triangles">
     ///     Three indices per triangle, into the same vertex arrays the mesh's own
-    ///     <see cref="MeshData" /> carries.
+    ///     <c>MeshData</c> carries.
     /// </param>
     /// <returns>Whether there is one.</returns>
     /// <remarks>

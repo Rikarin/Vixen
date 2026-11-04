@@ -3,7 +3,7 @@
 
 using Vixen.Core.Mathematics;
 
-namespace Vixen.Rendering.VirtualGeometry;
+namespace Vixen.Geometry;
 
 /// <summary>What one group's simplification produced.</summary>
 /// <param name="Corners">Three source-vertex indices per surviving triangle.</param>
@@ -14,7 +14,7 @@ namespace Vixen.Rendering.VirtualGeometry;
 ///     them share the vertices on the boundary between them, so a simplification that wrote through
 ///     to the shared array would make the result depend on which thread got there first.
 /// </param>
-readonly record struct SimplifyResult(int[] Corners, float Error, (int Vertex, float Error)[] Updates);
+public readonly record struct SimplifyResult(int[] Corners, float Error, (int Vertex, float Error)[] Updates);
 
 /// <summary>Collapses edges by quadric error, with a set of edges it may not touch.</summary>
 /// <remarks>
@@ -44,13 +44,20 @@ readonly record struct SimplifyResult(int[] Corners, float Error, (int Vertex, f
 ///         vertices adjacent to both ends of an edge must be exactly the vertices opposite it.
 ///     </para>
 /// </remarks>
-static class MeshSimplifier {
+public static class MeshSimplifier {
+    /// <summary>The key a locked edge is stored under, the same whichever way round it is named.</summary>
+    /// <param name="left">One welded vertex.</param>
+    /// <param name="right">The other.</param>
+    /// <returns>The key.</returns>
+    public static long EdgeKey(int left, int right) =>
+        left < right ? ((long)left << 32) | (uint)right : ((long)right << 32) | (uint)left;
+
     /// <summary>How long a vertex's list of incident triangles may get before it is swept of dead ones.</summary>
     const int CompactionThreshold = 32;
 
     /// <summary>Simplifies a set of triangles down towards a triangle count.</summary>
     /// <param name="positions">The mesh's positions.</param>
-    /// <param name="welded">What <see cref="Topology.Weld" /> produced.</param>
+    /// <param name="welded">What <c>Topology.Weld</c> produced.</param>
     /// <param name="seam">Which welded vertices carry more than one set of attributes.</param>
     /// <param name="vertexError">
     ///     The deviation each welded vertex has already accumulated. Read here and reported back
@@ -58,7 +65,7 @@ static class MeshSimplifier {
     ///     simplifications reports what all four cost rather than what the last one did.
     /// </param>
     /// <param name="corners">Three source-vertex indices per triangle.</param>
-    /// <param name="lockedEdges">The edges that may not move, keyed by <see cref="Topology.Edge" />.</param>
+    /// <param name="lockedEdges">The edges that may not move, keyed by <c>Topology.Edge</c>.</param>
     /// <param name="targetTriangles">How many triangles to aim for.</param>
     /// <returns>The surviving triangles and what they cost.</returns>
     public static SimplifyResult Simplify(
@@ -576,7 +583,7 @@ static class MeshSimplifier {
                 var a = localToWelded[triangles[(triangle * 3) + corner]];
                 var b = localToWelded[triangles[(triangle * 3) + ((corner + 1) % 3)]];
 
-                if (a != b && lockedEdges.Contains(Topology.Edge(a, b))) {
+                if (a != b && lockedEdges.Contains(EdgeKey(a, b))) {
                     return true;
                 }
             }

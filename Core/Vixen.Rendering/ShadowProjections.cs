@@ -1,35 +1,10 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Core.Imaging;
 using Vixen.Core.Mathematics;
 
 namespace Vixen.Rendering;
-
-/// <summary>One face of a cube map, in the order a cube texture's layers are.</summary>
-/// <remarks>
-///     The order is the one every API agrees on — +X, −X, +Y, −Y, +Z, −Z — because it is the layer
-///     order of a cube texture, and a shader that looks a direction up in a cube map gets the face
-///     the hardware picked rather than the one an engine numbered.
-/// </remarks>
-public enum CubeFace {
-    /// <summary>Looking down +X.</summary>
-    PositiveX = 0,
-
-    /// <summary>Looking down −X.</summary>
-    NegativeX = 1,
-
-    /// <summary>Looking down +Y.</summary>
-    PositiveY = 2,
-
-    /// <summary>Looking down −Y.</summary>
-    NegativeY = 3,
-
-    /// <summary>Looking down +Z.</summary>
-    PositiveZ = 4,
-
-    /// <summary>Looking down −Z.</summary>
-    NegativeZ = 5
-}
 
 /// <summary>
 ///     The transforms a spot light and a point light are shadowed from.
@@ -90,62 +65,12 @@ public static class ShadowProjections {
         return view * projection;
     }
 
-    /// <summary>
-    ///     The world-to-clip transform one face of a point light's cube map casts through.
-    /// </summary>
-    /// <param name="position">Where the light is.</param>
-    /// <param name="face">Which face.</param>
-    /// <param name="range">Where its contribution reaches zero.</param>
-    /// <param name="near">Its near plane.</param>
-    /// <remarks>
-    ///     Ninety degrees exactly, and that is not a tuning choice: six 90° frusta from one point
-    ///     tile the whole sphere of directions with no gap and no overlap, which is what makes a cube
-    ///     map a cube map. Anything else leaves seams or renders the same caster twice.
-    /// </remarks>
-    public static Matrix4x4 Cube(Vector3 position, CubeFace face, float range, float near = 0.05f) {
-        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(range);
-        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(near);
-        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(range, near);
+    /// <inheritdoc cref="CubeMapping.Cube" />
+    public static Matrix4x4 Cube(Vector3 position, CubeFace face, float range, float near = 0.05f) =>
+        CubeMapping.Cube(position, face, range, near);
 
-        var (forward, up) = CubeAxes(face);
-
-        var view = Matrix4x4.LookAt(position, position + forward, up);
-        var projection = Matrix4x4.PerspectiveFieldOfView(MathF.PI / 2f, 1f, near, range);
-
-        return view * projection;
-    }
-
-    /// <summary>Which way a cube face looks, and which way is up on it.</summary>
-    /// <remarks>
-    ///     <para>
-    ///         ⚠ <b>The four side faces are up-negative, and that is the published table rather than a
-    ///         sign slip.</b> A cube map's <c>t</c> runs from <c>−y</c> on every face but the poles, so
-    ///         a face rendered with a conventional <c>+Y</c> up comes out a half turn round from the
-    ///         one <c>textureLod(samplerCube, …)</c> reads — the same face, rotated 180°, on ±X and ±Z
-    ///         while the poles stay right.
-    ///     </para>
-    ///     <para>
-    ///         Which is a whole class of bug that looks like nothing at all: an environment is still an
-    ///         environment upside down, a probe still reflects <em>something</em>, and every
-    ///         self-consistency test passes because both halves of the convention were wrong together.
-    ///         What it does show is <b>seams</b> — four faces disagreeing with two at every edge — and
-    ///         a baked sky reads as a box with a correctly-coloured lid.
-    ///         <c>Locating_a_direction_agrees_with_the_hardware</c> is what holds this to the table.
-    ///     </para>
-    /// </remarks>
-    public static (Vector3 Forward, Vector3 Up) CubeAxes(CubeFace face) =>
-        face switch {
-            CubeFace.PositiveX => (new(1f, 0f, 0f), new(0f, -1f, 0f)),
-            CubeFace.NegativeX => (new(-1f, 0f, 0f), new(0f, -1f, 0f)),
-
-            // The poles take their up from Z, because a face looking along ±Y has no Y left to use.
-            CubeFace.PositiveY => (new(0f, 1f, 0f), new(0f, 0f, 1f)),
-            CubeFace.NegativeY => (new(0f, -1f, 0f), new(0f, 0f, -1f)),
-
-            CubeFace.PositiveZ => (new(0f, 0f, 1f), new(0f, -1f, 0f)),
-            CubeFace.NegativeZ => (new(0f, 0f, -1f), new(0f, -1f, 0f)),
-            _ => throw new ArgumentOutOfRangeException(nameof(face))
-        };
+    /// <inheritdoc cref="CubeMapping.CubeAxes" />
+    public static (Vector3 Forward, Vector3 Up) CubeAxes(CubeFace face) => CubeMapping.CubeAxes(face);
 
     /// <summary>How many shadow tiles a light of this kind needs.</summary>
     /// <remarks>

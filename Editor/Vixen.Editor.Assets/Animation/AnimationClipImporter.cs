@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Interchange;
 using Vixen.Animation;
 using Vixen.Animation.Constraints;
 using Vixen.Core;
@@ -29,7 +30,7 @@ public sealed record AnimationClipImportSettings : IImportSettings {
 ///         <b>What this closes.</b> A <c>.vxanim</c> used to go through <c>NativeFormatImporter</c>,
 ///         which carries the YAML text forward unchanged — enough for the reference scan and for the
 ///         editor to open the file, and not enough for a game to play one. Nothing turned the
-///         authored curves into the <see cref="AnimationClipData" /> that
+///         authored curves into the <c>AnimationClipData</c> that
 ///         <see cref="AnimationClip.Create" /> bakes against a skeleton, so no clip could be loaded
 ///         by address. <c>.vxscene</c>, <c>.vxmat</c> and <c>.vxcompositor</c> had all made this move
 ///         already; this is the same move.

@@ -3,7 +3,7 @@
 
 using Vixen.Core.Mathematics;
 
-namespace Vixen.Rendering.Lighting;
+namespace Vixen.Core.Imaging;
 
 /// <summary>
 ///     A cube map in memory, linear and floating point: what a bake reads and writes.

@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Interchange;
 using System.Globalization;
 using Vixen.Editor.Assets.Content;
 using Vixen.Editor.Assets.Gameplay;
@@ -44,7 +45,7 @@ public static class AddressRunner {
         var failed = false;
         var plan = ContentPipeline.Analyse(project.Workspace, diagnostic => {
                 ContentBuildRunner.Write(output, diagnostic);
-                failed |= diagnostic.Severity == Editor.Assets.ImportSeverity.Error;
+                failed |= diagnostic.Severity == global::Vixen.Interchange.ImportSeverity.Error;
             }
         );
 

@@ -8,7 +8,7 @@ namespace Vixen.Editor.Assets.Audio;
 /// <summary>Turns an authoring audio format into samples the engine can work with.</summary>
 /// <remarks>
 ///     <para>
-///         The same seam as <see cref="Textures.IImageDecoder" />, for the same reason and with the
+///         The same seam as <c>Textures.IImageDecoder</c>, for the same reason and with the
 ///         same history behind it: doc 01 named a codec, the codec turned out to be unusable, and the
 ///         swap cost one class because nothing above the interface knew which one it was. Audio has
 ///         more codec churn than images, not less — Vorbis, Opus, FLAC and MP3 each have several

@@ -3,7 +3,7 @@
 
 using Vixen.Core.Imaging;
 
-namespace Vixen.Editor.Assets.Textures;
+namespace Vixen.Interchange;
 
 /// <summary>Turns an authoring image format into pixels the engine can work with.</summary>
 /// <remarks>

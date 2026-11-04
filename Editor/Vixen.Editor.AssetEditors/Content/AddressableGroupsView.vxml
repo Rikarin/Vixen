@@ -44,6 +44,7 @@
 @namespace Vixen.Editor.AssetEditors.Content
 @inherits Vixen.Ui.Controls.Control
 @tag group-editor
+@using Vixen.Interchange
 @using System.Collections.Immutable
 @using System.Globalization
 @using Vixen.Editor.Assets
