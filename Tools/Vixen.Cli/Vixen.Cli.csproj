@@ -79,6 +79,7 @@
             than a copy of it.
         -->
         <ProjectReference Include="..\..\Editor\Vixen.Editor.TextureGraph\Vixen.Editor.TextureGraph.csproj" />
+        <ProjectReference Include="..\..\Tools\Vixen.TextureGraph\Vixen.TextureGraph.csproj" />
 
         <!--
             ⚠ **And a GPU, which this tool had none of and whose absence was the whole of issue

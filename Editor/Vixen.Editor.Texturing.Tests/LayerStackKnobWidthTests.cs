@@ -3,9 +3,9 @@
 
 using Vixen.Editor.Core;
 using Vixen.Editor.NodeGraph;
-using Vixen.Editor.TextureGraph;
 using Vixen.Editor.Texturing.Layers;
 using Vixen.NodeGraph;
+using Vixen.TextureGraph;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
 using Xunit;

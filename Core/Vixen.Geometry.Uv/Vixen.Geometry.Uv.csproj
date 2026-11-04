@@ -95,7 +95,7 @@
             line is what stops a second copy, and it is deliberately narrow: one named assembly, not
             a public surface `CheckApi` would then have to hold still.
         -->
-        <InternalsVisibleTo Include="Vixen.Editor.TextureGraph" />
+        <InternalsVisibleTo Include="Vixen.TextureGraph" />
     </ItemGroup>
 
 </Project>

@@ -128,7 +128,7 @@
             CheckArchitecture refuses it for shipping assemblies and exempts test projects. The
             alternative is a third copy of Fixture and TierScene.
         -->
-        <ProjectReference Include="..\..\Editor\Vixen.Editor.TextureGraph\Vixen.Editor.TextureGraph.csproj" />
+        <ProjectReference Include="..\..\Tools\Vixen.TextureGraph\Vixen.TextureGraph.csproj" />
         <ProjectReference Include="..\..\Editor\Vixen.Editor.Assets\Vixen.Editor.Assets.csproj" />
     </ItemGroup>
 

@@ -876,7 +876,7 @@ public class RealPlanCitationTests {
             "names the varying the line builds, \"in_\" + a stream's name, and not anything on it"),
         ("Platform/Vixen.Ui.Desktop/Shaders/Ui.rvn", "Raven/Library/Core/ColorSpaces.rvn:29", "static func SrgbToLinearChannel(c: float): float {",
             "a doc comment on the copy, citing the original by what it computes (\"the sRGB EOTF\"), whose name is on the next line"),
-        ("Editor/Vixen.Editor.TextureGraph.Tests/TextureKernelLanguageSeamTests.cs", "Checker.rvn:66", "val value = mod(cell.x + cell.y, 2f)",
+        ("Tools/Vixen.TextureGraph.Tests/TextureKernelLanguageSeamTests.cs", "Checker.rvn:66", "val value = mod(cell.x + cell.y, 2f)",
             "\"the live line\" — the comment is about the line's being live, not about what it says"),
         ("Raven/Vixen.Raven.Tests/DepthTextureTests.cs", "VulkanDevice.Pipelines.cs:404", "if (declared.IsComparisonSampler && !sampler.Compares) {",
             "\"refuse a mismatch\": the refusal in prose, the comparison in code"),

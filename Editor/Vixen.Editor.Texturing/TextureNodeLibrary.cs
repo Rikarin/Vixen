@@ -3,8 +3,8 @@
 
 using System.Collections.Immutable;
 using Vixen.Editor.NodeGraph;
-using Vixen.Editor.TextureGraph;
 using Vixen.NodeGraph;
+using Vixen.TextureGraph;
 
 namespace Vixen.Editor.Texturing;
 
@@ -31,7 +31,7 @@ sealed record TextureLibrary(
 /// <remarks>
 ///     <para>
 ///         <b>One line for the generated half, because the generator already wrote the list.</b>
-///         <c>Vixen.Editor.TextureGraph.NodeTypes</c> is emitted by
+///         <c>Vixen.TextureGraph.NodeTypes</c> is emitted by
 ///         <c>Vixen.NodeGraph.Generator</c> over that assembly's own <c>[Node]</c> classes, so
 ///         the library here cannot drift from the library the compiler walks: adding a node there
 ///         puts it in this menu with no edit anywhere.
@@ -40,7 +40,7 @@ sealed record TextureLibrary(
 ///         ⚠ <b>And a second half, which had no caller anywhere in the tree until now —
 ///         <a href="https://github.com/Rikarin/Vixen/issues/799">#799</a> and
 ///         <a href="https://github.com/Rikarin/Vixen/issues/803">#803</a>.</b> Doc 48 § 4.9's four
-///         compounds ship inside <c>Vixen.Editor.TextureGraph</c> as <c>.vxtexgraph</c> files and
+///         compounds ship inside <c>Vixen.TextureGraph</c> as <c>.vxtexgraph</c> files and
 ///         § D9's published graphs are the same mechanism; <c>TextureCompoundLibrary.Publish</c> is
 ///         what turns either into a node type, and it was called from three tests and nothing else.
 ///         <see cref="Publish" /> is that call. Everything batches 5–7 built behind it —
@@ -81,7 +81,7 @@ static class TextureNodeLibrary {
     ///     <para>
     ///         ⚠ <b><a href="https://github.com/Rikarin/Vixen/issues/964">#964</a>, and it is a
     ///         plugin seam rather than a convenience.</b> The list lives in
-    ///         <c>Vixen.Editor.TextureGraph</c> and is <see langword="internal" /> to it — that
+    ///         <c>Vixen.TextureGraph</c> and is <see langword="internal" /> to it — that
     ///         assembly's one <c>InternalsVisibleTo</c> names its own tests — so a panel in this
     ///         plugin could not ask what the nine were and shipped a <c>TextBox</c> in which a typo
     ///         is a diagnostic rather than an impossibility. What crosses the wall is the node
@@ -117,7 +117,7 @@ static class TextureNodeLibrary {
     public static NodeTypeRegistry Create() {
         var registry = new NodeTypeRegistry();
 
-        TextureGraph.NodeTypes.Register(registry);
+        global::Vixen.TextureGraph.NodeTypes.Register(registry);
 
         return registry;
     }

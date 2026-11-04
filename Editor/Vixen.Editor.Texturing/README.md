@@ -2,7 +2,7 @@
 
 Doc 48's texture graph, as a plugin — and the plugin is the point.
 
-`Vixen.Editor.TextureGraph` is a plan, an evaluator and a folder of compute kernels. Until this
+`Vixen.TextureGraph` is a plan, an evaluator and a folder of compute kernels. Until this
 assembly existed **none of it was reachable from the editor**: nothing registered a document, nothing
 registered a panel, nothing registered a command. Doc 48 § D14 says the whole document exists to
 prove one claim —
@@ -12,7 +12,7 @@ prove one claim —
 
 — and the way that claim is made true rather than asserted is a reference set. This project
 references `Vixen.Editor.Plugin`, `Vixen.Editor.Ui`, `Vixen.Editor.Core`, `Vixen.Editor.NodeGraph`
-and `Vixen.Editor.TextureGraph`, and it **does not reference `Vixen.Editor.App`**.
+and `Vixen.TextureGraph`, and it **does not reference `Vixen.Editor.App`**.
 `ModuleReferenceTests` asserts that, and says what its own instrument cannot see.
 
 ⚠ **Not loaded from a folder after all.** Nothing loaded it from anywhere until
@@ -170,7 +170,7 @@ question is now asked on every show.
 ### 2. `TextureGraphCompiler` was `internal` ✅ *not predicted* — [#738](https://github.com/Rikarin/Vixen/issues/738)
 
 `TextureGraphCompiler`, `TextureNode` and all eight `[Node]` classes were `internal`, and
-`Vixen.Editor.TextureGraph`'s `InternalsVisibleTo` named only `Vixen.Editor.TextureGraph.Tests`. The
+`Vixen.TextureGraph`'s `InternalsVisibleTo` named only `Vixen.TextureGraph.Tests`. The
 generated `NodeTypes.Register` is `public` — the generator emits it that way — so the node *library*
 crossed the boundary and the thing that turns a graph into a `TexturePlan` did not.
 

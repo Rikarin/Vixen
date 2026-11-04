@@ -3,9 +3,9 @@
 
 using Vixen.Core;
 using Vixen.Editor.Core;
-using Vixen.Editor.TextureGraph;
 using Vixen.Editor.Texturing.Layers;
 using Vixen.Editor.Texturing.Painting;
+using Vixen.TextureGraph;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
 using Xunit;
@@ -627,7 +627,7 @@ public class LayerStackEditingTests {
     ///         ⚠ <b>A picker, and it took a plugin seam to draw one —
     ///         <a href="https://github.com/Rikarin/Vixen/issues/964">#964</a>.</b> This was a
     ///         <c>TextBox</c>, because <c>TextureMeshMaps.Known</c> is <c>internal</c> to
-    ///         <c>Vixen.Editor.TextureGraph</c>: neither the panel nor this test could ask what the
+    ///         <c>Vixen.TextureGraph</c>: neither the panel nor this test could ask what the
     ///         nine were, and writing them here would have been the second transcription of a known
     ///         set that five roll calls in this workstream have gone red on.
     ///     </para>

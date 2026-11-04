@@ -420,14 +420,14 @@ The claim was that resolving one into a picture is the editor's job and that a s
 resolver here would be the copy that forgot a case
 ([#1087](https://github.com/Rikarin/Vixen/issues/1087)) — the second half was right and the first was
 a decision about *where the code lives* dressed up as a limit. `TextureProjectImages` is that resolver
-one assembly down, in `Vixen.Editor.TextureGraph`, taking an `EditorProject`; this route hands it the
+one assembly down, in `Vixen.TextureGraph`, taking an `EditorProject`; this route hands it the
 decode and nothing else. What genuinely is the editor's stayed there: `meshmap:` names a measurement
 nothing here has baked and `vxpaint:` names strokes that may still be under a pointer, so a graph
 reading either is named and refused, one sentence each.
 
 ⚠ **The measurement that decided the split, because the argument for it was a closure argument and
 those keep being wrong here.** `Vixen.Editor.Core`, where `EditorProject` lives, is already in
-`Vixen.Editor.TextureGraph`'s closure through `Vixen.Editor.NodeGraph` — naming it directly costs
+`Vixen.TextureGraph`'s closure through `Vixen.Editor.NodeGraph` — naming it directly costs
 zero assemblies. `Vixen.Editor.Assets`, where `ImageDecoders` lives, would have cost twenty-five,
 `Vixen.Engine` and `Vixen.Ecs` among them. That is why the decode is a callback this file supplies
 rather than a step the resolver takes.

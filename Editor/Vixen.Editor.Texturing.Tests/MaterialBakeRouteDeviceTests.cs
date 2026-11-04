@@ -231,7 +231,7 @@ public class MaterialBakeRouteDeviceTests(ITestOutputHelper output) {
     ///     <para>
     ///         ⚠ <b>Two nine-item lists in two assemblies, and nothing joined them.</b>
     ///         <c>TextureUsages.Known</c> is what an <c>Output</c> node's <c>Usage</c> setting
-    ///         accepts, in <c>Vixen.Editor.TextureGraph</c>; <see cref="MaterialMapNaming.Every" />
+    ///         accepts, in <c>Vixen.TextureGraph</c>; <see cref="MaterialMapNaming.Every" />
     ///         is what a bake can write, in <c>Vixen.Editor.Assets</c>. They agree today and neither
     ///         reads the other — so a tenth usage added to one is a map the artist can name and the
     ///         bake silently drops, or a map the baker packs that no node can produce.

@@ -5,6 +5,7 @@ using System.Collections.Immutable;
 using Vixen.Core.Imaging;
 using Vixen.Editor.Core;
 using Vixen.Graphics;
+using Vixen.TextureGraph;
 
 namespace Vixen.Editor.TextureGraph;
 

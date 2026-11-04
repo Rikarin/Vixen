@@ -153,7 +153,7 @@
           through the real baker, drives the real node through the real compiler, and asserts the
           reference that comes out is one the resolver reads back.
         -->
-        <ProjectReference Include="..\Vixen.Editor.TextureGraph\Vixen.Editor.TextureGraph.csproj" />
+        <ProjectReference Include="..\..\Tools\Vixen.TextureGraph\Vixen.TextureGraph.csproj" />
 
         <!--
             The platform with nothing attached, which is what `EditorHostTests` builds the host over.

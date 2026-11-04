@@ -302,7 +302,7 @@ fallback shipped every recipe as a chunk called `Blob` no reader resolves. Mark 
 error, "its importer produced nothing".
 
 It lives in the import pipeline rather than beside the texturing features because neither can be
-linked by every host — `Vixen.Editor.TextureGraph` refuses the pipeline reference and `vixen`
+linked by every host — `Vixen.TextureGraph` refuses the pipeline reference and `vixen`
 refuses `Vixen.Editor.Texturing` — and an answer only the editor gave would be the editor and the
 command line disagreeing about what a project ships.
 

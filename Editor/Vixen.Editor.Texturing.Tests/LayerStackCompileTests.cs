@@ -1,8 +1,8 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
-using Vixen.Editor.TextureGraph;
 using Vixen.Editor.Texturing.Layers;
+using Vixen.TextureGraph;
 using Xunit;
 
 namespace Vixen.Editor.Texturing.Tests;
@@ -13,7 +13,7 @@ public class LayerStackCompileTests {
     /// <remarks>
     ///     ⚠ <b>Reflected out of the evaluator assembly rather than listed here, and that is the
     ///     whole point.</b> <c>TextureBlendMode</c> is <c>internal</c> to
-    ///     <c>Vixen.Editor.TextureGraph</c>, so <c>LayerBlendMode</c> is a second declaration of one
+    ///     <c>Vixen.TextureGraph</c>, so <c>LayerBlendMode</c> is a second declaration of one
     ///     list — and nothing in the compilation would notice them drifting: a layer hands
     ///     <c>Colour/Blend</c> the mode's <em>name</em>, and a name that assembly does not know falls
     ///     back to its default, <c>Copy</c>. A stack whose every overlay silently became a copy is a
@@ -1083,7 +1083,7 @@ public class LayerStackCompileTests {
     }
 
     static Dictionary<string, int> KernelBlendModes() {
-        var type = typeof(TexturePlan).Assembly.GetType("Vixen.Editor.TextureGraph.TextureBlendMode");
+        var type = typeof(TexturePlan).Assembly.GetType("Vixen.TextureGraph.TextureBlendMode");
 
         Assert.NotNull(type);
 

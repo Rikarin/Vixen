@@ -249,7 +249,7 @@ public class TextureGraphPanelTests {
 
         view.Show(document, TexturePreviewBlocker.NoDevice);
 
-        var compound = TextureGraph.TextureCompoundLibrary.Shipped[0];
+        var compound = global::Vixen.TextureGraph.TextureCompoundLibrary.Shipped[0];
 
         Assert.NotNull(view.Canvas.SubGraphSource);
         Assert.True(view.Canvas.Registry.TryGet(compound, out _), $"'{compound}' is not in the menu.");
@@ -322,7 +322,7 @@ public class TextureGraphPanelTests {
     public void Double_clicking_a_compound_opens_it_on_the_canvas() {
         using var fixture = new TexturingFixture();
         var (view, canvas) = Opened(fixture);
-        var compound = TextureGraph.TextureCompoundLibrary.Shipped[0];
+        var compound = global::Vixen.TextureGraph.TextureCompoundLibrary.Shipped[0];
 
         canvas.Graph.Add(compound, new(120f, 120f));
 
@@ -367,7 +367,7 @@ public class TextureGraphPanelTests {
     public void A_published_graph_is_shown_read_only_and_the_strip_says_so() {
         using var fixture = new TexturingFixture();
         var (view, canvas) = Opened(fixture);
-        var compound = TextureGraph.TextureCompoundLibrary.Shipped[0];
+        var compound = global::Vixen.TextureGraph.TextureCompoundLibrary.Shipped[0];
 
         canvas.Graph.Add(compound, new(120f, 120f));
 
@@ -453,7 +453,7 @@ public class TextureGraphPanelTests {
     public void Refreshing_the_panel_leaves_the_author_inside_the_compound() {
         using var fixture = new TexturingFixture();
         var (view, canvas) = Opened(fixture);
-        var compound = TextureGraph.TextureCompoundLibrary.Shipped[0];
+        var compound = global::Vixen.TextureGraph.TextureCompoundLibrary.Shipped[0];
 
         canvas.Graph.Add(compound, new(120f, 120f));
 
@@ -544,7 +544,7 @@ public class TextureGraphPanelTests {
     public void Refreshing_the_panel_does_not_reproject_the_canvas() {
         using var fixture = new TexturingFixture();
         var (view, canvas) = Opened(fixture);
-        var compound = TextureGraph.TextureCompoundLibrary.Shipped[0];
+        var compound = global::Vixen.TextureGraph.TextureCompoundLibrary.Shipped[0];
 
         canvas.Graph.Add(compound, new(120f, 120f));
 
@@ -566,7 +566,7 @@ public class TextureGraphPanelTests {
     public void The_trail_goes_back_to_the_document_and_gives_the_stack_back() {
         using var fixture = new TexturingFixture();
         var (view, canvas) = Opened(fixture);
-        var compound = TextureGraph.TextureCompoundLibrary.Shipped[0];
+        var compound = global::Vixen.TextureGraph.TextureCompoundLibrary.Shipped[0];
 
         canvas.Graph.Add(compound, new(120f, 120f));
 
@@ -590,7 +590,7 @@ public class TextureGraphPanelTests {
     public void Showing_another_document_resets_the_trail() {
         using var fixture = new TexturingFixture();
         var (view, canvas) = Opened(fixture);
-        var compound = TextureGraph.TextureCompoundLibrary.Shipped[0];
+        var compound = global::Vixen.TextureGraph.TextureCompoundLibrary.Shipped[0];
 
         canvas.Graph.Add(compound, new(120f, 120f));
 

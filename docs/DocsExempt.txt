@@ -1617,7 +1617,7 @@ T:Vixen.Editor.Terrain.TerrainStrings sweep-pending
 T:Vixen.Editor.Testing.EditorSession sweep-pending
 T:Vixen.Editor.Testing.EditorSessionException sweep-pending
 T:Vixen.Editor.Testing.EditorSessionOptions sweep-pending
-T:Vixen.Editor.TextureGraph.NodeTypes generated — the assembly's [Node] registration list, emitted by Vixen.NodeGraph.Generator; the same line Vixen.Editor.ShaderGraph.NodeTypes has
+T:Vixen.TextureGraph.NodeTypes generated — the assembly's [Node] registration list, emitted by Vixen.NodeGraph.Generator; the same line Vixen.Editor.ShaderGraph.NodeTypes has
 T:Vixen.Editor.Texturing.TexturingStrings sweep-pending
 T:Vixen.Editor.Ui.CommandPalette sweep-pending
 T:Vixen.Editor.Ui.CommandPaletteSource sweep-pending

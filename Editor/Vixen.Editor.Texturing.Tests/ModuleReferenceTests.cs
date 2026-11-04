@@ -41,7 +41,7 @@ public class ModuleReferenceTests {
         // for the wrong reason, and the assemblies this one certainly uses are the cheapest proof it
         // did not.
         Assert.Contains("Vixen.Editor.Plugin", referenced);
-        Assert.Contains("Vixen.Editor.TextureGraph", referenced);
+        Assert.Contains("Vixen.TextureGraph", referenced);
     }
 
     /// <summary>The compiler and the node library both cross the assembly boundary, on their own terms.</summary>
@@ -63,11 +63,11 @@ public class ModuleReferenceTests {
     /// </remarks>
     [Fact]
     public void The_texture_graph_compiler_is_reachable_from_a_plugin_through_its_public_surface() {
-        var evaluator = typeof(TextureGraph.TexturePlan).Assembly;
+        var evaluator = typeof(global::Vixen.TextureGraph.TexturePlan).Assembly;
 
-        Assert.NotNull(evaluator.GetType("Vixen.Editor.TextureGraph.NodeTypes"));
+        Assert.NotNull(evaluator.GetType("Vixen.TextureGraph.NodeTypes"));
 
-        var compiler = evaluator.GetType("Vixen.Editor.TextureGraph.TextureGraphCompiler");
+        var compiler = evaluator.GetType("Vixen.TextureGraph.TextureGraphCompiler");
 
         Assert.NotNull(compiler);
         Assert.True(compiler!.IsPublic, "TextureGraphCompiler went internal again — the panel's preview depends on it.");

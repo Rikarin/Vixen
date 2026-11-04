@@ -17,7 +17,7 @@ namespace Vixen.ApiCheck.Tests;
 ///         environment variable, and the SDK defaults <c>DeterministicSourcePaths</c> to it. That
 ///         switches on a <c>PathMap</c> rewriting the repository root to <c>/_/</c> in everything the
 ///         compiler bakes into an assembly — <c>[CallerFilePath]</c> among it. So a roll call anchored
-///         on the file it lives in looks for <c>/_/Editor/Vixen.Editor.TextureGraph</c>, which exists
+///         on the file it lives in looks for <c>/_/Tools/Vixen.TextureGraph</c>, which exists
 ///         on no machine.
 ///     </para>
 ///     <para>

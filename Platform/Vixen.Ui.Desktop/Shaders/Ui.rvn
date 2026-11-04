@@ -135,7 +135,7 @@ struct Ui {
     /// package, because a package's declarations are visible to a sibling only within one
     /// compilation. So the two copies of these five constants are the price of the modules beside
     /// this file being committed rather than built — the same trade
-    /// `Editor/Vixen.Editor.TextureGraph/Shaders/Hsl.rvn` writes down for
+    /// `Tools/Vixen.TextureGraph/Shaders/Hsl.rvn` writes down for
     /// [#635](https://github.com/Rikarin/Vixen/issues/635), reached from the other direction.
     static func SrgbToLinearChannel(c: float): float {
         if (c <= 0.04045f) {

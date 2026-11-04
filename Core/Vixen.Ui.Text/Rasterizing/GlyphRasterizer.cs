@@ -61,7 +61,7 @@ public readonly record struct CoverageBitmap(int Width, int Height, float[] Cove
 ///         ⚠ <b>The other blocker those issues name did not survive a re-measure and this is not it.</b>
 ///         "Referencing <c>SvgPath</c> would put the whole UI framework behind a bake" rested on a
 ///         closure comparison that is wrong in both columns: <c>Vixen.Ui</c>'s project closure is a
-///         strict subset of <c>Vixen.Editor.TextureGraph</c>'s. What is left of that one is a
+///         strict subset of <c>Vixen.TextureGraph</c>'s. What is left of that one is a
 ///         compile-surface argument about what an evaluator may <em>spell</em>, which is a decision
 ///         about where the node lives and not about this file.
 ///     </para>

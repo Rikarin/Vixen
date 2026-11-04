@@ -282,7 +282,7 @@
       `DeterministicSourcePaths` to it. That switches on a `PathMap` rewriting the
       repository root to `/_/` in everything the compiler bakes into the assembly —
       including `[CallerFilePath]`. A test that anchors a repository walk on its own
-      compiled path therefore reads `/_/Editor/Vixen.Editor.TextureGraph`, which
+      compiled path therefore reads `/_/Tools/Vixen.TextureGraph`, which
       exists on no machine, and fails on the runner having passed on every developer
       box. Four such tests did exactly that in run 34003375702, with the same message
       on ubuntu-latest and windows-latest — a shape that reads like a shared runtime

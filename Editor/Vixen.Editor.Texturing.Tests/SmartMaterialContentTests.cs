@@ -2,9 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Editor.NodeGraph;
-using Vixen.Editor.TextureGraph;
 using Vixen.Editor.Texturing.Layers;
 using Vixen.NodeGraph;
+using Vixen.TextureGraph;
 using Xunit;
 
 namespace Vixen.Editor.Texturing.Tests;
@@ -34,7 +34,7 @@ namespace Vixen.Editor.Texturing.Tests;
 ///         A generator mask carries a node-type path as a <em>string</em>; nothing checks it until a
 ///         bake compiles the stack, and a path naming no published compound is a mask that refuses on
 ///         somebody else's machine. That string is the only edge between this assembly's content and
-///         <c>Vixen.Editor.TextureGraph</c>'s, and it is the one a rename breaks silently.
+///         <c>Vixen.TextureGraph</c>'s, and it is the one a rename breaks silently.
 ///     </para>
 /// </remarks>
 public class SmartMaterialContentTests {

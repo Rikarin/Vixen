@@ -2927,7 +2927,7 @@ sealed class LayerStackView : IDisposable {
     ///         ⚠ <b>A bake is a picker and no longer a text box —
     ///         <a href="https://github.com/Rikarin/Vixen/issues/964">#964</a>.</b> It used to share
     ///         the reference <c>TextBox</c> with a texture and a generator, because the nine names it
-    ///         may hold were <c>internal</c> to <c>Vixen.Editor.TextureGraph</c> and this assembly
+    ///         may hold were <c>internal</c> to <c>Vixen.TextureGraph</c> and this assembly
     ///         could not ask for them — and writing the nine here would have been the second
     ///         transcription of a known set that five roll calls in this workstream have gone red on.
     ///         What crosses that wall now is the node type's own declaration, through

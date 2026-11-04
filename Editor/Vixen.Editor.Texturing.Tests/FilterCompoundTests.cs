@@ -21,7 +21,7 @@ namespace Vixen.Editor.Texturing.Tests;
 ///     <para>
 ///         ⚠ <b>The compound used here is a shipped one and is resolved the way the editor resolves
 ///         it.</b> <c>LayerStackCompiler.Compile</c>'s default library publishes
-///         <c>Editor/Vixen.Editor.TextureGraph/Compounds</c>, so <c>Utility/Highpass</c> is a node
+///         <c>Tools/Vixen.TextureGraph/Compounds</c>, so <c>Utility/Highpass</c> is a node
 ///         type this project really has rather than a fixture's invention — which matters, because a
 ///         test that built its own single-image node type would be asserting against a graph nobody
 ///         ships.

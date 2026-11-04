@@ -3,8 +3,8 @@
 
 using System.Globalization;
 using System.Text;
-using Vixen.Editor.TextureGraph;
 using Vixen.Editor.Texturing.Layers;
+using Vixen.TextureGraph;
 using Xunit;
 
 namespace Vixen.Editor.Texturing.Tests;

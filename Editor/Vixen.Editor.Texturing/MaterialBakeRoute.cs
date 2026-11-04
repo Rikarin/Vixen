@@ -8,11 +8,11 @@ using Vixen.Editor.Assets.Materials;
 using Vixen.Editor.Core;
 using Vixen.Editor.NodeGraph;
 using Vixen.Editor.Plugin;
-using Vixen.Editor.TextureGraph;
 using Vixen.Editor.Texturing.Layers;
 using Vixen.Editor.Texturing.Painting;
 using Vixen.Graphics;
 using Vixen.NodeGraph;
+using Vixen.TextureGraph;
 
 namespace Vixen.Editor.Texturing;
 

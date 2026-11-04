@@ -7,10 +7,10 @@ using Vixen.Core.Yaml;
 using Vixen.Core.Yaml.Meta;
 using Vixen.Editor.Assets.Materials;
 using Vixen.Editor.NodeGraph;
-using Vixen.Editor.TextureGraph;
 using Vixen.Graphics.Vulkan;
 using Vixen.NodeGraph;
 using Vixen.Rendering.Materials;
+using Vixen.TextureGraph;
 using Xunit;
 
 namespace Vixen.Cli.Tests;

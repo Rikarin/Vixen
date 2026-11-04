@@ -236,7 +236,7 @@ enum LayerMaskSource {
 /// <summary>Which of doc 48 § 4.2's sixteen operators a layer composites with.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The names and the numbers are <c>Vixen.Editor.TextureGraph</c>'s
+///         ⚠ <b>The names and the numbers are <c>Vixen.TextureGraph</c>'s
 ///         <c>TextureBlendMode</c>, which is <c>internal</c> — so this is a second declaration of one
 ///         list and the two can drift.</b> Nothing in the compilation would notice: a layer hands
 ///         <c>Colour/Blend</c>'s <c>Mode</c> setting the <em>name</em>, and a name that assembly does

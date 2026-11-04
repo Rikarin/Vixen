@@ -5,6 +5,7 @@ using Vixen.Core.Mathematics;
 using Vixen.Editor.NodeGraph;
 using Vixen.Graphics;
 using Vixen.NodeGraph;
+using Vixen.TextureGraph;
 
 namespace Vixen.Editor.TextureGraph;
 

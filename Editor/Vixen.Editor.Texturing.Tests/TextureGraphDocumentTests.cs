@@ -115,17 +115,17 @@ public class TextureGraphDocumentTests {
 
         var document = Open(fixture, "Compounds");
 
-        Assert.NotEmpty(TextureGraph.TextureCompoundLibrary.Shipped);
+        Assert.NotEmpty(global::Vixen.TextureGraph.TextureCompoundLibrary.Shipped);
 
         Assert.All(
-            TextureGraph.TextureCompoundLibrary.Shipped,
+            global::Vixen.TextureGraph.TextureCompoundLibrary.Shipped,
             path => Assert.True(document.Registry.TryGet(path, out _), path + " is not in the library")
         );
 
         // The whole point of the pair: the compound is placed and its contents actually reach the
         // plan. Its image inputs are fed, because an unwired one is a TG0002 about this graph rather
         // than anything to do with publishing.
-        var compound = document.Graph.Add(TextureGraph.TextureCompoundLibrary.Shipped[0]);
+        var compound = document.Graph.Add(global::Vixen.TextureGraph.TextureCompoundLibrary.Shipped[0]);
         var output = document.Graph.Nodes.Single(node => node.Type == "Output/Output");
 
         document.Graph.Connect(new(compound.Id, "Out"), new(output.Id, "Input"));
@@ -167,7 +167,7 @@ public class TextureGraphDocumentTests {
         Assert.Null(document.SubGraphs);
 
         Assert.All(
-            TextureGraph.TextureCompoundLibrary.Shipped,
+            global::Vixen.TextureGraph.TextureCompoundLibrary.Shipped,
             path => Assert.False(document.Registry.TryGet(path, out _), path + " should not be published here")
         );
 

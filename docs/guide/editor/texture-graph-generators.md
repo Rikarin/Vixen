@@ -4,7 +4,7 @@ slug: editor/texture-graph-generators
 kind: guide
 area: Editor
 summary: How a generator asks for a baked mesh map by what it measures rather than by which file it is, where a shipped compound lives, and why a graph must not name the mesh it is for.
-api: [T:Vixen.Editor.Assets.MeshMaps.MeshMapReference, T:Vixen.Editor.Assets.MeshMaps.MeshMapBinding, T:Vixen.Editor.TextureGraph.TextureCompoundLibrary, T:Vixen.Editor.TextureGraph.TextureCompoundProblem]
+api: [T:Vixen.Editor.Assets.MeshMaps.MeshMapReference, T:Vixen.Editor.Assets.MeshMaps.MeshMapBinding, T:Vixen.TextureGraph.TextureCompoundLibrary, T:Vixen.TextureGraph.TextureCompoundProblem]
 tags: [editor, texture-graph, mesh-maps, generators, material-authoring, compounds]
 since: 0.1
 status: preview
@@ -123,7 +123,7 @@ bitmaps with mesh maps, and a host walks it once — so a resolver that reported
 Doc 48 § D5's claim is that the several hundred nodes a reference tool ships are **content**, and this
 is the mechanism that makes it true. `TextureCompoundLibrary.Publish` reads two roots into one menu:
 
-- The compounds embedded in `Vixen.Editor.TextureGraph`, from its `Compounds/` folder — the same
+- The compounds embedded in `Vixen.TextureGraph`, from its `Compounds/` folder — the same
   arrangement the kernels use, and for the same reason: there is nothing a deployment can leave
   behind.
 - A project's own folder, if it names one, published beside them.
@@ -176,7 +176,7 @@ counted.
 ⚠ Do not take a remainder off this paragraph either: `TextureCompoundLibrary.Shipped` is the derived
 list and `TextureCompoundLibraryTests` is what compares it with the plan, by name.
 ⚠ **The measurement M10 exists to make is written up beside the content itself**, in
-`Editor/Vixen.Editor.TextureGraph/Compounds/README.md`: what could *not* be authored out of the
+`Tools/Vixen.TextureGraph/Compounds/README.md`: what could *not* be authored out of the
 atomic set, which is the standing test of whether M2 and M3 got that set right.
 
 ⚠ **`Histogram Scan`'s knobs are a black and a white point, not the reference's position and

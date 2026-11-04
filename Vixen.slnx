@@ -938,8 +938,10 @@
     <Project Path="Editor/Vixen.Editor.NodeGraph.Tests/Vixen.Editor.NodeGraph.Tests.csproj" />
     <Project Path="Editor/Vixen.Editor.ShaderGraph/Vixen.Editor.ShaderGraph.csproj" />
     <Project Path="Editor/Vixen.Editor.ShaderGraph.Tests/Vixen.Editor.ShaderGraph.Tests.csproj" />
+    <Project Path="Tools/Vixen.TextureGraph/Vixen.TextureGraph.csproj" />
     <Project Path="Editor/Vixen.Editor.TextureGraph/Vixen.Editor.TextureGraph.csproj" />
     <Project Path="Editor/Vixen.Editor.TextureGraph.Tests/Vixen.Editor.TextureGraph.Tests.csproj" />
+    <Project Path="Tools/Vixen.TextureGraph.Tests/Vixen.TextureGraph.Tests.csproj" />
 
     <!--
       Doc 48 § D14: the texture graph's plugin. It is a separate project from

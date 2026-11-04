@@ -104,7 +104,7 @@ image is created for what it dispatches into and a view registered from a storag
 `Sampled` and in the wrong layout — which MoltenVK forgives and a discrete card does not.
 
 **`TextureGraphCompiler` was `internal` — the type is public now, and the panel has not caught up.**
-For three batches `Vixen.Editor.TextureGraph`'s `InternalsVisibleTo` named only its own test project,
+For three batches `Vixen.TextureGraph`'s `InternalsVisibleTo` named only its own test project,
 so the generated `NodeTypes.Register` crossed the plugin boundary and the thing that turns a graph
 into a `TexturePlan` did not — the panel could draw the node library and not compile it.
 [#738](https://github.com/Rikarin/Vixen/issues/738) made the type `public`.

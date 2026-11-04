@@ -4,7 +4,7 @@ slug: editor/texture-graph-previews
 kind: guide
 area: Editor
 summary: The swatch under every node of a texture graph — one plan that keeps every node's image, one bake, and pixels handed to the host because a compute queue's images are not the interface's to sample.
-api: [T:Vixen.Editor.TextureGraph.TextureGraphPreviews, T:Vixen.Editor.TextureGraph.ITexturePreviewImages]
+api: [T:Vixen.TextureGraph.TextureGraphPreviews, T:Vixen.TextureGraph.ITexturePreviewImages]
 tags: [editor, texture-graph, node-graph, preview, material-authoring, compute]
 since: 0.1
 status: preview

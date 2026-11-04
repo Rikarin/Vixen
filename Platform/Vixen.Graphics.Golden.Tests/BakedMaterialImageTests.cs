@@ -8,13 +8,13 @@ using Vixen.Core.Yaml;
 using Vixen.Editor.Assets.Materials;
 using Vixen.Editor.Assets.Textures;
 using Vixen.Editor.NodeGraph;
-using Vixen.Editor.TextureGraph;
 using Vixen.NodeGraph;
 using Vixen.Rendering;
 using Vixen.Rendering.Compositor;
 using Vixen.Rendering.Materials;
 using Vixen.Rendering.PostFx;
 using Vixen.Shaders;
+using Vixen.TextureGraph;
 using Xunit;
 
 namespace Vixen.Graphics.Golden.Tests;
@@ -391,7 +391,7 @@ public class BakedMaterialImageTests {
     ///         <c>TextureGraphOutput</c> is internal and that the graph half of § M4 therefore could
     ///         not be driven from here at all. <c>TextureGraphCompiler.cs</c> declares it
     ///         <c>public readonly record struct</c>, there is no <c>InternalsVisibleTo</c> in the
-    ///         chain, three assemblies outside <c>Vixen.Editor.TextureGraph</c> already read it —
+    ///         chain, three assemblies outside <c>Vixen.TextureGraph</c> already read it —
     ///         and this file named the type in its own source while saying it could not see it. A
     ///         blocker nobody re-measures is how a criterion stays open for four batches.
     ///     </para>
@@ -452,7 +452,7 @@ public class BakedMaterialImageTests {
     ///     <para>
     ///         <b>The registry is built the way the two shipping hosts build it.</b>
     ///         <c>NodeTypes.Register</c> is the generated roll of every node
-    ///         <c>Vixen.Editor.TextureGraph</c> declares, and it is what the texturing plugin and
+    ///         <c>Vixen.TextureGraph</c> declares, and it is what the texturing plugin and
     ///         <c>Vixen.Cli</c>'s <c>TextureGraphRunner</c> both start from — so a node that stopped
     ///         registering is a compile error about a missing type here rather than a graph that
     ///         quietly loses one map. No compound library is published, because these fixtures use

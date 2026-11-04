@@ -4,8 +4,10 @@
 using System.Collections.Immutable;
 using Vixen.Core.Imaging;
 using Vixen.Editor.Core;
+using Vixen.Editor.TextureGraph;
 using Vixen.Graphics;
 using Vixen.Graphics.Null;
+using Vixen.TextureGraph;
 using Xunit;
 
 namespace Vixen.Editor.TextureGraph.Tests;

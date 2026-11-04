@@ -10,6 +10,7 @@ using Vixen.Editor.NodeGraph;
 using Vixen.Editor.TextureGraph;
 using Vixen.Graphics;
 using Vixen.NodeGraph;
+using Vixen.TextureGraph;
 
 namespace Vixen.Cli;
 
@@ -298,7 +299,7 @@ static class TextureGraphRunner {
     ///         <b>The whole of what this route supplies to the resolver, and the reason the split is
     ///         where it is.</b> <c>ImageDecoders</c> is <c>Vixen.Editor.Assets</c>', whose closure
     ///         adds twenty-five assemblies — <c>Vixen.Engine</c>, <c>Vixen.Ecs</c>,
-    ///         <c>Vixen.Terrain</c> among them — to <c>Vixen.Editor.TextureGraph</c>'s. Both hosts
+    ///         <c>Vixen.Terrain</c> among them — to <c>Vixen.TextureGraph</c>'s. Both hosts
     ///         already have it; the evaluator must not.
     ///     </para>
     ///     <para>

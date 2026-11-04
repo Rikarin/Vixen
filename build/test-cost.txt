@@ -32,7 +32,7 @@
 109.9    Vixen.Geometry.Uv.Tests
 73.2     Vixen.Ui.Styling.Utilities.Tests
 58.3     Vixen.Fuzz.Tests
-38.3     Vixen.Editor.TextureGraph.Tests
+38.3     Vixen.TextureGraph.Tests
 36.1     Vixen.Sdk.Tests
 36.0     Vixen.Editor.Texturing.Tests
 30.5     Vixen.Editor.Terrain.Tests

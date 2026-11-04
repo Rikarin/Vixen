@@ -82,7 +82,7 @@ public sealed record SubGraphScope(
 ///     <para>
 ///         ⚠ <b>The implementation is asked which keys it claims rather than being handed a
 ///         spelling.</b> A <c>Texts</c> key beginning <c>=</c> is a Raven expression in
-///         <c>Vixen.Editor.TextureGraph</c> and nowhere else; teaching this assembly that character
+///         <c>Vixen.TextureGraph</c> and nowhere else; teaching this assembly that character
 ///         would make one front end's convention the graph model's. <see cref="Claims" /> is what
 ///         keeps it where it belongs, and what lets a second front end adopt the seam without
 ///         agreeing about the character.
@@ -585,7 +585,7 @@ public static class SubGraphs {
     ///         <c>amount * 32f</c> and declaring no <c>amount</c>. The tidier rule — carry only the
     ///         parameters the selection <em>mentions</em> — needs to know what an expression is, and
     ///         that is a front end's question: the marker, the identifier syntax and the folder all
-    ///         live in <c>Vixen.Editor.TextureGraph</c>, and this assembly deliberately knows nothing
+    ///         live in <c>Vixen.TextureGraph</c>, and this assembly deliberately knows nothing
     ///         about any of them. So the choice here is between a knob nobody uses, which an author
     ///         can see and delete, and an expression that binds against nothing, which an author
     ///         cannot see at all until the containing graph reports an undefined name.

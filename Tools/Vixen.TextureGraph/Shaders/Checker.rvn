@@ -1,0 +1,70 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+package Vixen.TextureGraph.Shaders
+
+// A checkerboard, with a scale, a rotation and an offset. Doc 48 § 4.1.
+//
+// ⚠ **`ComputeColor.Checker` already has one, and this is still not a call to it — but no longer
+// because it cannot be.** This header used to say a kernel "is compiled on its own" and that
+// `import Vixen.Shaders.Material` therefore does not resolve. It does now: `TextureKernelPrelude`
+// puts the library in the compilation, and `Hsl` and `Blend` both call into `ComputeColor` (#635).
+// What keeps the fold here is the signature. `ComputeColor.Checker` takes a uv and a scale and
+// nothing else; this kernel rotates about the image centre and offsets in cells first, so the call
+// would be `Checker(turned * scale + offset, 1)` — a use of the library that passes the identity for
+// the only parameter it has, which is not sharing a function, it is calling one to look as though
+// you did.
+//
+// ⚠ **That decision was taken on 2026-09-08 and the answer is no** (#1077). It is not about the cost
+// of the change: `ComputeColor.Checker` has exactly one production caller in the tree —
+// `ProceduralNodes.CheckerNode` — so widening it would touch one node. It is about the pivot. This
+// kernel rotates about the *image centre*, `uv` 0.5, which is a fact about a square texture being
+// baked; a material's 0.5 is wherever the mesh's unwrap put it, so a rotation on the library's
+// function would have to name a pivot that means nothing outside a bake. `ComputeColor.RotateUv`
+// already takes a pivot, which is what a shader wanting a turned checker composes.
+//
+// ⚠ `Shaders/Sources.md` was cited here and has never existed. The copy is held instead:
+// `TextureKernelLanguageSeamTests` reads `ComputeColor.Checker`'s return expression out of the
+// library and requires this file to contain it, so `mod(cell.x + cell.y, 2f)` cannot drift on one
+// side alone.
+//
+// **Like `Shape`, nothing here is in texels**, so a checker is the same picture at every resolution
+// by construction — with the caveat that a checker's edges are hard, so a 1K bake and a downsampled
+// 4K bake differ along every cell boundary and agree everywhere else.
+
+shader Checker {
+    /// How many cells across the image, horizontally.
+    var scaleX: float = 8f
+
+    var scaleY: float = 8f
+
+    /// Clockwise on screen, in radians, about the image centre.
+    var rotation: float = 0f
+
+    /// A shift, in cells. 0.5 is the checker's own inverse.
+    var offsetX: float = 0f
+
+    var offsetY: float = 0f
+
+    [Format("rgba16f")] var target: RWTexture2D<float4>
+
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val coord = int2(int(id.x), int(id.y))
+        val size = target.GetDimensions()
+
+        if (coord.x >= size.x || coord.y >= size.y) {
+            return
+        }
+
+        val uv = float2((float(coord.x) + 0.5f) / float(size.x), (float(coord.y) + 0.5f) / float(size.y))
+        val centred = uv - float2(0.5f, 0.5f)
+        val c = cos(rotation)
+        val s = sin(rotation)
+        val turned = float2(centred.x * c + centred.y * s, -centred.x * s + centred.y * c) + float2(0.5f, 0.5f)
+        val cell = floor(float2(turned.x * scaleX + offsetX, turned.y * scaleY + offsetY))
+        val value = mod(cell.x + cell.y, 2f)
+
+        target.Store(coord, float4(value, value, value, 1f))
+    }
+}

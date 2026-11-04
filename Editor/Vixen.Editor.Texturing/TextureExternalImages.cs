@@ -7,6 +7,7 @@ using Vixen.Editor.Assets.Textures;
 using Vixen.Editor.Core;
 using Vixen.Editor.TextureGraph;
 using Vixen.Editor.Texturing.Painting;
+using Vixen.TextureGraph;
 
 namespace Vixen.Editor.Texturing;
 
@@ -47,7 +48,7 @@ static class TextureExternalImages {
     /// <summary>What a mesh map's reference starts with, rather than a path.</summary>
     /// <remarks>
     ///     ⚠ <b>Duplicated from <c>TextureMeshMaps.Scheme</c>, which is <c>internal</c> to
-    ///     <c>Vixen.Editor.TextureGraph</c> and visible to its own tests alone.</b> The alternative
+    ///     <c>Vixen.TextureGraph</c> and visible to its own tests alone.</b> The alternative
     ///     is resolving <c>meshmap:curvature</c> as a project path and telling an artist that a file
     ///     of that name is missing. <c>LayerStackPanelDeviceTests</c> asserts a mesh-map layer still
     ///     gets the sentence, which is the only thing that can catch the two drifting apart.

@@ -11,7 +11,7 @@ namespace Vixen.Editor.Texturing;
 ///     <para>
 ///         <b><a href="https://github.com/Rikarin/Vixen/issues/936">#936</a>: the shape
 ///         <a href="https://github.com/Rikarin/Vixen/issues/804">#804</a> gave
-///         <c>Vixen.Editor.TextureGraph</c>, applied to the assembly next door before it has anything
+///         <c>Vixen.TextureGraph</c>, applied to the assembly next door before it has anything
 ///         to collide with.</b> There is exactly one id here today, so nothing is broken and that is
 ///         the point of doing it now: <c>TG0012</c>, <c>TG0017</c> and <c>TG0018</c> each came to mean
 ///         two things because a tenth call site typed four characters no list anywhere held, and a

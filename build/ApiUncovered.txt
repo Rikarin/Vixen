@@ -24,7 +24,7 @@
 # promise, so either these are covered the way Core/ is, or they should not be packing.
 #
 # ⚠ And the undecided set GROWS on its own, which is the argument for answering rather than
-# deferring: it was twenty-one, and Vixen.Editor.TextureGraph and Vixen.Editor.Texturing joined
+# deferring: it was twenty-one, and Vixen.TextureGraph and Vixen.Editor.Texturing joined
 # it by being added under Editor/ — the profile packs them by default, so nobody chose to ship
 # them and nobody had to. This assertion going red is the only reason that was noticed at all,
 # and adding the two lines is deliberately not an answer to #641.
@@ -156,7 +156,7 @@ Editor/Vixen.Editor.Scripts/Vixen.Editor.Scripts.csproj editor-undecided
 Editor/Vixen.Editor.ShaderGraph/Vixen.Editor.ShaderGraph.csproj editor-undecided
 Editor/Vixen.Editor.Terrain/Vixen.Editor.Terrain.csproj editor-undecided
 Editor/Vixen.Editor.Terrain.Physics/Vixen.Editor.Terrain.Physics.csproj editor-undecided
-Editor/Vixen.Editor.TextureGraph/Vixen.Editor.TextureGraph.csproj editor-undecided
+Tools/Vixen.TextureGraph/Vixen.TextureGraph.csproj editor-undecided
 Editor/Vixen.Editor.Texturing/Vixen.Editor.Texturing.csproj editor-undecided
 Editor/Vixen.Editor.Ui/Vixen.Editor.Ui.csproj editor-undecided
 Editor/Vixen.Editor.VfxGraph/Vixen.Editor.VfxGraph.csproj editor-undecided

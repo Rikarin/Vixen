@@ -64,7 +64,7 @@ public sealed record ImageFormat(
 ///         thirteen require only <c>Shader</c>.
 ///     </para>
 ///     <para>
-///         It is not pedantry, because the three are reachable. <c>Vixen.Editor.TextureGraph</c>'s
+///         It is not pedantry, because the three are reachable. <c>Vixen.TextureGraph</c>'s
 ///         <c>TextureFormats.RavenName</c> spells <c>R16Float</c> as <c>r16f</c> and rewrites a
 ///         kernel's <c>[Format("…")]</c> to it, and <c>R16Float</c> is the recommended format for a
 ///         height field. No committed <c>.rvn</c> names one of the three — <c>Ripples.rvn</c> says in

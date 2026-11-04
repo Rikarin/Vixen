@@ -72,6 +72,7 @@
             friend assembly makes a feature reachable for the plugin this repository ships and for no
             third party. The `[Node]` classes stay `internal`.
         -->
+        <ProjectReference Include="..\..\Tools\Vixen.TextureGraph\Vixen.TextureGraph.csproj" />
         <ProjectReference Include="..\Vixen.Editor.TextureGraph\Vixen.Editor.TextureGraph.csproj" />
 
         <!--

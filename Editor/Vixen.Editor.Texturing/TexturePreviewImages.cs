@@ -4,6 +4,7 @@
 using Vixen.Core.Imaging;
 using Vixen.Editor.Plugin;
 using Vixen.Editor.TextureGraph;
+using Vixen.TextureGraph;
 
 namespace Vixen.Editor.Texturing;
 

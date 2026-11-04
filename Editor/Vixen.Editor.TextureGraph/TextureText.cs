@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Numerics;
+using Vixen.TextureGraph;
 using Vixen.Ui.Text;
 using Vixen.Ui.Text.Outlines;
 using Vixen.Ui.Text.Rasterizing;

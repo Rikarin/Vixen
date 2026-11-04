@@ -5,10 +5,10 @@ using Vixen.Core.IO;
 using Vixen.Core.IO.Watch;
 using Vixen.Editor.Core;
 using Vixen.Editor.NodeGraph;
-using Vixen.Editor.TextureGraph;
 using Vixen.Editor.Texturing.Layers;
 using Vixen.Editor.Texturing.Painting;
 using Vixen.NodeGraph;
+using Vixen.TextureGraph;
 using Xunit;
 
 namespace Vixen.Editor.Texturing.Tests;

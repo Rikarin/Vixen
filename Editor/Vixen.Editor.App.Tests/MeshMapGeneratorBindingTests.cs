@@ -6,10 +6,10 @@ using Vixen.Core.Mathematics;
 using Vixen.Editor.Assets.MeshMaps;
 using Vixen.Editor.Core;
 using Vixen.Editor.NodeGraph;
-using Vixen.Editor.TextureGraph;
 using Vixen.Geometry;
 using Vixen.Geometry.Remeshing;
 using Vixen.NodeGraph;
+using Vixen.TextureGraph;
 using Xunit;
 
 namespace Vixen.Editor.App.Tests;
@@ -23,7 +23,7 @@ namespace Vixen.Editor.App.Tests;
 ///         checked.</b> A bake writes nine PNGs with a sidecar naming what each measures; a graph
 ///         asks for a measurement and names no file. Neither production assembly may reference the
 ///         other — <c>Vixen.Editor.Assets</c> owns the vocabulary and drags every importer in the
-///         tree with it, and <c>Vixen.Editor.TextureGraph</c> is deliberately narrow — so the node
+///         tree with it, and <c>Vixen.TextureGraph</c> is deliberately narrow — so the node
 ///         spells the nine suffixes a second time and this file is what stops the two spellings
 ///         drifting.
 ///     </para>

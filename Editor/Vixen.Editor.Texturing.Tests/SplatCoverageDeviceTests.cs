@@ -1,9 +1,9 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
-using Vixen.Editor.TextureGraph;
 using Vixen.Editor.Texturing.Layers;
 using Vixen.Graphics.Vulkan;
+using Vixen.TextureGraph;
 using Xunit;
 
 namespace Vixen.Editor.Texturing.Tests;

@@ -14,6 +14,7 @@ using Vixen.Editor.Ui;
 using Vixen.Editor.Ui.Documents;
 using Vixen.Graphics;
 using Vixen.Rendering.Ecs;
+using Vixen.TextureGraph;
 
 namespace Vixen.Editor.Texturing;
 

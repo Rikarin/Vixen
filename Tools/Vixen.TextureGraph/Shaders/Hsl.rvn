@@ -1,0 +1,74 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+package Vixen.TextureGraph.Shaders
+
+import Vixen.Shaders.Core
+import Vixen.Shaders.Material
+
+// Hue, saturation and lightness — doc 48 § 4.2's `HSL`.
+//
+// ⚠ **The hue rotation is `Raven/Library/Material/ComputeColor.rvn`'s `HueRotate`, called rather
+// than transcribed, and it was transcribed here on a diagnosis that was wrong.**
+// The header used to say the duplication was forced because the evaluator passes no
+// `referencePaths` and so "a kernel here binds against nothing but itself". A `.rvnlib` is not what
+// makes an `import` resolve: `RavenEffectCompiler.FromSources` takes a *set* of texts and makes
+// them one compilation, and a package's declarations are visible across one compilation. The
+// evaluator was passing one text. `TextureKernelPrelude` now passes the library's own sources
+// beside every kernel — #635.
+//
+// **It rotates the chroma plane in YIQ rather than converting to HSL and back.** Three dot products
+// against a conversion, a rotation and a conversion back; it preserves luminance exactly and
+// distorts very saturated colours slightly. That is the same trade the shader graph makes, and the
+// two agreeing matters more than either being the textbook answer — an artist who matches a hue in
+// one and sees it shift in the other has found a bug in this comment.
+//
+// **Saturation is around the colour's own Rec. 709 luminance and lightness is a lerp to black or
+// white**, both clamped at zero afterwards, because a rotation of a saturated colour can leave a
+// channel slightly negative and a negative written into a half-float survives every later op.
+
+shader Hsl {
+    var source: Texture2D
+
+    /// How far to rotate the hue, in **turns**: 0.5 is opposite, 1 is a no-op.
+    ///
+    /// ⚠ Turns rather than degrees or radians, so that an exposed parameter sweeping 0…1 covers the
+    /// wheel once — and so that a graph's "hue" slider needs no unit written beside it.
+    var hue: float = 0f
+
+    /// 0 is grey, 1 is unchanged, above 1 pushes.
+    var saturation: float = 1f
+
+    /// −1 is black, 0 is unchanged, 1 is white.
+    var lightness: float = 0f
+
+    [Format("rgba16f")] var target: RWTexture2D<float4>
+
+    const val Tau: float = 6.28318530718f
+
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val coord = int2(int(id.x), int(id.y))
+        val size = target.GetDimensions()
+
+        if (coord.x >= size.x || coord.y >= size.y) {
+            return
+        }
+
+        val extent = source.GetDimensions(0)
+        val texel = source.Load(int3(clamp(coord.x, 0, extent.x - 1), clamp(coord.y, 0, extent.y - 1), 0))
+
+        val rotated = ComputeColor.HueRotate(float3(texel.x, texel.y, texel.z), hue * Tau)
+        val luma = ColorSpaces.Luminance(rotated)
+        val saturated = lerp(float3(luma, luma, luma), rotated, float3(max(saturation, 0f), max(saturation, 0f), max(saturation, 0f)))
+
+        // Toward white above zero and toward black below it, so that 0 is exactly the input and the
+        // two directions are one parameter rather than two nodes.
+        val amount = clamp(lightness, -1f, 1f)
+        val toward = max(sign(amount), 0f)
+        val mixed = lerp(saturated, float3(toward, toward, toward), float3(abs(amount), abs(amount), abs(amount)))
+        val final = max(mixed, float3(0f, 0f, 0f))
+
+        target.Store(coord, float4(final.x, final.y, final.z, texel.w))
+    }
+}

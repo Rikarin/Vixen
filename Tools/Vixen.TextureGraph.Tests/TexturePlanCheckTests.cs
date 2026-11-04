@@ -1,0 +1,555 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+using System.Collections.Immutable;
+using Vixen.TextureGraph;
+using Xunit;
+
+namespace Tests;
+
+/// <summary>
+///     The half of a plan's validation that is about its <em>numbers</em>: what a bake clips, and what
+///     a chain emitted for one resolution does at another.
+/// </summary>
+/// <remarks>
+///     <para>
+///         ⚠ <b>Everything <c>TexturePlanTests</c> asserts is structural</b> — indices, formats,
+///         write-once, liveness — and a plan can pass all of it and bake a picture nothing describes.
+///         <a href="https://github.com/Rikarin/Vixen/issues/692">#692</a> and
+///         <a href="https://github.com/Rikarin/Vixen/issues/689">#689</a> are the two ways that
+///         happens, and both are properties of a <em>resolved</em> number, so neither can be asserted
+///         without a bake resolution.
+///     </para>
+///     <para>
+///         <b>No device, deliberately.</b> The failure both issues describe is that the picture comes
+///         out plausible; a device test would have to know what the right picture was, and the whole
+///         point is that nothing did.
+///     </para>
+/// </remarks>
+public class TexturePlanCheckTests {
+    /// <summary>A plan of one sharpen, whose radius the kernel loops to 8.</summary>
+    /// <remarks>
+    ///     <c>Sharpen</c> rather than <c>Blur</c> because <c>Blur</c> is deliberately <em>not</em> in
+    ///     the ceiling table — its constant is a budget on taps, so its width is never clipped and
+    ///     there is nothing to report. Picking it here would have written a test that passes because
+    ///     the thing it covers cannot happen.
+    /// </remarks>
+    static TexturePlan Sharpen(float radius, int bake) =>
+        new() {
+            BaseWidth = 256,
+            BaseHeight = 256,
+            BakeLevelOffset = bake,
+            Images = [new(TextureFormat.Rgba8, External: true), new(TextureFormat.Rgba8)],
+            Ops = [
+                new() {
+                    Kernel = "Sharpen",
+                    Output = 1,
+                    Inputs = [0],
+                    Parameters = [new("radius", radius, TextureParameterUnit.TexelsAtBase)]
+                }
+            ],
+            Outputs = [1]
+        };
+
+    /// <summary>A plan of one jump-flood chain over a mask, emitted for the extent it is given.</summary>
+    static TexturePlan Distance(int emittedFor, int bake) {
+        var scratch = TextureAnalysis.FloodDispatches(emittedFor, emittedFor);
+
+        return new() {
+            BaseWidth = 64,
+            BaseHeight = 64,
+            BakeLevelOffset = bake,
+            Images = [
+                new(TextureFormat.Rgba8, External: true),
+                new(TextureFormat.R16Float),
+                .. Enumerable.Repeat(new TextureImage(TextureFormat.Rgba16Float), scratch)
+            ],
+            Ops = TextureAnalysis.Distance(1, 0, [.. Enumerable.Range(2, scratch)], emittedFor, emittedFor),
+            Outputs = [1]
+        };
+    }
+
+    /// <summary>
+    ///     ⚠ A radius past its kernel's loop is a <em>warning</em>: the plan still bakes, and the
+    ///     picture is not the one the graph describes.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>This is <a href="https://github.com/Rikarin/Vixen/issues/678">#678</a> said out
+    ///         loud.</b> 4 texels at a 256 base is 16 at a 4× bake, and <c>Sharpen</c> loops to 8 —
+    ///         so the same graph is a different material at the larger size, and before #692 nothing
+    ///         anywhere said so. Refusing it would be wrong: the bake is what the artist asked for
+    ///         and the clip may be acceptable. There has to be a third state, and this is the
+    ///         assertion that there is one.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The message carries the resolved number and not the authored one.</b> "A radius
+    ///         of 4 is too big" is a sentence nobody can act on when 4 is what is in the field; 16 is
+    ///         the number that is actually being clipped, and it exists only once a bake resolution
+    ///         has been chosen.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_radius_past_its_kernels_loop_is_a_warning_rather_than_a_refusal() {
+        var plan = Sharpen(4f, -2);
+        var problem = Assert.Single(plan.Check());
+
+        Assert.Equal(TextureProblemSeverity.Warning, problem.Severity);
+        Assert.Contains("Sharpen", problem.Message, StringComparison.Ordinal);
+        Assert.Contains("16", problem.Message, StringComparison.Ordinal);
+
+        Assert.Empty(plan.Validate());
+        Assert.Equal(problem.Message, Assert.Single(plan.Warnings()));
+    }
+
+    /// <summary>
+    ///     Verify the instrument: the same graph at the resolution it was authored for says nothing.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>What this file prints on the day the check does not run is "no problems", which is
+    ///     also what a sound plan prints.</b> The pair above and here is what separates the two: one
+    ///     plan, two bake offsets, a warning at one and silence at the other — so a
+    ///     <see cref="TexturePlan.Check" /> that returned nothing at all would fail the first test,
+    ///     and one that warned about everything would fail this.
+    /// </remarks>
+    [Fact]
+    public void The_same_graph_at_the_resolution_it_was_authored_for_is_clean() =>
+        Assert.Empty(Sharpen(4f, 0).Check());
+
+    /// <summary>
+    ///     ⚠ A plan whose <em>shape</em> is broken is refused without the number check throwing out
+    ///     of the method.
+    /// </summary>
+    /// <remarks>
+    ///     <b>Resolving a parameter reads the image the op writes.</b> An op whose output index is
+    ///     past the table would make that an <see cref="IndexOutOfRangeException" /> thrown from the
+    ///     one method in the assembly whose contract is to report rather than throw — and the caller
+    ///     would see a crash instead of the list naming the actual mistake.
+    /// </remarks>
+    [Fact]
+    public void A_plan_whose_shape_is_broken_is_reported_rather_than_thrown_from() {
+        var plan = new TexturePlan {
+            BaseWidth = 256,
+            BaseHeight = 256,
+            BakeLevelOffset = -2,
+            Images = [new(TextureFormat.Rgba8, External: true), new(TextureFormat.Rgba8)],
+            Ops = [
+                new() {
+                    Kernel = "Sharpen",
+                    Output = 7,
+                    Inputs = [0],
+                    Parameters = [new("radius", 4f, TextureParameterUnit.TexelsAtBase)]
+                }
+            ],
+            Outputs = [1]
+        };
+
+        Assert.Contains(plan.Validate(), problem => problem.Contains("the table holds", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    ///     ⚠ Doc 48 § D8's promise, tested where it is not kept: a chain emitted for one extent is
+    ///     refused at another.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/689">#689</a>.</b> A jump flood is
+    ///         <c>log2(n)</c> dispatches in the <em>baked</em> extent, so its op count is part of the
+    ///         answer rather than a parameter of it. Re-baking is expressed by building a plan with
+    ///         the same <see cref="TexturePlan.Ops" /> and a different
+    ///         <see cref="TexturePlan.BakeLevelOffset" /> — which is what
+    ///         <c>TexturePlanDeviceTests.The_same_plan_baked_at_four_times_the_resolution_agrees_with_the_smaller_bake</c>
+    ///         does and what § D8 promises works — and for this chain it produced a distance field
+    ///         wrong at long range, which looks like a soft field rather than like a bug.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The issue's own reading of the mechanism was half wrong and it does not
+    ///         matter.</b> It says <see cref="TexturePlan.BakeLevelOffset" /> "reads as a field a
+    ///         caller may change on an existing plan"; it is <c>init</c>-only on a class with no
+    ///         <c>with</c>, so nobody mutates a plan. The hazard is the copy, not the mutation, and
+    ///         the copy is the documented way to re-bake.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_chain_emitted_for_one_extent_is_refused_at_another() {
+        var problems = Distance(64, -1).Validate();
+
+        // Every refusal is this one: each of the six halvings the chain was emitted for is an op
+        // whose existence the bake resolution decides.
+        Assert.NotEmpty(problems);
+        Assert.All(problems, message => Assert.Contains("emitted for", message, StringComparison.Ordinal));
+        Assert.Contains("64 texels", problems[0], StringComparison.Ordinal);
+        Assert.Contains("128×128", problems[0], StringComparison.Ordinal);
+    }
+
+    /// <summary>Verify the instrument: the same chain, emitted for the bake it is run at, validates.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Without this the test above passes against a <see cref="TexturePlan.Check" /> that
+    ///     refuses every plan holding a jump flood</b>, which would be a check nobody could satisfy
+    ///     and which would take the § 4.5 device suite with it. The pair is one plan shape at two
+    ///     extents: refused where the list is stale, clean where it was emitted for this bake.
+    /// </remarks>
+    [Fact]
+    public void A_chain_re_emitted_for_this_bake_validates() => Assert.Empty(Distance(128, -1).Check());
+
+    /// <summary>An op that is one dispatch at any resolution carries no extent and re-bakes.</summary>
+    [Fact]
+    public void An_ordinary_op_re_bakes_at_any_offset() {
+        Assert.Empty(Sharpen(1f, 0).Check());
+        Assert.Empty(Sharpen(1f, -2).Check());
+        Assert.Empty(Sharpen(1f, 2).Check());
+    }
+
+    /// <summary>A CPU op is pooled and freed by the op order like any other.</summary>
+    /// <remarks>
+    ///     ⚠ <b><a href="https://github.com/Rikarin/Vixen/issues/688">#688</a>'s seam is only worth
+    ///     having if the plan's shape does not change around it.</b> A CPU op writes one image, reads
+    ///     by index and is written once, so <see cref="TexturePoolSchedule" /> needs to know nothing
+    ///     about it — three ops threaded through two live images allocate two textures whether the
+    ///     middle one is a dispatch or a solve.
+    /// </remarks>
+    [Fact]
+    public void A_cpu_op_is_scheduled_like_a_dispatch() {
+        var plan = new TexturePlan {
+            BaseWidth = 64,
+            BaseHeight = 64,
+            Images = [
+                new(TextureFormat.Rgba8, External: true),
+                new(TextureFormat.Rgba8),
+                new(TextureFormat.Rgba8),
+                new(TextureFormat.Rgba8)
+            ],
+            Ops = [
+                new() { Kernel = "Invert", Output = 1, Inputs = [0] },
+                new() { Kernel = "Transpose", Output = 2, Inputs = [1], Cpu = new TransposeRgba8() },
+                new() { Kernel = "Invert", Output = 3, Inputs = [2] }
+            ],
+            Outputs = [3]
+        };
+
+        Assert.Empty(plan.Check());
+
+        var schedule = TexturePoolSchedule.For(plan);
+
+        Assert.Equal(2, schedule.Allocations);
+        Assert.Equal(2, schedule.Peak);
+
+        // The last image lands back in the first image's texture, which is the aliasing the device
+        // test exercises: an upload that went to the wrong slot would be read as the answer.
+        Assert.Equal(schedule.SlotOf[1], schedule.SlotOf[3]);
+    }
+
+    /// <summary>A pointwise op reading an image half the size of the one it writes is reported.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>What this replaces, and why the tripwire it replaces was right to be one.</b>
+    ///         <c>Check</c> compared an op's <c>EmittedForExtent</c> against the size of the image it
+    ///         <em>writes</em> and said nothing whatever about the images it <em>reads</em> — so the
+    ///         plan below drew the top-left quarter of its input with the right and bottom edge rows
+    ///         smeared over the rest, plausibly and in silence.
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/801">#801</a>.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A caution rather than a refusal, deliberately.</b> The plan bakes; what it bakes
+    ///         is not the picture the graph describes, which is what
+    ///         <c>TextureProblemSeverity.Warning</c> means here and what #692's clipped radius
+    ///         already is. <see cref="A_plan_whose_op_declares_the_size_difference_is_silent" /> is
+    ///         the other half — the kernels that read one size and write another on purpose stay
+    ///         silent, and they do it by saying so on the op rather than by being on a list.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_pointwise_op_reading_a_smaller_image_than_it_writes_is_reported() {
+        TexturePlan plan = new() {
+            BaseWidth = 256,
+            BaseHeight = 256,
+
+            // Level 1 is half the base on each axis, so the source is 128² and the target 256².
+            Images = [new(TextureFormat.Rgba8, LevelOffset: 1), new(TextureFormat.Rgba8)],
+            Ops = [
+                new() { Kernel = "Uniform", Output = 0 },
+                new() { Kernel = "Invert", Output = 1, Inputs = [0] }
+            ],
+            Outputs = [1]
+        };
+
+        // The instrument: the mismatch this is about is really in the plan, rather than the two
+        // images having quietly come out the same size and the report below being about something
+        // else entirely.
+        Assert.Equal(128, plan.SizeOf(0).X);
+        Assert.Equal(256, plan.SizeOf(1).X);
+
+        var problem = Assert.Single(plan.Check());
+
+        // It bakes — the caution is a report about the picture, not a refusal of the plan.
+        Assert.Equal(TextureProblemSeverity.Warning, problem.Severity);
+        Assert.Empty(plan.Validate());
+
+        // The op, the kernel and both sizes, because "somewhere in this plan a size is wrong" is not
+        // something anybody can act on.
+        Assert.Contains("Op 1", problem.Message, StringComparison.Ordinal);
+        Assert.Contains("Invert", problem.Message, StringComparison.Ordinal);
+        Assert.Contains("256×256", problem.Message, StringComparison.Ordinal);
+        Assert.Contains("128×128", problem.Message, StringComparison.Ordinal);
+        Assert.Contains(nameof(TextureOp.ReadsOtherExtents), problem.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>And the op that means it says so, and is not cautioned about.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The property is on the op and not on the kernel, and <c>AutoLevels</c> is the
+    ///         evidence rather than the argument.</b> #801 proposed a list of six kernels "allowed to
+    ///         disagree", and this file's own tripwire argued the declaration had to be a property of
+    ///         the kernel because "every construction of a <c>Resample</c> rescales wherever it is
+    ///         built". Both are refuted by one op: <c>TextureAdjustKernels.AutoLevels</c>' final
+    ///         dispatch is <em>pointwise</em> over its source and reads the 1×1 image the reduction
+    ///         ended on as its second input. Neither is a rescaler, and no list of rescaling kernels
+    ///         built from #801's own six would hold it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What this does <em>not</em> buy is the guard on that source, and the remark here
+    ///         used to claim it did.</b> "A kernel-level flag silences the guard for its full-size
+    ///         source — the exact case the guard exists for" is true, and it is equally true of the
+    ///         per-op flag: <see cref="TexturePlan.Check" /> reads the property inside the loop over
+    ///         the inputs, so declaring it silences every one of them. Per-op is narrower than
+    ///         per-kernel — this op rather than this kernel in every plan — and on this op the
+    ///         narrowing is worth nothing.
+    ///         <see cref="A_declaration_that_names_no_inputs_covers_all_of_them" /> is that shape
+    ///         written down, and <a href="https://github.com/Rikarin/Vixen/issues/878">#878</a> is
+    ///         what to do about it if a second multi-input op ever needs it.
+    ///     </para>
+    ///     <para>
+    ///         <b>The plan below is that reduction's shape, built by hand</b>, because a hand-built
+    ///         plan is what #801 is about: M7, <c>TextureGraphPreview.Base</c> and most of this
+    ///         project build one, and the compiler is not the only thing that can.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_plan_whose_op_declares_the_size_difference_is_silent() {
+        TexturePlan plan = new() {
+            BaseWidth = 256,
+            BaseHeight = 256,
+            Images = [
+                new(TextureFormat.Rgba16Float),
+                new(TextureFormat.Rgba16Float, LevelOffset: 8),
+                new(TextureFormat.Rgba16Float)
+            ],
+            Ops = [
+                new() { Kernel = "Uniform", Output = 0 },
+                new() { Kernel = "MinMaxReduce", Output = 1, Inputs = [0], ReadsOtherExtents = true },
+
+                // Pointwise over image 0 and reading the 1×1 statistics beside it, which is what no
+                // list of rescaling *kernels* can describe.
+                new() { Kernel = "AutoLevels", Output = 2, Inputs = [0, 1], ReadsOtherExtents = true }
+            ],
+            Outputs = [2]
+        };
+
+        Assert.Equal(1, plan.SizeOf(1).X);
+        Assert.Empty(plan.Check());
+    }
+
+    /// <summary>
+    ///     ⚠ A bare declaration still covers every input, so an op written before the narrowing
+    ///     existed is where it was.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The back-compatibility half of
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/878">#878</a>, and it is the half that
+    ///         makes the narrowing safe to add.</b> The plan below is the <c>AutoLevels</c> shape with
+    ///         its <em>source</em> deliberately at level 1 — 128² read by an op writing 256², which is
+    ///         precisely what
+    ///         <see cref="A_pointwise_op_reading_a_smaller_image_than_it_writes_is_reported" />
+    ///         cautions about — and no caution comes, because the op declared
+    ///         <see cref="TextureOp.ReadsOtherExtents" /> and named no inputs. An empty
+    ///         <see cref="TextureOp.OtherExtentInputs" /> means every input and not none; the list can
+    ///         only ever put a guard back.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Only a hand-built plan can be in this state</b> —
+    ///         <c>TextureGraphCompiler.Rescale</c> resamples every image arriving at a node into that
+    ///         node's level before the op is built, so a compiled <c>AutoLevels</c> reads a source of
+    ///         its own extent by construction. That is the whole population this method serves, and
+    ///         <see cref="A_declared_op_is_still_measured_against_an_input_it_did_not_name" /> is what
+    ///         the same plan does once the op says which input it meant.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_declaration_that_names_no_inputs_covers_all_of_them() {
+        TexturePlan plan = new() {
+            BaseWidth = 256,
+            BaseHeight = 256,
+            Images = [
+                new(TextureFormat.Rgba16Float, LevelOffset: 1),
+                new(TextureFormat.Rgba16Float, LevelOffset: 8),
+                new(TextureFormat.Rgba16Float)
+            ],
+            Ops = [
+                new() { Kernel = "Uniform", Output = 0 },
+                new() { Kernel = "MinMaxReduce", Output = 1, Inputs = [0], ReadsOtherExtents = true },
+                new() { Kernel = "AutoLevels", Output = 2, Inputs = [0, 1], ReadsOtherExtents = true }
+            ],
+            Outputs = [2]
+        };
+
+        // The instrument: the source really is half the size of what the last op writes, so a silent
+        // Check below is the flag's doing and not two images that quietly came out the same.
+        Assert.Equal(128, plan.SizeOf(0).X);
+        Assert.Equal(256, plan.SizeOf(2).X);
+
+        Assert.Empty(plan.Check());
+    }
+
+    /// <summary>
+    ///     ⚠ And an op that names the input it meant is measured against the one it did not — which is
+    ///     <c>AutoLevels</c>' pointwise source.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/878">#878</a>, and it is the same
+    ///         plan as the method above with one line added to the last op.</b> The declaration is
+    ///         needed for the 1×1 statistics image and used to buy the 128² source its silence with
+    ///         it; naming image 1 puts image 0 back under the guard that exists for exactly it.
+    ///     </para>
+    ///     <para>
+    ///         <b>The pair is the assertion.</b> Either test alone is satisfiable by a <c>Check</c>
+    ///         that reports everything or one that reports nothing; only the two together say that the
+    ///         list is read and that it narrows rather than replaces.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_declared_op_is_still_measured_against_an_input_it_did_not_name() {
+        TexturePlan plan = new() {
+            BaseWidth = 256,
+            BaseHeight = 256,
+            Images = [
+                new(TextureFormat.Rgba16Float, LevelOffset: 1),
+                new(TextureFormat.Rgba16Float, LevelOffset: 8),
+                new(TextureFormat.Rgba16Float)
+            ],
+            Ops = [
+                new() { Kernel = "Uniform", Output = 0 },
+                new() { Kernel = "MinMaxReduce", Output = 1, Inputs = [0], ReadsOtherExtents = true },
+                new() {
+                    Kernel = "AutoLevels",
+                    Output = 2,
+                    Inputs = [0, 1],
+                    ReadsOtherExtents = true,
+                    OtherExtentInputs = [1]
+                }
+            ],
+            Outputs = [2]
+        };
+
+        var problem = Assert.Single(plan.Check());
+
+        Assert.Equal(TextureProblemSeverity.Warning, problem.Severity);
+        Assert.Contains("Op 2", problem.Message, StringComparison.Ordinal);
+        Assert.Contains("AutoLevels", problem.Message, StringComparison.Ordinal);
+
+        // ⚠ Image 0 and not image 1. The 1×1 is still silent — the narrowing is a narrowing and not
+        // a switch that turns the whole guard back on for the op.
+        Assert.Contains("image 0", problem.Message, StringComparison.Ordinal);
+        Assert.Contains("128×128", problem.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     ⚠ And the library's own <c>AutoLevels</c> builder is the caller, so the narrowing is not a
+    ///     mechanism nothing uses.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Built by <c>TextureAdjust.AutoLevels</c> rather than by hand</b>, which is the
+    ///         difference between "the plan type can express this" and "the one op in the library
+    ///         where it matters says it". The source is dropped to level 1 underneath the real
+    ///         builder's ops; the reduction chain reads its own rungs and stays silent, and the final
+    ///         pointwise dispatch is cautioned about its source.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A compiled graph cannot reach this, and that is not a reason for the guard to be
+    ///         absent.</b> <c>TextureGraphCompiler.Rescale</c> makes every input of a compiled op the
+    ///         output's own extent, so this is a report to whoever hand-builds a plan — M7,
+    ///         <c>TextureGraphPreview.Base</c> and most of this project.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_auto_levels_builder_leaves_its_pointwise_source_under_the_guard() {
+        // The ladder is the *source's*, which is 128² at level 1 of a 256² bake — so every rung's
+        // level offset is one below the level the reduction was computed for.
+        var levels = TextureAdjust.ReductionLevels(128, 128);
+        var images = ImmutableArray.CreateBuilder<TextureImage>();
+        var scratch = ImmutableArray.CreateBuilder<int>(levels.Length);
+
+        images.Add(new(TextureFormat.Rgba16Float, LevelOffset: 1));
+
+        foreach (var offset in levels) {
+            scratch.Add(images.Count);
+            images.Add(new(TextureFormat.Rgba16Float, LevelOffset: 1 + offset));
+        }
+
+        // And the map writes at the bake's own level, which is what makes it a 256² op over a 128²
+        // source: the mismatch the guard is for.
+        var written = images.Count;
+
+        images.Add(new(TextureFormat.Rgba16Float));
+
+        var plan = new TexturePlan {
+            BaseWidth = 256,
+            BaseHeight = 256,
+            Images = images.ToImmutable(),
+            Ops = [
+                new() { Kernel = "Uniform", Output = 0 },
+                .. TextureAdjust.AutoLevels(written, 0, scratch.ToImmutable(), 128, 128)
+            ],
+            Outputs = [written]
+        };
+
+        // The instrument: the builder's own reduction rungs are read at their own extents and none of
+        // them is cautioned about, so the single problem below is the source and not the ladder.
+        var problem = Assert.Single(plan.Check());
+
+        Assert.Contains("AutoLevels", problem.Message, StringComparison.Ordinal);
+        Assert.Contains("image 0", problem.Message, StringComparison.Ordinal);
+    }
+}
+
+/// <summary>An RGBA8 transpose, as a <see cref="ITextureCpuOperation" />.</summary>
+/// <remarks>
+///     <para>
+///         ⚠ <b>Not a node, and not a CPU twin of one.</b> Doc 48 § D3 bans a C# implementation of
+///         anything a kernel does, and nothing in <c>Shaders/</c> transposes. What is being tested is
+///         the <em>seam</em> — that a plan can hold an op that is not a dispatch and that the
+///         evaluator reads back, computes and uploads around it — so the operation wants to be
+///         something no kernel in the chain could have produced by accident. A transpose is that: it
+///         moves every texel, it is exactly invertible, and it commutes with the inverts either side
+///         of it, so the whole chain has a closed form.
+///     </para>
+///     <para>
+///         § 4.6's <c>Normal → Height</c> is what the seam exists for and a later slice writes it.
+///     </para>
+/// </remarks>
+sealed class TransposeRgba8 : ITextureCpuOperation {
+    /// <inheritdoc />
+    public string Name => "Transpose";
+
+    /// <inheritdoc />
+    public void Run(in TextureCpuInvocation invocation) {
+        var source = invocation.Inputs[0];
+        var target = invocation.Output;
+
+        Assert.Equal(TextureFormat.Rgba8, source.Format);
+        Assert.Equal(TextureFormat.Rgba8, target.Format);
+        Assert.Equal(source.Width, target.Height);
+        Assert.Equal(source.Height, target.Width);
+
+        for (var y = 0; y < target.Height; y++) {
+            for (var x = 0; x < target.Width; x++) {
+                var from = ((x * source.Width) + y) * 4;
+                var to = ((y * target.Width) + x) * 4;
+
+                source.Bytes.AsSpan(from, 4).CopyTo(target.Bytes.AsSpan(to, 4));
+            }
+        }
+    }
+}

@@ -3,8 +3,8 @@
 
 using System.Collections.Immutable;
 using Vixen.Editor.NodeGraph;
-using Vixen.Editor.TextureGraph;
 using Vixen.NodeGraph;
+using Vixen.TextureGraph;
 
 namespace Vixen.Editor.Texturing.Layers;
 

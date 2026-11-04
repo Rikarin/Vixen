@@ -1,0 +1,717 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+using System.Runtime.CompilerServices;
+using Vixen.Core.Yaml;
+using Vixen.NodeGraph;
+using Vixen.TextureGraph;
+using Xunit;
+
+namespace Tests;
+
+/// <summary>
+///     Doc 48 § D5's other half: the compounds are content, and this is the folder that makes that
+///     true.
+/// </summary>
+/// <remarks>
+///     <para>
+///         <b>The files are the subject, not a fixture.</b> Every case below reads the committed
+///         <c>.vxtexgraph</c>s out of the assembly's own manifest and compiles them through the real
+///         node library — so a node that renames a port, or a setting that stops taking a name a
+///         compound types into it, is red here rather than at the first artist who drops the
+///         generator into a graph. That is the whole reason a library of content needs a suite: a
+///         compound cannot be caught by the compiler, because it is not compiled.
+///     </para>
+///     <para>
+///         ⚠ <b>Ask what this file prints on the day the folder ships nothing.</b>
+///         <see cref="Every_shipped_compound_publishes_and_compiles" /> would then iterate an empty
+///         list and pass, which is the shape of a green suite over no work at all — so
+///         <see cref="The_shipped_library_is_the_folder_and_not_a_list" /> reconciles the folder with
+///         doc 48 § 4.9's ● marks per folder, and it is the first thing to read when something here
+///         goes quiet. ⚠ <b>That check was a single <c>4</c> for three batches while thirty-one
+///         compounds shipped</b>, which is the same defect one step along: an instrument that cannot
+///         fail, because the number it compares against stopped being re-derived when content landed.
+///     </para>
+///     <para>
+///         ⚠ <b>And it is a list of names now, not a pair of counts — because a count cannot see a
+///         mark that counts wrong</b>
+///         (<a href="https://github.com/Rikarin/Vixen/issues/1110">#1110</a>). The counting version
+///         carried a deletion floor beside § 4.9's ● count and ratcheted one against the other, which
+///         is honest arithmetic over a row of glyphs and says nothing about what a glyph <em>stands
+///         for</em>: § 4.9's Grunges row was one ● for eight files, and the table wrote 8 beside it by
+///         hand. A row that has to spell the file it expects cannot be filled in without discovering
+///         a mark's arity, which is how #1110's premise came to be refuted rather than implemented.
+///     </para>
+/// </remarks>
+public sealed class TextureCompoundLibraryTests : IDisposable {
+    readonly string root = Path.Combine(Path.GetTempPath(), "vixen-compounds-" + Guid.NewGuid().ToString("N")[..12]);
+
+    public void Dispose() {
+        try {
+            if (Directory.Exists(root)) {
+                Directory.Delete(root, recursive: true);
+            }
+        } catch (IOException) {
+            // A file the test wrote and the OS has not let go of. Not what is under test.
+        }
+    }
+
+    /// <summary>Where this file was compiled from, which is what the folder walk is anchored to.</summary>
+    static string Here([CallerFilePath] string path = "") => path;
+
+    static NodeTypeRegistry Registry() {
+        NodeTypeRegistry registry = new();
+
+        NodeTypes.Register(registry);
+
+        return registry;
+    }
+
+    /// <summary>A graph containing one published compound, wired into an output.</summary>
+    static (TextureGraphCompiler Compiler, NodeGraphModel Graph, GraphNode Used) Containing(
+        string path,
+        ISubGraphSource library,
+        NodeTypeRegistry registry
+    ) {
+        NodeGraphModel graph = new();
+        var used = graph.Add(path);
+        var output = graph.Add("Output/Output");
+
+        graph.Connect(new(used.Id, "Out"), new(output.Id, "Input"));
+
+        // Whatever image inputs the compound declares get a source, because an unwired one is a
+        // TG0002 about the containing graph rather than about the compound — and the point of these
+        // cases is what the compound does, not what a half-built canvas does.
+        foreach (var port in registry.Types.Single(type => type.Path == path).Ports) {
+            if (port is { Direction: PortDirection.Input, Kind: PortKind.Image }) {
+                graph.Connect(new(graph.Add("Source/Noise").Id, "Out"), new(used.Id, port.Name));
+            }
+        }
+
+        TextureGraphCompiler compiler = new(registry) {
+            BaseWidth = 128,
+            BaseHeight = 128,
+            Seed = 5,
+            SubGraphSource = library
+        };
+
+        return (compiler, graph, used);
+    }
+
+    /// <summary>The library is what the folder holds, and the folder holds these.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The names used to be spelled out here and that was the wrong shape.</b> The
+    ///         defect this catches is a compound that silently stopped shipping — a file moved out of
+    ///         <c>Compounds/</c>, an <c>EmbeddedResource</c> glob narrowed — and an equality against
+    ///         four literals catches that <em>and</em> goes red on the merge that adds a fifth
+    ///         compound, which is the exact-equality-over-a-shared-surface failure this workstream
+    ///         has now had six times. So the expectation is the folder: the files on disk, read at
+    ///         the path this file was compiled from, against the manifest
+    ///         <see cref="TextureCompoundLibrary.Shipped" /> is built out of. A slice that ships a
+    ///         fifth compound is covered by this without editing it; a file that stops being
+    ///         embedded still fails.
+    ///     </para>
+    ///     <para>
+    ///         <b>The two sides really are independent.</b> <c>Shipped</c> comes from
+    ///         <c>GetManifestResourceNames</c> — what the build put <em>into the assembly</em> — and
+    ///         the expectation is the directory listing. That is what makes narrowing the glob
+    ///         visible; a test that derived both from the same place would agree with itself.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Anchored at this file's compiled path, never walked up to the repository
+    ///         root.</b> <c>.claude/worktrees</c> holds a whole checkout per agent, so a walk from
+    ///         the root would be comparing other people's copies of these compounds with this
+    ///         assembly's.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_shipped_library_is_the_folder_and_not_a_list() {
+        var folder = Path.Combine(
+            Path.GetDirectoryName(Path.GetDirectoryName(Here())!)!,
+            "Vixen.TextureGraph",
+            "Compounds"
+        );
+
+        Assert.True(
+            Directory.Exists(folder),
+            $"'{folder}' does not exist, so the expectation below is empty and this compares nothing with "
+            + "nothing. It is anchored at this file's compiled path; a run whose sources are not on the "
+            + "machine cannot take this case."
+        );
+
+        var onDisk = Directory
+            .GetFiles(folder, "*" + TextureCompoundLibrary.Extension, SearchOption.AllDirectories)
+            .Select(path => Path.ChangeExtension(Path.GetRelativePath(folder, path), null)
+                .Replace(Path.DirectorySeparatorChar, '/'))
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+
+        // The instrument: an empty folder listing would make the equality below a claim that the
+        // assembly ships nothing, which is what a vacuous pass looks like here.
+        //
+        // ⚠ **A single whole-library floor is the wrong shape and this file carried the wrong one for
+        // three batches.** It read `>= 4` while thirty-one compounds shipped, so twenty-seven of them
+        // could have stopped being embedded and every assertion in this class would still have been
+        // green — the stale-floor twin of the empty-loop failure the paragraph above warns about. A
+        // floor that is not re-derived when content lands measures the batch that wrote it and
+        // nothing since.
+        //
+        // So the check is **per folder**, and — since #1110 — it is a list of **names** rather than
+        // a pair of counts.
+        //
+        // ⚠ **A count cannot see a mark that counts wrong, and that is the one shape the counting
+        // version was blind to.** It carried `(Least, Marked)` per folder: a deletion floor and
+        // § 4.9's ● count, ratcheted so that the last ● of a row could not land without the floor
+        // following it. Both numbers were transcribed by hand from a row of glyphs, and a glyph in
+        // that row does not reliably stand for one compound — *Grunges* is "a family of eight ●",
+        // one glyph for eight files, and the table simply wrote 8 beside it. So the moment a mark's
+        // arity is the thing in doubt, a count is a transcription of a transcription: #1110 was
+        // filed believing *Delight / Equalize ●* was one glyph over two compounds with one missing,
+        // and Utility read 8 against 8 and stayed green either way. A count is green whether the
+        // mark means one thing or two.
+        //
+        // **Names are what the counts could not be.** A row of this table has to spell the file it
+        // expects, so a mark standing for two compounds cannot be entered without writing both names
+        // down and discovering whether both exist — which is how #1110 was answered: doc 40 § D2's
+        // *Delight / equalize* names one technique twice, exactly as § A.5's neighbouring
+        // *Make-it-tile / smart auto-tile* names one shipped compound twice, and `Utility/Equalize`
+        // is it. A slash in those rows is an alias and not an enumeration, and no arithmetic over
+        // glyphs could have told the two apart.
+        //
+        // Both directions are asserted, and each is a different failure:
+        //
+        //   * A marked name with **no file** is content that stopped shipping — moved out of
+        //     `Compounds/`, or a glob narrowed — or a mark naming something that was never authored.
+        //     This is the deletion floor, per file rather than per count.
+        //   * A shipped file **no row marks** is a compound that landed without § 4.9 following it,
+        //     which is what the old ratchet's second half bought and is kept: a ninth grunge lands
+        //     red asking the plan for its ●. ⚠ It goes red on a sibling's addition on purpose. That
+        //     is the same trade the counting version made once `shipped == Least` bound, and the
+        //     equality is honest here because the right-hand side is *the plan's list*, not a second
+        //     copy of the folder.
+        //
+        // ⚠ A marked compound may still be refused for a reason — `Surface/Metal Reflectance` was,
+        // on #1096, for want of an atomic node mapping a metal name to an F0, until 2026-09-09. A
+        // refusal comes out of the list below and into § 4.9's prose with its number, so that the
+        // one row where the plan and the folder legitimately disagree says why in both places.
+        var rows = new (string Folder, string[] Marked, string Why)[] {
+                ("Utility/", [
+                    "Contrast Luminosity", "Equalize", "Highpass", "Histogram Range", "Histogram Scan",
+                    "Histogram Select", "Make It Tile", "Safe Transform"
+                ], "§ 4.9's Utility row marks eight ●. ⚠ `Equalize` is the one written there as "
+                    + "'Delight / Equalize' — one compound under both of doc 40 § D2's names, not two"),
+                ("Patterns/", [
+                    "Brick", "Cells", "Panels", "Rivets", "Scratches", "Tile Random", "Wood Grain"
+                ], "§ 4.9's Patterns row marks these seven ● and no others"),
+                ("Grunges/", [
+                    "Grunge Clouds", "Grunge Concrete", "Grunge Damage", "Grunge Fibres", "Grunge Leaks",
+                    "Grunge Rust", "Grunge Scratches", "Grunge Smears"
+                ], "§ 4.9's Grunges row is the one that used to be a single ● 'family of eight' — it now "
+                    + "names them, so the glyph count and the compound count cannot drift apart again"),
+                ("Surface/", [
+                    "Bevel", "Curvature Smooth", "Height Blend", "Height to AO", "Metal Reflectance"
+                ], "§ 4.9's Surface row marks five ●, and Metal Reflectance stopped being refused on "
+                    + "2026-09-09 when #1096's atomic node landed"),
+                ("Generators/", [
+                    "Curvature Edge Wear", "Dirt", "Dust", "Grunge Rough Dirty", "Mask Editor",
+                    "Metal Edge Wear", "Position Gradient"
+                ], "§ 4.9's mask-generator row marks seven ●, every one of which reads § D12's maps by usage")
+        };
+
+        Assert.All(
+            rows,
+            expected => {
+                var shipped = onDisk
+                    .Where(path => path.StartsWith(expected.Folder, StringComparison.Ordinal))
+                    .Select(path => path[expected.Folder.Length..])
+                    .ToArray();
+
+                // The instrument, per row: a folder that walked to nothing would make both set
+                // differences below trivially one-sided, and `Missing` is what would then fire —
+                // but only because this says the walk found something at all.
+                Assert.NotEmpty(shipped);
+
+                var missing = expected.Marked
+                    .Except(shipped, StringComparer.Ordinal)
+                    .Order(StringComparer.Ordinal)
+                    .ToArray();
+
+                Assert.True(
+                    missing.Length == 0,
+                    $"§ 4.9 marks these under '{expected.Folder}' and '{folder}' holds no file for them: "
+                    + $"{string.Join(", ", missing)}. {expected.Why}. Either the content stopped shipping, or "
+                    + "the mark names a compound nobody authored — and a count could not tell you which."
+                );
+
+                var unmarked = shipped
+                    .Except(expected.Marked, StringComparer.Ordinal)
+                    .Order(StringComparer.Ordinal)
+                    .ToArray();
+
+                Assert.True(
+                    unmarked.Length == 0,
+                    $"'{expected.Folder}' ships these and no ● in § 4.9 names them: "
+                    + $"{string.Join(", ", unmarked)}. A compound that lands without the plan following it "
+                    + "leaves the row above unable to say what may not be deleted. Add the ● to doc 48 § 4.9 "
+                    + "and the name here."
+                );
+            }
+        );
+
+        // ⚠ The rows above are five hard-coded prefixes, so a compound shipped anywhere else is
+        // checked by nothing — and the comment above, `Compounds/README.md` and doc 48 § 4.9 all say
+        // this class refuses a shipped file no ● names. A sixth folder, or a file at the root, would
+        // have shipped with every assertion here green: the per-folder loop never sees it, and the
+        // manifest comparison below only compares the disk with itself.
+        Assert.All(
+            onDisk,
+            path => Assert.True(
+                Array.Exists(rows, row => path.StartsWith(row.Folder, StringComparison.Ordinal)),
+                $"'{path}' is in no folder this class has a row for, so nothing checks it against § 4.9. "
+                + "Add a row — the ● count, the shipped floor and the names — or move the file."
+            )
+        );
+
+        Assert.Equal(onDisk, TextureCompoundLibrary.Shipped);
+
+        // ⚠ A manifest resource name has no way to tell a folder separator from a dot somebody put
+        // in a file name, so a compound called `Grunge v2.vxtexgraph` would publish under a path with
+        // a phantom folder in it — silently, and only visible as a node missing from a menu.
+        Assert.All(TextureCompoundLibrary.Shipped, path => Assert.DoesNotContain('.', path));
+    }
+
+    /// <summary>
+    ///     Every shipped compound publishes with no complaint and compiles inside another graph.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>And it is <em>not</em> what makes a folder of content safe to ship, which this file
+    ///     claimed until the claim was sabotage-tested.</b> Renaming <c>Colour/Levels</c>'s
+    ///     <c>Input Black</c> port leaves every case here green: a stale key in
+    ///     <see cref="GraphNode.Values" /> is not an error — the dictionary is free — and
+    ///     <c>NodeGraphDocument.Load</c> drops an edge to a port that has gone without saying so
+    ///     loudly enough to reach a compilation. The shipped generator then computes something else,
+    ///     silently, in every graph that contains it.
+    ///     <see cref="Every_port_a_shipped_compound_names_is_a_port_that_exists" /> is the case that
+    ///     goes red for that, and this one is the weaker claim it rests on: that the files parse,
+    ///     publish and produce a plan.
+    /// </remarks>
+    [Fact]
+    public void Every_shipped_compound_publishes_and_compiles() {
+        var registry = Registry();
+        var library = TextureCompoundLibrary.Publish(registry, folder: null, out var problems);
+
+        Assert.Equal([], problems.Select(problem => problem.Path + ": " + problem.Problem).ToArray());
+        Assert.NotEmpty(TextureCompoundLibrary.Shipped);
+
+        foreach (var path in TextureCompoundLibrary.Shipped) {
+            // It is a node type an author can find, with the ports the file declares.
+            Assert.Contains(registry.Types, type => type.Path == path);
+
+            var (compiler, graph, _) = Containing(path, library, registry);
+            var compilation = compiler.Compile(graph);
+
+            Assert.Empty(compilation.Diagnostics);
+
+            // And it produced something: an inlined compound that contributed no op would be a node
+            // that draws nothing, which every assertion above is true of.
+            Assert.NotEmpty(compilation.Value.Ops);
+            Assert.False(compiler.Inlining.IsEmpty);
+        }
+
+        // ⚠ And one of them contains another, which is the property that makes a library a library
+        // rather than a folder: `Generators/Curvature Edge Wear` reaches its threshold through
+        // `Utility/Histogram Scan`. Two levels of inlining, from files, with no code between them.
+        var (nested, wear, _) = Containing("Generators/Curvature Edge Wear", library, registry);
+
+        Assert.Empty(nested.Compile(wear).Diagnostics);
+        Assert.Contains(nested.Inlining.Origins, origin => origin.Value.Type == "Utility/Histogram Scan");
+    }
+
+    /// <summary>
+    ///     ⚠ Every port, setting and node type a shipped compound names still exists.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The one assertion in this file that a rename cannot walk past, and it exists
+    ///         because the obvious one could.</b> Sabotage: rename <c>Colour/Levels</c>'s
+    ///         <c>Input Black</c> to <c>Black Point</c>. Every other case here stays green —
+    ///         <c>Dirt</c>'s <c>0.48</c> is now a key in a free dictionary that nothing reads, so the
+    ///         generator publishes, compiles and produces a plan whose levels are the node's defaults
+    ///         instead of the ones an author chose. A picture, drawn without a word, which is this
+    ///         repository's commonest shape of wrong.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>So the check is against the <em>file</em> and not against the published node
+    ///         type.</b> Publishing has already thrown the difference away: a graph model holds
+    ///         whatever values were written down and a node type holds the ports that exist, and
+    ///         nothing between them compares the two. That is the same reason
+    ///         <c>TextureNodeLibraryTests</c> reads the embedded <c>.rvn</c>s rather than the
+    ///         <c>All</c> declarations — a roll call taken over the thing that was already filtered
+    ///         cannot see what the filter dropped.
+    ///     </para>
+    ///     <para>
+    ///         The boundary nodes are the exception, and a stated one: <c>Sub-graph/Input</c> and
+    ///         <c>Sub-graph/Output</c> have no registered type at all — their ports are the graph's
+    ///         own <c>interface</c>, synthesised per graph — so they are checked against that
+    ///         instead, which is the same question asked of the right list.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Every_port_a_shipped_compound_names_is_a_port_that_exists() {
+        // ⚠ The registry the compounds are checked against is the one an author has, which is the one
+        // the compounds themselves are published into: `Generators/Curvature Edge Wear` contains
+        // `Utility/Histogram Scan`, so a roll call over the generated node types alone would call a
+        // compound-inside-a-compound an undeclared type. A library grows by nesting, and this is the
+        // only case in the file that would have noticed.
+        var registry = Registry();
+
+        TextureCompoundLibrary.Publish(registry, folder: null, out _);
+
+        var wrong = new List<string>();
+
+        Assert.NotEmpty(TextureCompoundLibrary.Shipped);
+
+        foreach (var path in TextureCompoundLibrary.Shipped) {
+            var text = TextureCompoundLibrary.Source(path);
+
+            Assert.NotNull(text);
+
+            var asset = YamlSerializer.Parse<NodeGraphAsset>(text);
+            var boundary = asset.Interface.Select(port => port.Name).ToHashSet(StringComparer.Ordinal);
+            var types = asset.Nodes.ToDictionary(node => node.Id, node => node.Type);
+
+            bool Has(int id, string port) {
+                var type = types.GetValueOrDefault(id, "");
+
+                // A boundary node's ports are the graph's interface, whichever way round they face
+                // from inside — an `Out` on the graph is an input of the Output node.
+                if (SubGraphs.IsBoundary(type)) {
+                    return boundary.Contains(port);
+                }
+
+                return registry.Types.FirstOrDefault(candidate => candidate.Path == type) is { } definition
+                    && (definition.Ports.Any(declared => declared.Name == port)
+                        || definition.Setting(port) is not null);
+            }
+
+            foreach (var node in asset.Nodes) {
+                if (!SubGraphs.IsBoundary(node.Type)
+                    && registry.Types.All(candidate => candidate.Path != node.Type)) {
+                    wrong.Add($"{path}: node {node.Id} is a '{node.Type}', which nothing declares.");
+
+                    continue;
+                }
+
+                foreach (var port in node.Values.Keys.Concat(node.Texts.Keys)) {
+                    // An expression is stored under a marked key naming the port it drives.
+                    var named = TextureGraphExpressions.IsExpression(port, out var driven) ? driven : port;
+
+                    if (!Has(node.Id, named)) {
+                        wrong.Add($"{path}: node {node.Id} ('{node.Type}') sets '{named}', which it has not got.");
+                    }
+                }
+            }
+
+            foreach (var edge in asset.Edges) {
+                if (!Has(edge.FromNode, edge.FromPort)) {
+                    wrong.Add($"{path}: an edge leaves node {edge.FromNode}'s '{edge.FromPort}', which is not a port.");
+                }
+
+                if (!Has(edge.ToNode, edge.ToPort)) {
+                    wrong.Add($"{path}: an edge arrives at node {edge.ToNode}'s '{edge.ToPort}', which is not a port.");
+                }
+            }
+        }
+
+        Assert.Equal([], wrong.Order(StringComparer.Ordinal).ToArray());
+    }
+
+    /// <summary>
+    ///     ⚠ Every shipped generator reads a mesh map by usage, and names no mesh.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Doc 48's own finding, as an assertion: Painter's smartness is entirely in the
+    ///         bakes.</b> Dirt is a curvature multiplied by an occlusion and edge wear is a curvature
+    ///         with a scan on it — so a generator that read no mesh map would be a flat colour with a
+    ///         generator's name on it, which is exactly the state
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/702">#702</a> found the whole read
+    ///         side in.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the second half is what makes one compound work on every mesh:</b> every
+    ///         external a generator asks for is a <c>meshmap:</c> reference, so the file names no
+    ///         asset, no path and no mesh at all. A generator that had acquired a hard-wired bitmap
+    ///         would compile, bake and look right on the machine that authored it.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Every_shipped_generator_reads_a_mesh_map_and_names_no_mesh() {
+        var registry = Registry();
+        var library = TextureCompoundLibrary.Publish(registry, folder: null, out _);
+
+        var generators = TextureCompoundLibrary.Shipped
+            .Where(path => path.StartsWith("Generators/", StringComparison.Ordinal))
+            .ToArray();
+
+        Assert.NotEmpty(generators);
+
+        foreach (var path in generators) {
+            var (compiler, graph, _) = Containing(path, library, registry);
+
+            Assert.Empty(compiler.Compile(graph).Diagnostics);
+            Assert.NotEmpty(compiler.Externals);
+
+            Assert.All(
+                compiler.Externals,
+                external => Assert.StartsWith("meshmap:", external.Asset, StringComparison.Ordinal)
+            );
+        }
+    }
+
+    /// <summary>
+    ///     A compound's scalar interface ports are knobs a containing graph turns.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>This used to end "and its parameters are not", and that half is now false.</b>
+    ///         <c>SubGraphs.Flatten</c> replaces the sub-graph node with the graph's contents and the
+    ///         node — which is where a parameter override is stored — is then gone, so an expression
+    ///         inside a published graph folded against that graph's <em>declared</em> default and
+    ///         turning the knob changed nothing.
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/742">#742</a> closed that:
+    ///         <c>NodeGraphInlining</c> carries the sub-graph node's settings per expansion, and
+    ///         <see cref="An_expression_in_a_shipped_compound_folds_and_an_override_moves_it" /> is
+    ///         the case that reads them through a file this assembly ships. Both kinds of knob work,
+    ///         and which one a compound uses is now a design decision rather than the only thing
+    ///         that functioned.
+    ///     </para>
+    ///     <para>
+    ///         <b>A port is still the cheaper of the two and is what a compound reaches for first.</b>
+    ///         It survives inlining because it is an edge, it costs no Raven compilation, and it can
+    ///         be <em>driven</em> by another node — which a parameter, being a number an author
+    ///         types, cannot. A parameter earns its place exactly where arithmetic does:
+    ///         <c>Utility/Contrast Luminosity</c> turns one <c>contrast</c> into an input range's two
+    ///         ends, and there is no node in the atomic set that could have computed that from a
+    ///         port.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_compounds_scalar_port_is_a_knob_a_containing_graph_turns() {
+        var registry = Registry();
+        var library = TextureCompoundLibrary.Publish(registry, folder: null, out _);
+
+        NodeGraphModel graph = new();
+        var noise = graph.Add("Source/Noise");
+        var scan = graph.Add("Utility/Histogram Scan");
+        var output = graph.Add("Output/Output");
+
+        graph.Connect(new(noise.Id, "Out"), new(scan.Id, "Input"));
+        graph.Connect(new(scan.Id, "Out"), new(output.Id, "Input"));
+        scan.SetValue("Black", 0.25f);
+
+        TextureGraphCompiler compiler = new(registry) {
+            BaseWidth = 64,
+            BaseHeight = 64,
+            SubGraphSource = library
+        };
+
+        var compilation = compiler.Compile(graph);
+
+        Assert.Empty(compilation.Diagnostics);
+
+        var levels = Assert.Single(compilation.Value.Ops, op => op.Kernel == "Levels");
+
+        // The number typed into the containing graph's node reached the inlined Levels — which is
+        // the whole of what "a published graph is a node with knobs" has to mean.
+        Assert.Equal(0.25f, Assert.Single(levels.Parameters, parameter => parameter.Name == "inputBlack").Value);
+
+        // And the port's own default is what an untouched knob is worth, rather than the Levels
+        // node's — so the compound decides its own defaults, which is what makes it a node.
+        Assert.Equal(0.55f, Assert.Single(levels.Parameters, parameter => parameter.Name == "inputWhite").Value);
+    }
+
+    /// <summary>
+    ///     ⚠ A shipped compound's expression folds against its declared parameters, and an override
+    ///     on the containing node moves the number the kernel is dispatched with.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/742">#742</a>'s fix, read through
+    ///         a file this assembly ships.</b> Its closing note says plainly that "none of the four
+    ///         shipped compounds declares <c>parameters</c>, so this bug was not live in shipped
+    ///         content" — which also means the fix had no shipped content standing on it.
+    ///         <c>Utility/Histogram Select</c> now does: its band's two ends are
+    ///         <c>position - range</c> and <c>position</c>, folded by the real Raven compiler, and
+    ///         there is no node in the atomic set that could have computed them from a port.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The declared-default half alone would be a weak case and the override half is
+    ///         what carries this.</b> Ask what these assertions say if expressions did nothing at
+    ///         all: a <c>Levels</c> whose expressions were dropped falls back to the node's own
+    ///         defaults of 0 and 1 — so the pair asserted first, 0.25 and 0.5, is already a claim
+    ///         that folding happened, and the second block is a claim that the folding read the
+    ///         containing graph rather than the file. Neither number is a <c>Levels</c> default and
+    ///         neither is written anywhere in the compound as a literal.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void An_expression_in_a_shipped_compound_folds_and_an_override_moves_it() {
+        var registry = Registry();
+        var library = TextureCompoundLibrary.Publish(registry, folder: null, out _);
+
+        NodeGraphModel graph = new();
+        var noise = graph.Add("Source/Noise");
+        var select = graph.Add("Utility/Histogram Select");
+        var output = graph.Add("Output/Output");
+
+        graph.Connect(new(noise.Id, "Out"), new(select.Id, "Input"));
+        graph.Connect(new(select.Id, "Out"), new(output.Id, "Input"));
+
+        TextureGraphCompiler compiler = new(registry) {
+            BaseWidth = 64,
+            BaseHeight = 64,
+            SubGraphSource = library
+        };
+
+        // position 0.5 and range 0.25 as the file declares them: the rising edge runs 0.25 → 0.5.
+        Assert.Contains(Curves(compiler.Compile(graph)), curve => curve == (0.25f, 0.5f));
+
+        select.SetText("range", "0.1");
+
+        var narrowed = Curves(compiler.Compile(graph));
+
+        Assert.Contains(narrowed, curve => curve == (0.4f, 0.5f));
+
+        // And the file's own number is gone rather than sitting beside the override, which is what a
+        // second expansion reading a stale table would look like.
+        Assert.DoesNotContain(narrowed, curve => curve == (0.25f, 0.5f));
+    }
+
+    /// <summary>Every Levels op's input range in a compilation, in op order.</summary>
+    /// <param name="compilation">The compilation.</param>
+    /// <returns>One pair per Levels op.</returns>
+    static (float Black, float White)[] Curves(NodeGraphCompilation<TexturePlan> compilation) {
+        Assert.Empty(compilation.Diagnostics);
+
+        var curves = compilation.Value.Ops
+            .Where(op => op.Kernel == "Levels")
+            .Select(op => (
+                Assert.Single(op.Parameters, parameter => parameter.Name == "inputBlack").Value,
+                Assert.Single(op.Parameters, parameter => parameter.Name == "inputWhite").Value
+            ))
+            .ToArray();
+
+        // The instrument: a `Contains` over an empty list is a failure rather than a pass, but the
+        // message it prints says nothing about why — and a compound that stopped emitting a Levels
+        // at all is a likelier cause than the number being wrong.
+        Assert.NotEmpty(curves);
+
+        return curves;
+    }
+
+    /// <summary>A project's own compounds sit in the same menu as the shipped ones.</summary>
+    [Fact]
+    public void A_projects_own_compound_is_published_beside_the_shipped_ones() {
+        var folder = Path.Combine(root, "Compounds", "Studio");
+
+        Directory.CreateDirectory(folder);
+        File.WriteAllText(Path.Combine(folder, "House Grunge.vxtexgraph"), Simple());
+
+        var registry = Registry();
+        var library = TextureCompoundLibrary.Publish(registry, Path.Combine(root, "Compounds"), out var problems);
+
+        Assert.Empty(problems);
+        Assert.Contains(registry.Types, type => type.Path == "Studio/House Grunge");
+
+        // And it is usable, which is a stronger claim than being in the menu.
+        var (compiler, graph, _) = Containing("Studio/House Grunge", library, registry);
+
+        Assert.Empty(compiler.Compile(graph).Diagnostics);
+
+        // The shipped ones are still there: a project folder adds to the library rather than
+        // replacing it.
+        Assert.All(
+            TextureCompoundLibrary.Shipped,
+            path => Assert.Contains(registry.Types, type => type.Path == path)
+        );
+    }
+
+    /// <summary>
+    ///     ⚠ A project compound that collides with a shipped one is refused rather than allowed to
+    ///     shadow it.
+    /// </summary>
+    /// <remarks>
+    ///     <b>Silently overriding is how a graph that worked yesterday starts computing something
+    ///     else.</b> An author's half-finished copy of <c>Generators/Dirt</c>, saved under the same
+    ///     name, would rebind every material in the project that reads it — with no edit to any of
+    ///     them and nothing anywhere saying so. The refusal names both files, because the author's
+    ///     next move is to rename one.
+    /// </remarks>
+    [Fact]
+    public void A_project_compound_may_not_shadow_a_shipped_one() {
+        var folder = Path.Combine(root, "Compounds", "Generators");
+
+        Directory.CreateDirectory(folder);
+        File.WriteAllText(Path.Combine(folder, "Dirt.vxtexgraph"), Simple());
+
+        var registry = Registry();
+
+        TextureCompoundLibrary.Publish(registry, Path.Combine(root, "Compounds"), out var problems);
+
+        var clash = Assert.Single(problems);
+
+        Assert.Equal("Generators/Dirt", clash.Path);
+        Assert.EndsWith("Dirt.vxtexgraph", clash.Source, StringComparison.Ordinal);
+        Assert.NotEmpty(clash.Problem);
+
+        // And the shipped one is what survived: the project's file did not replace it, so a graph
+        // containing Generators/Dirt still reads mesh maps.
+        var library = TextureCompoundLibrary.Publish(registry: new(), folder: null, out _);
+        var fresh = Registry();
+
+        library = TextureCompoundLibrary.Publish(fresh, Path.Combine(root, "Compounds"), out _);
+
+        var (compiler, graph, _) = Containing("Generators/Dirt", library, fresh);
+
+        Assert.Empty(compiler.Compile(graph).Diagnostics);
+        Assert.NotEmpty(compiler.Externals);
+    }
+
+    /// <summary>A file that will not read is reported and costs the rest of the library nothing.</summary>
+    [Fact]
+    public void An_unreadable_compound_is_reported_and_the_rest_still_publish() {
+        var folder = Path.Combine(root, "Compounds", "Studio");
+
+        Directory.CreateDirectory(folder);
+        File.WriteAllText(Path.Combine(folder, "Broken.vxtexgraph"), "nodes: [ this is not a graph");
+        File.WriteAllText(Path.Combine(folder, "Fine.vxtexgraph"), Simple());
+
+        var registry = Registry();
+
+        TextureCompoundLibrary.Publish(registry, Path.Combine(root, "Compounds"), out var problems);
+
+        Assert.Equal("Studio/Broken", Assert.Single(problems).Path);
+        Assert.Contains(registry.Types, type => type.Path == "Studio/Fine");
+        Assert.All(
+            TextureCompoundLibrary.Shipped,
+            path => Assert.Contains(registry.Types, type => type.Path == path)
+        );
+    }
+
+    /// <summary>The smallest publishable compound: a colour out through the boundary.</summary>
+    static string Simple() =>
+        """
+        version: 1
+        name: Simple
+        nodes:
+          - { id: 1, type: Source/Uniform, x: 0, y: 0 }
+          - { id: 2, type: Sub-graph/Output, x: 320, y: 0 }
+        edges:
+          - { fromNode: 1, fromPort: Out, toNode: 2, toPort: Out }
+        interface:
+          - { name: Out, direction: Output, kind: Image }
+        settings: { baseWidth: '512', baseHeight: '512', seed: '3' }
+        """;
+}

@@ -4,9 +4,9 @@
 using System.Collections.Immutable;
 using Vixen.Editor.NodeGraph;
 using Vixen.Editor.Plugin;
-using Vixen.Editor.TextureGraph;
 using Vixen.Graphics;
 using Vixen.NodeGraph;
+using Vixen.TextureGraph;
 
 namespace Vixen.Editor.Texturing;
 

@@ -401,7 +401,7 @@ control:
   `[Setting]` typed `string` getting a text box, which is
   [#730](https://github.com/Rikarin/Vixen/issues/730) and
   [#964](https://github.com/Rikarin/Vixen/issues/964).
-- ⚠ **And the obvious host cannot see this assembly.** `Vixen.Editor.TextureGraph` sets
+- ⚠ **And the obvious host cannot see this assembly.** `Vixen.TextureGraph` sets
   `DisableTransitiveProjectReferences` and names its closure deliberately — its own `.csproj`
   records the count — and `Vixen.Ui.Controls.Advanced` is not in it. Baking a `Gradient` there
   would widen a closure that was narrowed on purpose, which is a cost worth naming before anybody

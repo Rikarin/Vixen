@@ -3,8 +3,8 @@
 
 using Vixen.Core.Yaml;
 using Vixen.Editor.Assets.Materials;
-using Vixen.Editor.TextureGraph;
 using Vixen.Rendering.Materials;
+using Vixen.TextureGraph;
 using Xunit;
 
 namespace Vixen.Editor.Texturing.Tests;
