@@ -620,8 +620,9 @@ visible only as six kernels with no node.
 **⚠ An image the *caller* supplies** ([#732](https://github.com/Rikarin/Vixen/issues/732)).
 `TextureEmitter.External` allocates one and records what fills it on
 `TextureGraphCompiler.Externals`, in one of two shapes: a ramp or a curve table is baked here and now
-by `TextureRamp`, out of the editor's own gradient and Hermite evaluators, so the compiler carries the
-bytes; an imported image is a *reference*, because a compilation runs on every edit and must not open
+by `TextureRamp`, out of the editor's own gradient and Hermite evaluators or out of the setting itself
+when it is written inline (`ramp:…`, `curve:…`), so the compiler carries the bytes; an imported image
+is a *reference*, because a compilation runs on every edit and must not open
 an asset database. `TextureGraphExternals.Upload` puts the first kind on a device and hands the second
 kind back for a host to resolve. ⚠ That last sentence used to end *"has no in-tree consumer yet, so a
 graph containing a `Source/Bitmap` compiles and does not bake"*, and
