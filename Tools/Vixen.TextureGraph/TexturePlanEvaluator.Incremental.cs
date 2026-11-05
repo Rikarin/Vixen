@@ -243,6 +243,15 @@ public sealed partial class TexturePlanEvaluator {
             readable[image] = entry.Texture;
         }
 
+        // Whatever is left held only images nothing kept, and the next evaluation can have it now
+        // rather than when this bake is disposed.
+        for (var slot = 0; slot < rented.Length; slot++) {
+            if (rented[slot] is { } transient) {
+                Results.Return(transient);
+                rented[slot] = null;
+            }
+        }
+
         return readable;
     }
 

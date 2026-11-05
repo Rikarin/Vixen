@@ -17,6 +17,12 @@ namespace Vixen.TextureGraph;
 ///     megabytes per plan. An output image and an intermediate are the same kind of thing here — the
 ///     plan's <see cref="TexturePlan.Outputs" /> is what stops the pool from handing an output's slot
 ///     to a later op, and nothing about the handle says which it was.
+///     <para>
+///         ⚠ <b>Except from <see cref="TexturePlanEvaluator.EvaluateIncremental" />, where it owns
+///         nothing.</b> Those textures are the result cache's, and this holds a claim on them until it
+///         is disposed: reading stays valid through any later evaluation, and only what the plan
+///         names in its outputs and what fitted the budget can be read at all.
+///     </para>
 /// </remarks>
 public sealed class TextureBake : IDisposable {
     readonly IGraphicsDevice device;
