@@ -1137,7 +1137,7 @@ Deliberately open, and named so the first project that needs one does not fork.
 
   ⚠ **But "owed" is the wrong shape for it, and saying so is what stops somebody writing the wrong
   type.** The row is not a settings type nothing can describe: `ReflectedDescriptor.For`
-  (`Editor/Vixen.Editor.Inspector/ReflectedDescriptor.cs:180`) falls back from `InspectorRegistry` to
+  (`Editor/Vixen.Editor.Inspector/ReflectedDescriptor.cs:181`) falls back from `InspectorRegistry` to
   a descriptor built out of `TypeRegistry`, which is exactly "described by `Vixen.Core.Reflection`"
   — the phrase `IEditProvider`'s own remarks use for this case. What is missing is one step earlier:
   `InspectorEditProvider.MembersOf` reads `InspectorRegistry.Find(type)` **only**, so a type the
@@ -1153,8 +1153,8 @@ Deliberately open, and named so the first project that needs one does not fork.
   be two implementations of the same thing; today they are two subsystems". Measured: they are
   already two implementations of one interface, and there are four —
   `BlockoutMode` (`Editor/Vixen.Editor.Blockout/BlockoutMode.cs:44`), `TerrainMode`
-  (`Editor/Vixen.Editor.Terrain/TerrainMode.cs:40`), `FoliageMode`
-  (`…/FoliageMode.cs:37`) and `WaterMode` (`Editor/Vixen.Editor.Water/WaterMode.cs:50`) are each
+  (`Editor/Vixen.Editor.Terrain/TerrainMode.cs:41`), `FoliageMode`
+  (`…/FoliageMode.cs:38`) and `WaterMode` (`Editor/Vixen.Editor.Water/WaterMode.cs:50`) are each
   `IEditorMode, IViewportInput`.
 
   What a tool is handed is `IViewportInput.Pointer(SceneViewport pane, …)`, and the pane is the
@@ -1169,7 +1169,7 @@ Deliberately open, and named so the first project that needs one does not fork.
 
   ⚠ **The two things terrain surfaced were answered by naming them, not by a context.**
   `PluginContext.OnUpdate` (`Editor/Vixen.Editor.Plugin/PluginContext.cs:364`) and
-  `EditorDocument.Saved` (`Editor/Vixen.Editor.Core/EditorDocument.cs:199`) both exist. A tool
+  `EditorDocument.Saved` (`Editor/Vixen.Editor.Core/EditorDocument.cs:200`) both exist. A tool
   context would have been a third place to put them.
 
   **What is genuinely left is a different, smaller question**, and it is not this one: `SceneViewport`
@@ -1243,23 +1243,23 @@ row assumed turned out not to be true, and the third is a design decision.**
 
 ⚠ **There is no coalescing to preserve, and the fear that there was is the wrong worry.** A drag does
 not produce a stream of edits: `SceneViewport.EndManipulate` builds the `GizmoDrag` and asks the first
-target for one entry, once, on mouse-up, then `Execute`s it and `Seal`s — `SceneViewport.cs:1162-1192`.
+target for one entry, once, on mouse-up, then `Execute`s it and `Seal`s — `SceneViewport.cs:1163-1193`.
 `TransformTargetsCommand.TryMergeWith` returns false on purpose. The gizmo owns the live manipulation
 and the command owns the history, which is the division `CommandTransaction` makes for every drag.
 
 ⚠ **Multi-select is already the shape the pipeline would have to be bent into.** One command, N
 targets, each with its own `before` *and* `after` triple, named `"Move (3)"` —
-`TransformTargetsCommand.cs:59-72`. Through the pipeline a drag gives each target a *different*
+`TransformTargetsCommand.cs:60-73`. Through the pipeline a drag gives each target a *different*
 value, so `EditProperty.Write` (one command, N objects, one value) does not apply and `WriteEach`
-does; `WriteEach` executes one command **per target** (`EditProperty.cs:173`), and position, rotation
+does; `WriteEach` executes one command **per target** (`EditProperty.cs:175`), and position, rotation
 and scale are three members, so one entry becomes a `CompositeCommand` of 3N.
 
 ⚠ **And the blocker: the pipeline has no way to record a change that has already been applied.**
 `IEditMember.CreateSetCommand(targets, value, document)` takes no before-state — every implementation
-reads it at construction (`ReflectedDescriptor.cs:121`), and after a drag what it reads *is* the after
+reads it at construction (`ReflectedDescriptor.cs:122`), and after a drag what it reads *is* the after
 state, so the entry undoes to where the drag ended. Restoring the captured pose first does not defeat
 that either, because `EditProperty.Write` and `WriteEach` both skip a target whose current value
-already equals the one being written (`EditProperty.cs:117`, `:169`) — and
+already equals the one being written (`EditProperty.cs:119`, `:171`) — and
 `IGizmoTarget.Position`/`Rotation` read `WorldTransform` while their setters write `LocalTransform`
 (`Core/Vixen.Engine/Transforms/Transform.cs:68-69`, `:86-94`), so a read taken immediately after a
 restoring write still returns the value the drag left. Measured: the first shape records **nothing**
@@ -1271,7 +1271,7 @@ stack** — a silently discarded drag, and every existing test still green.
 | | What it is | What it costs |
 |---|---|---|
 | A recording entry point | An `IEditMember.CreateSetCommand` overload — or an `EditProperty.Record(before, after)` — that is *handed* the before state rather than reading it | Public API on `Vixen.Editor.Core` that every provider inherits and every implementation has to mean something by. It is also the honest fix: "the surface applied it and is telling you" is a real case the seam does not have |
-| Write per frame | Drop `TransformTargetsCommand`, have the gizmo's per-frame writes go through `EditProperty`, and let `SetValuesCommand.TryMergeWith` collapse them (`SetValuesCommand.cs:103-115`) | The design `TransformTargetsCommand`'s own remarks reject on cost: three hundred commands allocated and executed to move one crate, each re-applying a transform the gizmo already applied |
+| Write per frame | Drop `TransformTargetsCommand`, have the gizmo's per-frame writes go through `EditProperty`, and let `SetValuesCommand.TryMergeWith` collapse them (`SetValuesCommand.cs:104-116`) | The design `TransformTargetsCommand`'s own remarks reject on cost: three hundred commands allocated and executed to move one crate, each re-applying a transform the gizmo already applied |
 
 ⚠ **What this row must not become is "it was migrated".** The gizmo is on one *stack* and always has
 been — `OneEditPathTests` proves a drag and a field edit interleave correctly — and that is the

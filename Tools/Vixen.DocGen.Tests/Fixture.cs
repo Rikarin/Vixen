@@ -64,7 +64,7 @@ static class Fixture {
             public sealed class QuantizeAttribute(float min, float max, int bits) : System.Attribute;
         }
 
-        namespace Vixen.Editor.NodeGraph {
+        namespace Vixen.NodeGraph {
             public sealed class NodeAttribute(string path) : System.Attribute {
                 public string Path { get; } = path;
                 public string Summary { get; init; } = "";

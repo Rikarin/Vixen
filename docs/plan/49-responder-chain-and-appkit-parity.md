@@ -349,8 +349,8 @@ here, and each becomes cheap once Part 3 exists.
 `git grep "IUndo\|UndoManager"` returns zero hits repository-wide. Doc 46 § Part 1 row 4 stands.
 
 `CodeBuffer.cs:50` argues correctly that a text control must not own an undo stack, and its seam —
-`Changed` — has a real consumer in `Editor/Vixen.Editor.AssetEditors/Code/CodeDocument.cs:162`, which records
-each edit as a `TextEditCommand` (`:27,86-93,258`).
+`Changed` — has a real consumer in `Editor/Vixen.Editor.AssetEditors/Code/CodeDocument.cs:163`, which records
+each edit as a `TextEditCommand` (`:28,87-94,259`).
 The argument does not transfer to `TextField`, which has no stack and no seam, so **a dialog's text
 box has no ⌘Z in any Vixen application including the editor**.
 
