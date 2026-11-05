@@ -100,7 +100,7 @@ public sealed class TextureBake : IDisposable {
     /// <summary>How many of the plan's ops were answered from the result cache.</summary>
     public int Reused { get; internal set; }
 
-    /// <summary>How many ops rewrote part of the image they already held, rather than running whole.</summary>
+    /// <summary>How many ops ran over part of their image rather than all of it.</summary>
     public int Repaired { get; internal set; }
 
     /// <summary>What one image's texels are a function of, on an incremental evaluation.</summary>
@@ -1252,7 +1252,8 @@ public sealed partial class TexturePlanEvaluator : IDisposable {
         TextureViewHandle[] slotViews,
         Dictionary<int, TextureViewHandle> externals,
         IReadOnlyDictionary<int, TextureExternal> supplied,
-        IReadOnlyDictionary<int, Repair>? repairs = null
+        IReadOnlyDictionary<int, ImmutableArray<TextureRect>>? regions = null,
+        IReadOnlyDictionary<int, TextureResultCache.Entry>? inPlace = null
     ) {
         var state = new ResourceState[schedule.Allocations];
         List<BufferHandle> constants = [];
@@ -1262,8 +1263,8 @@ public sealed partial class TexturePlanEvaluator : IDisposable {
         Array.Fill(state, ResourceState.Undefined);
 
         // ⚠ What a repair keeps is the old picture, and a barrier from Undefined may discard it.
-        if (repairs is not null) {
-            foreach (var image in repairs.Keys) {
+        if (inPlace is not null) {
+            foreach (var image in inPlace.Keys) {
                 state[schedule.SlotOf[image]] = ResourceState.ShaderRead;
             }
         }
@@ -1318,8 +1319,8 @@ public sealed partial class TexturePlanEvaluator : IDisposable {
                 commands.BindPipeline(variant.Pipeline);
                 commands.BindDescriptorSet(DescriptorSetSlot.PerMaterial, sets[^1]);
 
-                if (repairs is not null && repairs.TryGetValue(image, out var repair)) {
-                    foreach (var rect in repair.Rects) {
+                if (regions is not null && regions.TryGetValue(image, out var rects)) {
+                    foreach (var rect in rects) {
                         commands.DispatchBase(
                             rect.X / GroupSize,
                             rect.Y / GroupSize,

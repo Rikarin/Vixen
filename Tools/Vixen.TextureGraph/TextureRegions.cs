@@ -39,7 +39,7 @@ public readonly record struct TextureTileWrite(TextureRect Rect, ReadOnlyMemory<
 /// <param name="Content">The digest of the whole image afterwards.</param>
 public sealed record TextureImageChange(int Image, IReadOnlyList<TextureTileWrite> Tiles, TextureResultKey Content);
 
-/// <summary>Which ops can be repaired, and how far from a texel each one reads.</summary>
+/// <summary>Which ops can run over part of an image, and how far from a texel each one reads.</summary>
 /// <remarks>
 ///     <para>
 ///         ⚠ <b>A list of kernels that were read, and never a guess.</b> Everything here computes one
@@ -66,8 +66,8 @@ public static class TextureLocality {
         }
 
         return op.Kernel switch {
-            "Blend" or "Mix" or "Levels" or "Hsl" or "Invert" or "Grayscale" or "Curve" or "ChannelShuffle"
-                or "GradientMap" => 0,
+            "Uniform" or "Blend" or "Mix" or "Levels" or "Hsl" or "Invert" or "Grayscale" or "Curve"
+                or "ChannelShuffle" or "GradientMap" => 0,
             "Bitmap" => 1,
             _ => null
         };
