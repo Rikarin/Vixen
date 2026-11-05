@@ -61,22 +61,24 @@ public class PaintIslandCostTests(ITestOutputHelper output) {
     ///     </para>
     /// </remarks>
     [Fact]
-    public void A_real_island_map_runs_every_dilation_round_and_a_flat_one_runs_one() {
+    public void A_real_island_map_runs_every_dilation_round_and_a_flat_one_runs_none() {
         var flat = Stamp(PaintCoverage.Everywhere(Size, Size));
         var islands = Stamp(Grid());
 
         // Over `Everywhere` every footprint texel is covered, so the weight count *is* the footprint
-        // scan and the remainder is one round of the grown rectangle, entire.
+        // scan, and with no edge anywhere there are no blocks for a dilation to look at.
         var footprint = flat.Weights;
-        var round = flat.Scanned - flat.Weights;
 
         Assert.True(footprint > 0, "the flat stamp evaluated no weights, so it measured nothing.");
-        Assert.True(round > footprint, "one dilation round is smaller than the footprint it grew from.");
+        Assert.Equal(footprint, flat.Scanned);
 
-        // ⚠ The claim, with nothing hard-coded: the same footprint, and `Gutter` rounds of the same
-        // grown rectangle instead of one.
-        Assert.Equal(footprint + round, flat.Scanned);
-        Assert.Equal(footprint + (Gutter * round), islands.Scanned);
+        // ⚠ The claim, with nothing hard-coded: real islands put every round to work, over the parts of
+        // the grown rectangle near an edge, and never more than all of it.
+        var grown = (2L * ((int)MathF.Ceiling(Radius) + Gutter)) * (2L * ((int)MathF.Ceiling(Radius) + Gutter));
+        var round = (islands.Scanned - footprint) / Gutter;
+
+        Assert.True(round > 0, "the island stamp scanned nothing, so the gutter is not being walked at all.");
+        Assert.InRange(islands.Scanned, footprint, footprint + (Gutter * (grown + (grown / 2))));
 
         // And the island run evaluates fewer weights, because half its footprint is not surface —
         // which is the half of the change that makes a stamp cheaper rather than dearer.
@@ -87,11 +89,8 @@ public class PaintIslandCostTests(ITestOutputHelper output) {
         );
 
         output.WriteLine(
-            $"radius {Radius}, gutter {Gutter}: footprint {footprint} texels, one dilation round {round}. "
-            + $"Flat: {flat.Scanned} scanned for {flat.Weights} weights ({(double)(flat.Scanned - flat.Weights) / flat.Weights:F1}× "
-            + $"the counted loop). Islands: {islands.Scanned} scanned for {islands.Weights} weights "
-            + $"({(double)(islands.Scanned - islands.Weights) / islands.Weights:F1}×). ⚠ The dilation scan is "
-            + $"{(double)(islands.Scanned - islands.Weights) / (flat.Scanned - flat.Weights):F1}× what PaintCostTests measured."
+            $"radius {Radius}, gutter {Gutter}: footprint {footprint} texels, a round {round}. "
+            + $"Islands: {islands.Scanned} scanned for {islands.Weights} weights."
         );
     }
 

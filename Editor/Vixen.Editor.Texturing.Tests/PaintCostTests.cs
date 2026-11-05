@@ -102,23 +102,13 @@ public class PaintCostTests(ITestOutputHelper output) {
             + $"{Gutter}; {scanned} is the footprint-plus-dilation bound."
         );
 
-        // ⚠ The instrument, and it is what says the new bound is not the old one renamed. Over
-        // `Everywhere` coverage every footprint texel is covered, so the weight count *is* the
-        // footprint loop exactly — and the remainder is the dilation scan, entire. It has to be the
-        // larger of the two, or the counter that missed it was not missing much.
+        // ⚠ The instrument. Over `Everywhere` coverage every footprint texel is covered, so the weight
+        // count *is* the footprint loop exactly and the remainder is the dilation scan. There is no edge
+        // here, so `PaintCoverage.MayBorder` leaves it nothing to look at, and over real islands
+        // `PaintIslandCostTests` holds the other half: that the gutter is still walked.
         var dilationScan = session.TexelsScanned - session.WeightsEvaluated;
 
-        Assert.True(
-            dilationScan > session.WeightsEvaluated,
-            $"the dilation scanned {dilationScan} texels against {session.WeightsEvaluated} weights. If the "
-            + "smaller loop is the bigger number, the gutter is not being walked at all."
-        );
-
-        output.WriteLine(
-            $"{session.WeightsEvaluated} weights and {dilationScan} dilation-scan texels over {Stamps} stamps "
-            + $"— the loop the old closed form did not count is {(double)dilationScan / session.WeightsEvaluated:F1}× "
-            + "the one it did."
-        );
+        Assert.Equal(0L, dilationScan);
 
         var perStamp = elapsed.TotalMilliseconds / Stamps;
 

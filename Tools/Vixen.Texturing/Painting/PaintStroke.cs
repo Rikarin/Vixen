@@ -475,54 +475,19 @@ public sealed class PaintStroke {
             // ⚠ What the round changed, and not what it painted — #926. See the break below.
             var shortened = false;
 
-            for (var y = grown.Y; y < grown.EndY; y++) {
-                for (var x = grown.X; x < grown.EndX; x++) {
-                    var index = (y * image.Width) + x;
+            var side = PaintCoverage.BlockSide;
 
-                    // ⚠ The loop exit criterion 8's counter used not to see at all, and the larger
-                    // of a stamp's two: one round over the grown footprint already exceeds the whole
-                    // footprint scan, and an atlas with real islands in it runs up to `gutter` of
-                    // them. #871.
-                    TexelsScanned++;
-
-                    if (coverage.IsCovered(index)) {
-                        continue;
+            for (var blockY = grown.Y / side; blockY <= (grown.EndY - 1) / side; blockY++) {
+                for (var blockX = grown.X / side; blockX <= (grown.EndX - 1) / side; blockX++) {
+                    if (coverage.MayBorder(blockX, blockY)) {
+                        shortened |= Round(
+                            Math.Max(grown.X, blockX * side),
+                            Math.Max(grown.Y, blockY * side),
+                            Math.Min(grown.EndX, (blockX + 1) * side),
+                            Math.Min(grown.EndY, (blockY + 1) * side),
+                            round
+                        );
                     }
-
-                    var best = Neighbour(x - 1, y, x >= 1, round);
-                    best = MathF.Max(best, Neighbour(x + 1, y, x + 1 < image.Width, round));
-                    best = MathF.Max(best, Neighbour(x, y - 1, y >= 1, round));
-                    best = MathF.Max(best, Neighbour(x, y + 1, y + 1 < image.Height, round));
-
-                    if (!(best > 0f)) {
-                        continue;
-                    }
-
-                    // ⚠ Here, before the early-out, and not in the commit loop below — #896. A
-                    // round that got a source has *proved* this texel is `round + 1` from coverage,
-                    // whether or not it also has colour to add; recording that only where the reach
-                    // rose left a texel an earlier stamp reached the long way round holding the long
-                    // distance, and for a uniform opaque stroke, where every stamp contributes reach
-                    // 1, the guard below fires on almost every one. `Neighbour` only lets a texel at
-                    // distance `r` seed round `r`, so the stale number breaks the chain and the
-                    // gutter stops short.
-                    //
-                    // Writing it mid-scan cannot bias this round: the value written is `round + 1`
-                    // and a neighbour is read at `== round`, so nothing filled here becomes a source
-                    // until the next round — which is the same "committed after the round finishes"
-                    // rule the reaches keep.
-                    var steps = round + 1;
-
-                    if (!distance.TryGet(index, out var known) || steps < known) {
-                        distance.Set(index, steps);
-                        shortened = true;
-                    }
-
-                    if (reached.TryGet(index, out var already) && already >= best) {
-                        continue;
-                    }
-
-                    pending.Add((index, best));
                 }
             }
 
@@ -555,6 +520,65 @@ public sealed class PaintStroke {
         }
 
         return written;
+    }
+
+    /// <summary>One round of a dilation over one block, whose candidates go in <see cref="pending" />.</summary>
+    /// <returns>Whether it proved a shorter path to any texel.</returns>
+    bool Round(int fromX, int fromY, int toX, int toY, int round) {
+        var shortened = false;
+
+        for (var y = fromY; y < toY; y++) {
+            for (var x = fromX; x < toX; x++) {
+                var index = (y * image.Width) + x;
+
+                // ⚠ The loop exit criterion 8's counter used not to see at all, and the larger
+                // of a stamp's two: one round over the grown footprint already exceeds the whole
+                // footprint scan, and an atlas with real islands in it runs up to `gutter` of
+                // them. #871.
+                TexelsScanned++;
+
+                if (coverage.IsCovered(index)) {
+                    continue;
+                }
+
+                var best = Neighbour(x - 1, y, x >= 1, round);
+                best = MathF.Max(best, Neighbour(x + 1, y, x + 1 < image.Width, round));
+                best = MathF.Max(best, Neighbour(x, y - 1, y >= 1, round));
+                best = MathF.Max(best, Neighbour(x, y + 1, y + 1 < image.Height, round));
+
+                if (!(best > 0f)) {
+                    continue;
+                }
+
+                // ⚠ Here, before the early-out, and not in the commit loop below — #896. A
+                // round that got a source has *proved* this texel is `round + 1` from coverage,
+                // whether or not it also has colour to add; recording that only where the reach
+                // rose left a texel an earlier stamp reached the long way round holding the long
+                // distance, and for a uniform opaque stroke, where every stamp contributes reach
+                // 1, the guard below fires on almost every one. `Neighbour` only lets a texel at
+                // distance `r` seed round `r`, so the stale number breaks the chain and the
+                // gutter stops short.
+                //
+                // Writing it mid-scan cannot bias this round: the value written is `round + 1`
+                // and a neighbour is read at `== round`, so nothing filled here becomes a source
+                // until the next round — which is the same "committed after the round finishes"
+                // rule the reaches keep.
+                var steps = round + 1;
+
+                if (!distance.TryGet(index, out var known) || steps < known) {
+                    distance.Set(index, steps);
+                    shortened = true;
+                }
+
+                if (reached.TryGet(index, out var already) && already >= best) {
+                    continue;
+                }
+
+                pending.Add((index, best));
+            }
+        }
+
+        return shortened;
     }
 
     /// <summary>What one neighbour contributes to a texel being filled in <paramref name="round" />.</summary>
