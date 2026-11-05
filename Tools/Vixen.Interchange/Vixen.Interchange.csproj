@@ -21,12 +21,18 @@
     </ItemGroup>
 
     <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Interchange.Tests" />
+    </ItemGroup>
+
+    <ItemGroup>
         <ProjectReference Include="..\..\Core\Vixen.Core\Vixen.Core.csproj" />
         <ProjectReference Include="..\..\Core\Vixen.Core.Imaging\Vixen.Core.Imaging.csproj" />
         <ProjectReference Include="..\..\Core\Vixen.Core.Mathematics\Vixen.Core.Mathematics.csproj" />
         <ProjectReference Include="..\..\Core\Vixen.Geometry\Vixen.Geometry.csproj" />
         <ProjectReference Include="..\..\Core\Vixen.Geometry.Uv\Vixen.Geometry.Uv.csproj" />
         <ProjectReference Include="..\..\Core\Vixen.Graphics\Vixen.Graphics.csproj" />
+        <!-- How Assimp is found: AssimpLoader, on the same search VulkanLoader uses. -->
+        <ProjectReference Include="..\..\Platform\Vixen.Platform.Native\Vixen.Platform.Native.csproj" />
     </ItemGroup>
 
 </Project>

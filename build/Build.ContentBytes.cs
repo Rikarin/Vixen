@@ -43,8 +43,8 @@ using static Nuke.Common.Tools.DotNet.DotNetTasks;
 ///     </para>
 ///     <para>
 ///         ⚠ <b>No models in the fixture, deliberately.</b> A `.obj` would be imported through
-///         Assimp, and the three legs install three different builds of it — `libassimp5` from apt on
-///         Ubuntu, Homebrew's on macOS, whatever Silk.NET resolves on Windows. Mesh bytes differing
+///         Assimp, and the legs open different builds of it: `Ultz.Native.Assimp` carries a 5 for
+///         Linux and macOS and a 6 for Windows. Mesh bytes differing
 ///         between two versions of a native library is a real thing to know, but it is not a
 ///         determinism defect in Vixen and it would make this leg red on day one. The fixture is text
 ///         through `RawImporter`, sized past `ChunkFormat.MinimumCompressedSize` so that the LZ4

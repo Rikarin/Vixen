@@ -18,8 +18,8 @@
 
     ⚠ **The same shape is already written down in `Directory.Packages.props` for Assimp**, and
     measured there: the loader does not look in `runtimes/` on Linux, and the same file placed
-    beside the assembly loads. That note calls copying it beside the binary "owed"; this is that,
-    for the library whose absence was turning a CI leg red.
+    beside the assembly loads. Assimp was later paid in Vixen.Interchange's AssimpLoader, at run time; this copy is the same
+    debt for the library whose absence was turning a CI leg red.
 
     Measured here the other way round, on macOS, which is the leg that works: delete
     `$(OutDir)runtimes/osx-arm64` and the suite reproduces the ubuntu run exactly — 6 skipped,

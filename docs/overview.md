@@ -854,7 +854,7 @@ plan of record is [`01-technology-decisions.md`](plan/01-technology-decisions.md
 | `Silk.NET.OpenXR` + `.Extensions.KHR` | 2.23.0 | ✅ | `Vixen.Xr.OpenXR` | Doc 14 lists VR/XR as a stretch; it landed early |
 | `Silk.NET.OpenAL` + `.Extensions.*` | 2.23.0 | ✅ | `Vixen.Audio.Backend.OpenAL` | |
 | `Silk.NET.OpenAL.Soft.Native` | 1.23.1 | ✅ | `Vixen.Audio.Backend.OpenAL` | OpenAL Soft's own version, unrelated to Silk.NET's |
-| `Silk.NET.Assimp` | 2.23.0 | ✅ | `Vixen.Editor.Assets` | Import-time only, never in a runtime assembly. ⚠ On Linux the shipped native in `runtimes/` is not found by the Silk loader — a distribution `libassimp5` is installed by CI instead |
+| `Silk.NET.Assimp` | 2.23.0 | ✅ | `Vixen.Editor.Assets` | Import-time only, never in a runtime assembly. ⚠ On Linux the shipped native in `runtimes/` is not found by the Silk loader, so `AssimpLoader` in `Vixen.Interchange` finds it through `Vixen.Platform.Native` instead, and nothing has to be installed |
 | `JoltPhysicsSharp` | 2.22.0 | ✅ | `Vixen.Physics` | No iOS slice — see §1.10 |
 | `StbImageSharp` | 2.30.15 | ✅ | `Vixen.Editor.Assets` | **Replaced ImageSharp** (ADR-015 — 4.0.0 fails the build without a purchased key). Public domain; gained Radiance HDR, lost `.exr`/`.tif`/`.webp` |
 | `ExCSS` | 4.3.2 | ✅ | `Vixen.Ui.Styling` | Spiked first. ⚠ Does not parse `@layer`; normalises through `var()` inconsistently; expands `transition`/`border-*` shorthands |
