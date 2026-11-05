@@ -131,6 +131,15 @@ public sealed class GraphNode {
 
 /// <summary>A box drawn round some nodes, with a title.</summary>
 public sealed class GraphGroup {
+    /// <summary>Its identity within the graph, shared with the graph's notes, or zero until it has one.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A place in <see cref="NodeGraphModel.Groups" /> is not an identity.</b> Two clients of
+    ///     one document address a group by something, and a position names whichever group has moved
+    ///     into it. <see cref="NodeGraphDocument.Save" /> gives a group that has none one, so a list a
+    ///     caller appended to directly is covered, and a number is never given twice to one model.
+    /// </remarks>
+    public int Id { get; set; }
+
     /// <summary>What the group is called.</summary>
     public string Title { get; set; } = "Group";
 
@@ -145,6 +154,9 @@ public sealed class GraphGroup {
 ///     the first time anyone opened the file in a different one.
 /// </remarks>
 public sealed class GraphComment {
+    /// <summary>Its identity within the graph, shared with the graph's groups. See <see cref="GraphGroup.Id" />.</summary>
+    public int Id { get; set; }
+
     /// <summary>What it says.</summary>
     public string Text { get; set; } = "";
 
@@ -247,6 +259,33 @@ public sealed class NodeGraphModel {
     ///     </para>
     /// </remarks>
     public List<PortDefinition> Interface { get; } = [];
+
+    /// <summary>The next number <see cref="IdentifyFurniture" /> hands out, which only ever rises.</summary>
+    int nextFurniture = 1;
+
+    /// <summary>Gives every group and note without an identity one, and takes a repeated one away.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The counter never falls</b>, so a group that an undo took away and a redo did not put
+    ///     back leaves its number unused for the life of this model. What a client still holds cannot
+    ///     name something new.
+    /// </remarks>
+    internal void IdentifyFurniture() {
+        HashSet<int> taken = [];
+
+        foreach (var id in Groups.Select(static group => group.Id).Concat(Comments.Select(static note => note.Id))) {
+            nextFurniture = Math.Max(nextFurniture, id + 1);
+        }
+
+        foreach (var group in Groups) {
+            group.Id = group.Id > 0 && taken.Add(group.Id) ? group.Id : nextFurniture++;
+            taken.Add(group.Id);
+        }
+
+        foreach (var comment in Comments) {
+            comment.Id = comment.Id > 0 && taken.Add(comment.Id) ? comment.Id : nextFurniture++;
+            taken.Add(comment.Id);
+        }
+    }
 
     /// <summary>What the graph itself is set to, rather than any node in it.</summary>
     /// <remarks>
