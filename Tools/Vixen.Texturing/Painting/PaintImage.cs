@@ -395,6 +395,40 @@ public sealed class PaintImage {
         }
     }
 
+    /// <summary>Copies a rectangle in, row by row.</summary>
+    /// <param name="rect">Which texels, inside the image.</param>
+    /// <param name="from">Their bytes, exactly the rectangle's size.</param>
+    /// <exception cref="ArgumentException">It is not the rectangle's size, or the rectangle leaves the image.</exception>
+    /// <remarks>The other half of <see cref="CopyRect" />, for a picture repaired a rectangle at a time.</remarks>
+    public void WriteRect(PaintRect rect, ReadOnlySpan<byte> from) {
+        var stride = rect.Width * BytesPerTexel;
+
+        if (rect.X < 0 || rect.Y < 0 || rect.EndX > Width || rect.EndY > Height || from.Length != stride * rect.Height) {
+            throw new ArgumentException(
+                $"{rect} of a {Width}×{Height} image is {stride * rect.Height} bytes, and {from.Length} were given.",
+                nameof(from)
+            );
+        }
+
+        for (var y = 0; y < rect.Height; y++) {
+            var row = from.Slice(y * stride, stride);
+            var x = rect.X;
+
+            while (x < rect.EndX) {
+                var tileX = x / TileSize;
+                var tileY = (rect.Y + y) / TileSize;
+                var box = TileRect(tileX, tileY);
+                var run = Math.Min(box.EndX, rect.EndX) - x;
+                var tile = Writable((tileY * tilesWide) + tileX);
+
+                row.Slice((x - rect.X) * BytesPerTexel, run * BytesPerTexel)
+                    .CopyTo(tile.Texels.AsSpan(((rect.Y + y - box.Y) * box.Width + (x - box.X)) * BytesPerTexel));
+
+                x += run;
+            }
+        }
+    }
+
     /// <summary>Gives every tile texels of its own now, so that threads can write different texels at once.</summary>
     /// <remarks>
     ///     ⚠ <b>The one way this type is safe to write from two threads.</b> A tile that appears on

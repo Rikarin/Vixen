@@ -103,6 +103,41 @@ public sealed class TextureBake : IDisposable {
     /// <summary>How many ops ran over part of their image rather than all of it.</summary>
     public int Repaired { get; internal set; }
 
+    /// <summary>Which rectangles of an output this evaluation rewrote, when it repaired it in place.</summary>
+    /// <param name="image">The output's index in <see cref="TexturePlan.Images" />.</param>
+    /// <returns>
+    ///     The rectangles, inside the image; or <see langword="null" /> when it was not repaired, so
+    ///     that a caller holding a copy has to compare <see cref="KeyOf" /> and may have to read it all.
+    /// </returns>
+    /// <remarks>
+    ///     ⚠ <b>What changed in the output, and a stroke's own rectangle does not say that.</b> A
+    ///     repair grows by each op's reach on the way down, and an op that cannot repair turns the
+    ///     image below it into a whole read. Only the evaluation knows which of the two it did.
+    /// </remarks>
+    public ImmutableArray<TextureRect>? RepairOf(int image) {
+        if (!Repairs.TryGetValue(image, out var rects)) {
+            return null;
+        }
+
+        var size = Plan.SizeOf(image);
+
+        // ⚠ Clipped here, because a repair is on whole workgroups and an image need not be. A
+        // dispatch clips itself; a copy past the edge of a texture does not.
+        return [
+            .. rects.Select(rect => new TextureRect(
+                    rect.X,
+                    rect.Y,
+                    Math.Min(rect.EndX, size.X) - rect.X,
+                    Math.Min(rect.EndY, size.Y) - rect.Y
+                )
+            )
+        ];
+    }
+
+    /// <summary>The outputs repaired in place, and over what.</summary>
+    internal IReadOnlyDictionary<int, ImmutableArray<TextureRect>> Repairs { get; init; } =
+        ImmutableDictionary<int, ImmutableArray<TextureRect>>.Empty;
+
     /// <summary>What one image's texels are a function of, on an incremental evaluation.</summary>
     /// <param name="image">Its index in <see cref="TexturePlan.Images" />.</param>
     /// <returns>Its key, or the default on a whole-plan evaluation.</returns>
@@ -209,6 +244,22 @@ public sealed class TextureBake : IDisposable {
     ///     difference smaller than a 255th.
     /// </remarks>
     internal byte[] ReadTexels(int image) => ReadTexels([image])[0];
+
+    /// <summary>Reads rectangles of one image back as eight-bit RGBA, one picture per rectangle.</summary>
+    /// <param name="image">The image.</param>
+    /// <param name="rects">What to read, each inside the image.</param>
+    /// <returns>Each rectangle as its own picture, encoded as <see cref="Read(int)" /> encodes the whole.</returns>
+    public IReadOnlyList<Vixen.Core.Imaging.Bitmap> Read(int image, IReadOnlyList<TextureRect> rects) {
+        var raw = ReadTexels(image, rects);
+        var pictures = new Vixen.Core.Imaging.Bitmap[raw.Count];
+        var format = Plan.Images[image].Format;
+
+        for (var index = 0; index < pictures.Length; index++) {
+            pictures[index] = TexturePixels.ToBitmap(raw[index], rects[index].Width, rects[index].Height, format);
+        }
+
+        return pictures;
+    }
 
     /// <summary>Reads rectangles of one image in its own format, one array per rectangle.</summary>
     /// <param name="image">The image.</param>
