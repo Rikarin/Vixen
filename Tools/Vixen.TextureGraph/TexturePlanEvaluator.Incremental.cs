@@ -122,19 +122,7 @@ public sealed partial class TexturePlanEvaluator {
         }
 
         var kept = Keep(plan, decision);
-        var schedule = TexturePoolSchedule.For(plan, decision.Runs, kept);
-
-        // ⚠ What is repaired keeps its picture, so its slot must be its alone: a transient that shared
-        // it would overwrite the texels the repair is keeping. An unfilled pool can do this, and
-        // starting over without regions is always correct.
-        if (decision.InPlace.Keys.Any(image => schedule.SlotOf.Count(slot => slot == schedule.SlotOf[image]) > 1)) {
-            foreach (var entry in decision.Reads.Values) {
-                Results.Unpin(entry);
-            }
-
-            return EvaluateIncremental(plan, externals);
-        }
-
+        var schedule = TexturePoolSchedule.For(plan, decision.Runs, kept, decision.InPlace);
         var rented = new TextureResultCache.Rented?[schedule.Allocations];
         long repairedBytes = 0;
 
