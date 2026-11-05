@@ -52,6 +52,12 @@ public static class ExternalTools {
     /// <summary>The Khronos <c>ktx</c> command line, if this machine has one.</summary>
     public static string? KtxTool { get; } = Locate("ktx");
 
+    /// <summary>FFmpeg, if this machine has one. It reads some of what <see cref="DdsCodec" /> writes.</summary>
+    public static string? FfmpegTool { get; } = Locate("ffmpeg");
+
+    /// <summary>macOS's <c>sips</c>, the command line over ImageIO, which reads DDS too.</summary>
+    public static string? SipsTool { get; } = Locate("sips");
+
     /// <summary>The compiled bcdec oracle, if it has been built.</summary>
     public static string? BcnOracle { get; } = LocateOracle(OracleVariable, "bcn-oracle");
 

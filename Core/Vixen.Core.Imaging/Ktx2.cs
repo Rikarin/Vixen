@@ -454,7 +454,7 @@ public static class Ktx2 {
             ? 1u
             : format switch {
                 PixelFormat.Rgba16Float or PixelFormat.Rg16Float or PixelFormat.R16Float
-                    or PixelFormat.Rgba16UNorm => 2u,
+                    or PixelFormat.Rgba16UNorm or PixelFormat.Rg16UNorm or PixelFormat.R16UNorm => 2u,
                 PixelFormat.Rgba32Float or PixelFormat.Rg32Float or PixelFormat.R32Float
                     or PixelFormat.Rgba32UInt or PixelFormat.R32UInt => 4u,
                 _ => 1u

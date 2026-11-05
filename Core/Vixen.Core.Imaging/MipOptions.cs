@@ -41,7 +41,8 @@ public readonly record struct MipOptions {
     /// <summary>
     ///     Treat the first two or three channels as a unit vector: reconstruct, average, normalise.
     ///     The average of four unit vectors is not a unit vector, and a normal map whose mips are
-    ///     shorter than one lights as though the surface were flatter than it is.
+    ///     shorter than one lights as though the surface were flatter than it is. Whatever the
+    ///     format, the stored values are the usual zero-to-one encoding of a direction.
     /// </summary>
     public bool RenormaliseNormals { get; init; }
 

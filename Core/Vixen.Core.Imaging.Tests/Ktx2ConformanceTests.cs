@@ -61,7 +61,8 @@ public sealed class Ktx2ConformanceTests {
     /// <summary>The container shapes, on the one format everything supports.</summary>
     public static TheoryData<string> Shapes => [
         "mips", "layers", "cube", "cube-array", "cube-mips", "block-mips", "single-texel",
-        "non-square", "volume"
+        "non-square", "volume", "r16-mips", "rg16-mips", "rgba16-mips", "half-mips", "float-mips", "bc6h-signed-mips",
+        "bc7-srgb-mips", "bc1-srgb-tiny", "bc3-srgb-odd"
     ];
 
     /// <summary>
@@ -71,8 +72,8 @@ public sealed class Ktx2ConformanceTests {
     /// </summary>
     [Fact]
     public void TheCorpusIsTheSizeItIsMeantToBe() {
-        Assert.Equal(24, Formats.Count);
-        Assert.Equal(9, Shapes.Count);
+        Assert.Equal(31, Formats.Count);
+        Assert.Equal(18, Shapes.Count);
     }
 
     [Theory]
@@ -101,8 +102,58 @@ public sealed class Ktx2ConformanceTests {
             // CubeLut.Parse builds exactly this, and pixelDepth is the header field with the
             // awkward rule — zero for a texture that is not 3D, and the extent when it is.
             "volume" => new(PixelFormat.Rgba16Float, 8, 8, levelCount: 1, depth: 8),
+            // What a sixteen-bit or float export produces, and every BC form's padding at the small
+            // end: the levels that are one block whatever their extent.
+            "r16-mips" => new(PixelFormat.R16UNorm, 37, 13),
+            "rg16-mips" => new(PixelFormat.Rg16UNorm, 64, 64),
+            "rgba16-mips" => new(PixelFormat.Rgba16UNorm, 64, 32),
+            "half-mips" => new(PixelFormat.Rgba16Float, 64, 64),
+            "float-mips" => new(PixelFormat.Rgba32Float, 32, 64),
+            "bc6h-signed-mips" => new(PixelFormat.Bc6HRgbSFloat, 64, 64),
+            "bc7-srgb-mips" => new(PixelFormat.Bc7RgbaUNormSrgb, 37, 13),
+            "bc1-srgb-tiny" => new(PixelFormat.Bc1RgbaUNormSrgb, 3, 1),
+            "bc3-srgb-odd" => new(PixelFormat.Bc3RgbaUNormSrgb, 5, 9),
             _ => throw new ArgumentOutOfRangeException(nameof(shape), shape, "No such shape.")
         };
+
+    /// <summary>
+    ///     The whole export path into one file: a sixteen-bit source, a chain, an encode at each BC
+    ///     target, and the validator on the result. The theories above fill a container with noise;
+    ///     this is the same container around blocks that mean something.
+    /// </summary>
+    [Theory]
+    [InlineData(PixelFormat.Bc1RgbaUNormSrgb)]
+    [InlineData(PixelFormat.Bc3RgbaUNormSrgb)]
+    [InlineData(PixelFormat.Bc4RUNorm)]
+    [InlineData(PixelFormat.Bc5RgUNorm)]
+    [InlineData(PixelFormat.Bc7RgbaUNorm)]
+    [InlineData(PixelFormat.Bc7RgbaUNormSrgb)]
+    public void KhronosAcceptsAChainEncodedFromSixteenBits(PixelFormat target) {
+        var source = new TextureData(PixelFormat.Rgba16UNorm, 37, 21);
+
+        new Random(37).NextBytes(source.LevelSpan(0));
+        MipChain.Generate(source, target.IsSrgb() ? MipOptions.Colour : MipOptions.Linear);
+
+        var encoded = BlockCompression.BlockCompressor.Encode(
+            source,
+            target,
+            new() { Quality = BlockCompression.BlockQuality.Fast, SourceIsSrgbEncoded = target.IsSrgb() }
+        );
+
+        Validate($"chain-{target}", encoded);
+    }
+
+    [Theory]
+    [InlineData(PixelFormat.Bc6HRgbUFloat)]
+    [InlineData(PixelFormat.Bc6HRgbSFloat)]
+    public void KhronosAcceptsAFloatChainEncodedAsBc6H(PixelFormat target) {
+        var source = new TextureData(PixelFormat.Rgba16Float, 32, 32);
+
+        ReferenceImages.HighDynamicRange(32).Pixels.CopyTo(source.LevelSpan(0));
+        MipChain.Generate(source);
+
+        Validate($"chain-{target}", BlockCompression.BlockCompressor.Encode(source, target));
+    }
 
     static TextureData Filled(TextureData texture) {
         var pixels = texture.PixelSpan();

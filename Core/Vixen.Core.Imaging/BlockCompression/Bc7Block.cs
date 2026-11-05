@@ -762,6 +762,7 @@ static class Bc7Block {
         var high = seed[1];
         var best = limit > long.MaxValue / 2 ? long.MaxValue : limit * 2;
         var found = false;
+        var straddled = false;
 
         for (var round = 0; round <= tuning.Refinements; round++) {
             var last = round == tuning.Refinements;
@@ -791,12 +792,38 @@ static class Bc7Block {
 
             // A round that found nothing will find nothing next time either: the same indices solve
             // to the same endpoints.
-            if (!improved || best == 0 || last || !Solve(points, members, indices, line.Weights, ref low, ref high)) {
+            if (!improved || best == 0 || last) {
                 break;
             }
+
+            if (Solve(points, members, indices, line.Weights, ref low, ref high)) {
+                continue;
+            }
+
+            if (straddled) {
+                break;
+            }
+
+            // Every member took one weight, so the line has collapsed to a point, and a point the
+            // codes cannot hold stays wrong however often it is solved. Two neighbouring codes reach
+            // it through the palette between them, a third of a step finer than either on its own.
+            straddled = true;
+            Straddle(line, ref low, ref high);
         }
 
         return !found || best >= limit ? limit : best;
+    }
+
+    /// <summary>Spreads a collapsed line across one code step, a third of the way from its first end.</summary>
+    static void Straddle(in Line line, ref Vector128<float> low, ref Vector128<float> high) {
+        var parity = line.Parity == Parity.None ? 0 : 1;
+        var colour = line.ColourBits == 0 ? 0f : (float)(256 >> (line.ColourBits - parity));
+        var alpha = line.AlphaBits == 0 ? 0f : (float)(256 >> (line.AlphaBits - parity));
+        var step = Vector128.Create(colour, colour, colour, alpha);
+        var middle = (low + high) * 0.5f;
+
+        low = middle - (step * (1f / 3f));
+        high = low + step;
     }
 
     /// <summary>Rounds two continuous endpoints to codes this line can hold.</summary>
