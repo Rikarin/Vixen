@@ -130,3 +130,4 @@ override Vixen.Graphics.Null.CommandRecorder.ToString() -> string
 override Vixen.Graphics.Null.RecordedCommand.ToString() -> string
 static Vixen.Graphics.Null.NullDevice.Everything.get -> Vixen.Graphics.GraphicsDeviceFeatures
 static Vixen.Graphics.Null.NullDevice.TryCreate(Vixen.Graphics.Null.NullDeviceOptions options, out Vixen.Graphics.Null.NullDevice? device, out string? reason) -> bool
+Vixen.Graphics.Null.NullDevice.SupportsDispatchBase.get -> bool

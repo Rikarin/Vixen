@@ -1,9 +1,9 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
-using CsCheck;
 using System.IO.Compression;
 using System.Text;
+using CsCheck;
 using Vixen.Core.Mathematics;
 using Vixen.Texturing.Painting;
 using Xunit;

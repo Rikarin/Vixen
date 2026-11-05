@@ -120,3 +120,4 @@ static Vixen.Graphics.Vulkan.VulkanDiagnostics.WarningCount.get -> int
 static Vixen.Graphics.Vulkan.VulkanInstance.Create() -> Vixen.Graphics.Vulkan.VulkanInstance
 static Vixen.Graphics.Vulkan.VulkanInstance.Create(Vixen.Graphics.Vulkan.VulkanInstanceOptions options) -> Vixen.Graphics.Vulkan.VulkanInstance
 static Vixen.Graphics.Vulkan.VulkanInstance.TryCreate(Vixen.Graphics.Vulkan.VulkanInstanceOptions options, out Vixen.Graphics.Vulkan.VulkanInstance? instance, out string? reason) -> bool
+Vixen.Graphics.Vulkan.VulkanDevice.SupportsDispatchBase.get -> bool
