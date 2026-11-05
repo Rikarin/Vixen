@@ -39,9 +39,8 @@ using static Nuke.Common.Tools.DotNet.DotNetTasks;
 ///     <para>
 ///         ⚠ <b>Nothing here is imported, and that rules out <c>vixen remesh</c>.</b> A CLI run would
 ///         have been the closer parallel to <c>ContentBytes</c>, but its input goes through
-///         <c>ModelReader</c> and therefore Assimp — and the three legs install three different builds
-///         of it, <c>libassimp5</c> from apt on Ubuntu, Homebrew's on macOS, whatever Silk.NET resolves
-///         on Windows. Mesh bytes differing between two builds of a native library is a real thing to
+///         <c>ModelReader</c> and therefore Assimp — and the legs open different builds of it:
+///         <c>Ultz.Native.Assimp</c> carries a 5 for Linux and macOS and a 6 for Windows. Mesh bytes differing between two builds of a native library is a real thing to
 ///         know and is not a determinism defect in Vixen; it would have made this leg red on day one
 ///         for the wrong reason. <c>ContentBytes</c> refused a model in its fixture for the same
 ///         reason, in its own words. The fixture is <c>MeshShapes</c>' sphere, built from arithmetic.
