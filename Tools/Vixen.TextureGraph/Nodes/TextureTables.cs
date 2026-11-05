@@ -17,13 +17,15 @@ namespace Vixen.TextureGraph.Nodes;
 ///         node asks for it.
 ///     </para>
 ///     <para>
-///         <b>Two ways for a table to arrive, and the reason is what a pure compilation may do.</b>
+///         <b>Three ways for a table to arrive, and the reason is what a pure compilation may do.</b>
 ///         An <em>authored</em> ramp or curve lives in an asset, and resolving one means an asset
 ///         database a compiler that runs on every edit must not touch — so the reference crosses on
 ///         <c>TextureGraphCompiler.Externals</c> and a host reads it. With no reference, the table is
 ///         baked here and now, through <see cref="TextureRamp" />, and the plan is complete: a
 ///         gradient with no ramp is black to white and a curve with none is the identity, both of
-///         which are the answers those nodes should give.
+///         which are the answers those nodes should give. And one written inline in the setting,
+///         which <see cref="TextureRamp.FromText" /> reads, touches no database either, so it is
+///         baked here too and no host has to know the spelling.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>An identity that did not go through <c>CurveEvaluation</c> would be worth nothing.</b>
@@ -43,7 +45,7 @@ static class TextureTables {
         var asset = emitter.Text(setting).Trim();
 
         if (asset.Length > 0) {
-            return emitter.External(TextureFormat.Rgba8, TextureChannels.Colour, asset);
+            return Authored(emitter, setting, asset);
         }
 
         // Black to white, baked through `FromRamp` exactly as an authored gradient would be. The
@@ -68,7 +70,7 @@ static class TextureTables {
         var asset = emitter.Text(setting).Trim();
 
         if (asset.Length > 0) {
-            return emitter.External(TextureFormat.Rgba8, TextureChannels.Colour, asset);
+            return Authored(emitter, setting, asset);
         }
 
         var straight = TextureRamp.Straight();
@@ -80,5 +82,26 @@ static class TextureTables {
             1,
             TextureRamp.FromCurves(straight, straight, straight, straight)
         );
+    }
+
+    /// <summary>The table a setting holds: baked when it is written inline, and a host's when it names an asset.</summary>
+    static int Authored(TextureEmitter emitter, string setting, string reference) {
+        byte[]? table;
+
+        try {
+            table = TextureRamp.FromText(reference);
+        } catch (InvalidDataException wrong) {
+            emitter.Report(
+                TextureDiagnostics.SettingNotAccepted,
+                $"'{setting}' holds '{reference}', which does not read: {wrong.Message}.",
+                setting
+            );
+
+            return -1;
+        }
+
+        return table is null
+            ? emitter.External(TextureFormat.Rgba8, TextureChannels.Colour, reference)
+            : emitter.External(TextureFormat.Rgba8, TextureChannels.Colour, TextureRamp.Entries, 1, table);
     }
 }

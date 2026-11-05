@@ -514,6 +514,31 @@ public sealed class TextureCommandTests : IDisposable {
         Assert.Contains("--adapter", complaint, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    ///     ⚠ A graph that does not compile is an author's mistake and a sentence, and it was an unhandled exception:
+    ///     <c>Value</c> throws on a failed compilation rather than answering null.
+    /// </summary>
+    [Fact]
+    public async Task A_graph_that_does_not_compile_says_so_and_does_not_throw() {
+        NodeGraphModel model = new();
+        var output = model.Add("Output/Output");
+
+        output.SetText("Usage", MaterialMapNaming.Suffix(MaterialMapUsage.BaseColor));
+
+        File.WriteAllText(
+            Path.Combine(root, "Assets", "Broken.vxtexgraph"),
+            YamlWriter.Write(YamlSerializer.Serialize(NodeGraphDocument.Save(model)))
+        );
+
+        var (code, _, complaint) = await Run(
+            "texture", "bake", "--project", root, "--graph", Path.Combine(root, "Assets", "Broken.vxtexgraph"),
+            "--name", "Broken"
+        );
+
+        Assert.Equal(ExitCode.Failed, code);
+        Assert.Contains("does not compile", complaint, StringComparison.Ordinal);
+    }
+
     /// <summary>Exactly one source, and neither is guessed.</summary>
     /// <remarks>
     ///     ⚠ <b>Both halves, because the interesting failure is the one that picks a winner.</b> A

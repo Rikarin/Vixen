@@ -131,11 +131,15 @@ static class TextureGraphRunner {
         // ⚠ Before the device, which is the editor route's rule and holds harder here: a graph that
         // does not compile does not compile on any machine, and answering an author's mistake with a
         // message about a missing driver is what asking the other way round produces.
-        if (compilation.Value is not { } plan) {
+        // ⚠ `Succeeded` and not `Value`, which throws on a failed compile instead of answering null: this
+        // was an unhandled exception with a stack trace, printed after the diagnostics that had said why.
+        if (!compilation.Succeeded) {
             error.WriteLine("Nothing baked: this graph does not compile.");
 
             return ExitCode.Failed;
         }
+
+        var plan = compilation.Value;
 
         if (compiler.Outputs.Length == 0) {
             error.WriteLine(

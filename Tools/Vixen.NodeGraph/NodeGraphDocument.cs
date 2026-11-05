@@ -58,6 +58,9 @@ public sealed record GraphEdgeAsset {
 /// <summary>A group box, as a file holds it.</summary>
 [DataContract("GraphGroup")]
 public sealed record GraphGroupAsset {
+    /// <summary>Its identity within the graph, or zero in a file written before groups had one.</summary>
+    public int Id { get; init; }
+
     /// <summary>What the group is called.</summary>
     public string Title { get; init; } = string.Empty;
 
@@ -68,6 +71,9 @@ public sealed record GraphGroupAsset {
 /// <summary>A sticky note, as a file holds it.</summary>
 [DataContract("GraphComment")]
 public sealed record GraphCommentAsset {
+    /// <summary>Its identity within the graph, or zero in a file written before notes had one.</summary>
+    public int Id { get; init; }
+
     /// <summary>What it says.</summary>
     public string Text { get; init; } = string.Empty;
 
@@ -225,6 +231,8 @@ public static class NodeGraphDocument {
     public static NodeGraphAsset Save(NodeGraphModel graph) {
         ArgumentNullException.ThrowIfNull(graph);
 
+        graph.IdentifyFurniture();
+
         List<GraphNodeAsset> nodes = [];
 
         foreach (var node in graph.Nodes) {
@@ -252,13 +260,14 @@ public static class NodeGraphDocument {
         List<GraphGroupAsset> groups = [];
 
         foreach (var group in graph.Groups) {
-            groups.Add(new() { Title = group.Title, Nodes = [.. group.Nodes.Select(id => id.Value)] });
+            groups.Add(new() { Id = group.Id, Title = group.Title, Nodes = [.. group.Nodes.Select(id => id.Value)] });
         }
 
         List<GraphCommentAsset> comments = [];
 
         foreach (var comment in graph.Comments) {
             comments.Add(new() {
+                Id = comment.Id,
                 Text = comment.Text,
                 X = comment.Position.X,
                 Y = comment.Position.Y,
@@ -457,7 +466,7 @@ public static class NodeGraphDocument {
         }
 
         foreach (var entry in asset.Groups) {
-            var group = new GraphGroup { Title = entry.Title };
+            var group = new GraphGroup { Id = entry.Id, Title = entry.Title };
 
             foreach (var member in entry.Nodes) {
                 var id = new NodeId(member);
@@ -472,11 +481,16 @@ public static class NodeGraphDocument {
 
         foreach (var entry in asset.Comments) {
             graph.Comments.Add(new() {
+                Id = entry.Id,
                 Text = entry.Text,
                 Position = new(entry.X, entry.Y),
                 Size = new(entry.Width, entry.Height)
             });
         }
+
+        // After both lists, because a file written before these had identities holds zeros, and a
+        // bad merge can hold one number twice.
+        graph.IdentifyFurniture();
 
         diagnostics = found;
 

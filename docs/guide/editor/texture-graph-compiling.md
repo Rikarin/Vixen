@@ -4,7 +4,7 @@ slug: editor/texture-graph-compiling
 kind: guide
 area: Editor
 summary: The compiler that turns a node graph into a texture plan, and the four things it hands back besides the plan — the outputs by usage, the pictures a host still owes it, the parameters an author exposed, and the per-node images a preview draws.
-api: [T:Vixen.TextureGraph.TextureGraphCompiler, T:Vixen.TextureGraph.TextureGraphOutput, T:Vixen.TextureGraph.TextureGraphExternal, T:Vixen.TextureGraph.TextureGraphExternals, T:Vixen.Editor.TextureGraph.TextureProjectImages, T:Vixen.TextureGraph.TextureGraphKernel, T:Vixen.TextureGraph.TextureGraphNodeImage, T:Vixen.TextureGraph.TextureGraphParameter, T:Vixen.TextureGraph.TextureGraphParameters, T:Vixen.TextureGraph.TextureGraphParameterKind, T:Vixen.TextureGraph.TextureGraphSettings]
+api: [T:Vixen.TextureGraph.TextureGraphCompiler, T:Vixen.TextureGraph.TextureGraphOutput, T:Vixen.TextureGraph.TextureGraphExternal, T:Vixen.TextureGraph.TextureGraphExternals, T:Vixen.Editor.TextureGraph.TextureProjectImages, T:Vixen.TextureGraph.TextureGraphKernel, T:Vixen.TextureGraph.TextureGraphNodeImage, T:Vixen.TextureGraph.TextureGraphParameter, T:Vixen.TextureGraph.TextureGraphParameters, T:Vixen.TextureGraph.TextureGraphParameterKind, T:Vixen.TextureGraph.TextureGraphSettings, T:Vixen.TextureGraph.TextureRamp, T:Vixen.TextureGraph.TextureGraphExpressions]
 tags: [editor, texture-graph, material-authoring, node-graph, compiler]
 since: 0.1
 status: preview
@@ -129,6 +129,12 @@ They travel both ways, which is what `TextureGraphParameters` is for:
 `Check` is the refusal: a duplicate name, an empty one, or a default outside its own range.
 
 ## Settings on the graph itself
+
+A `Ramp` or `Curve` setting can hold its table in place of an asset reference, and `TextureRamp.FromText` reads
+it during a compilation, so no host has to: `ramp:0 000000ff,1 ffffffff` lists stops as a position and RGBA hex, and
+`curve:r=0 0,1 1;g=0 0,0.5 0.8,1 1` lists keys per channel, a channel left out being straight. A host that holds real
+gradient assets bakes them with `TextureRamp.FromRamp` and `FromCurves`, and a host writing an expression onto a node
+spells its key with `TextureGraphExpressions.KeyOf`.
 
 `TextureGraphSettings` reads the three numbers that belong to the whole graph rather than to a node —
 the base width, the base height and the seed — out of the model's own settings, with `Declare` writing

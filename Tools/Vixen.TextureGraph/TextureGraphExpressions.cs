@@ -73,8 +73,13 @@ readonly record struct TextureExpressionValue(NodeId Node, string Port, float Va
 ///         typed rather than mis-attributed three diagnostics later, and so are the braces that would
 ///         let a field close the declaration it is inside.
 ///     </para>
+///     <para>
+///         <b>Public for its spelling and nothing else.</b> A host that writes an expression onto a
+///         node has to spell the key this reads, so <see cref="Marker" />, <see cref="KeyOf" /> and
+///         <see cref="IsExpression" /> are the file format's and folding stays this assembly's.
+///     </para>
 /// </remarks>
-static class TextureGraphExpressions {
+public static class TextureGraphExpressions {
     /// <summary>What marks a key in <see cref="GraphNode.Texts" /> as a port's expression.</summary>
     /// <remarks>
     ///     ⚠ <b>A prefix, so a setting and an expression cannot collide.</b> Settings are stored in
@@ -119,7 +124,7 @@ static class TextureGraphExpressions {
     ///     valid-looking radius, a valid-looking amount and a valid-looking gamma; a graph that
     ///     silently lost one is a graph whose picture changed for a reason nothing anywhere states.
     /// </remarks>
-    public static ImmutableArray<TextureExpressionValue> Fold(
+    internal static ImmutableArray<TextureExpressionValue> Fold(
         IReadOnlyList<TextureGraphParameter> parameters,
         IReadOnlyDictionary<string, float> values,
         IReadOnlyList<TextureExpression> expressions,
