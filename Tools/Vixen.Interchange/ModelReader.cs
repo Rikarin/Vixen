@@ -123,7 +123,20 @@ public static class ModelReader {
     ///     tool does, and disposing it while another import is in flight is the one way to turn a
     ///     malformed mesh into a crash the pipeline cannot catch.
     /// </remarks>
-    static readonly Lazy<AssimpApi> Api = new(AssimpApi.GetApi, isThreadSafe: true);
+    static readonly Lazy<AssimpApi> Api = new(AssimpLoader.Load, isThreadSafe: true);
+
+    /// <summary>The Assimp library this process reads models with, opening it if nothing has yet.</summary>
+    /// <remarks>
+    ///     For a host's self-check and a bug report: the path says whether the application's own copy
+    ///     answered or the machine's.
+    /// </remarks>
+    /// <exception cref="DllNotFoundException">No Assimp could be loaded.</exception>
+    public static string NativeLibraryPath {
+        get {
+            _ = Api.Value;
+            return AssimpLoader.ResolvedPath!;
+        }
+    }
 
     /// <summary>What makes one model at a time go through Assimp.</summary>
     /// <remarks>

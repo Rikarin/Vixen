@@ -40,8 +40,8 @@ namespace Vixen.Geometry.Remeshing.Tests;
 ///     <para>
 ///         ⚠ <b>The fixture is procedural and nothing is imported, which is not a convenience.</b>
 ///         <c>Build.ContentBytes</c> refused a model for this reason and the refusal applies here
-///         twice over: the three legs install three different builds of Assimp — <c>libassimp5</c> from
-///         apt, Homebrew's, whatever Silk.NET resolves on Windows — so a <c>.obj</c> fixture would make
+///         twice over: the legs open different builds of Assimp — <c>Ultz.Native.Assimp</c> carries a 5
+///         for Linux and macOS and a 6 for Windows — so a <c>.obj</c> fixture would make
 ///         this red on day one for a difference in a native library rather than in the remesher. The
 ///         same argument rules out <c>vixen remesh</c>, whose input goes through <c>ModelReader</c>.
 ///         <see cref="MeshShapes" /> builds the sphere from arithmetic on all three.

@@ -321,16 +321,14 @@
       Ultz.Native.Assimp comes in as a dependency of the binding and ships
       libassimp for win/linux/macOS on x64 and arm64.
 
-      ⚠ Shipping them is not the same as finding them, and on Linux it is not
-      enough. The native lands in runtimes/linux-x64/native and the host puts that
-      directory on NATIVE_DLL_SEARCH_DIRECTORIES, but the Silk.NET loader does not
-      look there — measured, by putting the same file beside the assembly, where it
-      loads. macOS resolves its own runtimes directory and does not need the help,
-      which is why this only ever showed up on one CI leg. So a Linux machine wants
-      a distribution libassimp5 (see .github/workflows/ci.yml), and a Linux build of
-      the editor would want the native copied beside the binary rather than left in
-      runtimes/ — that is owed, and until it is paid this is not "nothing to
-      install" on Linux.
+      ⚠ Shipping them is not the same as finding them. The native lands in
+      runtimes/linux-x64/native and the host puts that directory on
+      NATIVE_DLL_SEARCH_DIRECTORIES, but the Silk.NET loader does not look there —
+      measured, by putting the same file beside the assembly, where it loads. macOS
+      resolves its own runtimes directory, which is why this only ever showed up on
+      one CI leg. So Vixen.Interchange's AssimpLoader does not ask that loader: it
+      searches the application's own files through Vixen.Platform.Native, and nothing
+      has to be installed on Linux either.
 
       Editor-and-tooling-only, and more emphatically than the image codec. Assimp
       is a large C++ library that reads two dozen authoring formats; a runtime that
