@@ -117,7 +117,7 @@ public sealed class HardEdgeBakeTests {
     static int Texel(int size, int face, float x, float y) {
         var uv = Chart(face % 3, face / 3, x, y) * size;
 
-        return ((int) uv.Y * size) + (int) uv.X;
+        return ((int)uv.Y * size) + (int)uv.X;
     }
 
     /// <summary>The worst disagreement between two charts along the edge they share, in object space.</summary>

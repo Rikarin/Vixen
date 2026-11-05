@@ -173,7 +173,7 @@ public static class PngCodec {
         BinaryPrimitives.WriteInt32BigEndian(header, width);
         BinaryPrimitives.WriteInt32BigEndian(header.AsSpan(4), height);
         header[8] = 16;
-        header[9] = (byte) colourType;
+        header[9] = (byte)colourType;
 
         WriteChunk(output, "IHDR", header);
         WriteChunk(output, "IDAT", Deflate(raw));
@@ -241,7 +241,7 @@ public static class PngCodec {
         for (var index = 0; index < samples.Length; index++) {
             samples[index] = bytes == 2
                 ? BinaryPrimitives.ReadUInt16BigEndian(pixels.AsSpan(index * 2))
-                : (ushort) (pixels[index] * 257);
+                : (ushort)(pixels[index] * 257);
         }
 
         return (width, height, channels, samples);
@@ -264,10 +264,10 @@ public static class PngCodec {
 
                 pixels[destination + x] = filter switch {
                     0 => value,
-                    1 => (byte) (value + left),
-                    2 => (byte) (value + up),
-                    3 => (byte) (value + ((left + up) / 2)),
-                    4 => (byte) (value + Paeth(left, up, upLeft)),
+                    1 => (byte)(value + left),
+                    2 => (byte)(value + up),
+                    3 => (byte)(value + ((left + up) / 2)),
+                    4 => (byte)(value + Paeth(left, up, upLeft)),
                     _ => throw new InvalidDataException($"Unknown PNG row filter {filter}.")
                 };
             }

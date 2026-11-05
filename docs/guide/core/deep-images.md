@@ -46,6 +46,18 @@ image reader, neither of which shares a line with it.
 ⚠ **A 16-bit PNG is big-endian**, and a round trip through one codec cannot see a swap: both ends would
 agree on the wrong order. `DeepImageTests` reads the bytes.
 
+## Examples
+
+Writing a signed height at sixteen bits, which is what `PngCodec.Encode16` is for when a float file will not do:
+
+```csharp compile
+using Vixen.Core.Imaging;
+
+public static class Heights {
+    public static byte[] Run(int size, ushort[] heights) => PngCodec.Encode16(size, size, 1, heights);
+}
+```
+
 ## See also
 
 - [Map baking](engine/map-baking) — what writes these.

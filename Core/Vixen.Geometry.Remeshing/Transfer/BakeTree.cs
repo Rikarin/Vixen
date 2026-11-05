@@ -835,7 +835,7 @@ sealed class BakeTree {
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        static int BinOf(float value, float origin, float scale) => Math.Min((int) ((value - origin) * scale), Bins - 1);
+        static int BinOf(float value, float origin, float scale) => Math.Min((int)((value - origin) * scale), Bins - 1);
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         static float Component(Vector3 value, int axis) => axis switch {

@@ -158,11 +158,11 @@ public static class ExrCodec {
         var blocks = (height + lines - 1) / lines;
 
         for (var block = 0; block < blocks; block++) {
-            var offset = checked((int) BinaryPrimitives.ReadInt64LittleEndian(data[(at + (block * sizeof(long)))..]));
+            var offset = checked((int)BinaryPrimitives.ReadInt64LittleEndian(data[(at + (block * sizeof(long)))..]));
             var first = BinaryPrimitives.ReadInt32LittleEndian(data[offset..]) - top;
             var size = BinaryPrimitives.ReadInt32LittleEndian(data[(offset + 4)..]);
             var count = Math.Min(lines, height - first);
-            var expected = count * width * channels.Sum(static channel => channel.Type == (int) ExrPixels.Half ? 2 : 4);
+            var expected = count * width * channels.Sum(static channel => channel.Type == (int)ExrPixels.Half ? 2 : 4);
             var raw = size < expected ? Unzip(data.Slice(offset + 8, size), expected) : data.Slice(offset + 8, size).ToArray();
 
             Unpack(raw, channels, order, output, first, count);
@@ -211,7 +211,7 @@ public static class ExrCodec {
 
         foreach (var name in names) {
             WriteText(list, name);
-            WriteInt(list, (int) pixels);
+            WriteInt(list, (int)pixels);
             WriteInt(list, 0); // pLinear and three reserved bytes
             WriteInt(list, 1);
             WriteInt(list, 1);
@@ -264,7 +264,7 @@ public static class ExrCodec {
                     var sample = image.Samples[(((line * image.Width) + x) * image.Channels) + (image.Channels == 1 ? 0 : lane)];
 
                     if (pixels == ExrPixels.Half) {
-                        BinaryPrimitives.WriteHalfLittleEndian(span[at..], (Half) sample);
+                        BinaryPrimitives.WriteHalfLittleEndian(span[at..], (Half)sample);
                     } else {
                         BinaryPrimitives.WriteSingleLittleEndian(span[at..], sample);
                     }
@@ -298,7 +298,7 @@ public static class ExrCodec {
         }
 
         for (var at = moved.Length - 1; at > 0; at--) {
-            moved[at] = (byte) (moved[at] - moved[at - 1] + 128);
+            moved[at] = (byte)(moved[at] - moved[at - 1] + 128);
         }
 
         using var output = new MemoryStream();
@@ -321,7 +321,7 @@ public static class ExrCodec {
         zlib.ReadExactly(moved);
 
         for (var at = 1; at < moved.Length; at++) {
-            moved[at] = (byte) (moved[at] + moved[at - 1] - 128);
+            moved[at] = (byte)(moved[at] + moved[at - 1] - 128);
         }
 
         var raw = new byte[expected];
@@ -353,11 +353,11 @@ public static class ExrCodec {
                     var index = (((line * output.Width) + x) * output.Channels) + order[channel];
 
                     switch (type) {
-                        case (int) ExrPixels.Half:
-                            output.Samples[index] = (float) BinaryPrimitives.ReadHalfLittleEndian(span[at..]);
+                        case (int)ExrPixels.Half:
+                            output.Samples[index] = (float)BinaryPrimitives.ReadHalfLittleEndian(span[at..]);
                             at += 2;
                             break;
-                        case (int) ExrPixels.Float:
+                        case (int)ExrPixels.Float:
                             output.Samples[index] = BinaryPrimitives.ReadSingleLittleEndian(span[at..]);
                             at += 4;
                             break;
@@ -387,7 +387,7 @@ public static class ExrCodec {
     }
 
     static string Text(ReadOnlySpan<byte> data, ref int at) {
-        var end = data[at..].IndexOf((byte) 0);
+        var end = data[at..].IndexOf((byte)0);
         var text = Encoding.ASCII.GetString(data.Slice(at, end));
 
         at += end + 1;

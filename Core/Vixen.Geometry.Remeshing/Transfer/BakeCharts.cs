@@ -320,10 +320,10 @@ sealed class BakeCharts {
         }
 
         return (
-            Math.Clamp((int) MathF.Floor(minimum.X) - 1, 0, resolution - 1),
-            Math.Clamp((int) MathF.Floor(minimum.Y) - 1, 0, resolution - 1),
-            Math.Clamp((int) MathF.Ceiling(maximum.X) + 1, 0, resolution - 1),
-            Math.Clamp((int) MathF.Ceiling(maximum.Y) + 1, 0, resolution - 1)
+            Math.Clamp((int)MathF.Floor(minimum.X) - 1, 0, resolution - 1),
+            Math.Clamp((int)MathF.Floor(minimum.Y) - 1, 0, resolution - 1),
+            Math.Clamp((int)MathF.Ceiling(maximum.X) + 1, 0, resolution - 1),
+            Math.Clamp((int)MathF.Ceiling(maximum.Y) + 1, 0, resolution - 1)
         );
     }
 }

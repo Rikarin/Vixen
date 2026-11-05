@@ -86,7 +86,7 @@ public sealed class DeepImageTests {
                 Assert.Equal(image.Channels, read.Channels);
 
                 for (var at = 0; at < image.Samples.Length; at++) {
-                    var expected = pixels == ExrPixels.Half ? (float) (Half) image.Samples[at] : image.Samples[at];
+                    var expected = pixels == ExrPixels.Half ? (float)(Half)image.Samples[at] : image.Samples[at];
 
                     Assert.Equal(expected, read.Samples[at]);
                 }
