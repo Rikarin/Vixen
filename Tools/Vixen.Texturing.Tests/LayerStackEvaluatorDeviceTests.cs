@@ -51,6 +51,36 @@ public sealed class LayerStackEvaluatorDeviceTests : IDisposable {
             );
     }
 
+    /// <summary>
+    ///     What an export reads, on both evaluation paths. A repaired bake holds only what it may
+    ///     still be asked for, so its outputs have to be among that, in their own format.
+    /// </summary>
+    [Fact]
+    public void A_stack_output_reads_raw_on_either_path() {
+        using var device = OpenDevice();
+        using var evaluator = new TexturePlanEvaluator(device);
+        var run = Open(evaluator, 4, 1, filter: 0, out var image);
+
+        using (run) {
+            using (run.Evaluate()) { }
+
+            Paint(image, 40, 40, 0xFF2080E0u, 10f);
+
+            var output = run.Outputs.First(static o => o.Usage == Usage).Image;
+
+            using var repaired = run.Evaluate();
+            using var clean = run.EvaluateClean();
+
+            var fromRepair = repaired.ReadRaw(output);
+            var fromClean = clean.ReadRaw(output);
+
+            Assert.Equal((Size, Size), (fromClean.Width, fromClean.Height));
+            Assert.Equal(TextureFormats.Pixel(repaired.Plan.Images[output].Format), fromClean.Format);
+            Assert.Equal(fromClean.Texels, fromRepair.Texels);
+            Assert.Equal(clean.ReadTexels(output, [new(0, 0, Size, Size)])[0], fromClean.Texels);
+        }
+    }
+
     /// <summary>A stack of local layers repairs: the property above is not being satisfied by running whole.</summary>
     [Fact]
     public void A_stroke_on_local_layers_touches_its_tiles_and_not_the_image() {
