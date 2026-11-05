@@ -232,7 +232,10 @@ public sealed class TextureUploads : IDisposable {
         // read twice for the same reason `UploadUsage` is — #1000. `TexturePlanEvaluator` sizes a
         // CPU op's read-back from what the caller declares, because the plan's level for an image
         // it does not allocate is nominal; leaving it out here is a copy larger than the picture.
-        declared[image] = new(texture, UploadUsage, sizes[image]);
+        //
+        // ⚠ The digest is taken here because this is the one place that has both the bytes and the
+        // promise that they are what the texture holds, and xxHash is cheap beside the upload.
+        declared[image] = new(texture, UploadUsage, sizes[image]) { Content = TextureResultKey.Of(texels) };
 
         return texture;
     }

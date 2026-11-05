@@ -83,23 +83,42 @@ public sealed class TexturePoolSchedule {
     public static TexturePoolSchedule For(TexturePlan plan) {
         ArgumentNullException.ThrowIfNull(plan);
 
-        var lastRead = new int[plan.Images.Length];
-
-        Array.Fill(lastRead, -1);
-
-        for (var index = 0; index < plan.Ops.Length; index++) {
-            foreach (var input in plan.Ops[index].Inputs) {
-                if (input >= 0 && input < lastRead.Length) {
-                    lastRead[input] = index;
-                }
-            }
-        }
-
         var kept = new bool[plan.Images.Length];
 
         foreach (var output in plan.Outputs) {
             if (output >= 0 && output < kept.Length) {
                 kept[output] = true;
+            }
+        }
+
+        return For(plan, null, kept);
+    }
+
+    /// <summary>Works out the pooling for the part of a plan that is going to run.</summary>
+    /// <param name="plan">The plan.</param>
+    /// <param name="runs">Which ops run, by index; <see langword="null" /> for all of them.</param>
+    /// <param name="kept">Which images must not be reused, by index.</param>
+    /// <returns>The schedule, in which an image no running op writes has no slot.</returns>
+    /// <remarks>
+    ///     ⚠ <b>An op that does not run reads nothing, so it keeps nothing alive.</b> Liveness is the
+    ///     order of the ops that run, which is why this is the same walk and not a second one: what a
+    ///     partial evaluation reads from the result cache looks to this exactly as a caller's own
+    ///     image does, an input with no slot.
+    /// </remarks>
+    internal static TexturePoolSchedule For(TexturePlan plan, bool[]? runs, bool[] kept) {
+        var lastRead = new int[plan.Images.Length];
+
+        Array.Fill(lastRead, -1);
+
+        for (var index = 0; index < plan.Ops.Length; index++) {
+            if (runs is not null && !runs[index]) {
+                continue;
+            }
+
+            foreach (var input in plan.Ops[index].Inputs) {
+                if (input >= 0 && input < lastRead.Length) {
+                    lastRead[input] = index;
+                }
             }
         }
 
@@ -114,6 +133,10 @@ public sealed class TexturePoolSchedule {
         var peak = 0;
 
         for (var index = 0; index < plan.Ops.Length; index++) {
+            if (runs is not null && !runs[index]) {
+                continue;
+            }
+
             var op = plan.Ops[index];
 
             // ⚠ The output is taken before the inputs are given back, and swapping the two is the

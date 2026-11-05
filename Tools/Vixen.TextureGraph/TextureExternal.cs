@@ -44,6 +44,16 @@ namespace Vixen.TextureGraph;
 ///     </para>
 /// </remarks>
 public readonly record struct TextureExternal(TextureHandle Texture, TextureUsage Usage, Int2 Size = default) {
+    /// <summary>A digest of the texels, or the default for "the caller did not say".</summary>
+    /// <remarks>
+    ///     ⚠ <b>A handle cannot stand in for this.</b> A number the caller reuses for a repainted
+    ///     canvas is the same number, so a result keyed on it would be a stale picture; and an upload
+    ///     per rebuild is a new number for the same picture, so it would never hit.
+    ///     <see cref="TextureUploads" /> fills this from the bytes it is handed. Left at the default,
+    ///     everything computed from this image re-runs every evaluation, which is slow and right.
+    /// </remarks>
+    public TextureResultKey Content { get; init; }
+
     /// <summary>Whether the caller said how big the picture is.</summary>
     /// <remarks>
     ///     ⚠ <b>Both axes, and positive rather than non-negative.</b> A zero-sized copy is a

@@ -206,6 +206,11 @@
     </ItemGroup>
 
     <ItemGroup>
+        <!-- XxHash128, for the result cache's keys. Already in this closure through Vixen.Core.Imaging. -->
+        <PackageReference Include="System.IO.Hashing" />
+    </ItemGroup>
+
+    <ItemGroup>
         <InternalsVisibleTo Include="Vixen.TextureGraph.Tests" />
         <InternalsVisibleTo Include="Vixen.Editor.TextureGraph" />
         <InternalsVisibleTo Include="Vixen.Editor.TextureGraph.Tests" />

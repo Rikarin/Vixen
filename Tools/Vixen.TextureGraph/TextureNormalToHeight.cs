@@ -87,6 +87,13 @@ sealed class NormalToHeightOperation : ITextureCpuOperation {
     /// </remarks>
     public const float DefaultIterations = 256f;
 
+    /// <inheritdoc />
+    /// <remarks>
+    ///     The class is stateless: everything <see cref="Run" /> reads is in the invocation, and the
+    ///     numbers come off the op through <see cref="TexturePlan.Resolve" />.
+    /// </remarks>
+    public string CacheIdentity => "NormalToHeight/1";
+
     /// <summary>
     ///     The largest picture this will attempt, in texels, and the reason there is a ceiling at all.
     /// </summary>

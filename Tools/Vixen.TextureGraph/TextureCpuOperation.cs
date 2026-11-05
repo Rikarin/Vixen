@@ -76,6 +76,23 @@ public interface ITextureCpuOperation {
     /// <summary>What to call this in a message, when the op's own kernel name is not enough.</summary>
     string Name { get; }
 
+    /// <summary>What the result cache may call this operation, or <see langword="null" /> for never.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A promise, and null is the safe answer.</b> A kernel's identity is its source; an
+    ///         implementation of this interface is C#, and a key can only see what it is handed. A
+    ///         value here says the output is a function of this string, the op's parameters and seed,
+    ///         the bake's sizes and the input texels — nothing in a field, and nothing elsewhere on
+    ///         the plan. An operation that leaves this null simply runs every time, and so does
+    ///         everything downstream of it, which costs time and cannot cost a picture.
+    ///     </para>
+    ///     <para>
+    ///         Change the string when the arithmetic changes. It is the "version" half of the key, and
+    ///         only a persistent tier could tell the difference.
+    ///     </para>
+    /// </remarks>
+    string? CacheIdentity => null;
+
     /// <summary>Fills the output image from the inputs.</summary>
     /// <param name="invocation">The plan, the op, its inputs and the buffer to fill.</param>
     /// <remarks>

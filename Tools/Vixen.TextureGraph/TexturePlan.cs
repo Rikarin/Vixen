@@ -54,6 +54,12 @@ public readonly record struct TextureParameter(
     TextureParameterUnit Unit = TextureParameterUnit.Scalar
 );
 
+/// <summary>A new number for one parameter of one op.</summary>
+/// <param name="Op">The op's index in <see cref="TexturePlan.Ops" />.</param>
+/// <param name="Parameter">The parameter's name.</param>
+/// <param name="Value">The number, in the unit the parameter already has.</param>
+public readonly record struct TextureValue(int Op, string Parameter, float Value);
+
 /// <summary>One operation: what it runs, what it reads, what it writes, and with what.</summary>
 /// <remarks>
 ///     <para>
@@ -493,6 +499,76 @@ public sealed class TexturePlan {
     /// </remarks>
     public ImmutableDictionary<string, string> Kernels { get; init; } =
         ImmutableDictionary<string, string>.Empty;
+
+    /// <summary>This plan with different numbers in it.</summary>
+    /// <param name="values">The numbers that change.</param>
+    /// <returns>A plan sharing this one's images, wiring, outputs and kernels.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="values" /> is null.</exception>
+    /// <exception cref="ArgumentException">An op is out of range, or does not carry the parameter.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Doc 48's plan is a compiled artefact, and a value is not part of what was compiled.</b>
+    ///         This is the structural half kept as it is and the numbers replaced, which writes
+    ///         uniforms and compiles nothing: the evaluator's variants are keyed on kernel and format
+    ///         and the result cache on content, so neither can tell this from a plan a compiler built.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A parameter the op does not carry is refused.</b> Adding one changes what the op
+    ///         says about itself rather than a number, and a misspelled name would otherwise be an
+    ///         edit that silently did nothing.
+    ///     </para>
+    /// </remarks>
+    public TexturePlan WithValues(IEnumerable<TextureValue> values) {
+        ArgumentNullException.ThrowIfNull(values);
+
+        var ops = Ops.ToBuilder();
+
+        foreach (var value in values) {
+            if (value.Op < 0 || value.Op >= ops.Count) {
+                throw new ArgumentException($"Op {value.Op} is not in a plan of {ops.Count}.", nameof(values));
+            }
+
+            var op = ops[value.Op];
+            var parameters = op.Parameters.ToBuilder();
+            var found = false;
+
+            for (var at = 0; at < parameters.Count; at++) {
+                if (string.Equals(parameters[at].Name, value.Parameter, StringComparison.Ordinal)) {
+                    parameters[at] = parameters[at] with { Value = value.Value };
+                    found = true;
+                }
+            }
+
+            if (!found) {
+                throw new ArgumentException(
+                    $"Op {value.Op} runs '{op.Kernel}' and carries no parameter called '{value.Parameter}'.",
+                    nameof(values)
+                );
+            }
+
+            ops[value.Op] = op with { Parameters = parameters.ToImmutable() };
+        }
+
+        return Reissued(ops.ToImmutable(), Seed);
+    }
+
+    /// <summary>This plan with other ops and another seed, everything else shared.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The one place a plan is copied, and a property added above has to be added here.</b>
+    ///     <c>TexturePlanValueTests</c> walks the properties by reflection, because a copy that drops
+    ///     one reads as a plan with a default — a bake at the wrong size, or a kernel nothing carries.
+    /// </remarks>
+    internal TexturePlan Reissued(ImmutableArray<TextureOp> ops, uint seed) =>
+        new() {
+            BaseWidth = BaseWidth,
+            BaseHeight = BaseHeight,
+            BakeLevelOffset = BakeLevelOffset,
+            Images = Images,
+            Ops = ops,
+            Outputs = Outputs,
+            Seed = seed,
+            Kernels = Kernels
+        };
 
     /// <summary>The Raven one of this plan's ops runs, wherever it came from.</summary>
     /// <param name="kernel">The op's kernel name.</param>
