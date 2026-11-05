@@ -76,6 +76,24 @@ public class GraphFurnitureIdentityTests {
         Assert.Equal([first.Id, second.Id, third.Id], group.Nodes);
     }
 
+    /// <summary>
+    ///     ⚠ One node standing for both ends of a path that leaves it is a cycle, which used to throw half way
+    ///     through the command, with the nodes already gone.
+    /// </summary>
+    [Fact]
+    public void A_selection_with_a_node_between_its_members_is_refused_before_anything_moves() {
+        NodeGraphModel graph = new();
+        var first = graph.Add("A", default);
+        var between = graph.Add("B", default);
+        var last = graph.Add("C", default);
+
+        graph.Connect(new(first.Id, "Out"), new(between.Id, "In"));
+        graph.Connect(new(between.Id, "Out"), new(last.Id, "In"));
+
+        Assert.Throws<ArgumentException>(() => SubGraphs.Extract(graph, [first.Id, last.Id], "Inner"));
+        Assert.Equal(new[] { first.Id, between.Id }, SubGraphs.Extract(graph, [first.Id, between.Id], "Inner").Extracted);
+    }
+
     sealed class Touched : Vixen.Authoring.ICommandContext {
         public void Touch(Vixen.Authoring.IAuthoredDocument document) { }
     }
