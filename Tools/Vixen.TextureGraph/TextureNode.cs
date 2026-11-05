@@ -27,10 +27,10 @@ namespace Vixen.TextureGraph;
 ///     </para>
 /// </remarks>
 enum TextureChannels {
-    /// <summary>One channel: a mask, a height, a roughness. Stored as <see cref="TextureFormat.R16Float" />.</summary>
+    /// <summary>One channel: a mask, a height, a roughness.</summary>
     Grey = 1,
 
-    /// <summary>Four: a colour with its alpha. Stored as <see cref="TextureFormat.Rgba16Float" />.</summary>
+    /// <summary>Four: a colour with its alpha.</summary>
     Colour = 4
 }
 
@@ -338,11 +338,10 @@ sealed class TextureEmitter {
             () => compiler.External(node, format, channels, asset, 0, 0, [])
         );
 
-    /// <summary>The storage one number of channels is kept in.</summary>
+    /// <summary>The storage one number of channels is kept in, at the bit depth this graph computes at.</summary>
     /// <param name="channels">Grey or colour.</param>
     /// <returns>The format.</returns>
-    public static TextureFormat FormatOf(TextureChannels channels) =>
-        channels == TextureChannels.Grey ? TextureFormat.R16Float : TextureFormat.Rgba16Float;
+    public TextureFormat FormatOf(TextureChannels channels) => compiler.FormatOf(channels);
 
     /// <summary>Appends one dispatch.</summary>
     /// <param name="op">The op.</param>

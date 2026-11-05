@@ -44,6 +44,12 @@ public static class TextureGraphSettings {
     /// <summary>The key the seed is stored under.</summary>
     public const string Seed = "seed";
 
+    /// <summary>The key the bit depth is stored under: <c>16</c> or <c>32</c>.</summary>
+    public const string BitDepth = "bitDepth";
+
+    /// <summary>What a graph computes in when it does not say.</summary>
+    public const int DefaultBitDepth = 16;
+
     /// <summary>Writes a graph's declarations into its own settings.</summary>
     /// <param name="graph">The graph.</param>
     /// <param name="width">The width it is authored at.</param>
@@ -92,6 +98,40 @@ public static class TextureGraphSettings {
         }
 
         return value;
+    }
+
+    /// <summary>Reads how many bits a graph's floats have.</summary>
+    /// <param name="graph">The graph.</param>
+    /// <param name="problem">What was wrong with what it declared, or null.</param>
+    /// <returns>Sixteen or thirty-two.</returns>
+    /// <remarks>
+    ///     <b>A property of the graph and not of a bake</b>, unlike the resolution of one run: a height
+    ///     field that needs 32 bits needs them at every size, and it is an image format, so it changes
+    ///     every variant in the plan and a change to it compiles.
+    /// </remarks>
+    public static int BitDepthOf(NodeGraphModel graph, out string? problem) {
+        ArgumentNullException.ThrowIfNull(graph);
+
+        problem = null;
+
+        var text = graph.SettingOf(BitDepth);
+
+        switch (text) {
+            case "":
+                return DefaultBitDepth;
+
+            case "16":
+                return 16;
+
+            case "32":
+                return 32;
+
+            default:
+                problem = $"This graph declares its bit depth as '{text}', which is neither 16 nor 32. It was "
+                    + $"compiled at {DefaultBitDepth} instead.";
+
+                return DefaultBitDepth;
+        }
     }
 
     /// <summary>Reads a graph's declared seed, or the host's own.</summary>

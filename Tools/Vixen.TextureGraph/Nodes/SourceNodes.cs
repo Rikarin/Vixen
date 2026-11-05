@@ -83,19 +83,19 @@ sealed partial class NoiseNode : TextureNode {
     public string Metric = "Euclidean";
 
     /// <summary>How many cells across the image at the first octave.</summary>
-    [Input]
+    [Input(Minimum = 0f)]
     public Scalar Scale = 8f;
 
     /// <summary>How many are summed. Ignored by <c>Worley</c>.</summary>
-    [Input]
+    [Input(Minimum = 1f, Maximum = 8f)]
     public Int Octaves = 1;
 
     /// <summary>The frequency multiplier between octaves.</summary>
-    [Input]
+    [Input(Minimum = 1f)]
     public Scalar Lacunarity = 2f;
 
     /// <summary>The amplitude multiplier between octaves.</summary>
-    [Input]
+    [Input(Minimum = 0f, SoftMaximum = 1f)]
     public Scalar Gain = 0.5f;
 
     /// <summary>Whether the lattice wraps, so the picture tiles.</summary>
@@ -164,23 +164,23 @@ sealed partial class ShapeNode : TextureNode {
     public string Kind = "Disc";
 
     /// <summary>The shape's diameter, as a fraction of the image.</summary>
-    [Input]
+    [Input(Minimum = 0f, SoftMaximum = 1f)]
     public Scalar Scale = 1f;
 
     /// <summary>How far it turns, in radians, clockwise on screen.</summary>
-    [Input]
+    [Input(SoftMinimum = -MathF.PI, SoftMaximum = MathF.PI)]
     public Scalar Rotation = 0f;
 
     /// <summary>The width of the soft edge, in units of the radius. Read by three kinds of eight.</summary>
-    [Input]
+    [Input(Minimum = 0f, SoftMaximum = 1f)]
     public Scalar Falloff = 0.01f;
 
     /// <summary>Where it sits along x, in 0..1 of the image.</summary>
-    [Input(Name = "Centre X")]
+    [Input(Name = "Centre X", SoftMinimum = 0f, SoftMaximum = 1f)]
     public Scalar CentreX = 0.5f;
 
     /// <summary>Where it sits along y.</summary>
-    [Input(Name = "Centre Y")]
+    [Input(Name = "Centre Y", SoftMinimum = 0f, SoftMaximum = 1f)]
     public Scalar CentreY = 0.5f;
 
     /// <summary>The pattern.</summary>
@@ -228,7 +228,7 @@ sealed partial class CheckerNode : TextureNode {
     public Scalar ScaleY = 8f;
 
     /// <summary>How far the grid turns about the image centre, in radians.</summary>
-    [Input]
+    [Input(SoftMinimum = -MathF.PI, SoftMaximum = MathF.PI)]
     public Scalar Rotation = 0f;
 
     /// <summary>A shift along x, in cells.</summary>
@@ -410,19 +410,19 @@ sealed partial class GradientNode : TextureNode {
     public string RampAsset = "";
 
     /// <summary>The direction of a linear or reflected sweep, in radians, clockwise on screen.</summary>
-    [Input]
+    [Input(SoftMinimum = -MathF.PI, SoftMaximum = MathF.PI)]
     public Scalar Angle = 0f;
 
     /// <summary>Where it is centred along x, in 0..1 of the image.</summary>
-    [Input(Name = "Centre X")]
+    [Input(Name = "Centre X", SoftMinimum = 0f, SoftMaximum = 1f)]
     public Scalar CentreX = 0.5f;
 
     /// <summary>Where it is centred along y.</summary>
-    [Input(Name = "Centre Y")]
+    [Input(Name = "Centre Y", SoftMinimum = 0f, SoftMaximum = 1f)]
     public Scalar CentreY = 0.5f;
 
     /// <summary>How much of the image the sweep spans. 1 spans it; 0.5 spans the middle half.</summary>
-    [Input]
+    [Input(Minimum = 0f)]
     public Scalar Scale = 1f;
 
     /// <summary>The sweep.</summary>

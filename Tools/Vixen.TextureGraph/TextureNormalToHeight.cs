@@ -244,11 +244,19 @@ sealed class NormalToHeightOperation : ITextureCpuOperation {
                 (Half(bytes, at + 4) * 2d) - 1d
             ),
             TextureFormat.R16Float => ((Half(bytes, at) * 2d) - 1d, -1d, 1d),
+            TextureFormat.Rgba32Float => (
+                (Single(bytes, at) * 2d) - 1d,
+                (Single(bytes, at + 4) * 2d) - 1d,
+                (Single(bytes, at + 8) * 2d) - 1d
+            ),
+            TextureFormat.R32Float => ((Single(bytes, at) * 2d) - 1d, -1d, 1d),
             _ => throw new ArgumentOutOfRangeException(nameof(image), image.Format, "No such texture format.")
         };
     }
 
     static double Half(byte[] bytes, int at) => (double)BitConverter.ToHalf(bytes.AsSpan(at, 2));
+
+    static double Single(byte[] bytes, int at) => BitConverter.ToSingle(bytes.AsSpan(at, 4));
 
     /// <summary>Solves <c>∇²h = div g</c> over the grid, and returns a height field of mean zero.</summary>
     /// <remarks>
@@ -393,6 +401,20 @@ sealed class NormalToHeightOperation : ITextureCpuOperation {
                     BitConverter.TryWriteBytes(bytes.AsSpan(texel + 2, 2), (Half)value);
                     BitConverter.TryWriteBytes(bytes.AsSpan(texel + 4, 2), (Half)value);
                     BitConverter.TryWriteBytes(bytes.AsSpan(texel + 6, 2), (Half)1f);
+
+                    break;
+
+                case TextureFormat.R32Float:
+                    BitConverter.TryWriteBytes(bytes.AsSpan(texel, 4), value);
+
+                    break;
+
+                case TextureFormat.Rgba32Float:
+                    // Grey with an opaque alpha, for the half-float case's reason.
+                    BitConverter.TryWriteBytes(bytes.AsSpan(texel, 4), value);
+                    BitConverter.TryWriteBytes(bytes.AsSpan(texel + 4, 4), value);
+                    BitConverter.TryWriteBytes(bytes.AsSpan(texel + 8, 4), value);
+                    BitConverter.TryWriteBytes(bytes.AsSpan(texel + 12, 4), 1f);
 
                     break;
 

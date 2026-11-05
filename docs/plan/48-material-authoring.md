@@ -1130,16 +1130,29 @@ behave.** No graph, no UI, no node classes.
 ### M1 — `Vixen.Editor.TextureGraph`: the plan, the evaluator and its shader gate · 1.25 EM
 
 `TexturePlan`, `TextureOp`, the image pool with liveness-based reuse, the dispatcher, the format rules
-(**three storable — RGBA8 / R16F / RGBA16F — and two readable-only, R8 and RG8**), the resolution
-rules of D8, and the seed.
+(**five storable — RGBA8 / R16F / RGBA16F / R32F / RGBA32F — and two readable-only, R8 and RG8**), the
+resolution rules of D8, and the seed.
 
-⚠ **That line listed all five as though a kernel could write any of them, and the ban on 32-bit
-float is narrower than it reads.**
+**32-bit float is a material-map format, and this overturns what this milestone said.** The exclusion
+held that a map needing more than half-float precision had a mistake upstream. A height field refutes it:
+eleven bits of mantissa terrace a slope across a 2K map, and a normal derived from it shows the terraces.
+So a graph may declare `bitDepth: 32` (`TextureGraphSettings.BitDepth`), which moves every image a node
+writes and every scratch record to the 32-bit twin. The memory argument below stands, which is why
+sixteen stays the default. ⚠ It took no per-format kernel: `TextureKernels.Variant` rewrites one
+`[Format]`, every read is a `Load`, and the evaluator binds no samplers, so Vulkan not requiring a 32-bit
+image to be filterable costs nothing. `TextureAnalysis.ExactExtent` stays at 2048 until the jump-flood
+rework measures a flood above it, so the slice the text below names is still owed.
+
+**A size need not be a power of two.** Nothing refused one: a base is any positive extent, a level is a
+floored halving, and only `TexturePlan.BakeLevelFor` asks for a power-of-two *ratio* between a graph and a
+bake, which stands, because a plan's images are levels of one base.
+`TextureFormatDeviceTests` draws the library at 101×67, where every level is odd.
+
+⚠ **That line listed all five formats of its day as though a kernel could write any of them.**
 R8 and RG8 cannot be *written*: `Raven/Vixen.Raven/Symbols/ImageFormats.cs` admits sixteen
 storage-image formats and neither is among them, and Vulkan requires neither for `STORAGE_IMAGE`
-either — so `TextureFormats.IsStorable` admits three, and a plan takes an R8 bitmap **in** and
-computes in one of the three. And the 32-bit exclusion is a decision about *material maps* rather than
-a capability: Raven admits `r32f`, `rg32f` and `rgba32f`, the RHI maps all three
+either — so a plan takes an R8 bitmap **in** and computes in a storable format. The 32-bit exclusion was
+never a capability: Raven admits `r32f`, `rg32f` and `rgba32f`, the RHI maps all three
 (`Platform/Vixen.Graphics.Vulkan/VulkanFormats.cs`), and `Core/Vixen.Rendering/HiZPyramid.cs` already
 dispatches into an `R32Float` storage image in production. ⚠ [#690](https://github.com/Rikarin/Vixen/issues/690)
 asks for it on behalf of the two § 4.5 kernels that carry a *position* rather than a colour, and its
@@ -1149,8 +1162,7 @@ own remedy is refuted: both records are **four** channels — `JumpFlood.rvn` st
 record is never an output and never a material map), and it is **not free**: the memory figure this
 document and the assembly's README both quote is understated by 8×, because an `Rgba16Float`
 intermediate at 4K is 128 MiB and its `Rgba32Float` twin is 256 MiB, and a jump flood ping-pongs two of
-them. So it is admitted with the slice that lifts `TextureAnalysis.ExactExtent`, measured, rather than
-by widening `TextureFormats.Storable` for every kernel in the folder first. ✅ The shader-gate half
+them. ✅ The shader-gate half
 of this milestone — **turning `CheckShaders`' `EditorSources` from a hand-kept list into a folder
 read**, per D1 — landed ahead of it under
 [#564](https://github.com/Rikarin/Vixen/issues/564), so a kernel added here is gated without a build
@@ -1731,7 +1743,7 @@ forgotten.
 | Output **usages** | ✅ | ✅ | ✅ | ● M5 — § 4.8 |
 | System variables (`$outputsize`, `$randomseed`) | ✅ | — | ✅ | ● M1 — resolution and seed are plan inputs |
 | Absolute vs relative-to-parent resolution | ✅ | — | ✅ | ● § D8 — relative only, with `Crop` and `Resample` as the two exits |
-| 8 / 16 / 32-bit and float formats | ✅ | ✅ | ✅ | ◐ M1 — R8…RGBA16F, of which three can be written. **32-bit float is not a material-map format**; ⚠ it is available in Raven and the RHI today and `rgba32f` is owed to § 4.5's two position-carrying records — [#690](https://github.com/Rikarin/Vixen/issues/690) |
+| 8 / 16 / 32-bit and float formats | ✅ | ✅ | ✅ | ● M1 — R8…RGBA32F, of which five can be written, and a graph may declare `bitDepth: 32`. ⚠ `rgba32f` lifting § 4.5's 2048 ceiling is owed — [#690](https://github.com/Rikarin/Vixen/issues/690) |
 | Physical size metadata | ✅ | — | ? | 🕓 |
 | A cooked, runtime-parameterised material (`.sbsar`) | ✅ | consumes | ◐ | ✖ § What this does not become |
 | Importing `.sbs` / `.sbsar` | ✅ | ✅ | ✅ | ✖ same — and an importer over the vendor's own tooling is a third-party plugin's business |

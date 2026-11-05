@@ -44,7 +44,7 @@ sealed partial class BlendNode : TextureNode {
     public Image Foreground;
 
     /// <summary>How much of the result is the foreground's, before its own alpha.</summary>
-    [Input]
+    [Input(Minimum = 0f, Maximum = 1f)]
     public Scalar Opacity = 1f;
 
     /// <summary>The composite.</summary>
@@ -131,7 +131,7 @@ sealed partial class MixNode : TextureNode {
     public Image Mask;
 
     /// <summary>A scale over the whole mask, before the foreground's own alpha.</summary>
-    [Input]
+    [Input(Minimum = 0f, SoftMaximum = 1f)]
     public Scalar Opacity = 1f;
 
     /// <summary>The composite.</summary>
@@ -194,7 +194,7 @@ sealed partial class BlurNode : TextureNode {
     public Image Input;
 
     /// <summary>The half-width, in texels at the graph's base resolution.</summary>
-    [Input]
+    [Input(Minimum = 0f)]
     public Scalar Radius = 8f;
 
     /// <summary>The blurred image.</summary>
@@ -206,7 +206,7 @@ sealed partial class BlurNode : TextureNode {
         ArgumentNullException.ThrowIfNull(emitter);
 
         var source = emitter.Read("Input");
-        var format = TextureEmitter.FormatOf(emitter.Resolved);
+        var format = emitter.FormatOf(emitter.Resolved);
         var scratch = emitter.Scratch(format);
         var target = emitter.Write("Out");
 
@@ -254,23 +254,23 @@ sealed partial class LevelsNode : TextureNode {
     public Image Input;
 
     /// <summary>The input value that becomes the output black.</summary>
-    [Input(Name = "Input Black")]
+    [Input(Name = "Input Black", SoftMinimum = 0f, SoftMaximum = 1f)]
     public Scalar InputBlack = 0f;
 
     /// <summary>The input value that becomes the output white.</summary>
-    [Input(Name = "Input White")]
+    [Input(Name = "Input White", SoftMinimum = 0f, SoftMaximum = 1f)]
     public Scalar InputWhite = 1f;
 
     /// <summary>The midtone exponent. 1 is linear; below 1 lifts, above 1 crushes.</summary>
-    [Input]
+    [Input(Minimum = 0f)]
     public Scalar Gamma = 1f;
 
     /// <summary>What the input black becomes.</summary>
-    [Input(Name = "Output Black")]
+    [Input(Name = "Output Black", SoftMinimum = 0f, SoftMaximum = 1f)]
     public Scalar OutputBlack = 0f;
 
     /// <summary>What the input white becomes.</summary>
-    [Input(Name = "Output White")]
+    [Input(Name = "Output White", SoftMinimum = 0f, SoftMaximum = 1f)]
     public Scalar OutputWhite = 1f;
 
     /// <summary>How much ordered noise to add, in units of one 8-bit step.</summary>
@@ -280,7 +280,7 @@ sealed partial class LevelsNode : TextureNode {
     ///     banding is permanent; one step costs nothing and is invisible. The kernel defaults to zero
     ///     because a kernel is also what a hand-built plan calls, and this is the authoring default.
     /// </remarks>
-    [Input]
+    [Input(SoftMinimum = 0f)]
     public Scalar Dither = 1f;
 
     /// <summary>The remapped image.</summary>
@@ -361,7 +361,7 @@ sealed partial class Transform2DNode : TextureNode {
     public Image Input;
 
     /// <summary>The rotation, in radians, clockwise on screen. ⚠ Turns until #735.</summary>
-    [Input]
+    [Input(SoftMinimum = -MathF.PI, SoftMaximum = MathF.PI)]
     public Scalar Rotation = 0f;
 
     /// <summary>How much bigger the image gets along x. Below 1 minifies.</summary>
@@ -373,11 +373,11 @@ sealed partial class Transform2DNode : TextureNode {
     public Scalar ScaleY = 1f;
 
     /// <summary>How far it moves along x, in fractions of its own size.</summary>
-    [Input(Name = "Offset X")]
+    [Input(Name = "Offset X", SoftMinimum = -1f, SoftMaximum = 1f)]
     public Scalar OffsetX = 0f;
 
     /// <summary>The same along y.</summary>
-    [Input(Name = "Offset Y")]
+    [Input(Name = "Offset Y", SoftMinimum = -1f, SoftMaximum = 1f)]
     public Scalar OffsetY = 0f;
 
     /// <summary>x sheared by y.</summary>
@@ -474,11 +474,11 @@ sealed partial class DistanceNode : TextureNode {
     public Image Mask;
 
     /// <summary>How far the field reaches, as a fraction of the image's longer side.</summary>
-    [Input(Name = "Max Distance")]
+    [Input(Name = "Max Distance", Minimum = 0f, SoftMaximum = 1f)]
     public Scalar MaxDistance = 0.25f;
 
     /// <summary>What counts as inside the mask.</summary>
-    [Input]
+    [Input(SoftMinimum = 0f, SoftMaximum = 1f)]
     public Scalar Threshold = 0.5f;
 
     /// <summary>The field.</summary>
@@ -503,10 +503,10 @@ sealed partial class DistanceNode : TextureNode {
         var scratch = ImmutableArray.CreateBuilder<int>(passes);
 
         for (var pass = 0; pass < passes; pass++) {
-            // ⚠ Rgba16Float and not the node's own channels: a jump flood's record is a *signed
+            // ⚠ Four lanes and not the node's own channels: a jump flood's record is a *signed
             // offset in texels*, not a picture, and a grey scratch would hold one lane of a
             // coordinate pair.
-            scratch.Add(emitter.Scratch(TextureFormat.Rgba16Float));
+            scratch.Add(emitter.Scratch(emitter.FormatOf(TextureChannels.Colour)));
         }
 
         try {

@@ -61,27 +61,27 @@ sealed partial class TileSamplerNode : TextureNode {
     public Image RotationMap;
 
     /// <summary>How many cells across.</summary>
-    [Input(Name = "Grid X")]
+    [Input(Name = "Grid X", Minimum = 1f)]
     public Int GridX = 8;
 
     /// <summary>How many cells down.</summary>
-    [Input(Name = "Grid Y")]
+    [Input(Name = "Grid Y", Minimum = 1f)]
     public Int GridY = 8;
 
     /// <summary>An instance's size as a fraction of its cell.</summary>
-    [Input]
+    [Input(Minimum = 0f, SoftMaximum = 1f)]
     public Scalar Scale = 1f;
 
     /// <summary>How much an instance may randomly shrink, 0–1.</summary>
-    [Input(Name = "Scale Jitter")]
+    [Input(Name = "Scale Jitter", Minimum = 0f, Maximum = 1f)]
     public Scalar ScaleJitter = 0f;
 
     /// <summary>How far it may randomly move inside its cell, 0–1.</summary>
-    [Input(Name = "Position Jitter")]
+    [Input(Name = "Position Jitter", Minimum = 0f, Maximum = 1f)]
     public Scalar PositionJitter = 0f;
 
     /// <summary>The rotation every instance starts at, in radians.</summary>
-    [Input]
+    [Input(SoftMinimum = -MathF.PI, SoftMaximum = MathF.PI)]
     public Scalar Rotation = 0f;
 
     /// <summary>How much it may randomly differ, in radians. At 2π it is free.</summary>
@@ -91,15 +91,15 @@ sealed partial class TileSamplerNode : TextureNode {
     ///     promising a whole turn — about a sixth of one, silently, with nothing in either test file
     ///     able to see it: the compound roll call only asks that the picture is not flat.
     /// </remarks>
-    [Input(Name = "Rotation Jitter")]
+    [Input(Name = "Rotation Jitter", SoftMinimum = 0f, SoftMaximum = MathF.Tau)]
     public Scalar RotationJitter = 0f;
 
     /// <summary>How much an instance may randomly darken, 0–1.</summary>
-    [Input(Name = "Colour Jitter")]
+    [Input(Name = "Colour Jitter", Minimum = 0f, Maximum = 1f)]
     public Scalar ColourJitter = 0f;
 
     /// <summary>How many equal-width columns the pattern holds.</summary>
-    [Input(Name = "Pattern Count")]
+    [Input(Name = "Pattern Count", Minimum = 1f)]
     public Int PatternCount = 1;
 
     /// <summary>Whether the pattern's alpha carries its coverage rather than its luminance.</summary>
@@ -115,19 +115,19 @@ sealed partial class TileSamplerNode : TextureNode {
     public Bool AlphaCoverage = false;
 
     /// <summary>The mask value below which an instance is dropped. ⚠ Zero never culls.</summary>
-    [Input(Name = "Mask Threshold")]
+    [Input(Name = "Mask Threshold", SoftMinimum = 0f, SoftMaximum = 1f)]
     public Scalar MaskThreshold = 0f;
 
     /// <summary>How much of the size map reaches an instance's scale, 0–1. ⚠ Zero ignores the map.</summary>
-    [Input(Name = "Size Map Amount")]
+    [Input(Name = "Size Map Amount", Minimum = 0f, Maximum = 1f)]
     public Scalar SizeMapAmount = 0f;
 
     /// <summary>What a full rotation map is worth, in radians. ⚠ Zero ignores the map.</summary>
-    [Input(Name = "Rotation Map Amount")]
+    [Input(Name = "Rotation Map Amount", SoftMinimum = 0f, SoftMaximum = MathF.Tau)]
     public Scalar RotationMapAmount = 0f;
 
     /// <summary>How much of each instance reaches the result.</summary>
-    [Input]
+    [Input(Minimum = 0f, Maximum = 1f)]
     public Scalar Opacity = 1f;
 
     /// <summary>The grid.</summary>
@@ -230,31 +230,31 @@ sealed partial class SplatterNode : TextureNode {
     public Image Placement;
 
     /// <summary>How many instances. ⚠ At most 256, and past that the node refuses.</summary>
-    [Input]
+    [Input(Minimum = 1f, Maximum = TexturePlacement.MaxInstances)]
     public Int Count = 16;
 
     /// <summary>An instance's size as a fraction of the image.</summary>
-    [Input]
+    [Input(Minimum = 0f, SoftMaximum = 1f)]
     public Scalar Scale = 0.25f;
 
     /// <summary>How much an instance may randomly shrink, 0–1.</summary>
-    [Input(Name = "Scale Jitter")]
+    [Input(Name = "Scale Jitter", Minimum = 0f, Maximum = 1f)]
     public Scalar ScaleJitter = 0f;
 
     /// <summary>The rotation every instance starts at, in radians.</summary>
-    [Input]
+    [Input(SoftMinimum = -MathF.PI, SoftMaximum = MathF.PI)]
     public Scalar Rotation = 0f;
 
     /// <summary>How much it may randomly differ, in radians. At 2π it is free. ⚠ Turns until #735.</summary>
-    [Input(Name = "Rotation Jitter")]
+    [Input(Name = "Rotation Jitter", SoftMinimum = 0f, SoftMaximum = MathF.Tau)]
     public Scalar RotationJitter = 0f;
 
     /// <summary>How much an instance may randomly darken, 0–1.</summary>
-    [Input(Name = "Colour Jitter")]
+    [Input(Name = "Colour Jitter", Minimum = 0f, Maximum = 1f)]
     public Scalar ColourJitter = 0f;
 
     /// <summary>How many equal-width columns the pattern holds.</summary>
-    [Input(Name = "Pattern Count")]
+    [Input(Name = "Pattern Count", Minimum = 1f)]
     public Int PatternCount = 1;
 
     /// <summary>Whether the pattern's alpha carries its coverage rather than its luminance.</summary>
@@ -270,23 +270,23 @@ sealed partial class SplatterNode : TextureNode {
     public Bool AlphaCoverage = false;
 
     /// <summary>The mask value below which an instance is dropped. ⚠ Zero never culls.</summary>
-    [Input(Name = "Mask Threshold")]
+    [Input(Name = "Mask Threshold", SoftMinimum = 0f, SoftMaximum = 1f)]
     public Scalar MaskThreshold = 0f;
 
     /// <summary>How much of the size map reaches an instance's scale, 0–1. ⚠ Zero ignores the map.</summary>
-    [Input(Name = "Size Map Amount")]
+    [Input(Name = "Size Map Amount", Minimum = 0f, Maximum = 1f)]
     public Scalar SizeMapAmount = 0f;
 
     /// <summary>What a full rotation map is worth, in radians. ⚠ Zero ignores the map.</summary>
-    [Input(Name = "Rotation Map Amount")]
+    [Input(Name = "Rotation Map Amount", SoftMinimum = 0f, SoftMaximum = MathF.Tau)]
     public Scalar RotationMapAmount = 0f;
 
     /// <summary>How far the placement map may move an instance, in fractions of the image.</summary>
-    [Input(Name = "Placement Amount")]
+    [Input(Name = "Placement Amount", SoftMinimum = 0f, SoftMaximum = 1f)]
     public Scalar PlacementAmount = 0f;
 
     /// <summary>How much of each instance reaches the result.</summary>
-    [Input]
+    [Input(Minimum = 0f, Maximum = 1f)]
     public Scalar Opacity = 1f;
 
     /// <summary>The scatter.</summary>

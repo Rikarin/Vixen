@@ -30,7 +30,7 @@ sealed partial class BlurHqNode : TextureNode {
     public Image Input;
 
     /// <summary>The standard deviation, in texels at the graph's base resolution.</summary>
-    [Input]
+    [Input(Minimum = 0f, Maximum = 64f / 3f)]
     public Scalar Sigma = 1f;
 
     /// <summary>The blurred image.</summary>
@@ -42,7 +42,7 @@ sealed partial class BlurHqNode : TextureNode {
         ArgumentNullException.ThrowIfNull(emitter);
 
         var source = emitter.Read("Input");
-        var scratch = emitter.Scratch(TextureEmitter.FormatOf(emitter.Resolved));
+        var scratch = emitter.Scratch(emitter.FormatOf(emitter.Resolved));
         var target = emitter.Write("Out");
 
         if (source < 0) {
@@ -71,11 +71,11 @@ sealed partial class DirectionalBlurNode : TextureNode {
     public Image Input;
 
     /// <summary>The direction, in radians from +x towards +y.</summary>
-    [Input]
+    [Input(SoftMinimum = -MathF.PI, SoftMaximum = MathF.PI)]
     public Scalar Angle = 0f;
 
     /// <summary>How far it reaches each way, in texels at the base resolution.</summary>
-    [Input]
+    [Input(Minimum = 0f, Maximum = 64f)]
     public Scalar Length = 4f;
 
     /// <summary>The smeared image.</summary>
@@ -114,19 +114,19 @@ sealed partial class RadialBlurNode : TextureNode {
     public Image Input;
 
     /// <summary>How much of the distance to the centre the samples span. 0 is a copy.</summary>
-    [Input]
+    [Input(SoftMinimum = 0f, SoftMaximum = 1f)]
     public Scalar Amount = 0.2f;
 
     /// <summary>Where the rays meet along x, in 0..1 of the image.</summary>
-    [Input(Name = "Centre X")]
+    [Input(Name = "Centre X", SoftMinimum = 0f, SoftMaximum = 1f)]
     public Scalar CentreX = 0.5f;
 
     /// <summary>Where they meet along y.</summary>
-    [Input(Name = "Centre Y")]
+    [Input(Name = "Centre Y", SoftMinimum = 0f, SoftMaximum = 1f)]
     public Scalar CentreY = 0.5f;
 
     /// <summary>How many samples the span is cut into. ⚠ 1 is a copy at any amount.</summary>
-    [Input]
+    [Input(Minimum = 1f, Maximum = 32f)]
     public Int Samples = 16;
 
     /// <summary>The smeared image.</summary>
@@ -176,7 +176,7 @@ sealed partial class NonUniformBlurNode : TextureNode {
     public Image RadiusMap;
 
     /// <summary>What a fully lit texel is worth, in texels at the base resolution.</summary>
-    [Input(Name = "Max Radius")]
+    [Input(Name = "Max Radius", Minimum = 0f, Maximum = 12f)]
     public Scalar MaxRadius = 4f;
 
     /// <summary>The blurred image.</summary>
@@ -213,11 +213,11 @@ sealed partial class SharpenNode : TextureNode {
     public Image Input;
 
     /// <summary>How much of the difference is added back. 0 is a copy.</summary>
-    [Input]
+    [Input(SoftMinimum = 0f)]
     public Scalar Amount = 1f;
 
     /// <summary>The half-width of the subtracted box, in texels at the base resolution.</summary>
-    [Input]
+    [Input(Minimum = 0f, Maximum = 8f)]
     public Scalar Radius = 1f;
 
     /// <summary>The sharpened image.</summary>

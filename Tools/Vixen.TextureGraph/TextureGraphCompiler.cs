@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Collections.Immutable;
+using System.Globalization;
+using System.Text;
 using Vixen.Core.Mathematics;
 using Vixen.NodeGraph;
 
@@ -175,6 +177,12 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
     /// <summary>What each port whose value was written as an expression folded to.</summary>
     readonly Dictionary<(NodeId Node, string Port), float> folded = [];
 
+    /// <summary>How many answers of <c>Resolve</c> are kept, so that a long drag cannot grow them for ever.</summary>
+    const int ResolutionMemory = 1024;
+
+    /// <summary>What a sub-graph node's expressions folded to, by everything that could change it.</summary>
+    readonly Dictionary<string, Dictionary<string, float[]>> resolutions = new(StringComparer.Ordinal);
+
     /// <summary>Which image each node's output port wrote, in the order they were allocated.</summary>
     readonly List<TextureGraphNodeImage> nodeImages = [];
 
@@ -201,6 +209,9 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
     int authoredWidth;
     int authoredHeight;
     uint authoredSeed;
+
+    /// <summary>What this compilation's floats are, in bits.</summary>
+    int bitDepth = TextureGraphSettings.DefaultBitDepth;
 
     /// <summary>The graph being walked — the flattened one, not the author's. See the base class.</summary>
     NodeGraphModel? graph;
@@ -437,12 +448,20 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
             return ImmutableDictionary<string, float[]>.Empty;
         }
 
+        // ⚠ Read only by a refresh. An inlining runs on every value edit, and this is the one Raven
+        // compilation in it: nothing here but the knobs a scope reads can change what it folds to.
+        var question = Question(scope.Type, values, expressions);
+
+        if (refreshing && resolutions.TryGetValue(question, out var known)) {
+            return known;
+        }
+
         ExpressionCompilations++;
 
         var results = TextureGraphExpressions.Fold(parameters, values, expressions, out var diagnostics);
 
         foreach (var diagnostic in diagnostics) {
-            Report(diagnostic);
+            Say(diagnostic);
         }
 
         Dictionary<string, float[]> resolved = new(StringComparer.Ordinal);
@@ -453,7 +472,34 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
             }
         }
 
+        if (diagnostics.IsEmpty) {
+            if (resolutions.Count >= ResolutionMemory) {
+                resolutions.Clear();
+            }
+
+            resolutions[question] = resolved;
+        }
+
         return resolved;
+    }
+
+    /// <summary>Everything an answer of <c>Resolve</c> is a function of, as one key.</summary>
+    static string Question(
+        string scope,
+        IReadOnlyDictionary<string, float> values,
+        IReadOnlyList<TextureExpression> expressions
+    ) {
+        StringBuilder question = new(scope);
+
+        foreach (var (name, value) in values.OrderBy(static value => value.Key, StringComparer.Ordinal)) {
+            question.Append(CultureInfo.InvariantCulture, $"\n{name}={value:R}");
+        }
+
+        foreach (var expression in expressions) {
+            question.Append(CultureInfo.InvariantCulture, $"\n={expression.Port}:{expression.Text}");
+        }
+
+        return question.ToString();
     }
 
     /// <inheritdoc />
@@ -545,7 +591,7 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
         // where an outer graph hands down a name the inner knob does not accept. Folding these into
         // one branch loses the diagnostic on exactly that path.
         if (problem.Length > 0) {
-            Report(new(TextureDiagnostics.NameKnobNotResolved, problem, node.Id, name, NodeSeverity.Warning));
+            Say(new(TextureDiagnostics.NameKnobNotResolved, problem, node.Id, name, NodeSeverity.Warning));
         }
 
         return substitute ? chosen : value;
@@ -685,8 +731,9 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
         authoredWidth = TextureGraphSettings.Extent(graph, TextureGraphSettings.BaseWidth, BaseWidth, out var width);
         authoredHeight = TextureGraphSettings.Extent(graph, TextureGraphSettings.BaseHeight, BaseHeight, out var height);
         authoredSeed = TextureGraphSettings.SeedOf(graph, Seed, out var seed);
+        bitDepth = TextureGraphSettings.BitDepthOf(graph, out var depth);
 
-        foreach (var problem in new[] { width, height, seed }) {
+        foreach (var problem in new[] { width, height, seed, depth }) {
             if (problem is not null) {
                 // Against no node, because it is the graph's own declaration — the same choice
                 // `Bind` makes for a parameter list that does not hold together.
@@ -773,91 +820,62 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
         RefuseExpressionsOnSubGraphPorts();
 
         foreach (var (expansion, scope, expressions) in Collect(graph)) {
-            var parameters = scope.Length == 0
-                ? declared
-                : (SubGraphSource as ITextureGraphLibrary)?.ParametersOf(scope) ?? [];
+            Fold(expansion, scope, expressions);
+        }
+    }
 
-            var values = ParameterValues;
+    /// <summary>Folds what one scope's nodes wrote as expressions, against that scope's knobs.</summary>
+    void Fold(int expansion, string scope, List<TextureExpression> expressions) {
+        var parameters = scope.Length == 0
+            ? declared
+            : (SubGraphSource as ITextureGraphLibrary)?.ParametersOf(scope) ?? [];
 
-            if (scope.Length > 0) {
-                // ⚠ The settings of the sub-graph node this expansion came out of, which used to be
-                // `null` — the declared defaults — for every published graph in every containing
-                // graph (#742). The node itself is gone by now: `Flatten` replaced it with the
-                // graph's contents, and `SubGraphExpansion` is what carried its numbers across.
-                Inlining.Expansions.TryGetValue(expansion, out var inlined);
+        var values = ParameterValues;
 
-                values = TextureGraphParameters.Read(parameters, inlined.Settings, out var ignored);
+        if (scope.Length > 0) {
+            // ⚠ The settings of the sub-graph node this expansion came out of, which used to be
+            // `null` — the declared defaults — for every published graph in every containing
+            // graph (#742). The node itself is gone by now: `Flatten` replaced it with the
+            // graph's contents, and `SubGraphExpansion` is what carried its numbers across.
+            Inlining.Expansions.TryGetValue(expansion, out var inlined);
 
-                foreach (var problem in ignored) {
-                    // Against the node the author can select rather than against no node, because
-                    // this one *is* somebody's typing and it is on a node they have.
-                    Report(new(
-                        TextureDiagnostics.ParameterOverrideIgnored,
-                        $"'{scope}': {problem}",
-                        inlined.Source,
-                        "",
-                        NodeSeverity.Warning
-                    ));
-                }
+            values = TextureGraphParameters.Read(parameters, inlined.Settings, out var ignored);
+
+            foreach (var problem in ignored) {
+                // Against the node the author can select rather than against no node, because
+                // this one *is* somebody's typing and it is on a node they have.
+                Say(new(
+                    TextureDiagnostics.ParameterOverrideIgnored,
+                    $"'{scope}': {problem}",
+                    inlined.Source,
+                    "",
+                    NodeSeverity.Warning
+                ));
             }
+        }
 
-            // ⚠ Counted here rather than inside `Fold`, because this loop is what the sentence above
-            // is about: one compilation per group, and a group is one expansion holding at least one
-            // expression — #940. `Fold` itself has no idea how many times it is being called.
-            //
-            // Unconditional, and that is a claim about `Collect` rather than an oversight: `For`
-            // makes a group only to add an expression to it, so no group here is empty and none
-            // takes `Fold`'s "nothing to compile" early return.
-            ExpressionCompilations++;
+        // ⚠ Counted here rather than inside `Fold`, because this loop is what the sentence above
+        // is about: one compilation per group, and a group is one expansion holding at least one
+        // expression — #940. `Fold` itself has no idea how many times it is being called.
+        //
+        // Unconditional, and that is a claim about `Collect` rather than an oversight: `For`
+        // makes a group only to add an expression to it, so no group here is empty and none
+        // takes `Fold`'s "nothing to compile" early return.
+        ExpressionCompilations++;
 
-            var results = TextureGraphExpressions.Fold(parameters, values, expressions, out var diagnostics);
+        var results = TextureGraphExpressions.Fold(parameters, values, expressions, out var diagnostics);
 
-            foreach (var diagnostic in diagnostics) {
-                Report(diagnostic);
-            }
+        foreach (var diagnostic in diagnostics) {
+            Say(diagnostic);
+        }
 
-            foreach (var result in results) {
-                if (result.Folded) {
-                    folded[(result.Node, result.Port)] = result.Value;
-                }
+        foreach (var result in results) {
+            if (result.Folded) {
+                folded[(result.Node, result.Port)] = result.Value;
             }
         }
     }
 
-    /// <summary>Says so when an expression is written on a sub-graph port that takes no number.</summary>
-    /// <remarks>
-    ///     <para>
-    ///         ⚠ <b>What is left of <c>TG0003</c> once the fold exists</b> —
-    ///         <a href="https://github.com/Rikarin/Vixen/issues/1058">#1058</a> refused every
-    ///         expression on a sub-graph port because inlining could only read literals, and
-    ///         <a href="https://github.com/Rikarin/Vixen/issues/1074">#1074</a> is that capability.
-    ///         An expression on a scalar port now folds; what still cannot mean anything is one on a
-    ///         port carrying an image, and one naming a port the published graph has not got. Both
-    ///         are the complaint <see cref="Collect" /> makes about an atomic node's port, one level
-    ///         over, so they are reported as the same thing rather than as a sub-graph rule of their
-    ///         own.
-    ///     </para>
-    ///     <para>
-    ///         ⚠ <b>An expression on a <em>wired</em> port is deliberately silent.</b> A wire wins
-    ///         over a value written on the port it arrives at — that is true of every port in this
-    ///         system and of the number typed into this one — so a diagnostic here would be a rule
-    ///         sub-graph nodes alone had. <see cref="ISubGraphValues" /> is never even asked about a
-    ///         connected input, which is the same statement one layer down.
-    ///     </para>
-    ///     <para>
-    ///         ⚠ <b>Over every expansion and not over the ones <see cref="Collect" /> returns.</b>
-    ///         <c>Collect</c> groups the expressions written <em>inside</em> each compound, so a
-    ///         compound holding none of its own would never be visited — and a compound holding none
-    ///         of its own is exactly the one an author reaches for when they want the arithmetic on
-    ///         the outside.
-    ///     </para>
-    ///     <para>
-    ///         The blame is <see cref="SubGraphExpansion.Source" />, which is the outermost sub-graph
-    ///         node and therefore the one on the author's canvas — the same choice every other
-    ///         complaint about an inlined thing makes, for the reason <see cref="NodeGraphInlining" />
-    ///         states.
-    ///     </para>
-    /// </remarks>
     void RefuseExpressionsOnSubGraphPorts() {
         foreach (var expansion in Inlining.Expansions.Keys.Order()) {
             var inlined = Inlining.Expansions[expansion];
@@ -1126,7 +1144,7 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
         Kernels = [.. kernels];
         Externals = [.. externals];
 
-        Remember(plan);
+        Remember(plan, graph);
 
         return plan;
     }
@@ -1157,9 +1175,6 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
     ///     expression, which is the whole reason doc 48 § Part 4's rule belongs to a compiler.
     /// </remarks>
     protected override string Convert(string expression, PortKind from, PortKind target) => expression;
-
-    /// <summary>Says something about a node, for <see cref="TextureEmitter" />.</summary>
-    internal void Say(NodeDiagnostic diagnostic) => Report(diagnostic);
 
     /// <summary>The width this compilation's level-0 images are measured against.</summary>
     /// <remarks>
@@ -1446,7 +1461,7 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
 
     /// <summary>Allocates the image one output port carries.</summary>
     internal int Write(GraphNode node, string port, TextureChannels wanted, int levelOffset) {
-        var image = Allocate(TextureEmitter.FormatOf(wanted), wanted, levelOffset);
+        var image = Allocate(FormatOf(wanted), wanted, levelOffset);
 
         imageOf[Variable(node, port)] = image;
 
@@ -1494,11 +1509,10 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
 
     /// <summary>Allocates an image no port names.</summary>
     internal int Scratch(TextureFormat format, int levelOffset) =>
-        Allocate(
-            format,
-            format == TextureFormat.R16Float ? TextureChannels.Grey : TextureChannels.Colour,
-            levelOffset
-        );
+        Allocate(format, TextureFormats.ChannelsOf(format), levelOffset);
+
+    /// <summary>The storage one number of channels is kept in, in this compilation.</summary>
+    internal TextureFormat FormatOf(TextureChannels channels) => TextureFormats.Of(channels, bitDepth);
 
     /// <summary>Allocates an image the caller supplies, and records what fills it.</summary>
     /// <remarks>
@@ -1635,7 +1649,7 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
         // ⚠ At the source's level and not at the base. The splat is a `ChannelShuffle`, which is a
         // pointwise kernel like any other — a base-sized promotion of a half-resolution mask is
         // #779's corner crop, inserted by the compiler itself rather than by any node.
-        promoted = Allocate(TextureFormat.Rgba16Float, TextureChannels.Colour, LevelOf(source));
+        promoted = Allocate(FormatOf(TextureChannels.Colour), TextureChannels.Colour, LevelOf(source));
 
         // ⚠ The same image bound to both of `ChannelShuffle`'s inputs, because the kernel declares two
         // and the evaluator binds an op's images over them positionally. Selector 0 is the first

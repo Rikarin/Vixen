@@ -46,6 +46,56 @@ public class TextureIncrementalDeviceTests {
             ]
         };
 
+    /// <summary>
+    ///     ⚠ One copy recorded over another's bytes, or an offset handed to the wrong image, is a
+    ///     picture of the neighbour: every image here differs from the others, and in size of texel.
+    /// </summary>
+    [Fact]
+    public void Reading_images_together_gives_what_reading_them_apart_gives() {
+        using var device = TextureKernelHarness.Open();
+        using var evaluator = new TexturePlanEvaluator(device);
+        using var uploads = new TextureUploads(device);
+
+        var plan = new TexturePlan {
+            BaseWidth = Side,
+            BaseHeight = Side,
+            Images = [
+                new(TextureFormat.Rgba8, External: true),
+                new(TextureFormat.Rgba16Float),
+                new(TextureFormat.Rgba8),
+                new(TextureFormat.R16Float),
+                new(TextureFormat.Rgba16Float, LevelOffset: 1)
+            ],
+            Ops = [
+                Levels(A, Ramp),
+                Levels(B, A, gamma: 0.5f),
+                Levels(C, A, white: 0.5f),
+                new() {
+                    Kernel = "Resample",
+                    Output = D,
+                    Inputs = [A],
+                    ReadsOtherExtents = true,
+                    Parameters = [new("filter", 2f)]
+                }
+            ],
+            Outputs = [A, B, C, D]
+        };
+        var (_, externals) = Supply(device, plan, uploads, TextureKernelHarness.Ramp(Side));
+
+        using var bake = evaluator.EvaluateIncremental(plan, externals);
+        int[] images = [D, B, A, C, B];
+        var together = bake.ReadTexels(images);
+
+        Assert.Equal(images.Length, together.Count);
+
+        for (var index = 0; index < images.Length; index++) {
+            Assert.Equal(bake.ReadTexels(images[index]), together[index]);
+        }
+
+        // Not a comparison of four identical images, which any offset would pass.
+        Assert.Equal(4, together.Select(Convert.ToHexString).Distinct().Count());
+    }
+
     static TexturePlan Chain() =>
         new() {
             BaseWidth = Side,
