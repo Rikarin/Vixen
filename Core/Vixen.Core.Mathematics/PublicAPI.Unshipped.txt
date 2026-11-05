@@ -956,4 +956,4 @@ static Vixen.Core.Mathematics.Vector4.operator ==(Vixen.Core.Mathematics.Vector4
 static Vixen.Core.Mathematics.Viewport.NearEqual(Vixen.Core.Mathematics.Viewport left, Vixen.Core.Mathematics.Viewport right, float tolerance = 1E-06) -> bool
 static Vixen.Core.Mathematics.Viewport.operator !=(Vixen.Core.Mathematics.Viewport left, Vixen.Core.Mathematics.Viewport right) -> bool
 static Vixen.Core.Mathematics.Viewport.operator ==(Vixen.Core.Mathematics.Viewport left, Vixen.Core.Mathematics.Viewport right) -> bool
-Vixen.Core.Mathematics.TriangleTree.Overlapping(Vixen.Core.Mathematics.Vector3 centre, float radius, System.Collections.Generic.List<int>! into) -> void
+Vixen.Core.Mathematics.TriangleTree.Overlapping(Vixen.Core.Mathematics.Vector3 centre, float radius, System.Collections.Generic.List<int> into) -> void
