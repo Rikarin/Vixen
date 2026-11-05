@@ -13,3 +13,10 @@ Paint layers are sparse tiles with copy-on-write undo, `.vxpaint` is a pack of t
 and Vixen's paint panes use through `LayerStackPreview`. There is no C# composite beside it: a session
 writes a layer and the plan is what shows it. See
 [the paint tile store](../../docs/guide/editor/paint-tile-store.md).
+
+## A stamp on a mesh
+
+`PaintMeshSurface` is the join between a mesh and an atlas, and [the guide](../../docs/guide/editor/paint-tile-store.md)
+says how a stamp uses it. ⚠ Two things it deliberately does not do: depth under the brush is a limit rather than an
+occlusion test, and a UV outside the unit square is not wrapped, so a mesh laid out across UDIM tiles paints only the
+first.

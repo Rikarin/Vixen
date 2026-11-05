@@ -4,7 +4,7 @@ slug: editor/paint-tile-store
 kind: guide
 area: Editor
 summary: How a paint layer's pixels are held as sparse tiles, what a stroke costs, how a host evaluates a stack without an editor, and what a .vxpaint pack holds.
-api: [T:Vixen.Texturing.Painting.PaintImageSnapshot, T:Vixen.Texturing.Painting.PaintTileCache, T:Vixen.Texturing.Layers.LayerStackEvaluator, T:Vixen.Texturing.Layers.LayerStackPictures, T:Vixen.TextureGraph.TextureRect, T:Vixen.TextureGraph.TextureRegions, T:Vixen.TextureGraph.TextureTileWrite, T:Vixen.TextureGraph.TextureImageChange, T:Vixen.TextureGraph.TextureLocality]
+api: [T:Vixen.Texturing.Painting.PaintImageSnapshot, T:Vixen.Texturing.Painting.PaintMeshSurface, T:Vixen.Texturing.Painting.PaintView, T:Vixen.Texturing.Painting.IPaintPlacement, T:Vixen.Texturing.Painting.PaintStampTexels, T:Vixen.Texturing.Painting.PaintTexelMap`1, T:Vixen.Texturing.Painting.PaintTileCache, T:Vixen.Texturing.Layers.LayerStackEvaluator, T:Vixen.Texturing.Layers.LayerStackPictures, T:Vixen.TextureGraph.TextureRect, T:Vixen.TextureGraph.TextureRegions, T:Vixen.TextureGraph.TextureTileWrite, T:Vixen.TextureGraph.TextureImageChange, T:Vixen.TextureGraph.TextureLocality]
 tags: [editor, painting, material-authoring, texture-graph]
 since: 0.1
 status: preview
@@ -86,3 +86,25 @@ var texels = bake.ReadTexels(map, [new(0, 0, 256, 256)]);
 
 - [Evaluating a texture graph](texture-graph-evaluation.md)
 - [Compiling a texture graph](texture-graph-compiling.md)
+
+## A stamp on a mesh
+
+`PaintMeshSurface` lays a `PaintProjection` over an atlas. Its `Coverage` says which texels are surface, and a
+`PaintStroke` given one of its placements measures each texel by where it is on the mesh rather than in the atlas, which
+is what makes a seam nothing special: both sides of one are the same place.
+
+`Through(view, mirror)` is a brush seen through a camera. A stamp's centre is a position on the picture, `PaintView`
+turns it into a ray, each triangle near the hit is clipped to the square the stamp makes on the picture, and a texel
+weighs what the brush weighs where it projects. So the disc on the screen stays a disc on any island, and a separate
+shell under the brush takes paint with the rest. A face turned away is skipped, and depth is a limit and not an
+occlusion test, so a texel hidden behind other geometry close under the brush is painted.
+
+`AcrossSeams()` is a brush in the atlas. It paints the disc as it always did, then floods from the triangle under the
+stamp across edges the mesh really shares, carrying the stamp on to the other islands by distance along the surface. It
+does not reach a surface it is only near, such as the far side of a thin wall.
+
+Either way a stroke dilates each island it reached separately, into the gutter of `PaintCoverage`, and reports one
+rectangle per island, since the union of two is everything between them.
+
+The per-texel numbers of a stroke live in `PaintTexelMap`, a tiled sparse array, because a hash table of millions of
+entries is a cache miss per lookup.
