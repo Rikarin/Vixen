@@ -562,7 +562,10 @@ public static class SubGraphs {
     /// <param name="registry">The node library, for reading the kind of a port that crossed.</param>
     /// <returns>The extraction: the new graph, and how the containing graph is to be rewired.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="graph" /> or the selection is null.</exception>
-    /// <exception cref="ArgumentException">The selection is empty or names a node the graph has not got.</exception>
+    /// <exception cref="ArgumentException">
+    ///     The selection is empty, names a node the graph has not got, or has a node outside it between two
+    ///     inside it.
+    /// </exception>
     /// <remarks>
     ///     <para>
     ///         <b>Nothing is changed here.</b> The extraction is a description and
@@ -622,6 +625,8 @@ public static class SubGraphs {
 
             inside.Add(id);
         }
+
+        RefuseAWayBackIn(graph, inside);
 
         var extracted = new NodeGraphModel { Name = name };
 
@@ -708,6 +713,39 @@ public static class SubGraphs {
         }
 
         return new(extracted, [.. moved], [.. incoming], [.. outgoing], inbound, outbound);
+    }
+
+    /// <summary>Says no to a selection with a node outside it between two inside it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A sub-graph is one node, so a path leaving the selection and coming back becomes a cycle
+    ///     through it</b> — and that only surfaced half way through <see cref="ExtractSubGraphCommand" />,
+    ///     as an exception from <c>Connect</c> with the selected nodes already gone. Refused here, where
+    ///     nothing has changed.
+    /// </remarks>
+    static void RefuseAWayBackIn(NodeGraphModel graph, HashSet<NodeId> inside) {
+        HashSet<NodeId> reached = [];
+        Stack<NodeId> frontier = new(
+            graph.Edges
+                .Where(edge => inside.Contains(edge.From.Node) && !inside.Contains(edge.To.Node))
+                .Select(static edge => edge.To.Node)
+        );
+
+        while (frontier.TryPop(out var node)) {
+            if (!reached.Add(node)) {
+                continue;
+            }
+
+            foreach (var edge in graph.Edges.Where(edge => edge.From.Node == node)) {
+                if (inside.Contains(edge.To.Node)) {
+                    throw new ArgumentException(
+                        $"{node} is between these nodes and not one of them, so one node cannot stand for them.",
+                        nameof(inside)
+                    );
+                }
+
+                frontier.Push(edge.To.Node);
+            }
+        }
     }
 
     /// <summary>What a port of a node carries, or <see cref="PortKind.Dynamic" /> when nobody knows.</summary>

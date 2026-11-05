@@ -992,6 +992,7 @@ public sealed class ExtractSubGraphCommand : NodeGraphCommand {
     readonly Vector2 position;
     readonly List<GraphNode> removed = [];
     readonly List<GraphEdge> detached = [];
+    readonly List<(GraphGroup Group, int Index, NodeId Node)> memberships = [];
 
     GraphNode? standIn;
 
@@ -1029,6 +1030,20 @@ public sealed class ExtractSubGraphCommand : NodeGraphCommand {
     protected override void Apply() {
         removed.Clear();
         detached.Clear();
+        memberships.Clear();
+
+        // ⚠ Read before the removal, as RemoveNodesCommand does and for its reason: the model strips a
+        // node from its groups and does not say where from, so an undo here used to bring every
+        // extracted node back outside the frame it was in.
+        foreach (var id in extraction.Extracted) {
+            foreach (var group in Graph.Groups) {
+                var index = group.Nodes.IndexOf(id);
+
+                if (index >= 0) {
+                    memberships.Add((group, index, id));
+                }
+            }
+        }
 
         foreach (var id in extraction.Extracted) {
             if (Graph.Remove(id, out var edges) is { } node) {
@@ -1068,6 +1083,10 @@ public sealed class ExtractSubGraphCommand : NodeGraphCommand {
 
         foreach (var edge in detached) {
             Graph.Connect(edge.From, edge.To);
+        }
+
+        foreach (var (group, index, node) in memberships.OrderBy(entry => entry.Index)) {
+            group.Nodes.Insert(Math.Min(index, group.Nodes.Count), node);
         }
     }
 }
