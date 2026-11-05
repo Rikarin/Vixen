@@ -98,7 +98,7 @@ public sealed class PaintImageMask : IBrushMask {
         var column = Math.Clamp(x, 0, image.Width - 1);
         var row = Math.Clamp(y, 0, image.Height - 1);
 
-        return image.Texels[(((row * image.Width) + column) * PaintImage.BytesPerTexel) + channel] / 255f;
+        return PaintImage.Channel(image.At(column, row), channel);
     }
 
     static float Lerp(float from, float to, float amount) => from + ((to - from) * amount);

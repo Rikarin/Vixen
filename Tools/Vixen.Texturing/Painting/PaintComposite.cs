@@ -264,7 +264,7 @@ public sealed class PaintComposite {
             );
         }
 
-        Array.Copy(shown.Texels, Result.Texels, Result.Texels.Length);
+        Result.CopyFrom(shown);
     }
 
     /// <summary>Recomposites several rectangles of the result, each on its own.</summary>

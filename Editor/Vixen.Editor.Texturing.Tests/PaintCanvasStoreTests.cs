@@ -491,7 +491,8 @@ public class PaintCanvasStoreTests : IDisposable {
 
         PaintCanvas canvas = new(width, height);
 
-        canvas.Channel("baseColor");
+        // One texel, or the canvas holds no tile and costs nothing against a budget.
+        canvas.Channel("baseColor")[0] = 0xFF0000FFu;
 
         using var stream = File.Create(file);
 

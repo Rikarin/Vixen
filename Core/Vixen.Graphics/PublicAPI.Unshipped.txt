@@ -260,7 +260,7 @@ Vixen.Graphics.ComputePipelineDescription : System.IEquatable<Vixen.Graphics.Com
 Vixen.Graphics.ComputePipelineDescription.Compute.get -> Vixen.Graphics.ShaderHandle
 Vixen.Graphics.ComputePipelineDescription.Compute.init -> Vixen.Graphics.ShaderHandle
 Vixen.Graphics.ComputePipelineDescription.ComputePipelineDescription() -> void
-Vixen.Graphics.ComputePipelineDescription.ComputePipelineDescription(Vixen.Graphics.ShaderHandle Compute, Vixen.Graphics.PipelineLayoutHandle Layout, string Name = "") -> void
+Vixen.Graphics.ComputePipelineDescription.ComputePipelineDescription(Vixen.Graphics.ShaderHandle Compute, Vixen.Graphics.PipelineLayoutHandle Layout, string Name = "", bool DispatchBase = false) -> void
 Vixen.Graphics.ComputePipelineDescription.Layout.get -> Vixen.Graphics.PipelineLayoutHandle
 Vixen.Graphics.ComputePipelineDescription.Layout.init -> Vixen.Graphics.PipelineLayoutHandle
 Vixen.Graphics.ComputePipelineDescription.Name.get -> string
@@ -1217,3 +1217,7 @@ static Vixen.Graphics.ShaderHandle.Null.get -> Vixen.Graphics.ShaderHandle
 static Vixen.Graphics.TextureHandle.Null.get -> Vixen.Graphics.TextureHandle
 static Vixen.Graphics.TextureViewHandle.Null.get -> Vixen.Graphics.TextureViewHandle
 static Vixen.Graphics.TimelinePoint.None.get -> Vixen.Graphics.TimelinePoint
+Vixen.Graphics.ComputePipelineDescription.DispatchBase.get -> bool
+Vixen.Graphics.ComputePipelineDescription.DispatchBase.init -> bool
+Vixen.Graphics.ICommandList.DispatchBase(int baseX, int baseY, int groupsX, int groupsY) -> void
+Vixen.Graphics.IGraphicsDevice.SupportsDispatchBase.get -> bool

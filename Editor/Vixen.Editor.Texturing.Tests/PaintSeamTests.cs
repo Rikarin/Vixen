@@ -190,17 +190,17 @@ public class PaintSeamTests {
 
         image.Fill(0x11223344u);
 
-        var original = (byte[])image.Texels.Clone();
+        var original = (byte[])image.ToTexels().Clone();
         PaintStroke stroke = new(image, PaintStrokeTests.Islands(64, 64), PaintStrokeTests.Hard(24f), Opaque, 4);
 
         stroke.MoveTo(new(32f, 32f));
 
-        Assert.NotEqual(original, image.Texels);
+        Assert.NotEqual(original, image.ToTexels());
         Assert.NotEqual(0x11223344u, image.At(GutterStart, 32));
 
         stroke.Undo();
 
-        Assert.Equal(original, image.Texels);
+        Assert.Equal(original, image.ToTexels());
     }
 
     /// <summary>A UV triangle raster marks the texels the triangle covers, slivers included.</summary>

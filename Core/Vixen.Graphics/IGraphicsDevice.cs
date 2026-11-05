@@ -299,6 +299,9 @@ public interface IGraphicsDevice : IDisposable {
     /// <summary>The adapter this device runs on.</summary>
     IGraphicsAdapter Adapter { get; }
 
+    /// <summary>Whether <see cref="ICommandList.DispatchBase" /> works here.</summary>
+    bool SupportsDispatchBase => false;
+
     /// <summary>What it can do.</summary>
     GraphicsDeviceFeatures Features { get; }
 

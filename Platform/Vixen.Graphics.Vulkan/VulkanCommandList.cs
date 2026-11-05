@@ -356,6 +356,20 @@ sealed unsafe class VulkanCommandList : ICommandList {
     }
 
     /// <inheritdoc />
+    public void DispatchBase(int baseX, int baseY, int groupsX, int groupsY) {
+        ThrowIfRecorded();
+
+        if (inRenderPass) {
+            throw new InvalidOperationException(
+                $"'{Name}' dispatched inside a render pass. Compute does not run in one on any API."
+            );
+        }
+
+        RequirePipeline("DispatchBase");
+        api.CmdDispatchBase(Buffer, (uint)baseX, (uint)baseY, 0u, (uint)groupsX, (uint)groupsY, 1u);
+    }
+
+    /// <inheritdoc />
     public void DispatchIndirect(BufferHandle arguments, long offset = 0) {
         ThrowIfRecorded();
         RequirePipeline("DispatchIndirect");

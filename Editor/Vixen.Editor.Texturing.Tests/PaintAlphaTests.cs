@@ -208,10 +208,10 @@ public class PaintAlphaTests(ITestOutputHelper output) {
     /// <summary>Two overlapping masked paths are still one undo entry, exact both ways.</summary>
     /// <remarks>
     ///     ⚠ <b>The hard case for the record rather than the easy one.</b> A mask, an angle and three
-    ///     jitters each change which texels a stamp claims, and the drag's <c>PaintOriginal</c> — the
-    ///     map that exists because two mirrored paths overlapping in the atlas each record the
-    ///     other's paint — is sized from those claims. Two paths eight texels apart overlap almost
-    ///     everywhere, which is the arrangement that map exists for; a disc on an empty 512 would
+    ///     jitters each change which texels a stamp claims, and two mirrored paths overlapping in the
+    ///     atlas each record the other's paint, which is what the drag's
+    ///     <c>PaintImageSnapshot</c> has to survive. Two paths eight texels apart overlap almost
+    ///     everywhere, which is that arrangement; a disc on an empty 512 would
     ///     exercise none of it.
     /// </remarks>
     [Fact]
@@ -228,7 +228,7 @@ public class PaintAlphaTests(ITestOutputHelper output) {
             SizeJitter = 0.3f
         };
 
-        var before = (byte[])layer.Texels.Clone();
+        var before = (byte[])layer.ToTexels().Clone();
         var session = PaintSession.Begin(target, brush, Opaque);
 
         for (var step = 0; step < 6; step++) {
@@ -242,20 +242,20 @@ public class PaintAlphaTests(ITestOutputHelper output) {
         Assert.NotNull(command);
         Assert.Equal(2, session.Strokes);
 
-        var painted = (byte[])layer.Texels.Clone();
+        var painted = (byte[])layer.ToTexels().Clone();
 
         Assert.False(before.AsSpan().SequenceEqual(painted), "the drag painted nothing, so nothing is proved.");
 
         command.Undo(NoContext);
 
         Assert.True(
-            before.AsSpan().SequenceEqual(layer.Texels),
+            before.AsSpan().SequenceEqual(layer.ToTexels()),
             "one undo left paint behind, so the drag was more than one entry's worth of record."
         );
 
         command.Do(NoContext);
 
-        Assert.True(painted.AsSpan().SequenceEqual(layer.Texels), "the redo did not reproduce the drag.");
+        Assert.True(painted.AsSpan().SequenceEqual(layer.ToTexels()), "the redo did not reproduce the drag.");
     }
 
     // --- The cost ------------------------------------------------------------

@@ -105,7 +105,16 @@ public sealed class TexturePoolSchedule {
     ///     partial evaluation reads from the result cache looks to this exactly as a caller's own
     ///     image does, an input with no slot.
     /// </remarks>
-    internal static TexturePoolSchedule For(TexturePlan plan, bool[]? runs, bool[] kept) {
+    /// <param name="own">
+    ///     Images that arrive holding a picture, which a transient before them must not have written
+    ///     over. Each gets a slot nobody else has used.
+    /// </param>
+    internal static TexturePoolSchedule For(
+        TexturePlan plan,
+        bool[]? runs,
+        bool[] kept,
+        IReadOnlyDictionary<int, TextureResultCache.Entry>? own = null
+    ) {
         var lastRead = new int[plan.Images.Length];
 
         Array.Fill(lastRead, -1);
@@ -148,7 +157,7 @@ public sealed class TexturePoolSchedule {
             var wanted = new TexturePoolSlot(plan.Images[image].Format, size.X, size.Y);
             var reused = -1;
 
-            for (var candidate = 0; candidate < free.Count; candidate++) {
+            for (var candidate = 0; candidate < free.Count && own?.ContainsKey(image) != true; candidate++) {
                 if (slots[free[candidate]] == wanted) {
                     reused = free[candidate];
                     free.RemoveAt(candidate);

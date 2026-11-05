@@ -250,6 +250,9 @@ sealed class NullCommandList(
         Add(new(RecordedCommandKind.Dispatch, 0, groupsX, groupsY, groupsZ));
     }
 
+    public void DispatchBase(int baseX, int baseY, int groupsX, int groupsY) => Dispatch(groupsX, groupsY);
+
+    /// <inheritdoc />
     public void DispatchIndirect(BufferHandle arguments, long offset = 0) {
         ThrowIfRecording();
         Add(new(RecordedCommandKind.DispatchIndirect, 0, (long)arguments.Value.Packed, offset));

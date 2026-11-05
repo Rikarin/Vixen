@@ -307,7 +307,7 @@ static class TextureExternalImages {
         PaintImage image
     ) {
         try {
-            uploads.Add(plan, entry.Image, image.Width, image.Height, image.Texels);
+            uploads.Add(plan, entry.Image, image.Width, image.Height, image.ToTexels());
         } catch (ArgumentException failure) {
             return $"'{relative}' could not be uploaded: {failure.Message}";
         }

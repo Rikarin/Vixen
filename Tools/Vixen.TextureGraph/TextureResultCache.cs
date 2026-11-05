@@ -281,6 +281,17 @@ public sealed class TextureResultCache {
         return entry;
     }
 
+    /// <summary>Takes a result out to be rewritten, keeping its texture and its pixels.</summary>
+    /// <param name="entry">The entry, which nothing may have pinned.</param>
+    /// <returns>Its texture, to be filed again under the key it is rewritten to.</returns>
+    internal Rented TakeOut(Entry entry) {
+        order.Remove(entry.Node);
+        entries.Remove(entry.Key);
+        held -= BytesOf(entry.Shape);
+
+        return new(entry.Shape, entry.Texture, entry.View);
+    }
+
     /// <summary>Turns the oldest results into idle textures, so that a run can reuse them.</summary>
     /// <param name="incoming">Bytes the run needs.</param>
     /// <remarks>

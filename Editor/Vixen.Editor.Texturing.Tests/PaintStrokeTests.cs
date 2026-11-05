@@ -55,7 +55,7 @@ public class PaintStrokeTests {
         }
 
         Assert.Equal(one.StampCount, many.StampCount);
-        Assert.Equal(sparse.Texels, dense.Texels);
+        Assert.Equal(sparse.ToTexels(), dense.ToTexels());
 
         // The instrument: a stroke that laid down one stamp either way would satisfy both equalities
         // and would prove nothing about the carried distance.
@@ -102,9 +102,9 @@ public class PaintStrokeTests {
         var other = Painted(brush, 0x12345678u);
         var still = Painted(brush with { PositionJitter = 0f, AngleJitter = 0f, SizeJitter = 0f }, 0xABCDEF01u);
 
-        Assert.Equal(first.Texels, again.Texels);
-        Assert.NotEqual(first.Texels, other.Texels);
-        Assert.NotEqual(first.Texels, still.Texels);
+        Assert.Equal(first.ToTexels(), again.ToTexels());
+        Assert.NotEqual(first.ToTexels(), other.ToTexels());
+        Assert.NotEqual(first.ToTexels(), still.ToTexels());
     }
 
     /// <summary>Smoothing lags the path, which is what a lazy mouse is.</summary>
@@ -146,24 +146,24 @@ public class PaintStrokeTests {
 
         image.Fill(0x40302010u);
 
-        var original = (byte[])image.Texels.Clone();
+        var original = (byte[])image.ToTexels().Clone();
         PaintStroke stroke = new(image, Islands(96, 96), Hard(9f) with { Flow = 0.3f, Spacing = 0.3f }, Opaque);
 
         stroke.MoveTo(new(20f, 48f));
         stroke.MoveTo(new(76f, 48f));
 
-        var painted = (byte[])image.Texels.Clone();
+        var painted = (byte[])image.ToTexels().Clone();
         var redo = stroke.Capture();
 
         Assert.NotEqual(original, painted);
 
         stroke.Undo();
 
-        Assert.Equal(original, image.Texels);
+        Assert.Equal(original, image.ToTexels());
 
         redo.Redo();
 
-        Assert.Equal(painted, image.Texels);
+        Assert.Equal(painted, image.ToTexels());
     }
 
     /// <summary>The record holds the texels the stroke touched and not the atlas.</summary>

@@ -152,7 +152,7 @@ static class PaintAlphaSource {
                 )
                 : source[at + 3];
 
-            image.Texels[at + 3] = weight;
+            image[texel] = (image[texel] & 0x00FFFFFFu) | ((uint)weight << 24);
             weakest = Math.Min(weakest, weight);
             strongest = Math.Max(strongest, weight);
         }

@@ -32,7 +32,7 @@ namespace Tests;
 ///         ⚠ <b>And <c>R8</c> is the point of the format here.</b>
 ///         <see cref="TextureFormats.IsStorable" /> is false for it — no conformant device promises a
 ///         storage image of one <c>unorm</c> channel — and uploading one is fine, which is what
-///         <see cref="TextureUploads.Add" />'s own remarks say and what a mask costs a quarter of RGBA
+///         <see cref="TextureUploads.Add(TexturePlan, int, int, int, ReadOnlySpan{byte})" />'s own remarks say and what a mask costs a quarter of RGBA
 ///         for. A plan that made this <c>Rgba8</c> would pass and would be paying four times over for
 ///         a glyph.
 ///     </para>

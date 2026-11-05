@@ -53,7 +53,7 @@ public class TextureUploadTests {
     ///     <b>Three halves, and the first two are the instrument.</b> A queue assertion over an empty
     ///     list of recorded commands is vacuously true, so the premise — that the two queues are
     ///     distinguishable at all on this device — and the copy itself are asserted first. On the day
-    ///     <see cref="TextureUploads.Add" /> stops copying anything, this says so rather than passing.
+    ///     <see cref="TextureUploads.Add(TexturePlan, int, int, int, ReadOnlySpan{byte})" /> stops copying anything, this says so rather than passing.
     /// </remarks>
     [Fact]
     public void An_upload_fills_its_texture_from_the_queue_the_evaluator_dispatches_on() {

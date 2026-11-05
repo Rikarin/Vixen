@@ -8,7 +8,7 @@ api: [T:Vixen.TextureGraph.TextureResultCache, T:Vixen.TextureGraph.TextureResul
 tags: [editor, texture-graph, material-authoring, compute, raven, baking]
 since: 0.1
 status: preview
-related: [editor/shader-graph-previews, editor/vfx-graph, editor/node-port-editing]
+related: [editor/shader-graph-previews, editor/vfx-graph, editor/node-port-editing, editor/paint-tile-store]
 ---
 
 ## What it is

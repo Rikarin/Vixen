@@ -583,10 +583,15 @@ public readonly record struct GraphicsPipelineDescription(
 /// <param name="Compute">The compute shader.</param>
 /// <param name="Layout">The descriptor sets and push constants it expects.</param>
 /// <param name="Name">A name for the debugger and the validation layers.</param>
+/// <param name="DispatchBase">
+///     Whether <see cref="ICommandList.DispatchBase" /> will run it. Off by default, because on Metal
+///     through MoltenVK the base is an extra implicit buffer every dispatch pays for.
+/// </param>
 public readonly record struct ComputePipelineDescription(
     ShaderHandle Compute,
     PipelineLayoutHandle Layout,
-    string Name = ""
+    string Name = "",
+    bool DispatchBase = false
 ) {
     /// <summary>Checks the description is one a backend could compile.</summary>
     /// <exception cref="ArgumentException">It is not.</exception>

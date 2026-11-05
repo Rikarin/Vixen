@@ -659,6 +659,7 @@ public sealed unsafe partial class VulkanDevice {
         try {
             var create = new ComputePipelineCreateInfo {
                 SType = StructureType.ComputePipelineCreateInfo,
+                Flags = description.DispatchBase ? PipelineCreateFlags.CreateDispatchBaseBit : 0,
                 Stage = new() {
                     SType = StructureType.PipelineShaderStageCreateInfo,
                     Stage = ShaderStageFlags.ComputeBit,

@@ -1,6 +1,9 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Buffers.Binary;
+using System.IO.Hashing;
+using System.Runtime.InteropServices;
 using Vixen.Core.Mathematics;
 
 namespace Vixen.Texturing.Painting;
@@ -84,7 +87,7 @@ public readonly record struct PaintRect(int X, int Y, int Width, int Height) {
 }
 
 /// <summary>
-///     A paint layer's pixels: RGBA, eight bits a channel, straight alpha.
+///     A paint layer's pixels: RGBA, eight bits a channel, straight alpha, held in sparse tiles.
 /// </summary>
 /// <remarks>
 ///     <para>
@@ -105,10 +108,32 @@ public readonly record struct PaintRect(int X, int Y, int Width, int Height) {
 ///         therefore happens once, not once per stamp, which is the difference between a rounding
 ///         error and a drift.
 ///     </para>
+///     <para>
+///         <b>Tiles, for three things a flat array cannot do</b> (plan § 3.2, doc 48 § D13). An
+///         unpainted region costs nothing, so twelve layers of a 4K set are not 800 MB before the
+///         first stroke. A stroke says which tiles it touched, so a composite repairs those and not
+///         the image. And a <see cref="PaintImageSnapshot" /> is a table of references, so an undo
+///         record holds the tiles the stroke replaced and shares the rest with the image.
+///     </para>
+///     <para>
+///         ⚠ <b>Copy-on-write is by marking, not counting.</b> A snapshot marks every tile it can
+///         reach as shared, and the next write to one clones it first. A count would need to hear
+///         about every snapshot that was dropped, and all a stale mark costs is one clone.
+///     </para>
 /// </remarks>
 public sealed class PaintImage {
     /// <summary>How many bytes one texel occupies.</summary>
     public const int BytesPerTexel = 4;
+
+    /// <summary>How many texels a tile has on a side, except at the image's far edges.</summary>
+    public const int TileSize = 256;
+
+    readonly int tilesWide;
+    readonly int tilesHigh;
+    readonly long[] written;
+    Tile?[] tiles;
+    uint background;
+    long revision;
 
     /// <summary>An image of a size, filled with one colour.</summary>
     /// <param name="width">Its width in texels.</param>
@@ -121,11 +146,11 @@ public sealed class PaintImage {
 
         Width = width;
         Height = height;
-        Texels = new byte[(long)width * height * BytesPerTexel];
-
-        if (fill != 0u) {
-            Fill(fill);
-        }
+        background = fill;
+        tilesWide = (width + TileSize - 1) / TileSize;
+        tilesHigh = (height + TileSize - 1) / TileSize;
+        tiles = new Tile?[tilesWide * tilesHigh];
+        written = new long[tiles.Length];
     }
 
     /// <summary>Its width in texels.</summary>
@@ -134,32 +159,64 @@ public sealed class PaintImage {
     /// <summary>Its height in texels.</summary>
     public int Height { get; }
 
-    /// <summary>The texels, RGBA, row-major from the top.</summary>
-    public byte[] Texels { get; }
+    /// <summary>How many tiles it has in each row.</summary>
+    public int TilesWide => tilesWide;
+
+    /// <summary>How many rows of tiles it has.</summary>
+    public int TilesHigh => tilesHigh;
+
+    /// <summary>What every tile nobody wrote to holds.</summary>
+    public uint Background => background;
 
     /// <summary>The whole image, as a rectangle.</summary>
     public PaintRect Bounds => new(0, 0, Width, Height);
+
+    /// <summary>How many tiles hold texels of their own.</summary>
+    public int ResidentTiles {
+        get {
+            var count = 0;
+
+            foreach (var tile in tiles) {
+                if (tile is not null) {
+                    count++;
+                }
+            }
+
+            return count;
+        }
+    }
+
+    /// <summary>How many bytes of texels it holds, which is what a budget has to count.</summary>
+    public long ResidentBytes {
+        get {
+            var total = 0L;
+
+            foreach (var tile in tiles) {
+                total += tile?.Texels.Length ?? 0;
+            }
+
+            return total;
+        }
+    }
+
+    /// <summary>A number that moves whenever a texel may have.</summary>
+    /// <remarks>Pass it back to <see cref="TilesChangedSince" /> to hear what moved after it.</remarks>
+    public long Revision => revision;
 
     /// <summary>Reads a texel.</summary>
     /// <param name="index">Its index, row-major.</param>
     /// <returns>The texel, packed <c>0xAABBGGRR</c>.</returns>
     public uint this[int index] {
         get {
-            var at = index * BytesPerTexel;
+            var (y, x) = Math.DivRem(index, Width);
 
-            return Texels[at]
-                | ((uint)Texels[at + 1] << 8)
-                | ((uint)Texels[at + 2] << 16)
-                | ((uint)Texels[at + 3] << 24);
+            return At(x, y);
         }
 
         set {
-            var at = index * BytesPerTexel;
+            var (y, x) = Math.DivRem(index, Width);
 
-            Texels[at] = (byte)value;
-            Texels[at + 1] = (byte)(value >> 8);
-            Texels[at + 2] = (byte)(value >> 16);
-            Texels[at + 3] = (byte)(value >> 24);
+            Put(x, y, value);
         }
     }
 
@@ -167,14 +224,420 @@ public sealed class PaintImage {
     /// <param name="x">Its column.</param>
     /// <param name="y">Its row.</param>
     /// <returns>The texel.</returns>
-    public uint At(int x, int y) => this[(y * Width) + x];
+    public uint At(int x, int y) {
+        var slot = ((y / TileSize) * tilesWide) + (x / TileSize);
+
+        if (tiles[slot] is not { } tile) {
+            return background;
+        }
+
+        var at = TexelOffset(x, y, slot);
+        var texels = tile.Texels;
+
+        return texels[at]
+            | ((uint)texels[at + 1] << 8)
+            | ((uint)texels[at + 2] << 16)
+            | ((uint)texels[at + 3] << 24);
+    }
+
+    /// <summary>Writes a texel by position.</summary>
+    /// <param name="x">Its column.</param>
+    /// <param name="y">Its row.</param>
+    /// <param name="value">The texel.</param>
+    public void Put(int x, int y, uint value) {
+        var slot = ((y / TileSize) * tilesWide) + (x / TileSize);
+        var tile = Writable(slot);
+        var at = TexelOffset(x, y, slot);
+        var texels = tile.Texels;
+
+        texels[at] = (byte)value;
+        texels[at + 1] = (byte)(value >> 8);
+        texels[at + 2] = (byte)(value >> 16);
+        texels[at + 3] = (byte)(value >> 24);
+    }
 
     /// <summary>Writes every texel.</summary>
     /// <param name="value">The colour.</param>
+    /// <remarks>Every tile goes, so this is one word and not 67 MB, whatever the image's size.</remarks>
     public void Fill(uint value) {
-        for (var index = 0; index < Width * Height; index++) {
-            this[index] = value;
+        background = value;
+        tiles = new Tile?[tiles.Length];
+        revision++;
+        Array.Fill(written, revision);
+    }
+
+    /// <summary>The whole image as one flat array, RGBA, row-major from the top.</summary>
+    /// <returns>A new array the caller owns, which writing to changes nothing here.</returns>
+    public byte[] ToTexels() {
+        var flat = new byte[(long)Width * Height * BytesPerTexel];
+
+        CopyTo(flat);
+
+        return flat;
+    }
+
+    /// <summary>Copies the whole image into a flat array, RGBA, row-major from the top.</summary>
+    /// <param name="flat">Where to, exactly the image's size.</param>
+    /// <exception cref="ArgumentException">It is not the image's size.</exception>
+    public void CopyTo(Span<byte> flat) {
+        if (flat.Length != (long)Width * Height * BytesPerTexel) {
+            throw new ArgumentException(
+                $"A {Width}×{Height} image is {(long)Width * Height * BytesPerTexel} bytes, and {flat.Length} were given.",
+                nameof(flat)
+            );
         }
+
+        for (var tileY = 0; tileY < tilesHigh; tileY++) {
+            for (var tileX = 0; tileX < tilesWide; tileX++) {
+                var rect = TileRect(tileX, tileY);
+                var row = rect.Width * BytesPerTexel;
+                var tile = tiles[(tileY * tilesWide) + tileX];
+
+                for (var y = 0; y < rect.Height; y++) {
+                    var to = flat.Slice((((rect.Y + y) * Width) + rect.X) * BytesPerTexel, row);
+
+                    if (tile is null) {
+                        MemoryMarshal.Cast<byte, uint>(to).Fill(background);
+                    } else {
+                        tile.Texels.AsSpan(y * row, row).CopyTo(to);
+                    }
+                }
+            }
+        }
+    }
+
+    /// <summary>Replaces the whole image from a flat array, keeping only the tiles that hold something.</summary>
+    /// <param name="flat">RGBA, row-major from the top, exactly the image's size.</param>
+    /// <exception cref="ArgumentException">It is not the image's size.</exception>
+    /// <remarks>
+    ///     ⚠ <b>Sparse on the way in.</b> Every <c>.vxpaint</c> written before tiles existed is flat,
+    ///     and a layer that painted one corner has to cost one tile when it opens rather than 67 MB.
+    /// </remarks>
+    public void CopyFrom(ReadOnlySpan<byte> flat) {
+        if (flat.Length != (long)Width * Height * BytesPerTexel) {
+            throw new ArgumentException(
+                $"A {Width}×{Height} image is {(long)Width * Height * BytesPerTexel} bytes, and {flat.Length} were given.",
+                nameof(flat)
+            );
+        }
+
+        revision++;
+        background = 0u;
+
+        for (var tileY = 0; tileY < tilesHigh; tileY++) {
+            for (var tileX = 0; tileX < tilesWide; tileX++) {
+                var rect = TileRect(tileX, tileY);
+                var row = rect.Width * BytesPerTexel;
+                var bytes = new byte[row * rect.Height];
+
+                for (var y = 0; y < rect.Height; y++) {
+                    flat.Slice((((rect.Y + y) * Width) + rect.X) * BytesPerTexel, row).CopyTo(bytes.AsSpan(y * row));
+                }
+
+                var slot = (tileY * tilesWide) + tileX;
+
+                tiles[slot] = bytes.AsSpan().IndexOfAnyExcept((byte)0) < 0 ? null : new(bytes);
+                written[slot] = revision;
+            }
+        }
+    }
+
+    /// <summary>Becomes another image of the same size, sharing its tiles until either is written.</summary>
+    /// <param name="source">The image.</param>
+    /// <exception cref="ArgumentException">It is another size.</exception>
+    public void CopyFrom(PaintImage source) {
+        ArgumentNullException.ThrowIfNull(source);
+
+        if (source.Width != Width || source.Height != Height) {
+            throw new ArgumentException(
+                $"This image is {Width}×{Height} and that one is {source.Width}×{source.Height}.",
+                nameof(source)
+            );
+        }
+
+        revision++;
+        background = source.background;
+
+        for (var slot = 0; slot < tiles.Length; slot++) {
+            source.tiles[slot]?.Share();
+            tiles[slot] = source.tiles[slot];
+            written[slot] = revision;
+        }
+    }
+
+    /// <summary>Copies a rectangle out, row by row.</summary>
+    /// <param name="rect">Which texels, inside the image.</param>
+    /// <param name="into">Where to, at least the rectangle's size.</param>
+    public void CopyRect(PaintRect rect, Span<byte> into) {
+        var stride = rect.Width * BytesPerTexel;
+
+        for (var y = 0; y < rect.Height; y++) {
+            var row = into.Slice(y * stride, stride);
+            var x = rect.X;
+
+            while (x < rect.EndX) {
+                var tileX = x / TileSize;
+                var tileY = (rect.Y + y) / TileSize;
+                var tile = tiles[(tileY * tilesWide) + tileX];
+                var box = TileRect(tileX, tileY);
+                var run = Math.Min(box.EndX, rect.EndX) - x;
+                var to = row.Slice((x - rect.X) * BytesPerTexel, run * BytesPerTexel);
+
+                if (tile is null) {
+                    MemoryMarshal.Cast<byte, uint>(to).Fill(background);
+                } else {
+                    tile.Texels.AsSpan((((rect.Y + y - box.Y) * box.Width) + (x - box.X)) * BytesPerTexel, to.Length)
+                        .CopyTo(to);
+                }
+
+                x += run;
+            }
+        }
+    }
+
+    /// <summary>Gives every tile texels of its own now, so that threads can write different texels at once.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The one way this type is safe to write from two threads.</b> A tile that appears on
+    ///     first write is a tile two bands can each allocate, and one band's texels go with the loser.
+    ///     A raster's picture is written from every band and is never sparse, so it says so once.
+    /// </remarks>
+    internal void Materialise() {
+        for (var slot = 0; slot < tiles.Length; slot++) {
+            Writable(slot);
+        }
+    }
+
+    /// <summary>Whether a tile reads as nothing but the background, so that a file can leave it out.</summary>
+    /// <param name="tileX">Its column of tiles.</param>
+    /// <param name="tileY">Its row of tiles.</param>
+    /// <returns>Whether it does.</returns>
+    internal bool IsBackground(int tileX, int tileY) {
+        if (tiles[(tileY * tilesWide) + tileX] is not { } tile) {
+            return true;
+        }
+
+        return MemoryMarshal.Cast<byte, uint>(tile.Texels.AsSpan()).IndexOfAnyExcept(background) < 0;
+    }
+
+    /// <summary>Starts over at a background, for a reader about to adopt tiles.</summary>
+    /// <param name="value">The background.</param>
+    internal void Reset(uint value) => Fill(value);
+
+    /// <summary>The rectangle a tile covers.</summary>
+    /// <param name="tileX">Its column of tiles.</param>
+    /// <param name="tileY">Its row of tiles.</param>
+    /// <returns>The rectangle, cut short at the image's far edges.</returns>
+    public PaintRect TileRect(int tileX, int tileY) {
+        var x = tileX * TileSize;
+        var y = tileY * TileSize;
+
+        return new(x, y, Math.Min(TileSize, Width - x), Math.Min(TileSize, Height - y));
+    }
+
+    /// <summary>A tile's texels, row by row.</summary>
+    /// <param name="tileX">Its column of tiles.</param>
+    /// <param name="tileY">Its row of tiles.</param>
+    /// <returns>The bytes, shared with the image until the next write, or empty when it holds none.</returns>
+    public ReadOnlyMemory<byte> TileTexels(int tileX, int tileY) =>
+        tiles[(tileY * tilesWide) + tileX]?.Texels ?? ReadOnlyMemory<byte>.Empty;
+
+    /// <summary>A tile's texels, whether it holds any or not.</summary>
+    /// <param name="tileX">Its column of tiles.</param>
+    /// <param name="tileY">Its row of tiles.</param>
+    /// <returns>The bytes, which the caller must not write to.</returns>
+    public ReadOnlyMemory<byte> TileTexelsOrBackground(int tileX, int tileY) {
+        var held = TileTexels(tileX, tileY);
+
+        if (held.Length > 0) {
+            return held;
+        }
+
+        var rect = TileRect(tileX, tileY);
+        var bytes = new byte[rect.Area * BytesPerTexel];
+
+        MemoryMarshal.Cast<byte, uint>(bytes.AsSpan()).Fill(background);
+
+        return bytes;
+    }
+
+    /// <summary>Puts one tile's texels in, from a file.</summary>
+    /// <param name="tileX">Its column of tiles.</param>
+    /// <param name="tileY">Its row of tiles.</param>
+    /// <param name="texels">Its texels, which this now owns.</param>
+    /// <exception cref="ArgumentException">They are not the tile's size.</exception>
+    internal void Adopt(int tileX, int tileY, byte[] texels) {
+        var rect = TileRect(tileX, tileY);
+
+        if (texels.Length != rect.Area * BytesPerTexel) {
+            throw new ArgumentException(
+                $"Tile ({tileX}, {tileY}) is {rect.Area * BytesPerTexel} bytes, and {texels.Length} were given.",
+                nameof(texels)
+            );
+        }
+
+        var slot = (tileY * tilesWide) + tileX;
+
+        revision++;
+        tiles[slot] = new(texels);
+        written[slot] = revision;
+    }
+
+    /// <summary>Which tiles have moved since a <see cref="Revision" />.</summary>
+    /// <param name="since">The revision.</param>
+    /// <param name="moved">Cleared and filled with one <c>(column, row)</c> per tile.</param>
+    public void TilesChangedSince(long since, List<(int TileX, int TileY)> moved) {
+        ArgumentNullException.ThrowIfNull(moved);
+
+        moved.Clear();
+
+        for (var slot = 0; slot < written.Length; slot++) {
+            if (written[slot] > since) {
+                moved.Add((slot % tilesWide, slot / tilesWide));
+            }
+        }
+    }
+
+    /// <summary>A digest of the whole image, from the digests of its tiles.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Cheap because a tile keeps its digest until it is written.</b> A flat digest is
+    ///         the whole image, 67 MB per stamp at 4K; this costs the tiles the stamp touched and a
+    ///         table of a few hundred numbers.
+    ///     </para>
+    ///     <para>
+    ///         <b>By value</b>, so an undo that brings the tiles back brings the digest back, and an
+    ///         evaluator holding the old result can use it.
+    ///     </para>
+    /// </remarks>
+    public UInt128 Digest {
+        get {
+            Span<byte> table = stackalloc byte[sizeof(uint) + sizeof(int)];
+
+            XxHash128 hash = new();
+
+            BinaryPrimitives.WriteUInt32LittleEndian(table, background);
+            BinaryPrimitives.WriteInt32LittleEndian(table[sizeof(uint)..], Width);
+            hash.Append(table);
+
+            Span<byte> one = stackalloc byte[16];
+
+            foreach (var tile in tiles) {
+                BinaryPrimitives.WriteUInt128LittleEndian(one, tile?.Digest ?? UInt128.Zero);
+                hash.Append(one);
+            }
+
+            return hash.GetCurrentHashAsUInt128();
+        }
+    }
+
+    /// <summary>The image as it stands, cheaply.</summary>
+    /// <returns>A snapshot, which holds the tiles it saw for as long as it is kept.</returns>
+    public PaintImageSnapshot Snapshot() {
+        foreach (var tile in tiles) {
+            tile?.Share();
+        }
+
+        return new(this, (Tile?[])tiles.Clone(), background);
+    }
+
+    /// <summary>Puts the image back to a snapshot, moving only the tiles that differ.</summary>
+    /// <param name="snapshot">A snapshot of this image.</param>
+    /// <exception cref="ArgumentException">It is of another image.</exception>
+    public void Restore(PaintImageSnapshot snapshot) {
+        ArgumentNullException.ThrowIfNull(snapshot);
+
+        if (!ReferenceEquals(snapshot.Image, this)) {
+            throw new ArgumentException("A snapshot restores the image it was taken of.", nameof(snapshot));
+        }
+
+        revision++;
+
+        var fill = background != snapshot.Background;
+
+        background = snapshot.Background;
+
+        for (var slot = 0; slot < tiles.Length; slot++) {
+            if (fill || !ReferenceEquals(tiles[slot], snapshot.Tiles[slot])) {
+                tiles[slot] = snapshot.Tiles[slot];
+                tiles[slot]?.Share();
+                written[slot] = revision;
+            }
+        }
+    }
+
+    /// <summary>How many bytes of tiles this holds that a snapshot does not, which is what undo keeps.</summary>
+    /// <param name="snapshot">A snapshot of this image.</param>
+    /// <returns>The bytes.</returns>
+    internal long BytesApartFrom(PaintImageSnapshot snapshot) {
+        var total = 0L;
+
+        for (var slot = 0; slot < tiles.Length; slot++) {
+            if (!ReferenceEquals(tiles[slot], snapshot.Tiles[slot])) {
+                total += tiles[slot]?.Texels.Length ?? 0;
+                total += snapshot.Tiles[slot]?.Texels.Length ?? 0;
+            }
+        }
+
+        return total;
+    }
+
+    int TexelOffset(int x, int y, int slot) {
+        var column = x % TileSize;
+        var row = y % TileSize;
+        var wide = Math.Min(TileSize, Width - ((slot % tilesWide) * TileSize));
+
+        return ((row * wide) + column) * BytesPerTexel;
+    }
+
+    Tile Writable(int slot) {
+        revision++;
+        written[slot] = revision;
+
+        var tile = tiles[slot];
+
+        if (tile is null) {
+            var rect = TileRect(slot % tilesWide, slot / tilesWide);
+            var bytes = new byte[rect.Area * BytesPerTexel];
+
+            if (background != 0u) {
+                MemoryMarshal.Cast<byte, uint>(bytes.AsSpan()).Fill(background);
+            }
+
+            return tiles[slot] = new(bytes);
+        }
+
+        if (tile.Shared) {
+            return tiles[slot] = new((byte[])tile.Texels.Clone());
+        }
+
+        tile.Touch();
+
+        return tile;
+    }
+
+    /// <summary>One tile's texels.</summary>
+    /// <param name="texels">Its bytes.</param>
+    internal sealed class Tile(byte[] texels) {
+        UInt128 digest;
+
+        public byte[] Texels { get; } = texels;
+
+        /// <summary>Whether a snapshot can see it, so that it has to be cloned to be written.</summary>
+        public bool Shared { get; private set; }
+
+        public UInt128 Digest {
+            get {
+                if (digest == UInt128.Zero) {
+                    digest = XxHash128.HashToUInt128(Texels);
+                }
+
+                return digest;
+            }
+        }
+
+        public void Share() => Shared = true;
+
+        public void Touch() => digest = UInt128.Zero;
     }
 
     /// <summary>Packs four 0…1 channels into a texel.</summary>
@@ -221,4 +684,24 @@ public sealed class PaintImage {
     }
 
     static byte Quantise(float value) => (byte)Math.Clamp((int)MathF.Round(value * 255f), 0, 255);
+}
+
+/// <summary>A <see cref="PaintImage" /> as it stood, holding references to its tiles and not copies.</summary>
+/// <remarks>
+///     <b>What undo keeps.</b> Two of these around a stroke share every tile the stroke did not touch,
+///     so an entry costs the tiles it changed, however large the image.
+/// </remarks>
+public sealed class PaintImageSnapshot {
+    internal PaintImageSnapshot(PaintImage image, PaintImage.Tile?[] tiles, uint background) {
+        Image = image;
+        Tiles = tiles;
+        Background = background;
+    }
+
+    /// <summary>The image it was taken of.</summary>
+    public PaintImage Image { get; }
+
+    internal PaintImage.Tile?[] Tiles { get; }
+
+    internal uint Background { get; }
 }

@@ -174,7 +174,25 @@ public sealed class TextureUploads : IDisposable {
     ///     the size and the format imply.
     /// </exception>
     /// <exception cref="ObjectDisposedException">This set has been disposed.</exception>
-    public TextureHandle Add(TexturePlan plan, int image, int width, int height, ReadOnlySpan<byte> texels) {
+    public TextureHandle Add(TexturePlan plan, int image, int width, int height, ReadOnlySpan<byte> texels) =>
+        Add(plan, image, width, height, texels, default);
+
+    /// <summary>Uploads an image the caller already holds a digest of.</summary>
+    /// <param name="plan">The plan.</param>
+    /// <param name="image">Which of its images.</param>
+    /// <param name="width">Its width in texels.</param>
+    /// <param name="height">Its height in texels.</param>
+    /// <param name="texels">Its texels.</param>
+    /// <param name="content">The digest, or the default to take one here.</param>
+    /// <returns>The texture.</returns>
+    public TextureHandle Add(
+        TexturePlan plan,
+        int image,
+        int width,
+        int height,
+        ReadOnlySpan<byte> texels,
+        TextureResultKey content
+    ) {
         RefuseInsideAFrame();
 
         ObjectDisposedException.ThrowIf(disposed, this);
@@ -235,9 +253,125 @@ public sealed class TextureUploads : IDisposable {
         //
         // ⚠ The digest is taken here because this is the one place that has both the bytes and the
         // promise that they are what the texture holds, and xxHash is cheap beside the upload.
-        declared[image] = new(texture, UploadUsage, sizes[image]) { Content = TextureResultKey.Of(texels) };
+        declared[image] = new(texture, UploadUsage, sizes[image]) {
+            Content = content.IsValid ? content : TextureResultKey.Of(texels)
+        };
 
         return texture;
+    }
+
+    /// <summary>Rewrites rectangles of images already uploaded, in one submission.</summary>
+    /// <param name="changes">What changed, and the digest each image's whole content has now.</param>
+    /// <exception cref="ArgumentException">An image was never uploaded, or a rectangle does not fit it.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The digest is the caller's, because hashing here would be the whole image.</b> That
+    ///         is 67 MB for a 4K layer on every stamp, against tiles that know their own hashes.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Nothing may be evaluating</b>, for the same reason nothing may be when
+    ///         <c>Add</c> runs: the images go through <see cref="ResourceState.CopyDestination" />.
+    ///     </para>
+    /// </remarks>
+    public void Update(IReadOnlyList<TextureImageChange> changes) {
+        ArgumentNullException.ThrowIfNull(changes);
+        RefuseInsideAFrame();
+        ObjectDisposedException.ThrowIf(disposed, this);
+
+        var total = 0L;
+
+        foreach (var change in changes) {
+            if (!declared.TryGetValue(change.Image, out var external)) {
+                throw new ArgumentException($"Image {change.Image} has not been uploaded.", nameof(changes));
+            }
+
+            foreach (var tile in change.Tiles) {
+                var rect = tile.Rect;
+
+                if (rect.X < 0 || rect.Y < 0 || rect.EndX > external.Size.X || rect.EndY > external.Size.Y) {
+                    throw new ArgumentException(
+                        $"{rect} is outside image {change.Image}, which is {external.Size.X}×{external.Size.Y}.",
+                        nameof(changes)
+                    );
+                }
+
+                total += tile.Texels.Length;
+            }
+        }
+
+        if (total == 0) {
+            foreach (var change in changes) {
+                declared[change.Image] = declared[change.Image] with { Content = change.Content };
+            }
+
+            return;
+        }
+
+        var staging = device.CreateBuffer(
+            new(total, BufferUsage.CopySource, MemoryAccess.HostUpload, "texture graph update staging")
+        );
+        var queue = device.ComputeQueue;
+
+        try {
+            var offset = 0L;
+
+            foreach (var change in changes) {
+                foreach (var tile in change.Tiles) {
+                    device.Write(staging, offset, tile.Texels.Span);
+                    offset += tile.Texels.Length;
+                }
+            }
+
+            device.BeginFrame();
+
+            using (var commands = device.BeginCommandList(queue.Kind, "texture graph update")) {
+                TextureBarrier[] before = [
+                    .. changes.Select(change => new TextureBarrier(
+                            declared[change.Image].Texture,
+                            ResourceState.ShaderRead,
+                            ResourceState.CopyDestination
+                        )
+                    )
+                ];
+                TextureBarrier[] after = [
+                    .. changes.Select(change => new TextureBarrier(
+                            declared[change.Image].Texture,
+                            ResourceState.CopyDestination,
+                            ResourceState.ShaderRead
+                        )
+                    )
+                ];
+
+                commands.Barrier(new BarrierGroup([], before));
+
+                offset = 0;
+
+                foreach (var change in changes) {
+                    foreach (var tile in change.Tiles) {
+                        commands.CopyBufferToTexture(
+                            staging,
+                            offset,
+                            new TextureRegion(declared[change.Image].Texture, Origin: new(tile.Rect.X, tile.Rect.Y, 0)),
+                            new(tile.Rect.Width, tile.Rect.Height, 1)
+                        );
+                        offset += tile.Texels.Length;
+                    }
+                }
+
+                commands.Barrier(new BarrierGroup([], after));
+                commands.Finish();
+                queue.Submit([commands]);
+            }
+
+            device.EndFrame();
+            queue.WaitIdle();
+        } finally {
+            device.Destroy(staging);
+        }
+
+        foreach (var change in changes) {
+            declared[change.Image] = declared[change.Image] with { Content = change.Content };
+        }
     }
 
     /// <summary>Uploads a coverage field — one float per texel — as a single-channel mask.</summary>
@@ -267,7 +401,7 @@ public sealed class TextureUploads : IDisposable {
     /// <exception cref="ArgumentException">
     ///     The image is not an <see cref="TextureFormat.R8" />, or the field is not
     ///     <paramref name="width" /> × <paramref name="height" /> long — plus everything
-    ///     <see cref="Add" /> refuses.
+    ///     <c>Add</c> refuses.
     /// </exception>
     public TextureHandle AddCoverage(
         TexturePlan plan,

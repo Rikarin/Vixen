@@ -552,6 +552,7 @@ public sealed class PaintMeshRaster {
         Width = width;
         Height = height;
         Picture = new(width, height);
+        Picture.Materialise();
 
         var pixels = width * height;
 
