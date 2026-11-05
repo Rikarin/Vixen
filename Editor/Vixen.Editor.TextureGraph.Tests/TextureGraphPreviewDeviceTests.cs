@@ -487,6 +487,66 @@ public class TextureGraphPreviewDeviceTests {
         Assert.False(preview.Unavailable, $"{adapter}: the uniform was hatched, so every node is");
     }
 
+    /// <summary>A slider, through the source the canvas draws from.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The compiler is the same object on every rebuild, which is what the module does and
+    ///     what <c>Refresh</c> needs</b>: a compiler with no past has nothing to replay against, so a
+    ///     source handed a new one per call compiles every edit, correctly.
+    /// </remarks>
+    [Fact]
+    public void A_slider_refreshes_runs_only_downstream_and_reads_only_what_changed() {
+        using var device = TextureKernelHarness.Open();
+
+        var registry = Registry();
+        NodeGraphModel graph = new();
+        var head = graph.Add("Source/Uniform");
+        var middle = graph.Add("Colour/Levels");
+        var tail = graph.Add("Colour/Invert");
+        var side = graph.Add("Colour/Invert");
+
+        head.SetValue("Colour", 0.5f, 0.5f, 0.5f, 1f);
+        graph.Connect(new(head.Id, "Out"), new(middle.Id, "Input"));
+        graph.Connect(new(middle.Id, "Out"), new(tail.Id, "Input"));
+        graph.Connect(new(head.Id, "Out"), new(side.Id, "Input"));
+
+        Kept sink = new();
+        TextureGraphCompiler compiler = new(registry);
+
+        using Lease lease = new(device);
+        using TextureGraphPreviews previews = new(lease.Take, () => compiler, sink);
+
+        previews.TryGet(graph, tail, registry.Get(tail.Type), out _);
+        previews.Update();
+
+        Assert.Equal(1, previews.Compilations);
+        Assert.Equal(0, previews.Refreshes);
+        Assert.Equal(4, previews.Reads);
+
+        var evaluator = lease.Take()!;
+        var dispatches = evaluator.Dispatches;
+        var kernels = evaluator.Compilations;
+
+        middle.SetValue("Gamma", 0.5f);
+        graph.Touch();
+        previews.Update();
+
+        // No compile of any kind, two kernels run, two pictures read.
+        Assert.Equal(1, previews.Compilations);
+        Assert.Equal(1, previews.Refreshes);
+        Assert.Equal(2, previews.Bakes);
+        Assert.Equal(kernels, evaluator.Compilations);
+        Assert.Equal(dispatches + 2, evaluator.Dispatches);
+        Assert.Equal(6, previews.Reads);
+
+        // ⚠ The false half: a wire is structure, and it says so in the counter this test reads.
+        graph.Connect(new(middle.Id, "Out"), new(side.Id, "Input"));
+        previews.Update();
+
+        Assert.Equal(2, previews.Compilations);
+        Assert.Equal(1, previews.Refreshes);
+        Assert.Equal(7, previews.Reads);
+    }
+
     /// <summary>An edit invalidates the graph, and the next update draws the new numbers.</summary>
     [Fact]
     public void An_edit_is_what_makes_a_preview_stale() {

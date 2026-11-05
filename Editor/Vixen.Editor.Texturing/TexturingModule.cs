@@ -13,6 +13,7 @@ using Vixen.Editor.Texturing.Painting;
 using Vixen.Editor.Ui;
 using Vixen.Editor.Ui.Documents;
 using Vixen.Graphics;
+using Vixen.NodeGraph;
 using Vixen.Rendering.Ecs;
 using Vixen.TextureGraph;
 using Vixen.Texturing.Layers;
@@ -360,6 +361,14 @@ public sealed partial class TexturingModule : IEditorPlugin, ITexturing, IDispos
     /// </remarks>
     TextureGraphPreviews? nodePreviews;
 
+    /// <summary>The compiler the swatches use, and what it was built over.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Held rather than built per rebuild, because a compiler is what can answer a slider.</b>
+    ///     <c>TextureGraphCompiler.Refresh</c> replays a node against what that compiler emitted last
+    ///     time, so a fresh one per rebuild has no past and every value edit is a whole compile.
+    /// </remarks>
+    (TextureGraphCompiler Compiler, NodeTypeRegistry Registry, ISubGraphSource? Source)? swatchCompiler;
+
     /// <summary>Where those swatches' pixels become numbers the canvas can draw.</summary>
     /// <remarks>
     ///     ⚠ <b>Held so it can be disposed, and for nothing else.</b> Each picture is a texture and a
@@ -634,9 +643,7 @@ public sealed partial class TexturingModule : IEditorPlugin, ITexturing, IDispos
             previewImages = new TexturePreviewImages(graphics);
             nodePreviews = new TextureGraphPreviews(
                 () => graphics?.Device is { } ready ? Evaluator(ready) : null,
-                () => view?.Canvas is { } canvas
-                    ? new TextureGraphCompiler(canvas.Registry) { SubGraphSource = canvas.SubGraphSource }
-                    : null,
+                SwatchCompiler,
                 previewImages
             );
 
@@ -1329,6 +1336,27 @@ public sealed partial class TexturingModule : IEditorPlugin, ITexturing, IDispos
         if (!Patch(modelled, picture, rect)) {
             ShowModel(picture);
         }
+    }
+
+    /// <summary>The compiler for the canvas being drawn, or null when there is none.</summary>
+    /// <remarks>Rebuilt when the canvas's library is another one: what it holds is keyed on that.</remarks>
+    TextureGraphCompiler? SwatchCompiler() {
+        if (view?.Canvas is not { } canvas) {
+            return null;
+        }
+
+        if (swatchCompiler is not { } held
+            || !ReferenceEquals(held.Registry, canvas.Registry)
+            || !ReferenceEquals(held.Source, canvas.SubGraphSource)) {
+            held = (
+                new TextureGraphCompiler(canvas.Registry) { SubGraphSource = canvas.SubGraphSource },
+                canvas.Registry,
+                canvas.SubGraphSource
+            );
+            swatchCompiler = held;
+        }
+
+        return held.Compiler;
     }
 
     /// <summary>Lets the 3D pane notice it has been resized.</summary>

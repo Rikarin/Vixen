@@ -111,6 +111,9 @@ public sealed class TextureGraphPreviews : INodePreviewSource, IDisposable {
     readonly Func<TexturePlanEvaluator?> evaluators;
     readonly Dictionary<(NodeGraphModel Graph, NodeId Node), ulong> registered = [];
 
+    /// <summary>What each registered number is a picture of, so that an unchanged one is left alone.</summary>
+    readonly Dictionary<(NodeGraphModel Graph, NodeId Node), TextureResultKey> pictures = [];
+
     /// <summary>The nodes whose picture only a host with an asset database could supply.</summary>
     /// <remarks>
     ///     ⚠ The channel <see cref="Skipped" /> could not be — that counter is an instrument for a
@@ -182,8 +185,21 @@ public sealed class TextureGraphPreviews : INodePreviewSource, IDisposable {
     /// <summary>How many times a graph has been compiled to a plan — the cheap tier.</summary>
     public int Compilations { get; private set; }
 
+    /// <summary>How many graph changes were answered without a compile, because only numbers moved.</summary>
+    /// <remarks>
+    ///     <see cref="Compilations" /> plus this is how many rebuilds got as far as having a plan.
+    /// </remarks>
+    public int Refreshes { get; private set; }
+
     /// <summary>How many times a plan has been evaluated on the device — the expensive tier.</summary>
     public int Bakes { get; private set; }
+
+    /// <summary>How many pictures have been read back and handed to the host.</summary>
+    /// <remarks>
+    ///     A bake reads only the nodes whose picture changed, so an edit moves this by the size of
+    ///     what is downstream of it and not by the size of the graph.
+    /// </remarks>
+    public int Reads { get; private set; }
 
     /// <summary>How many graphs got no pictures at all.</summary>
     /// <remarks>
@@ -331,6 +347,7 @@ public sealed class TextureGraphPreviews : INodePreviewSource, IDisposable {
         }
 
         registered.Clear();
+        pictures.Clear();
 
         // ⚠ Not cleared, and the asymmetry is deliberate. Every number handed out named a texture on
         // the device that is going; "this node's picture is somebody else's to supply" names nothing
@@ -361,6 +378,7 @@ public sealed class TextureGraphPreviews : INodePreviewSource, IDisposable {
         }
 
         registered.Clear();
+        pictures.Clear();
         unavailable.Clear();
         watched.Clear();
         dirty.Clear();
@@ -408,14 +426,26 @@ public sealed class TextureGraphPreviews : INodePreviewSource, IDisposable {
         compiler.BakeLevelOffset = 0;
         compiler.PreviewEveryNode = true;
 
-        var compilation = compiler.Compile(graph);
+        // ⚠ A number on a port is answered without a compile, and every property above is part of
+        // what `Refresh` compares, so a compiler some other caller has reconfigured says null rather
+        // than a plan for somebody else's resolution. Null is always a correct answer: it means
+        // compile, and the externals and node images below are then this compile's.
+        var plan = compiler.Refresh(graph);
 
-        Compilations++;
+        if (plan is not null) {
+            Refreshes++;
+        } else {
+            var compilation = compiler.Compile(graph);
 
-        if (compilation.Artefact is not { } plan || compilation.HasErrors) {
-            Refusals++;
+            Compilations++;
 
-            return;
+            if (compilation.Artefact is not { } compiled || compilation.HasErrors) {
+                Refusals++;
+
+                return;
+            }
+
+            plan = compiled;
         }
 
         // ⚠ Until #1089 this called the bare-handle `Evaluate` with no externals at all, so a
@@ -513,7 +543,13 @@ public sealed class TextureGraphPreviews : INodePreviewSource, IDisposable {
         //
         // ⚠ Declared after the uploads so that it is disposed *first*: the bake owns a view over
         // every external texture and destroys it, and the textures those view are the uploads'.
-        using var bake = evaluator.Evaluate(plan, uploads.Externals);
+        //
+        // ⚠ The incremental path, and this is the seam it was built for: a preview keeps every node's
+        // image, so a whole-plan bake runs every kernel and reads every picture back on every edit.
+        // Here an edit runs the node and what depends on it. The uploads above are made per rebuild
+        // and the cache does not care, because a picture is identified by its bytes and not by the
+        // texture that happens to hold them this time.
+        using var bake = evaluator.EvaluateIncremental(plan, uploads.Externals);
 
         Bakes++;
 
@@ -550,16 +586,27 @@ public sealed class TextureGraphPreviews : INodePreviewSource, IDisposable {
         var refused = false;
 
         foreach (var (node, image) in shown) {
-            var picture = bake.Read(image);
             var had = registered.GetValueOrDefault((graph, node));
+            var key = bake.KeyOf(image);
+
+            // ⚠ The same key is the same picture, and the host already has it. A read-back is a frame
+            // and a device wait per node, so skipping them is most of what an edit used to cost here.
+            // Only for a number the sink actually accepted: a refused one has to be asked for again.
+            if (had != 0 && pictures.GetValueOrDefault((graph, node)) == key) {
+                continue;
+            }
+
+            var picture = bake.Read(image);
             var made = images?.Register(picture, had) ?? 0;
 
             if (had != 0 && made != had) {
                 images?.Release(had);
             }
 
+            Reads++;
             refused |= made == 0 && images is not null;
             registered[(graph, node)] = made;
+            pictures[(graph, node)] = key;
         }
 
         // ⚠ A sink that could not name a picture leaves the graph dirty, for the same reason a
@@ -586,6 +633,7 @@ public sealed class TextureGraphPreviews : INodePreviewSource, IDisposable {
             }
 
             registered.Remove(key);
+            pictures.Remove(key);
         }
     }
 }
