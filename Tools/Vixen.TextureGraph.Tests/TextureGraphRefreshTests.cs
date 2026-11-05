@@ -469,6 +469,20 @@ public class TextureGraphRefreshTests(ITestOutputHelper output) {
         Assert.Contains(compilation.Diagnostics, static diagnostic => diagnostic.Message.Contains("outside its range", StringComparison.Ordinal));
     }
 
+    /// <summary>⚠ A name is only read during a replay, so a refused one is said there, and still has to compile.</summary>
+    [Fact]
+    public void A_name_knob_a_node_cannot_take_is_a_compile_and_the_compile_says_so() {
+        var compound = new Compound();
+
+        compound.Instance.SetText("Mode", "Nope");
+
+        Assert.Null(compound.Compiler.Refresh(compound.Graph));
+        Assert.Contains(
+            compound.Compiler.Compile(compound.Graph).Diagnostics,
+            static diagnostic => diagnostic.Id == TextureDiagnostics.NameKnobNotResolved
+        );
+    }
+
     /// <summary>A knob's text is the only text a refresh takes on a sub-graph node.</summary>
     [Fact]
     public void An_expression_on_a_compound_is_a_compile() {

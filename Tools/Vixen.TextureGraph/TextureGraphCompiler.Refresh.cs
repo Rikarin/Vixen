@@ -186,6 +186,11 @@ public sealed partial class TextureGraphCompiler {
             }
         }
 
+        // A node's setting is read during its replay, and a knob that no longer resolves says so there.
+        if (spoke) {
+            return null;
+        }
+
         var plan = last.Plan;
 
         if (patched.Count > 0 || seed != plan.Seed) {
