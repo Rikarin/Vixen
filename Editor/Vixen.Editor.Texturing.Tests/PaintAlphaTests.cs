@@ -208,10 +208,10 @@ public class PaintAlphaTests(ITestOutputHelper output) {
     /// <summary>Two overlapping masked paths are still one undo entry, exact both ways.</summary>
     /// <remarks>
     ///     ⚠ <b>The hard case for the record rather than the easy one.</b> A mask, an angle and three
-    ///     jitters each change which texels a stamp claims, and the drag's <c>PaintOriginal</c> — the
-    ///     map that exists because two mirrored paths overlapping in the atlas each record the
-    ///     other's paint — is sized from those claims. Two paths eight texels apart overlap almost
-    ///     everywhere, which is the arrangement that map exists for; a disc on an empty 512 would
+    ///     jitters each change which texels a stamp claims, and two mirrored paths overlapping in the
+    ///     atlas each record the other's paint, which is what the drag's
+    ///     <c>PaintImageSnapshot</c> has to survive. Two paths eight texels apart overlap almost
+    ///     everywhere, which is that arrangement; a disc on an empty 512 would
     ///     exercise none of it.
     /// </remarks>
     [Fact]

@@ -126,7 +126,7 @@ public class PaintProjectorTests {
         // ⚠ The whole atlas, and this is the assertion that found the defect. Two mirrored paths
         // overlap around the middle here, so the second one's undo record holds the first one's
         // paint — and undoing the strokes in order restored the original and then put the sibling's
-        // colour back over four texels of it. See `PaintOriginal`.
+        // colour back over four texels of it. `PaintImageSnapshot` is what cannot do that.
         command.Undo(NoContext);
 
         Assert.Equal(0, Painted(image, 0, Size));

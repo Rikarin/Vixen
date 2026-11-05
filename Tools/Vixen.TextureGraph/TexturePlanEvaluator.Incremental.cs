@@ -266,8 +266,7 @@ public sealed partial class TexturePlanEvaluator {
 
             if (Reach(plan, externals, op) is { } reach
                 && !op.Inputs.Any(input => whole[input])
-                && Grown(op.Inputs.SelectMany(input => changed[input] ?? []), reach, plan.SizeOf(op.Output)) is
-                    { Count: > 0 } grown) {
+                && Grown(op.Inputs.SelectMany(input => changed[input] ?? []), reach, plan.SizeOf(op.Output)) is { Count: > 0 } grown) {
                 changed[op.Output] = grown;
             } else {
                 whole[op.Output] = true;

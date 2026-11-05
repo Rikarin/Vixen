@@ -7,3 +7,7 @@ its README carries the design reasoning and the list of known gaps.
 
 Commands take an `ILayerStackDocument`, so a host with no editor can run them. Most of this code's
 tests still live in `Vixen.Editor.Texturing.Tests`, because their fixtures open a real document.
+
+Paint layers are sparse tiles with copy-on-write undo, `.vxpaint` is a pack of them, and
+`LayerStackEvaluator` is a stack through the one evaluator with no editor around it:
+[the paint tile store](../../docs/guide/editor/paint-tile-store.md).

@@ -2986,7 +2986,6 @@ T:Vixen.Texturing.Painting.PaintHit sweep-pending
 T:Vixen.Texturing.Painting.PaintImage sweep-pending
 T:Vixen.Texturing.Painting.PaintImageMask sweep-pending
 T:Vixen.Texturing.Painting.PaintMeshRaster sweep-pending
-T:Vixen.Texturing.Painting.PaintOriginal sweep-pending
 T:Vixen.Texturing.Painting.PaintPath sweep-pending
 T:Vixen.Texturing.Painting.PaintProjection sweep-pending
 T:Vixen.Texturing.Painting.PaintProjector sweep-pending

@@ -321,7 +321,9 @@ past its footprint; over real islands all four rounds run and it scans 49 564 �
 from the same run rather than writing either down.
 
 Two seams are stated rather than papered over, and the line under the pane is what says you are
-looking at one of them:
+looking at one of them. ⚠ **Both are this pane's and neither is the library's any more**:
+`LayerStackEvaluator` is a stack through the plan with no composite of its own, repaired tile by tile,
+and a host on it has neither gap. Moving this pane onto it is the rest of #849.
 
 * **The pane shows the layer, not the stack.** `PaintComposite`'s two halves come from an
   `IPaintStack`, and the module supplies `PaintStackImages.Empty` — so the composite of the layer
@@ -469,15 +471,11 @@ mirror with no record leaves the one undo entry restoring half the drag — so a
 last position**, which costs nothing: `BrushStroke.MoveTo` lays a stamp only for a movement with a
 length.
 
-⚠ **A drag's undo record is not its strokes' records concatenated, and this was wrong until batch
-19.** Each `PaintStroke` remembers what a texel held before *it* first wrote there, which is the value
-`PaintImage.Mix` blends from. Where two paths of one drag overlap in the atlas — two mirrors whose
-islands the packer put next to each other, which is the ordinary case for a symmetric model — the
-second one's record holds **the first one's paint**, so undoing them in any fixed order leaves some of
-it behind. There is no order that works: the strokes interleave per pointer move, so a texel's first
-writer can be either of them. `PaintOriginal` is one map of first-seen values per drag, written from
-the same place the per-stroke record is and restored after them; it is made only where there is more
-than one path, so no 2D stroke pays for it.
+⚠ **A drag's undo record is two tables of tiles, one snapshot before it and one after.** Per-texel
+records could not undo a mirrored drag in any order: two paths that overlap in the atlas record each
+other's paint, so a texel's first writer could be either, and four texels used to survive their own
+undo. `PaintImage.Restore` cannot do that, and it holds only the tiles the drag changed. See
+[the paint tile store](../../docs/guide/editor/paint-tile-store.md).
 
 ## What is not here
 
