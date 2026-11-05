@@ -55,6 +55,27 @@ public class GraphFurnitureIdentityTests {
         Assert.Contains(NodeGraphDocument.Save(graph).Groups, group => group.Id == held && group.Title == "First");
     }
 
+    /// <summary>The model strips a node from its groups and does not say where from, so the command has to.</summary>
+    [Fact]
+    public void Undoing_an_extraction_puts_its_nodes_back_where_they_were_in_their_groups() {
+        NodeGraphModel graph = new();
+        var first = graph.Add("A", default);
+        var second = graph.Add("B", default);
+        var third = graph.Add("C", default);
+        GraphGroup group = new() { Title = "Frame" };
+
+        group.Nodes.AddRange([first.Id, second.Id, third.Id]);
+        graph.Groups.Add(group);
+
+        ExtractSubGraphCommand command = new(graph, SubGraphs.Extract(graph, [second.Id], "Inner"), "Inner", default);
+
+        command.Do(new Touched());
+        Assert.DoesNotContain(second.Id, group.Nodes);
+
+        command.Undo(new Touched());
+        Assert.Equal([first.Id, second.Id, third.Id], group.Nodes);
+    }
+
     sealed class Touched : Vixen.Authoring.ICommandContext {
         public void Touch(Vixen.Authoring.IAuthoredDocument document) { }
     }
