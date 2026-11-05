@@ -398,3 +398,5 @@ static Vixen.Geometry.MeshTopology.Shell(Vixen.Geometry.EditMesh mesh, int face,
 static Vixen.Geometry.MorphTargetData.Encode(string name, System.ReadOnlySpan<int> indices, System.ReadOnlySpan<Vixen.Core.Mathematics.Vector3> positions, System.ReadOnlySpan<Vixen.Core.Mathematics.Vector3> normals) -> Vixen.Geometry.MorphTargetData
 static Vixen.Geometry.MorphTargetData.Sparsify(string name, System.ReadOnlySpan<Vixen.Core.Mathematics.Vector3> positions, System.ReadOnlySpan<Vixen.Core.Mathematics.Vector3> normals, float threshold) -> Vixen.Geometry.MorphTargetData
 static Vixen.Geometry.ShapeParameters.Default(Vixen.Geometry.ShapeKind kind) -> Vixen.Geometry.ShapeParameters
+Vixen.Geometry.MikkTSpace
+static Vixen.Geometry.MikkTSpace.Generate(Vixen.Core.Mathematics.Vector3[]! positions, Vixen.Core.Mathematics.Vector3[]! normals, Vixen.Core.Mathematics.Vector2[]! texCoords) -> Vixen.Core.Mathematics.Vector4[]!

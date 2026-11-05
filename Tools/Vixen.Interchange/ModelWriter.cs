@@ -534,8 +534,11 @@ public static class ModelWriter {
         var offset = Align(buffer);
 
         foreach (var value in values) {
+            // ⚠ glTF's v already runs down the image, as a coordinate here does, and that is why this
+            // one format is written as it stands: Assimp turns it over on the way in and FlipUVs turns
+            // it back. OBJ and PLY are the formats whose v runs up, and those are flipped above.
             buffer.AddRange(BitConverter.GetBytes(value.X));
-            buffer.AddRange(BitConverter.GetBytes(1f - value.Y));
+            buffer.AddRange(BitConverter.GetBytes(value.Y));
         }
 
         views.Add($$"""{"buffer":0,"byteOffset":{{offset}},"byteLength":{{values.Length * 8}}}""");

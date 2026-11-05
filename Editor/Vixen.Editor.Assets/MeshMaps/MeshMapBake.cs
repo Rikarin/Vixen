@@ -73,11 +73,11 @@ public static class MeshMapBake {
     ///         <see cref="IMeshMapBaker.Write" />'s, derived from the usage each image declares.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The rows are flipped.</b> A <c>BakedMaps</c> array is row-major <i>from the
-    ///         bottom left</i>, because that is where a texture coordinate's origin is; a PNG's first
-    ///         row is the top one. Copying straight across gives a map that is correct, plausible and
-    ///         upside down against the very atlas it was baked from — which is invisible on a
-    ///         symmetric test shape and obvious on nothing until a generator is masked by it.
+    ///         ⚠ <b>The rows go across as they are.</b> A coordinate's <c>v</c> runs down the image here,
+    ///         because <c>ModelReader</c> asks for <c>FlipUVs</c> and a renderer reads a texture's first
+    ///         row at <c>v = 0</c>, so a <c>BakedMaps</c> array and a PNG agree. A flip here is upside down
+    ///         against the very atlas it was baked from, in every tool that reads the mesh, which this
+    ///         file did until a viewport that could draw a map showed it.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>Nothing is compressed and nothing gets a mip chain.</b> A mesh map is an
@@ -251,24 +251,10 @@ public static class MeshMapBake {
         return pixels;
     }
 
-    /// <summary>Walks the picture top-down and hands back the index of the texel under each pixel.</summary>
-    /// <remarks>
-    ///     The row flip lives here, once, rather than in each of the four encoders — which is the
-    ///     point: a flip that is written out four times is a flip that is right three times.
-    /// </remarks>
+    /// <summary>Hands back each texel's index and the byte its pixel starts at.</summary>
     static void Fill(int size, int available, Action<int, int> write) {
-        for (var y = 0; y < size; y++) {
-            var row = (size - 1 - y) * size;
-
-            for (var x = 0; x < size; x++) {
-                var index = row + x;
-
-                if (index >= available) {
-                    continue;
-                }
-
-                write(index, ((y * size) + x) * 4);
-            }
+        for (var index = 0; index < Math.Min(size * size, available); index++) {
+            write(index, index * 4);
         }
     }
 

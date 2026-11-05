@@ -30,6 +30,38 @@ public sealed class ModelReaderTests {
         Assert.False(mesh.IsSkinned);
     }
 
+    /// <summary>glTF's v runs down the image as a coordinate here does, so a file keeps its numbers both ways.</summary>
+    /// <remarks>
+    ///     ⚠ This writer used to turn v over, as it must for OBJ. A written file then read back upside down
+    ///     here and, with a texture, in every other tool.
+    /// </remarks>
+    [Fact]
+    public void ACoordinateWrittenToGlbComesBackAsItWas() {
+        var path = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.glb");
+        var mesh = new MeshData {
+            Name = "Shape",
+            Positions = [new(0f, 0f, 0f), new(1f, 0f, 0f), new(0f, 1f, 0f)],
+            Normals = [Vector3.UnitZ, Vector3.UnitZ, Vector3.UnitZ],
+            TexCoords = [new(0.1f, 0.2f), new(0.3f, 0.2f), new(0.1f, 0.4f)],
+            Indices = [0, 1, 2],
+            Bounds = new(new(0f), new(1f))
+        };
+
+        try {
+            ModelWriter.Write(path, [mesh], "Shape");
+
+            var read = ModelReader.Read(File.ReadAllBytes(path), ".glb", "Shape", Default);
+
+            var coordinates = Assert.Single(read.Meshes).TexCoords;
+
+            foreach (var expected in mesh.TexCoords) {
+                Assert.Contains(coordinates, coordinate => (coordinate - expected).Length() < 1e-5f);
+            }
+        } finally {
+            File.Delete(path);
+        }
+    }
+
     /// <summary>A viewer with no material assets reads the file's own metallic-roughness answer.</summary>
     [Fact]
     public void AGltfMaterialArrivesWithItsMetallicRoughnessFactors() {

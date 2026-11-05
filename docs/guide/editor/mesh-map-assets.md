@@ -187,8 +187,9 @@ map in particular — an id is a label, the average of two labels is a third lab
 map grows a hairline of a material that does not exist along every chart border — and making it the
 rule for all nine means it is not a special case somebody later optimises away.
 
-⚠ **The rows are flipped on the way out.** A `BakedMaps` array is row-major from the bottom left,
-because that is where a texture coordinate's origin is; a PNG's first row is the top one.
+⚠ **The rows go across as they are.** `ModelReader` delivers `v` running down the image, as a renderer
+samples it, so row zero of a `BakedMaps` array is a PNG's first row. Turning it over gave a map upside
+down against its own atlas in every tool that read the mesh.
 
 ⚠ **Two maps are signed and carry their scale.** `Displacement` and `Curvature` are measurements in
 the model's own units, stored as `0.5 + 0.5·v/range`, so a reader recovers `v` as

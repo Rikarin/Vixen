@@ -269,6 +269,15 @@ The remainder are `System.*`, `Microsoft.Extensions.*`, `Microsoft.CodeAnalysis.
 `Microsoft.TestPlatform.*` and `NETStandard.Library` — the .NET platform, MIT, published by Microsoft
 and covered by the runtime's own notice.
 
+## Third-party source ported into the tree
+
+Code rather than data, and so a separate obligation: the port is a derivative work, and its licence
+travels with it.
+
+| What | Where | Licence | Source |
+|---|---|---|---|
+| **MikkTSpace** — a managed port of `mikktspace.c`, triangles only | `Core/Vixen.Geometry/MikkTSpace.cs` | Zlib-style, "Copyright (C) 2011 by Morten S. Mikkelsen" | `in-tree text` — the file's own header, which carries the notice unaltered and marks the port as altered, as clauses 2 and 3 ask. Read from `mmikk/MikkTSpace` at SHA-256 `de87e741…` of `mikktspace.c`. Also in `NOTICE`. |
+
 ## Third-party data committed into the tree
 
 Distinct from code, and the category most easily missed: no implementation is taken, but expected

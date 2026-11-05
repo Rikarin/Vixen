@@ -53,7 +53,7 @@ public static class Baking {
 }
 ```
 
-`Resolution` is required and both maps come back that square, row-major from the bottom-left. The
+`Resolution` is required and both maps come back that square, row-major from `v = 0`, the image's top. The
 target must already carry a texture-coordinate layer — [the atlas from the patch
 layout](engine/retopology) is the usual source of one — and a target without gets an
 `ArgumentException` rather than a blank bake.
@@ -91,6 +91,29 @@ cast the same ray and find the same surface, and each then expresses it in the f
 it. On a smooth surface the corners agree and nothing changes. Corners are matched by coordinates and
 not by position index, because a file splits a vertex for a hard edge and a weld is an importer's to
 do. `ModelGeometry.Flatten` is what reads a file with its normals intact.
+
+### The tangent basis is MikkTSpace
+
+⚠ **A tangent-space map only means something against the basis it was baked in, and a renderer rebuilds
+that basis from the mesh.** `MikkTSpace.Generate` is the basis most engines and bakers share, and a bake
+runs it over the triangles it rasterises. It gives one tangent and one sign per triangle corner, so a
+consumer splits vertices by tangent and never averages them back onto an index list. It takes
+coordinates as `ModelReader` gives them, with `v` running down the image, and turns them over, so green
+points up the image as glTF reads it.
+
+A renderer interpolates the tangent and the normal, does not normalise them, and builds the bitangent
+per pixel:
+
+```text
+b = sign * cross(n, t)
+shaded = normalize(x * t + y * b + z * n)
+```
+
+`MapBaker` writes the exact inverse of that, which is not a projection onto those axes because they are
+not square to each other. A hard edge needs nothing special: two normals on a point are two vertices to
+the algorithm, so neither side's tangent reaches the other.
+
+Row zero of every map is `v = 0`, the top of the image, so a picture needs no flip.
 
 ### Cages, skew and parts
 

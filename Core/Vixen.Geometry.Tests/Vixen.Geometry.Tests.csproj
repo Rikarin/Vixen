@@ -28,4 +28,8 @@
     <ItemGroup>
         <ProjectReference Include="..\Vixen.Geometry\Vixen.Geometry.csproj" />
     </ItemGroup>
+
+    <ItemGroup>
+        <EmbeddedResource Include="MikkTSpaceKnownValues.txt" LogicalName="MikkTSpaceKnownValues.txt" />
+    </ItemGroup>
 </Project>
