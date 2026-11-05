@@ -129,7 +129,7 @@ public readonly record struct TextureGraphExternal(
 ///         <see cref="PortKind.Dynamic" />'s widening rule reused rather than a second type system.
 ///     </para>
 /// </remarks>
-public sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan>, ISubGraphValues {
+public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan>, ISubGraphValues {
     readonly ImmutableArray<TextureImage>.Builder images = ImmutableArray.CreateBuilder<TextureImage>();
     readonly ImmutableArray<TextureOp>.Builder ops = ImmutableArray.CreateBuilder<TextureOp>();
     readonly List<TextureChannels> channels = [];
@@ -489,6 +489,10 @@ public sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan>, ISubG
         NodeImages = [];
         Kernels = [];
         Externals = [];
+
+        // Nothing is refreshable until this compilation has finished, and if it fails it stays so.
+        Forget();
+        compiling = graph;
 
         Adopt(graph);
         Declare();
@@ -1037,8 +1041,12 @@ public sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan>, ISubG
             return;
         }
 
-        emitter.Enter(node, binding, Resolve(node, definition, out var level), level);
+        var channels = Resolve(node, definition, out var level);
+
+        Emission.Enter(node.Id, channels, level);
+        emitter.Enter(node, binding, channels, level);
         texture.Compile(emitter);
+        Emission.Leave();
     }
 
     /// <inheritdoc />
@@ -1117,6 +1125,8 @@ public sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan>, ISubG
         NodeImages = [.. nodeImages];
         Kernels = [.. kernels];
         Externals = [.. externals];
+
+        Remember(plan);
 
         return plan;
     }
@@ -1215,18 +1225,13 @@ public sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan>, ISubG
     ///     <see cref="TexturePlan.Validate" />'s hands, which would then say the compiler is broken
     ///     on top of the message the author can actually act on.
     /// </remarks>
-    internal void Dispatch(GraphNode node, TextureOp op) {
+    /// <returns>Its index in the plan, or <c>-1</c> when a missing image dropped it.</returns>
+    internal int Dispatch(GraphNode node, TextureOp op) {
         ArgumentNullException.ThrowIfNull(node);
         ArgumentNullException.ThrowIfNull(op);
 
-        if (op.Output < 0) {
-            return;
-        }
-
-        foreach (var input in op.Inputs) {
-            if (input < 0) {
-                return;
-            }
+        if (TextureEmission.Dropped(op)) {
+            return -1;
         }
 
         // ⚠ Counted before the drops above would have skipped it, or a node whose first op was
@@ -1236,6 +1241,8 @@ public sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan>, ISubG
         emitted[node.Id] = ordinal + 1;
 
         ops.Add(op with { Identity = Identify(node, ordinal) });
+
+        return ops.Count - 1;
     }
 
     /// <summary>The stable name of one op: which node emitted it, and its ordinal within that node.</summary>

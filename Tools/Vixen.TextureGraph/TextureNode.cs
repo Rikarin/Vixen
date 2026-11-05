@@ -173,7 +173,13 @@ sealed class TextureEmitter {
     ///     same promotion — which is doc 48 § Part 4's "grey into a colour port splats", and what
     ///     stops the library needing a <c>BlendGrayscale</c> beside every <c>Blend</c>.
     /// </remarks>
-    public int Read(string port) => compiler.Read(node, port, binding, Resolved, Level, strict: false);
+    public int Read(string port) =>
+        compiler.Emission.Call(
+            TextureEmission.Kind.Read,
+            port,
+            0,
+            () => compiler.Read(node, port, binding, Resolved, Level, strict: false)
+        );
 
     /// <summary>The image arriving at one input, which has to be a single channel.</summary>
     /// <param name="port">The port's name.</param>
@@ -186,7 +192,12 @@ sealed class TextureEmitter {
     ///     <c>Grayscale</c> node.
     /// </remarks>
     public int ReadGrey(string port) =>
-        compiler.Read(node, port, binding, TextureChannels.Grey, Level, strict: true);
+        compiler.Emission.Call(
+            TextureEmission.Kind.ReadGrey,
+            port,
+            0,
+            () => compiler.Read(node, port, binding, TextureChannels.Grey, Level, strict: true)
+        );
 
     /// <summary>Allocates the image one output port carries, at this node's resolved channels.</summary>
     /// <param name="port">The output port's name.</param>
@@ -226,7 +237,12 @@ sealed class TextureEmitter {
     ///     </para>
     /// </remarks>
     public int Write(string port, TextureChannels channels, int? levelOffset = null) =>
-        compiler.Write(node, port, channels, levelOffset ?? Level);
+        compiler.Emission.Call(
+            TextureEmission.Kind.Write,
+            port,
+            TextureEmission.Detail((int)channels, levelOffset ?? Level),
+            () => compiler.Write(node, port, channels, levelOffset ?? Level)
+        );
 
     /// <summary>An image nothing outside this node reads: the middle of a separable filter.</summary>
     /// <param name="format">What it stores.</param>
@@ -243,7 +259,12 @@ sealed class TextureEmitter {
     ///     mattering: a scratch is freed the moment its last reader has run.
     /// </remarks>
     public int Scratch(TextureFormat format, int? levelOffset = null) =>
-        compiler.Scratch(format, levelOffset ?? Level);
+        compiler.Emission.Call(
+            TextureEmission.Kind.Scratch,
+            "",
+            TextureEmission.Detail((int)format, levelOffset ?? Level),
+            () => compiler.Scratch(format, levelOffset ?? Level)
+        );
 
     /// <summary>Where one image this node can see sits, in levels from the authoring base.</summary>
     /// <param name="image">Its index in the plan's image table.</param>
@@ -284,8 +305,18 @@ sealed class TextureEmitter {
         int width,
         int height,
         ReadOnlySpan<byte> texels
-    ) =>
-        compiler.External(node, format, channels, "", width, height, texels);
+    ) {
+        var bytes = texels.ToArray();
+
+        // The digest in the text and not folded into the number, which is 64 bits of a hash code: a
+        // ramp is the one picture a value edit could change, and a collision here is a stale ramp.
+        return compiler.Emission.Call(
+            TextureEmission.Kind.External,
+            $"{format}/{channels}/{width}/{height}/{TextureResultKey.Of(bytes).Value:X32}",
+            0,
+            () => compiler.External(node, format, channels, "", width, height, bytes)
+        );
+    }
 
     /// <summary>Allocates an image the caller supplies, naming the asset that fills it.</summary>
     /// <param name="format">What the picture is expected to be stored as.</param>
@@ -300,7 +331,12 @@ sealed class TextureEmitter {
     ///     which is also what makes the same plan re-usable over a different picture.
     /// </remarks>
     public int External(TextureFormat format, TextureChannels channels, string asset) =>
-        compiler.External(node, format, channels, asset, 0, 0, []);
+        compiler.Emission.Call(
+            TextureEmission.Kind.External,
+            $"{format}/{channels}/{asset}",
+            0,
+            () => compiler.External(node, format, channels, asset, 0, 0, [])
+        );
 
     /// <summary>The storage one number of channels is kept in.</summary>
     /// <param name="channels">Grey or colour.</param>
@@ -315,7 +351,11 @@ sealed class TextureEmitter {
     ///     gives the op a seed identity an insertion elsewhere cannot move —
     ///     <a href="https://github.com/Rikarin/Vixen/issues/875">#875</a>. A node never has to say so.
     /// </remarks>
-    public void Dispatch(TextureOp op) => compiler.Dispatch(node, op);
+    public void Dispatch(TextureOp op) {
+        ArgumentNullException.ThrowIfNull(op);
+
+        compiler.Emission.Dispatch(op, () => compiler.Dispatch(node, op));
+    }
 
     /// <summary>Appends several, in the order given.</summary>
     /// <param name="ops">The ops.</param>
@@ -327,7 +367,7 @@ sealed class TextureEmitter {
     /// </remarks>
     public void Dispatch(ImmutableArray<TextureOp> ops) {
         foreach (var op in ops) {
-            compiler.Dispatch(node, op);
+            Dispatch(op);
         }
     }
 
@@ -339,12 +379,32 @@ sealed class TextureEmitter {
     ///     catalogue runs a kernel this assembly ships. See <c>TextureGraphKernel</c> for what a plan
     ///     holding one can and cannot do today.
     /// </remarks>
-    public void Declare(string kernel, string source) => compiler.Declare(node, kernel, source);
+    public void Declare(string kernel, string source) =>
+        compiler.Emission.Call(
+            TextureEmission.Kind.Declare,
+            kernel + "\0" + source,
+            0,
+            () => {
+                compiler.Declare(node, kernel, source);
+
+                return 0;
+            }
+        );
 
     /// <summary>Keeps an image past the evaluation, under a usage a bake writes it by.</summary>
     /// <param name="image">Its index in the plan's image table.</param>
     /// <param name="usage">What the map is — <c>baseColor</c>, <c>normal</c>, <c>roughness</c>.</param>
-    public void Keep(int image, string usage) => compiler.Keep(node, image, usage);
+    public void Keep(int image, string usage) =>
+        compiler.Emission.Call(
+            TextureEmission.Kind.Keep,
+            usage,
+            image,
+            () => {
+                compiler.Keep(node, image, usage);
+
+                return 0;
+            }
+        );
 
     /// <summary>Says something about this node, to somebody who can select it.</summary>
     /// <param name="id">A stable code.</param>
@@ -362,7 +422,16 @@ sealed class TextureEmitter {
         NodeSeverity severity = NodeSeverity.Error,
         NodeSpan span = default
     ) =>
-        compiler.Say(new(id, message, node.Id, port, severity, span));
+        compiler.Emission.Call(
+            TextureEmission.Kind.Report,
+            string.Join('\0', id, message, port),
+            (long)severity,
+            () => {
+                compiler.Say(new(id, message, node.Id, port, severity, span));
+
+                return 0;
+            }
+        );
 }
 
 /// <summary>
