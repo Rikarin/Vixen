@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Text;
+using Vixen.Core.Imaging;
 using Vixen.Core.Mathematics;
 using Vixen.Geometry;
 using Vixen.Interchange;
@@ -60,6 +61,50 @@ public sealed class ModelReaderTests {
         } finally {
             File.Delete(path);
         }
+    }
+
+    /// <summary>A file's images arrive by slot, as bytes when they are inside it and as a path when they are not.</summary>
+    [Fact]
+    public void AGltfMaterialArrivesWithItsImages() {
+        var png = Convert.ToBase64String(PngCodec.Encode(new(1, 1, [10, 20, 30, 255])));
+        var json = Encoding.UTF8.GetString(Gltf(0f, 0f, 0f))
+            .Replace(
+                "\"primitives\": [{ \"attributes\": { \"POSITION\": 0 }, \"indices\": 1 }]",
+                "\"primitives\": [{ \"attributes\": { \"POSITION\": 0 }, \"indices\": 1, \"material\": 0 }]",
+                StringComparison.Ordinal
+            )
+            .Replace(
+                "\"asset\": { \"version\": \"2.0\" },",
+                $$"""
+                "asset": { "version": "2.0" },
+                "images": [
+                  { "uri": "data:image/png;base64,{{png}}" },
+                  { "uri": "maps/normal.png" },
+                  { "uri": "maps/orm.png" }
+                ],
+                "textures": [{ "source": 0 }, { "source": 1 }, { "source": 2 }],
+                "materials": [{
+                  "name": "Worn",
+                  "pbrMetallicRoughness": {
+                    "baseColorTexture": { "index": 0 },
+                    "metallicRoughnessTexture": { "index": 2 }
+                  },
+                  "normalTexture": { "index": 1, "scale": 0.5 },
+                  "occlusionTexture": { "index": 2 }
+                }],
+                """,
+                StringComparison.Ordinal
+            );
+
+        var read = ModelReader.Read(Encoding.UTF8.GetBytes(json), ".gltf", "Shape", Default);
+        var textures = read.MaterialTextures[read.Model.Parts[0].Material];
+
+        Assert.Equal(".png", textures.BaseColor!.Extension);
+        Assert.Equal(PngCodec.Encode(new(1, 1, [10, 20, 30, 255])), textures.BaseColor.Embedded);
+        Assert.Equal("maps/normal.png", textures.Normal!.Path);
+        Assert.Equal("maps/orm.png", textures.MetallicRoughness!.Path);
+        Assert.Equal("maps/orm.png", textures.Occlusion!.Path);
+        Assert.Equal(0.5f, textures.NormalScale);
     }
 
     /// <summary>A viewer with no material assets reads the file's own metallic-roughness answer.</summary>

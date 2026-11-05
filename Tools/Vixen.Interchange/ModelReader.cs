@@ -38,6 +38,39 @@ public sealed record ReadModel(
     ///     not one of those. A viewer with no material assets reads the file's own answer here.
     /// </remarks>
     public ModelMaterialFactors[] MaterialFactors { get; init; } = [];
+
+    /// <summary>The images each of <see cref="ModelData.Materials" /> names, in the same order.</summary>
+    /// <remarks>Beside the factors, and for the same reader: a viewer with no material assets.</remarks>
+    public ModelMaterialTextures[] MaterialTextures { get; init; } = [];
+}
+
+/// <summary>One image a material names: a file beside the model, or bytes inside it.</summary>
+/// <param name="Path">The file, relative to the model as the model spells it, or null when it is inside.</param>
+/// <param name="Embedded">The encoded image, or null when it is a file.</param>
+/// <param name="Extension">What it is encoded as, with its leading dot.</param>
+public sealed record ModelTexture(string? Path, byte[]? Embedded, string Extension);
+
+/// <summary>The metallic-roughness images one material in a file asks for. Any may be absent.</summary>
+/// <remarks>
+///     ⚠ <b>glTF's channels, for every format.</b> Occlusion is in red, roughness in green and metallic in
+///     blue, so <see cref="MetallicRoughness" /> and <see cref="Occlusion" /> may be one file. Base colour is
+///     sRGB and the rest are linear, which is the reader of these pixels' to honour.
+/// </remarks>
+public sealed record ModelMaterialTextures {
+    /// <summary>The base colour.</summary>
+    public ModelTexture? BaseColor { get; init; }
+
+    /// <summary>The tangent-space normal.</summary>
+    public ModelTexture? Normal { get; init; }
+
+    /// <summary>Roughness in green and metallic in blue.</summary>
+    public ModelTexture? MetallicRoughness { get; init; }
+
+    /// <summary>Occlusion in red.</summary>
+    public ModelTexture? Occlusion { get; init; }
+
+    /// <summary>What a stored normal's X and Y are multiplied by.</summary>
+    public float NormalScale { get; init; } = 1f;
 }
 
 /// <summary>The metallic-roughness factors one material in a file asks for.</summary>
@@ -213,12 +246,15 @@ public static class ModelReader {
 
         var materials = new string[scene->MNumMaterials];
         var factors = new ModelMaterialFactors[scene->MNumMaterials];
+        var textures = new ModelMaterialTextures[scene->MNumMaterials];
+        var embedded = Embedded(scene);
 
         for (var index = 0u; index < scene->MNumMaterials; index++) {
             AssimpString material = default;
             assimp.GetMaterialString(scene->MMaterials[index], AssimpApi.MaterialNameBase, 0, 0, ref material);
             materials[index] = material.AsString;
             factors[index] = Factors(assimp, scene->MMaterials[index]);
+            textures[index] = Textures(assimp, scene->MMaterials[index], embedded);
         }
 
         var joints = Joints(scene, settings.Scale);
@@ -251,7 +287,86 @@ public static class ModelReader {
             Bounds = Bounds(meshes, parts, world)
         };
 
-        return new(model, meshes, skeleton, animations) { MaterialFactors = factors };
+        return new(model, meshes, skeleton, animations) { MaterialFactors = factors, MaterialTextures = textures };
+    }
+
+    /// <summary>The images inside the file, encoded as they are there.</summary>
+    /// <remarks>
+    ///     A height of zero is how Assimp says the bytes are a compressed file and the width their count,
+    ///     which is every image a glTF can hold. The raw texels of older formats stay out: no material a
+    ///     metallic-roughness reader can use carries them.
+    /// </remarks>
+    static unsafe ModelTexture?[] Embedded(AssimpScene* scene) {
+        var images = new ModelTexture?[scene->MNumTextures];
+
+        for (var index = 0; index < images.Length; index++) {
+            var image = scene->MTextures[index];
+
+            if (image->MHeight != 0) {
+                continue;
+            }
+
+            var bytes = new Span<byte>(image->PcData, (int)image->MWidth).ToArray();
+            var hint = new string((sbyte*)image->AchFormatHint).ToLowerInvariant();
+
+            images[index] = new(null, bytes, hint is "jpg" or "jpeg" ? ".jpg" : $".{hint}");
+        }
+
+        return images;
+    }
+
+    static unsafe ModelMaterialTextures Textures(AssimpApi assimp, Silk.NET.Assimp.Material* material, ModelTexture?[] embedded) {
+        var metallic = Texture(assimp, material, TextureType.Unknown, embedded)
+            ?? Texture(assimp, material, TextureType.Metalness, embedded)
+            ?? Texture(assimp, material, TextureType.DiffuseRoughness, embedded);
+
+        return new() {
+            BaseColor = Texture(assimp, material, TextureType.BaseColor, embedded)
+                ?? Texture(assimp, material, TextureType.Diffuse, embedded),
+            Normal = Texture(assimp, material, TextureType.Normals, embedded),
+            MetallicRoughness = metallic,
+            Occlusion = Texture(assimp, material, TextureType.Lightmap, embedded)
+                ?? Texture(assimp, material, TextureType.AmbientOcclusion, embedded),
+            NormalScale = NormalScale(assimp, material)
+        };
+    }
+
+    static unsafe ModelTexture? Texture(
+        AssimpApi assimp,
+        Silk.NET.Assimp.Material* material,
+        TextureType type,
+        ModelTexture?[] embedded
+    ) {
+        AssimpString path = default;
+
+        if (assimp.GetMaterialTexture(material, type, 0, &path, null, null, null, null, null, null) != Return.Success) {
+            return null;
+        }
+
+        var name = path.AsString;
+
+        if (name.Length == 0) {
+            return null;
+        }
+
+        if (name[0] != '*') {
+            return new(name, null, Path.GetExtension(name).ToLowerInvariant());
+        }
+
+        return int.TryParse(name.AsSpan(1), System.Globalization.CultureInfo.InvariantCulture, out var index)
+            && index >= 0
+            && index < embedded.Length
+                ? embedded[index]
+                : null;
+    }
+
+    /// <remarks>⚠ glTF's occlusion strength has no twin here: Assimp's importer reads it and does not keep it.</remarks>
+    static unsafe float NormalScale(AssimpApi assimp, Silk.NET.Assimp.Material* material) {
+        var value = 1f;
+        var one = 1u;
+        var read = assimp.GetMaterialFloatArray(material, "$tex.scale", (uint)TextureType.Normals, 0, ref value, ref one);
+
+        return read == Return.Success ? value : 1f;
     }
 
     /// <summary>A material's metallic-roughness factors, from whichever keys its format fills.</summary>
