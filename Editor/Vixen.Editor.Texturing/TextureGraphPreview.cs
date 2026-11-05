@@ -266,7 +266,10 @@ sealed class TextureGraphPreview : IDisposable {
             return Said(null, "No preview: " + string.Join(" · ", unresolved) + " Everything else compiled.");
         }
 
-        using var bake = evaluator.Evaluate(plan, uploads.Externals);
+        // ⚠ Incremental, so an edit here re-runs what depends on it rather than the plan. The compile
+        // above still happens: `TextureGraphDocument.Compile` owns that compiler and has not been
+        // moved onto `Refresh`, so this pane saves evaluation and not compilation.
+        using var bake = evaluator.EvaluateIncremental(plan, uploads.Externals);
 
         var picture = bake.Read(output.Image);
         var image = graphics.Upload(picture.Width, picture.Height, picture.Pixels);

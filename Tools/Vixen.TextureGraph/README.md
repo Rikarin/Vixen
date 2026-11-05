@@ -696,6 +696,144 @@ paths go through. ⚠ **A name is authored or embedded and never both**: a compi
 either take the module already built from the embedded source or leave its own behind for the next
 plan — one op, two pictures, decided by evaluation order. `Validate` refuses the collision.
 
+## Evaluating what changed — Patina's P2, first slice
+
+`TexturePlanEvaluator.EvaluateIncremental` runs what has no result yet. `TextureGraphCompiler.Refresh`
+answers a number on a port without a compile. Together a slider writes uniforms for the nodes
+downstream of it and touches nothing else.
+
+```csharp
+var plan = compiler.Refresh(graph) ?? compiler.Compile(graph).Value;   // null means compile, and is always correct
+
+using var uploads = new TextureUploads(evaluator.Device);
+TextureGraphExternals.Upload(uploads, plan, compiler.Externals);
+
+using var bake = evaluator.EvaluateIncremental(plan, uploads.Externals);   // Ran, Reused, KeyOf(image)
+```
+
+**A key is what a result is a function of**: the kernel's source and the library it compiles with, the
+uniform block as the GPU would receive it, the keys of its inputs in binding order, its size and its
+format. The seed is in there because it is a uniform, for a kernel that declares one.
+
+- ⚠ **The uniform block rather than `TextureOp.Parameters`, and that needs the kernel's reflection**, so
+  a key is computed for every op on every evaluation and a kernel the plan names is compiled even if
+  the cache answers it. What it buys: a parameter the kernel ignores cannot miss, an `int` uniform that
+  truncates to the same number cannot miss, and `Uniform` does not re-run when the seed moves.
+  ⚠ `Levels` does, with its dither at zero, because it declares the member: the key sees what is
+  bound and not what a kernel's arithmetic happens to do with it.
+- ⚠ **The source rather than a version number**, so there is nothing to bump. It is the text before the
+  format is rewritten into it, because otherwise the format would be in the key twice and dropping
+  one of them could never be seen.
+- ⚠ **A caller's picture is known by its bytes and never by its handle.** A handle is the same number
+  for a repainted canvas and a new number for the same ramp re-uploaded, so it would be wrong in one
+  direction and useless in the other. `TextureUploads` digests what it is handed into
+  `TextureExternal.Content`. A picture with no digest makes everything downstream of it run, every
+  time, which is slow and right.
+- ⚠ **A CPU op has to promise**: `ITextureCpuOperation.CacheIdentity` defaults to null, which means
+  never cached. A key can see a kernel's whole input; it cannot see a C# field.
+
+**Demand runs backwards from `Outputs`** and stops at a hit, so nothing above a hit is looked at, and an
+op nobody needs does not run. That is the one way this differs from `Evaluate`, where a dead write is
+still a dispatch: `Dispatches` is not comparable between the two, and every image either can return is.
+
+**A result is an external image for the length of a run.** `Run` has not grown a mode: the schedule gives
+a slot only to the ops that run, and what the cache already has goes in beside the caller's textures,
+which is what it is to that evaluation — an input somebody else wrote, already readable. `OnCpu` and
+`Bind` test "has no slot" where they used to test "is external", and that is the whole of the change
+to the loop § D3 says there is one of.
+
+**The cache is a list of textures against a byte budget** (`TextureResultCache`, 2 GiB by default), least
+recently used, where used means *was part of the last plan*: every result the current plan could
+use is touched whether or not it was read, or a long drag would age out exactly the images upstream
+of the edit. Outputs are always kept; other images are kept while they fit and are otherwise pooled the
+way `Evaluate` pools them, so a budget of zero is slower and not wrong. ⚠ **The budget binds with no
+bake alive**: a live `TextureBake` pins what it can read, and a texture it is holding cannot be
+destroyed whatever the arithmetic says. Eviction runs at the top of an evaluation and when a bake is
+disposed, on an idle device, for the reason `EvictAuthored` gives. Evicted textures are offered to the
+run first, because on a drag each update wants the shapes it is replacing.
+
+⚠ **The disk tier is deferred, and the key is not what is missing.** It owes a statement of what a result
+may be shared across — byte identity is proved here on one device and nothing wider — and a read-back
+per result, on the path whose point was to remove those.
+
+### A slider does not rebuild the plan
+
+**Nothing was annotated.** What a port's number becomes on its way to a uniform is written in a node's own
+`Compile`, as arbitrary C#: `Levels` passes it through, `Blur` scales it, `Flood Fill` decides how many
+ops to emit from it. A table of "this port feeds that uniform" would be a second statement of every
+one of those. So `TextureEmission` records each `TextureEmitter` call that touches the plan, and
+`Refresh` asks the node again with those calls answered from the record, and compares the ops it
+dispatches with the ones it dispatched. The same kernel over the same images with other numbers is
+patched into a copy of the plan. **Anything else is a divergence, which is what "a value truly
+changes a variant" means here, and no list says so**: across the whole library
+`TextureGraphRefreshTests` found `Analysis/Flood Fill`'s `Iterations`, and nothing else in about a
+thousand random edits.
+
+`TexturePlan.WithValues` is the same thing one level down, for a front end holding op indices.
+
+⚠ **Null is always a correct answer, and it is the answer to anything that is not a number on a port**: a
+wire, a node, a setting's text (a blend mode, an expression), a base resolution, an exposed parameter.
+⚠ **And any graph that inlined a sub-graph**, which is the expensive refusal and the first thing the next
+slice owes: a compound's contents are an object this cannot watch, so a compile is what reads them.
+Such a graph compiles on every edit and still evaluates incrementally, because a key does not care how
+the plan was built. The seed is the one setting `Refresh` answers, because no node can read it.
+
+⚠ **A compiler with no past cannot refresh**, so `TextureGraphPreviews` needs the same object per rebuild
+and `TexturingModule` now holds one per canvas library. That module's lambda built a new compiler
+per call, and the slider path would have been a correct whole compile with every counter still plausible.
+
+### Who is on it
+
+`TextureGraphPreviews` — the swatches, `Refresh` and `EvaluateIncremental`, reading back only the nodes whose
+key moved — and `TextureGraphPreview`, the graph pane, on `EvaluateIncremental` only: its compiler is
+`TextureGraphDocument`'s and has not moved. `LayerStackPreview`, `MaterialBakeRoute` and
+`vixen texture bake` stay on `Evaluate`: a bake to a file wants the pool's bound and owes nothing to an
+edit, and a layer stack's plan comes from `LayerStackGraph`, which rebuilds its model on every compile.
+
+### What proves it
+
+- **`TextureIncrementalPropertyTests`**: random graphs over the whole library less what needs a host, random
+  edits (numbers, wires, seed, resolution, expressions, nodes), under three budgets. Each step compares
+  raw texels — not `Read`, which rounds to eight bits — with a clean `Evaluate` from a fresh compiler on
+  an evaluator whose cache has never been touched, on the same device. 4 519 images and 84 MB on the
+  run this was written against. ⚠ **Its own guard found its first version testing nothing**: 681 of 720
+  steps were refused by the compiler and every comparison that ran was green.
+- **The sabotage is kept**: `TextureKeyParts` is a switch, and `Dropping_an_ingredient_from_the_key_fails_the_property`
+  runs that property with each of `Kernel`, `Parameters`, `Inputs`, `Resolution` and `Seed` out of the
+  hash and requires a wrong picture within thirty sessions. It gets one within two. `Format` and
+  `Content` cannot be the only thing that moved in a graph, and `TextureIncrementalDeviceTests` says why
+  and sabotages them by hand. A result of the wrong shape is refused rather than treated as a miss,
+  because a miss would hide a key that lost an ingredient everywhere two images share a shape.
+- **`TextureIncrementalDeviceTests`**: `TextureBake.Ran` is the list of ops, so "editing `b` runs `b` and `c`
+  and not `a` or `d`" is an equality. Closed forms hold after an edit. The layers are asked about a run
+  over cached inputs, because `ShaderRead` on arrival and a recycled texture from `Undefined` are claims
+  no picture on a unified adapter can check.
+- **`TextureGraphRefreshTests`**: no device, so it reaches every node: the plan `Refresh` patches together is
+  compared op by op with a fresh compile of the same graph.
+
+### What one slider costs
+
+A forty-node graph at 2048², forty-three ops: four noises and a checker through blurs, levels, blends, a
+height-to-normal, occlusion and curvature to four outputs. `TextureSliderMeasurementTests`, median of 24
+steps, the middle of three runs; Release, validation layers off, Apple M1 Max through MoltenVK.
+
+| The slider is on | Before: compile, `Evaluate` | After: `Refresh`, `EvaluateIncremental` | Ops run |
+|---|---|---|---|
+| a late `Levels` | 20.8 ms | 1.0 ms | 2 of 43 |
+| a `Levels` in the middle | 20.4 ms | 7.5 ms | 16 of 43 |
+| the first `Blur` | 19.1 ms | 8.0 ms | 29 of 43 |
+
+Both stop with the device idle and neither reads pixels back; one 2K read-back is 3.2 ms on either side.
+⚠ **"Before" was already 50 fps on this machine and this graph**, so the claim worth carrying is the ratio
+and not the frame rate: these kernels are cheap, a real material's noise is not, and this is one
+integrated GPU. The drag held 2 GiB and evicted 968 results, so the numbers include the budget working.
+`VIXEN_MEASURE=1` runs it at 2K; without that it runs at 256 and asserts the op count, so the suite keeps
+the harness alive without a budget on a clock.
+
+⚠ **`/usr/bin/timeout` skips two tests here without saying why.** It is SIP-protected, so it strips
+`DYLD_LIBRARY_PATH`, the validation layer stops loading, and `TextureValidationDeviceTests` skips —
+`env | grep DYLD` says the variable is not set for the same reason. Run the suite unwrapped.
+
 ## Per-node previews needed no split of `Evaluate`
 
 ⚠ **The claim that they did is refuted, and the reason is worth keeping.** What makes an intermediate

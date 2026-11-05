@@ -17,11 +17,23 @@ namespace Vixen.TextureGraph;
 ///     megabytes per plan. An output image and an intermediate are the same kind of thing here — the
 ///     plan's <see cref="TexturePlan.Outputs" /> is what stops the pool from handing an output's slot
 ///     to a later op, and nothing about the handle says which it was.
+///     <para>
+///         ⚠ <b>Except from <see cref="TexturePlanEvaluator.EvaluateIncremental" />, where it owns
+///         nothing.</b> Those textures are the result cache's, and this holds a claim on them until it
+///         is disposed: reading stays valid through any later evaluation, and only what the plan
+///         names in its outputs and what fitted the budget can be read at all.
+///     </para>
 /// </remarks>
 public sealed class TextureBake : IDisposable {
     readonly IGraphicsDevice device;
     readonly TextureHandle[] textures;
     readonly List<TextureViewHandle> views;
+
+    /// <summary>What to do instead of destroying <see cref="textures" />, when this does not own them.</summary>
+    readonly Action? release;
+
+    /// <summary>The textures of an incremental evaluation once it has settled, by image.</summary>
+    Dictionary<int, TextureHandle>? held;
 
     bool disposed;
 
@@ -31,11 +43,13 @@ public sealed class TextureBake : IDisposable {
         TexturePlan plan,
         TexturePoolSchedule schedule,
         TextureHandle[] textures,
-        List<TextureViewHandle> views
+        List<TextureViewHandle> views,
+        Action? release = null
     ) {
         this.device = device;
         this.textures = textures;
         this.views = views;
+        this.release = release;
         Queue = queue;
         Plan = plan;
         Schedule = schedule;
@@ -73,10 +87,46 @@ public sealed class TextureBake : IDisposable {
     /// <summary>How many dispatches it took — one per op, and a way to see that none was skipped.</summary>
     public int Dispatches { get; internal set; }
 
+    /// <summary>Which ops ran in this evaluation, as indices into <see cref="TexturePlan.Ops" />.</summary>
+    /// <remarks>
+    ///     An op that is not here either was answered from the result cache or had no reader that
+    ///     needed it. Empty on a whole-plan evaluation, where it would be every index.
+    /// </remarks>
+    public ImmutableArray<int> Ran { get; internal set; } = [];
+
+    /// <summary>How many of the plan's ops were answered from the result cache.</summary>
+    public int Reused { get; internal set; }
+
+    /// <summary>What one image's texels are a function of, on an incremental evaluation.</summary>
+    /// <param name="image">Its index in <see cref="TexturePlan.Images" />.</param>
+    /// <returns>Its key, or the default on a whole-plan evaluation.</returns>
+    /// <remarks>
+    ///     An image with the key it had last time is the picture it was last time, which is what lets
+    ///     a caller holding a copy of the pixels leave it alone.
+    /// </remarks>
+    public TextureResultKey KeyOf(int image) => Keys.IsDefaultOrEmpty ? default : Keys[image];
+
+    /// <summary>Every image's key.</summary>
+    internal ImmutableArray<TextureResultKey> Keys { get; set; }
+
+    /// <summary>Lends a rented texture to a slot, for the length of the run.</summary>
+    internal void Fill(int slot, TextureHandle texture) => textures[slot] = texture;
+
+    /// <summary>Replaces the slots with the images this bake may still read.</summary>
+    /// <param name="settled">The textures, by image. Anything absent was pooled and is gone.</param>
+    internal void Settle(Dictionary<int, TextureHandle> settled) => held = settled;
+
     /// <summary>The texture one image is in.</summary>
     /// <param name="image">Its index in <see cref="TexturePlan.Images" />.</param>
-    /// <returns>The handle, or an invalid one for an image the caller supplied.</returns>
+    /// <returns>
+    ///     The handle, or an invalid one for an image the caller supplied — or, on an incremental
+    ///     evaluation, for an intermediate that was not kept.
+    /// </returns>
     public TextureHandle TextureOf(int image) {
+        if (held is not null) {
+            return held.GetValueOrDefault(image);
+        }
+
         var slot = Schedule.SlotOf[image];
 
         return slot < 0 ? default : textures[slot];
@@ -110,6 +160,21 @@ public sealed class TextureBake : IDisposable {
     ///     </para>
     /// </remarks>
     public Vixen.Core.Imaging.Bitmap Read(int image) {
+        var raw = ReadTexels(image);
+        var size = Plan.SizeOf(image);
+
+        return TexturePixels.ToBitmap(raw, size.X, size.Y, Plan.Images[image].Format);
+    }
+
+    /// <summary>Reads one image back exactly as it is on the device.</summary>
+    /// <param name="image">Its index in <see cref="TexturePlan.Images" />.</param>
+    /// <returns>The texels, tightly packed, top row first.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Before the encode, which is the point.</b> <see cref="Read" /> rounds a half-float to
+    ///     eight bits, so "the two evaluations agree" asked of its answer would forgive every
+    ///     difference smaller than a 255th.
+    /// </remarks>
+    internal byte[] ReadTexels(int image) {
         ObjectDisposedException.ThrowIf(disposed, this);
 
         // ⚠ The same refusal `TexturePlanEvaluator.RefuseInsideAFrame` makes, and it belongs here as
@@ -129,7 +194,10 @@ public sealed class TextureBake : IDisposable {
 
         if (!texture.IsValid) {
             throw new ArgumentException(
-                $"Image {image} is supplied by the caller, so this bake does not hold it.",
+                Plan.Images[image].External
+                    ? $"Image {image} is supplied by the caller, so this bake does not hold it."
+                    : $"Image {image} is an intermediate of an incremental evaluation, which keeps what the plan "
+                      + "names in its outputs and whatever else fits the budget. Name it an output to read it.",
                 nameof(image)
             );
         }
@@ -167,7 +235,7 @@ public sealed class TextureBake : IDisposable {
         device.Read(readback, 0, raw);
         device.Destroy(readback);
 
-        return TexturePixels.ToBitmap(raw, size.X, size.Y, format);
+        return raw;
     }
 
     /// <summary>Writes one image to a PNG.</summary>
@@ -203,9 +271,15 @@ public sealed class TextureBake : IDisposable {
             }
         }
 
-        foreach (var texture in textures) {
-            if (texture.IsValid) {
-                device.Destroy(texture);
+        if (release is not null) {
+            // ⚠ Not this bake's to destroy: an incremental evaluation's textures are the result
+            // cache's, and what this gives back is its claim on them.
+            release();
+        } else {
+            foreach (var texture in textures) {
+                if (texture.IsValid) {
+                    device.Destroy(texture);
+                }
             }
         }
 
@@ -285,8 +359,15 @@ public sealed class TextureBake : IDisposable {
 ///         is what a test reads to tell a cache that evicts from one that only ever grows, and
 ///         <see cref="Compilations" /> cannot: it counts what was built and never what is held.
 ///     </para>
+///     <para>
+///         <b>Two ways in, one way through.</b> <see cref="EvaluateIncremental" /> keeps results in
+///         <see cref="Results" /> and runs what has no result; the <c>Evaluate</c> overloads run
+///         everything and keep nothing past the bake. Both end in the one recording loop, because a
+///         second one is how a preview and a bake come to disagree. A bake that ends in a file stays
+///         on <c>Evaluate</c>: it wants the pool's bound on memory and owes nothing to an edit.
+///     </para>
 /// </remarks>
-public sealed class TexturePlanEvaluator : IDisposable {
+public sealed partial class TexturePlanEvaluator : IDisposable {
     /// <summary>The workgroup size every kernel in <c>Shaders/</c> declares.</summary>
     /// <remarks>
     ///     ⚠ <b>Duplicated from the <c>[ComputeShader(8, 8, 1)]</c> in each source, and a kernel that
@@ -295,6 +376,16 @@ public sealed class TexturePlanEvaluator : IDisposable {
     ///     so a host still has to know it. <c>TextureKernelTests</c> is what asserts the two agree.
     /// </remarks>
     public const int GroupSize = 8;
+
+    /// <summary>What every texture this class creates for an image is created with.</summary>
+    /// <remarks>
+    ///     Storage to be written by a kernel, Sampled to be read by the next one, CopySource so a bake
+    ///     can become a file, and CopyDestination because a <see cref="TextureOp.Cpu" /> op is written
+    ///     by a buffer copy rather than by a dispatch. All four at creation, because a backend wants
+    ///     the full set then and an image's role changes between ops.
+    /// </remarks>
+    internal const TextureUsage PooledUsage =
+        TextureUsage.Storage | TextureUsage.Sampled | TextureUsage.CopySource | TextureUsage.CopyDestination;
 
     readonly IGraphicsDevice device;
     readonly EffectLoader loader;
@@ -320,6 +411,7 @@ public sealed class TexturePlanEvaluator : IDisposable {
 
         this.device = device;
         loader = new EffectLoader(device);
+        Results = new(device);
     }
 
     /// <summary>Where this evaluator's images, modules and pipelines live.</summary>
@@ -476,6 +568,47 @@ public sealed class TexturePlanEvaluator : IDisposable {
     ///     </para>
     /// </remarks>
     public TextureBake Evaluate(TexturePlan plan, IReadOnlyDictionary<int, TextureExternal> externals) {
+        var problems = Admit(plan, externals);
+        var schedule = TexturePoolSchedule.For(plan);
+        var textures = new TextureHandle[schedule.Allocations];
+        var slotViews = new TextureViewHandle[schedule.Allocations];
+        List<TextureViewHandle> owned = [];
+
+        for (var slot = 0; slot < schedule.Allocations; slot++) {
+            var shape = schedule.Slots[slot];
+
+            textures[slot] = device.CreateTexture(
+                new(
+                    TextureFormats.Pixel(shape.Format),
+                    shape.Width,
+                    shape.Height,
+                    PooledUsage,
+                    Name: string.Create(CultureInfo.InvariantCulture, $"texture graph slot {slot}")
+                )
+            );
+
+            slotViews[slot] = device.CreateTextureView(textures[slot]);
+            owned.Add(slotViews[slot]);
+        }
+
+        var bake = new TextureBake(device, device.ComputeQueue, plan, schedule, textures, owned) {
+            Warnings = Cautions(problems, plan, externals)
+        };
+
+        try {
+            Run(plan, schedule, bake, slotViews, ExternalViews(plan, externals, owned), externals);
+        } catch {
+            bake.Dispose();
+
+            throw;
+        }
+
+        return bake;
+    }
+
+    /// <summary>What both evaluations ask of a plan before they touch the device.</summary>
+    /// <returns>Everything <see cref="TexturePlan.Check" /> said, the refusals having thrown.</returns>
+    ImmutableArray<TextureProblem> Admit(TexturePlan plan, IReadOnlyDictionary<int, TextureExternal> externals) {
         ObjectDisposedException.ThrowIf(disposed, this);
         ArgumentNullException.ThrowIfNull(plan);
         ArgumentNullException.ThrowIfNull(externals);
@@ -497,62 +630,27 @@ public sealed class TexturePlanEvaluator : IDisposable {
         }
 
         CheckExternalUsage(plan, externals);
-
         CheckExternalSizes(plan, externals);
 
-        var schedule = TexturePoolSchedule.For(plan);
-        var textures = new TextureHandle[schedule.Allocations];
-        var slotViews = new TextureViewHandle[schedule.Allocations];
-        List<TextureViewHandle> owned = [];
-
-        for (var slot = 0; slot < schedule.Allocations; slot++) {
-            var shape = schedule.Slots[slot];
-
-            textures[slot] = device.CreateTexture(
-                new(
-                    TextureFormats.Pixel(shape.Format),
-                    shape.Width,
-                    shape.Height,
-                    // Storage to be written by a kernel, Sampled to be read by the next one,
-                    // CopySource so a bake can become a file, and CopyDestination because a
-                    // TextureOp.Cpu op is written by a buffer copy rather than by a dispatch. All
-                    // four at creation, because a backend wants the full set then and an image's
-                    // role changes between ops.
-                    TextureUsage.Storage
-                    | TextureUsage.Sampled
-                    | TextureUsage.CopySource
-                    | TextureUsage.CopyDestination,
-                    Name: string.Create(CultureInfo.InvariantCulture, $"texture graph slot {slot}")
-                )
-            );
-
-            slotViews[slot] = device.CreateTextureView(textures[slot]);
-            owned.Add(slotViews[slot]);
-        }
-
-        var bake = new TextureBake(device, device.ComputeQueue, plan, schedule, textures, owned) {
-            Warnings = [
-                .. problems
-                    .Where(problem => problem.Severity == TextureProblemSeverity.Warning)
-                    .Select(problem => problem.Message),
-
-                // ⚠ #632: the half of the extent guard the plan cannot make. `TexturePlan.Check`
-                // skips an external input because it has no size for one; the declaration does, and
-                // it only exists here.
-                .. ExternalExtentCautions(plan, externals)
-            ]
-        };
-
-        try {
-            Run(plan, schedule, bake, slotViews, ExternalViews(plan, externals, owned), externals);
-        } catch {
-            bake.Dispose();
-
-            throw;
-        }
-
-        return bake;
+        return problems;
     }
+
+    /// <summary>What a bake reports having drawn differently from the graph.</summary>
+    static ImmutableArray<string> Cautions(
+        ImmutableArray<TextureProblem> problems,
+        TexturePlan plan,
+        IReadOnlyDictionary<int, TextureExternal> externals
+    ) =>
+        [
+            .. problems
+                .Where(problem => problem.Severity == TextureProblemSeverity.Warning)
+                .Select(problem => problem.Message),
+
+            // ⚠ #632: the half of the extent guard the plan cannot make. `TexturePlan.Check` skips
+            // an external input because it has no size for one; the declaration does, and it only
+            // exists here.
+            .. ExternalExtentCautions(plan, externals)
+        ];
 
     /// <inheritdoc />
     public void Dispose() {
@@ -562,6 +660,10 @@ public sealed class TexturePlanEvaluator : IDisposable {
 
         disposed = true;
         device.WaitIdle();
+
+        // ⚠ Before the pipelines is not a requirement and after them is not either: nothing is in
+        // flight past the wait above. What a live bake still holds stays until that bake lets go.
+        Results.Release();
 
         foreach (var variant in variants.Values) {
             Destroy(variant);
@@ -998,6 +1100,13 @@ public sealed class TexturePlanEvaluator : IDisposable {
                 var image = op.Output;
                 var slot = schedule.SlotOf[image];
 
+                // ⚠ No slot is the schedule saying this op does not run: an incremental evaluation
+                // has its answer already, or nothing wants it. A whole-plan schedule gives every op
+                // one, because `TexturePlan.Check` refuses an op that writes an external image.
+                if (slot < 0) {
+                    continue;
+                }
+
                 if (op.Cpu is not null) {
                     commands = OnCpu(plan, schedule, bake, index, state, supplied, staging, commands);
 
@@ -1215,7 +1324,9 @@ public sealed class TexturePlanEvaluator : IDisposable {
         List<TextureBarrier> restore = [];
 
         foreach (var input in op.Inputs) {
-            if (plan.Images[input].External) {
+            // Slotless rather than external: a cached result is read the way a caller's image is, and
+            // is held readable the same way for the rest of the run and for whoever reads it next.
+            if (schedule.SlotOf[input] < 0) {
                 restore.Add(
                     new(
                         TextureFor(schedule, bake, externalTextures, input),
@@ -1316,7 +1427,7 @@ public sealed class TexturePlanEvaluator : IDisposable {
                     writes.Add(
                         DescriptorWrite.Texture(
                             binding.Binding,
-                            plan.Images[input].External ? externals[input] : slotViews[schedule.SlotOf[input]]
+                            schedule.SlotOf[input] < 0 ? externals[input] : slotViews[schedule.SlotOf[input]]
                         )
                     );
 
@@ -1566,6 +1677,7 @@ public sealed class TexturePlanEvaluator : IDisposable {
 
         var variant = new Variant {
             Authored = authored,
+            Identity = SourceIdentity(plan.Source(kernel)),
             Data = data,
             Effect = effect,
             Module = module,
@@ -1595,6 +1707,9 @@ public sealed class TexturePlanEvaluator : IDisposable {
         ///     mean the same module by construction.
         /// </remarks>
         public required string? Authored { get; init; }
+
+        /// <summary>A digest of what this kernel is, before the output format was rewritten into it.</summary>
+        public required TextureResultKey Identity { get; init; }
 
         public required EffectData Data { get; init; }
         public required Effect Effect { get; init; }

@@ -132,18 +132,30 @@ public abstract class NodeGraphCompiler<TArtefact> where TArtefact : class {
                 continue;
             }
 
-            var resolved = Resolve(graph, node, definition);
-            var binding = Bind(graph, node, definition, resolved);
-            var instance = definition.Create();
-
-            instance.Binding = binding;
-            instance.Bind(binding);
-            Visit(node, definition, instance, binding);
+            Walk(graph, node, definition);
         }
 
         var artefact = HasErrors ? null : Finish(graph);
 
         return new(artefact, [.. diagnostics]);
+    }
+
+    /// <summary>Binds one node and hands it to <see cref="Visit" />, which is one step of a compile.</summary>
+    /// <param name="graph">The graph the walk is over.</param>
+    /// <param name="node">The node.</param>
+    /// <param name="definition">Its type.</param>
+    /// <remarks>
+    ///     Protected for a front end that can answer a value edit by asking one node again, so that
+    ///     the binding it gets is built by this and not by a second copy of it.
+    /// </remarks>
+    protected void Walk(NodeGraphModel graph, GraphNode node, NodeTypeDefinition definition) {
+        var resolved = Resolve(graph, node, definition);
+        var binding = Bind(graph, node, definition, resolved);
+        var instance = definition.Create();
+
+        instance.Binding = binding;
+        instance.Bind(binding);
+        Visit(node, definition, instance, binding);
     }
 
     /// <summary>Called with the author's own graph, before anything is inlined.</summary>

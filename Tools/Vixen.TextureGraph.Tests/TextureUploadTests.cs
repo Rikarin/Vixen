@@ -117,7 +117,11 @@ public class TextureUploadTests {
         // ⚠ The size is part of the declaration and not only of `SizeOf` — #1000. `TexturePlan`
         // cannot answer for an external image, so a CPU op's read-back is sized from this.
         Assert.Equal(
-            new TextureExternal(texture, TextureUploads.UploadUsage, new(Side, Side)),
+            // ⚠ And the digest, which is what the result cache knows this picture by: a coverage of
+            // zero is `Side²` zero bytes, and a declaration without it is one nothing can cache.
+            new TextureExternal(texture, TextureUploads.UploadUsage, new(Side, Side)) {
+                Content = TextureResultKey.Of(new byte[Side * Side])
+            },
             Assert.Contains(1, uploads.Externals)
         );
         Assert.DoesNotContain(0, uploads.Externals);
