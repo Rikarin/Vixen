@@ -2,11 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Globalization;
-using Vixen.Core.Imaging;
 using Vixen.Graphics;
-using Vixen.Rendering;
 
-namespace Vixen.Editor.Assets.Textures;
+namespace Vixen.Core.Imaging;
 
 /// <summary>Reads the Iridas/Adobe <c>.cube</c> grading table into a 3D texture.</summary>
 /// <remarks>
@@ -27,7 +25,7 @@ namespace Vixen.Editor.Assets.Textures;
 ///         reason.</b> The input is a texture coordinate, so it has to be bounded — and a grade
 ///         authored on values that have already been through a curve behaves the way the colourist saw
 ///         it. What it therefore cannot do is anything to values above white, which is why the
-///         scene-referred grade in <see cref="ColorGrading" /> exists beside it rather than instead
+///         scene-referred grade in <c>ColorGrading</c> exists beside it rather than instead
 ///         of it.
 ///     </para>
 /// </remarks>

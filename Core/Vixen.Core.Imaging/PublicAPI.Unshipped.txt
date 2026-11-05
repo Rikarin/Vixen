@@ -268,3 +268,6 @@ static Vixen.Core.Imaging.VkFormats.From(Vixen.Graphics.PixelFormat format) -> u
 static Vixen.Core.Imaging.VkFormats.Supported.get -> System.Collections.Generic.IEnumerable<Vixen.Graphics.PixelFormat>
 static Vixen.Core.Imaging.VkFormats.To(uint vkFormat) -> Vixen.Graphics.PixelFormat
 static readonly Vixen.Core.Imaging.CubeMapping.Faces -> Vixen.Core.Imaging.CubeFace[]
+const Vixen.Core.Imaging.CubeLut.MaximumSize = 64 -> int
+static Vixen.Core.Imaging.CubeLut.Parse(string text) -> Vixen.Core.Imaging.TextureData
+Vixen.Core.Imaging.CubeLut -> static class
