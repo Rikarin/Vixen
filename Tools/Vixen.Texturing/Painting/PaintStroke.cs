@@ -75,7 +75,10 @@ public sealed class PaintStroke {
     /// </remarks>
     readonly Dictionary<int, int> distance = [];
     readonly float smoothing;
+    readonly IPaintPlacement? placement;
+    readonly PaintStampTexels placed = new();
     Vector2 smoothed;
+    float pressed = 1f;
     bool started;
 
     /// <summary>Begins a stroke on a paint layer.</summary>
@@ -93,6 +96,11 @@ public sealed class PaintStroke {
     ///     to the surface.
     /// </param>
     /// <param name="seed">What the jitter and the random rotations derive from.</param>
+    /// <param name="origin">What undo goes back to, when several strokes share one.</param>
+    /// <param name="placement">
+    ///     Where a stamp lands besides, or instead of, the disc around its centre: a mesh's other side of a
+    ///     seam, or a surface seen through a camera. Nothing paints the atlas under the stamp alone.
+    /// </param>
     /// <exception cref="ArgumentException">The coverage map is not the image's size.</exception>
     public PaintStroke(
         PaintImage image,
@@ -102,7 +110,8 @@ public sealed class PaintStroke {
         int gutter = 4,
         float smoothing = 0f,
         uint seed = 0x9E3779B9u,
-        PaintImageSnapshot? origin = null
+        PaintImageSnapshot? origin = null,
+        IPaintPlacement? placement = null
     ) {
         ArgumentNullException.ThrowIfNull(image);
         ArgumentNullException.ThrowIfNull(coverage);
@@ -123,6 +132,7 @@ public sealed class PaintStroke {
         this.colour = colour;
         this.gutter = gutter;
         this.seed = seed;
+        this.placement = placement;
         this.origin = origin ?? image.Snapshot();
         this.smoothing = Math.Clamp(smoothing, 0f, 0.999f);
 
@@ -191,6 +201,10 @@ public sealed class PaintStroke {
     /// <param name="regions">
     ///     Appended one rectangle <em>per stamp</em>, or <see langword="null" /> to collect none.
     /// </param>
+    /// <param name="pressure">
+    ///     How hard, 0 to 1. Each stamp this move earns takes its share of the way from the last pressure
+    ///     to this one, so a stylus lifting through a long move tapers rather than steps.
+    /// </param>
     /// <returns>The rectangle this move dirtied, for a view to re-upload.</returns>
     /// <remarks>
     ///     <para>
@@ -207,8 +221,15 @@ public sealed class PaintStroke {
     ///         artist moved, which is the opposite of what "independent of atlas size" claims.
     ///     </para>
     /// </remarks>
-    public PaintRect MoveTo(Vector2 texel, List<PaintRect>? regions = null) {
+    public PaintRect MoveTo(Vector2 texel, List<PaintRect>? regions = null, float pressure = 1f) {
+        var from = smoothed;
+
         smoothed = started ? Vector2.Lerp(smoothed, texel, 1f - smoothing) : texel;
+
+        var first = !started;
+        var travel = (smoothed - from).Length();
+        var hard = Math.Clamp(pressure, 0f, 1f);
+
         started = true;
 
         spaced.Clear();
@@ -217,16 +238,14 @@ public sealed class PaintStroke {
         var dirty = PaintRect.Empty;
 
         foreach (var stamp in spaced) {
-            var painted = Apply(Jittered(stamp, StampCount));
+            var along = first || !(travel > 0f) ? 1f : Math.Clamp((stamp.Centre - from).Length() / travel, 0f, 1f);
+            var at = first ? hard : pressed + ((hard - pressed) * along);
 
-            if (!painted.IsEmpty) {
-                regions?.Add(painted);
-            }
-
-            dirty = dirty.Union(painted);
+            dirty = dirty.Union(Apply(Jittered(stamp, StampCount, at), regions));
             StampCount++;
         }
 
+        pressed = hard;
         Rect = Rect.Union(dirty);
 
         return dirty;
@@ -270,8 +289,10 @@ public sealed class PaintStroke {
     ///     jitter drawn from shared state repaints something else the second time. Each of the three
     ///     jitters takes its own stream so that turning one off does not shift the others.
     /// </remarks>
-    PaintStamp Jittered(BrushStamp stamp, int index) {
-        var radius = brush.Radius * (1f - (Unit(index, 3) * Math.Clamp(brush.SizeJitter, 0f, 1f)));
+    PaintStamp Jittered(BrushStamp stamp, int index, float pressure) {
+        var radius = brush.Radius
+            * (1f - (Unit(index, 3) * Math.Clamp(brush.SizeJitter, 0f, 1f)))
+            * Pressed(brush.PressureSize, pressure);
         var angle = stamp.Rotation + (((Unit(index, 1) * 2f) - 1f) * brush.AngleJitter);
         var centre = stamp.Centre;
 
@@ -291,17 +312,60 @@ public sealed class PaintStroke {
             centre,
             angle,
             MathF.Max(radius, 1e-3f),
-            Math.Clamp(brush.Flow, 0f, 1f) * stamp.Flow,
+            Math.Clamp(brush.Flow, 0f, 1f) * stamp.Flow * Pressed(brush.PressureFlow, pressure),
             brush.Aspect,
             brush.AspectAngle
         );
     }
 
+    /// <summary>What a pressure leaves of something it takes a share of.</summary>
+    static float Pressed(float share, float pressure) => 1f - (Math.Clamp(share, 0f, 1f) * (1f - pressure));
+
     /// <summary>Composites one stamp into the layer and dilates it past the seam.</summary>
-    PaintRect Apply(PaintStamp stamp) {
-        var footprint = brush.FootprintOf(stamp, image.Width, image.Height);
+    /// <remarks>
+    ///     ⚠ <b>One rectangle per piece, because a stamp across a seam is two places in the atlas.</b> The union
+    ///     of a piece in each of two islands is everything between them, and that is what a dilation would
+    ///     scan and a repair would run over.
+    /// </remarks>
+    PaintRect Apply(PaintStamp stamp, List<PaintRect>? regions) {
         var kernel = brush.KernelFor(stamp);
         var cap = Math.Clamp(brush.Opacity, 0f, 1f);
+        var dirty = PaintRect.Empty;
+
+        if (placement is not { ReplacesStamp: true }) {
+            dirty = Under(stamp, kernel, cap);
+
+            if (!dirty.IsEmpty) {
+                regions?.Add(dirty);
+            }
+        }
+
+        if (placement is null) {
+            return dirty;
+        }
+
+        placed.Clear();
+        placement.Place(stamp, brush, kernel, placed);
+
+        foreach (var (index, weight) in placed.Weights) {
+            WeightsEvaluated++;
+            TexelsScanned++;
+            Deposit(index, weight, cap);
+        }
+
+        foreach (var piece in placed.Pieces) {
+            var painted = piece.Union(Dilate(piece));
+
+            regions?.Add(painted);
+            dirty = dirty.Union(painted);
+        }
+
+        return dirty;
+    }
+
+    /// <summary>The stamp's own footprint in the atlas, dilated.</summary>
+    PaintRect Under(PaintStamp stamp, in TerrainBrush kernel, float cap) {
+        var footprint = brush.FootprintOf(stamp, image.Width, image.Height);
 
         for (var y = footprint.Y; y < footprint.EndY; y++) {
             for (var x = footprint.X; x < footprint.EndX; x++) {
@@ -322,27 +386,32 @@ public sealed class PaintStroke {
 
                 WeightsEvaluated++;
 
-                if (!(weight > 0f)) {
-                    continue;
-                }
-
-                reached.TryGetValue(index, out var already);
-
-                var reach = Math.Min(cap, already + (weight * (1f - already)));
-
-                if (reach <= already) {
-                    continue;
-                }
-
-                Record(index);
-                reached[index] = reach;
-                image[index] = PaintImage.Mix(before[index], colour, reach);
+                Deposit(index, weight, cap);
             }
         }
 
         var dilated = Dilate(footprint);
 
         return footprint.Union(dilated);
+    }
+
+    /// <summary>Lays one stamp's weight on one covered texel, on top of what the stroke has reached there.</summary>
+    void Deposit(int index, float weight, float cap) {
+        if (!(weight > 0f)) {
+            return;
+        }
+
+        reached.TryGetValue(index, out var already);
+
+        var reach = Math.Min(cap, already + (weight * (1f - already)));
+
+        if (reach <= already) {
+            return;
+        }
+
+        Record(index);
+        reached[index] = reach;
+        image[index] = PaintImage.Mix(before[index], colour, reach);
     }
 
     /// <summary>

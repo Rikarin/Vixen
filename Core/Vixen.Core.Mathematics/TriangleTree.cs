@@ -146,6 +146,54 @@ public sealed class TriangleTree {
         nodes = [.. built];
     }
 
+    /// <summary>Every triangle that comes within a distance of a point.</summary>
+    /// <param name="centre">The point.</param>
+    /// <param name="radius">How far from it.</param>
+    /// <param name="into">Cleared, then given the triangle ids, in the tree's order.</param>
+    /// <remarks>
+    ///     The question a brush asks: its cost is the triangles near the point and the depth of the tree,
+    ///     and neither the size of the mesh nor a second structure beside this one.
+    /// </remarks>
+    public void Overlapping(Vector3 centre, float radius, List<int> into) {
+        ArgumentNullException.ThrowIfNull(into);
+
+        into.Clear();
+
+        if (order.Length == 0 || !(radius >= 0f)) {
+            return;
+        }
+
+        var limit = radius * radius;
+
+        Span<int> stack = stackalloc int[MaxDepth];
+        var depth = 0;
+        stack[depth++] = 0;
+
+        while (depth > 0) {
+            var node = nodes[stack[--depth]];
+
+            if (DistanceSquaredToBox(centre, node.Bounds) > limit) {
+                continue;
+            }
+
+            if (node.Count == 0) {
+                stack[depth++] = node.Left;
+                stack[depth++] = node.Right;
+
+                continue;
+            }
+
+            for (var slot = node.Start; slot < node.Start + node.Count; slot++) {
+                var triangle = order[slot];
+                Triangle(triangle, out var a, out var b, out var c);
+
+                if (Vector3.DistanceSquared(centre, ClosestPointOnTriangle(centre, a, b, c)) <= limit) {
+                    into.Add(triangle);
+                }
+            }
+        }
+    }
+
     /// <summary>The squared distance from a point to the nearest triangle.</summary>
     /// <param name="point">The point.</param>
     /// <returns>The squared distance, or <see cref="float.PositiveInfinity" /> over an empty tree.</returns>

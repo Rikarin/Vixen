@@ -61,6 +61,16 @@ public readonly record struct PaintRect(int X, int Y, int Width, int Height) {
     public PaintRect Grow(int margin) =>
         IsEmpty ? this : new(X - margin, Y - margin, Width + (2 * margin), Height + (2 * margin));
 
+    /// <summary>What two rectangles share.</summary>
+    /// <param name="other">The other.</param>
+    /// <returns>Their overlap, possibly empty.</returns>
+    public PaintRect Intersect(PaintRect other) {
+        var x = Math.Max(X, other.X);
+        var y = Math.Max(Y, other.Y);
+
+        return new(x, y, Math.Max(0, Math.Min(EndX, other.EndX) - x), Math.Max(0, Math.Min(EndY, other.EndY) - y));
+    }
+
     /// <summary>The smallest rectangle containing both.</summary>
     /// <param name="other">The other.</param>
     /// <returns>The union. An empty operand returns the other.</returns>

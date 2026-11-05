@@ -420,6 +420,12 @@ public sealed class PaintProjection {
         Layout(triangle, out ua, out ub, out uc);
     }
 
+    /// <summary>Every triangle within a distance of a point on or near the mesh.</summary>
+    /// <param name="centre">The point, in the mesh's own space.</param>
+    /// <param name="radius">How far from it.</param>
+    /// <param name="into">Cleared, then given the triangles.</param>
+    public void Overlapping(Vector3 centre, float radius, List<int> into) => tree.Overlapping(centre, radius, into);
+
     /// <summary>Where a coordinate lands in an atlas of a size.</summary>
     /// <param name="coordinate">The coordinate, in the unit square.</param>
     /// <param name="width">The atlas width in texels.</param>

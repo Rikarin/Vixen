@@ -193,6 +193,12 @@ public readonly record struct PaintBrush {
     /// </remarks>
     public IBrushMask? Alpha { get; init; }
 
+    /// <summary>How much a stylus's pressure takes off the radius, 0 for none and 1 for all of it.</summary>
+    public float PressureSize { get; init; }
+
+    /// <summary>How much a stylus's pressure takes off the flow, 0 for none and 1 for all of it.</summary>
+    public float PressureFlow { get; init; }
+
     /// <summary>A soft round brush thirty-two texels across, depositing a quarter per stamp.</summary>
     public static PaintBrush Default =>
         new() {
