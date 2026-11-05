@@ -4,8 +4,8 @@ slug: engine/map-baking
 kind: guide
 area: Engine
 summary: Casting the output's normal at the source to fill an atlas with a normal map, a displacement map and seven more mesh maps, on the CPU, with no device anywhere.
-api: [T:Vixen.Geometry.Remeshing.MapBaker, T:Vixen.Geometry.Remeshing.BakeSettings, T:Vixen.Geometry.Remeshing.BakedMaps, T:Vixen.Geometry.Remeshing.BakeSpace, T:Vixen.Geometry.Remeshing.MeshMaps]
-tags: [geometry, retopology, remesh, bake, normal-map, displacement, atlas, ambient-occlusion, curvature, mesh-maps]
+api: [T:Vixen.Geometry.Remeshing.MapBaker, T:Vixen.Geometry.Remeshing.BakeSettings, T:Vixen.Geometry.Remeshing.BakedMaps, T:Vixen.Geometry.Remeshing.BakeSpace, T:Vixen.Geometry.Remeshing.MeshMaps, T:Vixen.Geometry.Remeshing.BakeMask, T:Vixen.Geometry.Remeshing.BakeParts, T:Vixen.Geometry.Remeshing.MeshMapKind, T:Vixen.Geometry.Remeshing.MeshMapPlane, T:Vixen.Geometry.Remeshing.MeshMapPlanes]
+tags: [geometry, retopology, remesh, bake, normal-map, displacement, atlas, ambient-occlusion, curvature, mesh-maps, cage, hard-edge, supersampling]
 since: 0.1
 status: preview
 related: [engine/retopology, engine/attribute-transfer, engine/uv-packing, core/triangle-tree, editor/mesh-map-assets]
@@ -34,6 +34,8 @@ so neither answers the question an atlas asks.
 
 ⚠ **The bake returns pixels and writing them is the caller's job.** `Core/` is under the virtual-path
 rule, so an asset compiler, a CLI and an editor each write these where their own conventions say.
+`MeshMapPlanes.Of` turns a bake into planes a writer can take at any depth: the measurement itself for
+a float file, and `MeshMapPlane.Unit` for an integer one. See [deep images](core/deep-images).
 
 ## Using it
 
@@ -76,6 +78,48 @@ radius is smaller than the deviation the remesh actually produced.
 ⚠ **A cage lying exactly *on* the source has every ray rejected at its own origin** — correctly, since
 a hit at zero distance is the origin — so the whole bake takes the fallback. If `Missed` is close to
 `Covered`, that is usually why.
+
+### A hard edge does not seam
+
+A hard edge is two normals on one point, and each side is its own chart. Rays cast along the corner's
+own normal leave a wedge of the source nothing strikes and show the two sides of the edge different
+surfaces, which is the seam a hard edge is known for.
+
+⚠ **So the ray follows the direction averaged over every corner on the point, and the tangent frame
+still uses the corner's own normal.** The averaged direction is continuous across the edge: both charts
+cast the same ray and find the same surface, and each then expresses it in the frame that will shade
+it. On a smooth surface the corners agree and nothing changes. Corners are matched by coordinates and
+not by position index, because a file splits a vertex for a hard edge and a weld is an importer's to
+do. `ModelGeometry.Flatten` is what reads a file with its normals intact.
+
+### Cages, skew and parts
+
+`BakeSettings.Cage` is a mesh with the target's faces in the target's order, moved outward. A ray then
+runs from the cage through the target and on for `SearchRadius` behind it, and the first thing it
+strikes wins, so an artist decides what a ray can reach by moving the cage. A cage with another layout
+is refused, because its points have no partner.
+
+⚠ **Rays near a hard edge are slanted, and so is what they bake.** A bolt on a flat face next to an edge
+comes out sheared towards it. `BakeSettings.Skew` leans the rays back towards the target's own normal —
+one is the old behaviour, with the seam — and `BakeSettings.SkewMap` says where, so the lean can be
+painted in over the bolt and left out at the edge.
+
+`BakeSettings.Parts` matches parts of the target to parts of the source, so that two parts modelled close
+together do not strike each other's rays and nothing has to be exploded apart by hand. `BakeParts.ByName`
+makes one from names: `bolt_high` and `bolt_low` are the same part. ⚠ **Occlusion ignores it on purpose**:
+a neighbouring part stays out of the normal map and still shades this one.
+
+### Supersampling, threads and what they do not change
+
+`Supersampling` divides each texel along each side, so two is four probes. ⚠ **`OcclusionSamples` stays a
+count per texel**: the one stratified set is dealt out between the samples, so occlusion costs the same
+at any setting. A sample that falls off the triangle owning its texel asks the second triangle there,
+and is clamped only where three meet.
+
+⚠ **The atlas does not depend on the thread count.** Triangles claim texels first, the lowest index
+winning; each row is then baked on whichever thread reaches it, into its own texels, and totals are
+sums and maximums, which have no order. `Threads` limits how many, which is about what else the machine
+is doing, and never about the result. Cancellation and progress are per atlas row.
 
 ### Coverage is conservative, and it has to be
 
@@ -289,6 +333,7 @@ character is the entire point of baking one.
 - [Retopology settings and reports](engine/retopology) — where the atlas being baked into comes from.
 - [Attribute transfer](engine/attribute-transfer) — the other half of stage seven.
 - [UV packing](engine/uv-packing) — the margin rule the gutter has to agree with.
-- [Triangle tree](core/triangle-tree) — the rays and the closest-point fallback both go through it.
+- [Triangle tree](core/triangle-tree) — the two-question tree a transfer uses; a bake has a faster one of its own for the same two questions.
+- [Deep images](core/deep-images) — 16-bit PNG and EXR, which is what these go to disk as.
 - [Mesh maps as project assets](editor/mesh-map-assets) — the caller that writes these pixels to
   files, what the files are called, and how a generator finds one by usage.

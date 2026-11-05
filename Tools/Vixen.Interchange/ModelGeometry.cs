@@ -7,6 +7,11 @@ using Vixen.Geometry.Uv;
 
 namespace Vixen.Interchange;
 
+/// <summary>A file's parts laid end to end in one mesh.</summary>
+/// <param name="Mesh">The mesh, in world space, with the file's normals and coordinates on its corners.</param>
+/// <param name="Parts">Each part's name and how many faces it contributed, in order.</param>
+public sealed record FlatModel(EditMesh Mesh, IReadOnlyList<(string Name, int Faces)> Parts);
+
 /// <summary>The copy between a model file's geometry and the mesh kernel that remeshes and unwraps it.</summary>
 /// <remarks>
 ///     <para>
@@ -118,6 +123,113 @@ public static class ModelGeometry {
             Indices = [.. indices],
             Bounds = Bounds(positions)
         };
+    }
+
+    /// <summary>A whole file as one mesh in world space, with every corner's normal and coordinate.</summary>
+    /// <param name="model">What <see cref="ModelReader.Read" /> returned.</param>
+    /// <returns>The mesh, and which run of its faces came from which named part.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="model" /> is null.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>This is what a bake reads a file with, and <see cref="ToEditMesh" /> is not, because
+    ///         that one keeps no normals.</b> A hard edge is two normals on one point, so a mesh rebuilt
+    ///         from positions has no hard edges left to bake. Corners here keep what the file said.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Welded by exact coordinates, not by a tolerance.</b> The two sides of a hard edge are
+    ///         the same bits in the file, split only because one drawing vertex cannot have two normals,
+    ///         so an exact match restores the connection a curvature bake needs and cannot fold a small
+    ///         feature away, which a tolerance chosen for the whole model can.
+    ///     </para>
+    ///     <para>
+    ///         The groups are the file's materials and are marked as assigned, so an id map shows them.
+    ///     </para>
+    /// </remarks>
+    public static FlatModel Flatten(ReadModel model) {
+        ArgumentNullException.ThrowIfNull(model);
+
+        var nodes = model.Model.Nodes;
+        var world = new Matrix4x4[nodes.Length];
+
+        for (var at = 0; at < nodes.Length; at++) {
+            world[at] = nodes[at].Parent < 0 ? nodes[at].Transform : nodes[at].Transform * world[nodes[at].Parent];
+        }
+
+        var meshes = model.Meshes.ToDictionary(static mesh => mesh.Name, StringComparer.Ordinal);
+        var built = new EditMesh();
+        var positions = new Dictionary<Vector3, int>();
+        var normals = new List<Vector3>();
+        var coordinates = new List<Vector2>();
+        var parts = new List<(string Name, int Faces)>();
+        var anyCoordinates = false;
+        var anyNormals = false;
+        Span<int> loop = stackalloc int[3];
+
+        foreach (var part in model.Model.Parts) {
+            var mesh = meshes[part.Mesh];
+            var transform = world[part.Node];
+            var inverse = Matrix4x4.Invert(transform, out var inverted) ? Matrix4x4.Transpose(inverted) : transform;
+            var hasNormals = mesh.Normals.Length == mesh.Positions.Length;
+            var hasCoordinates = mesh.TexCoords.Length == mesh.Positions.Length;
+            var slots = new int[mesh.Positions.Length];
+            var turned = new Vector3[hasNormals ? mesh.Positions.Length : 0];
+            var made = 0;
+
+            for (var vertex = 0; vertex < slots.Length; vertex++) {
+                var point = Matrix4x4.TransformPosition(mesh.Positions[vertex], transform);
+
+                if (!positions.TryGetValue(point, out var slot)) {
+                    slot = built.AddPosition(point);
+                    positions.Add(point, slot);
+                }
+
+                slots[vertex] = slot;
+
+                if (hasNormals) {
+                    turned[vertex] = Vector3.Normalize(Matrix4x4.TransformDirection(mesh.Normals[vertex], inverse));
+                }
+            }
+
+            for (var index = 0; index + 2 < mesh.Indices.Length; index += 3) {
+                var (a, b, c) = (mesh.Indices[index], mesh.Indices[index + 1], mesh.Indices[index + 2]);
+
+                (loop[0], loop[1], loop[2]) = (slots[a], slots[b], slots[c]);
+
+                // A triangle the weld closed has no area, no normal and no edge.
+                if (loop[0] == loop[1] || loop[1] == loop[2] || loop[2] == loop[0]) {
+                    continue;
+                }
+
+                built.AddFace(loop, part.Material);
+                made++;
+
+                normals.Add(hasNormals ? turned[a] : default);
+                normals.Add(hasNormals ? turned[b] : default);
+                normals.Add(hasNormals ? turned[c] : default);
+                coordinates.Add(hasCoordinates ? mesh.TexCoords[a] : default);
+                coordinates.Add(hasCoordinates ? mesh.TexCoords[b] : default);
+                coordinates.Add(hasCoordinates ? mesh.TexCoords[c] : default);
+            }
+
+            anyNormals |= hasNormals;
+            anyCoordinates |= hasCoordinates;
+
+            var name = nodes[part.Node].Name;
+
+            parts.Add((name.Length > 0 ? name : mesh.Name, made));
+        }
+
+        built.GroupSource = MeshGroupSource.Assigned;
+
+        if (anyNormals) {
+            built.SetNormals(System.Runtime.InteropServices.CollectionsMarshal.AsSpan(normals));
+        }
+
+        if (anyCoordinates) {
+            built.SetTexCoords(System.Runtime.InteropServices.CollectionsMarshal.AsSpan(coordinates));
+        }
+
+        return new(built, parts);
     }
 
     /// <summary>An unwrap's placements applied to its islands, as one coordinate per corner.</summary>

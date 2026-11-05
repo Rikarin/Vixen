@@ -34,6 +34,22 @@ Vixen.Core.Imaging.CubeMapping -> static class
 Vixen.Core.Imaging.DataFormatDescriptor -> static class
 Vixen.Core.Imaging.EnvironmentBaker -> static class
 Vixen.Core.Imaging.EnvironmentPrefilter -> static class
+Vixen.Core.Imaging.ExrCodec -> static class
+Vixen.Core.Imaging.ExrPixels -> enum : int
+Vixen.Core.Imaging.ExrPixels.ExrPixels() -> void
+Vixen.Core.Imaging.ExrPixels.Float = 2 -> Vixen.Core.Imaging.ExrPixels
+Vixen.Core.Imaging.ExrPixels.Half = 1 -> Vixen.Core.Imaging.ExrPixels
+Vixen.Core.Imaging.FloatImage -> sealed record
+Vixen.Core.Imaging.FloatImage : System.IEquatable<Vixen.Core.Imaging.FloatImage>
+Vixen.Core.Imaging.FloatImage.Channels.get -> int
+Vixen.Core.Imaging.FloatImage.Channels.init -> int
+Vixen.Core.Imaging.FloatImage.FloatImage(int Width, int Height, int Channels, float[] Samples) -> void
+Vixen.Core.Imaging.FloatImage.Height.get -> int
+Vixen.Core.Imaging.FloatImage.Height.init -> int
+Vixen.Core.Imaging.FloatImage.Samples.get -> float[]
+Vixen.Core.Imaging.FloatImage.Samples.init -> float[]
+Vixen.Core.Imaging.FloatImage.Width.get -> int
+Vixen.Core.Imaging.FloatImage.Width.init -> int
 Vixen.Core.Imaging.Ktx2 -> static class
 Vixen.Core.Imaging.Ktx2Exception -> sealed class
 Vixen.Core.Imaging.Ktx2Exception : System.Exception
@@ -172,6 +188,8 @@ static Vixen.Core.Imaging.EnvironmentBaker.Prefilter(Vixen.Core.Imaging.CubeImag
 static Vixen.Core.Imaging.EnvironmentBaker.RoughnessOf(int mip, int mipCount) -> float
 static Vixen.Core.Imaging.EnvironmentPrefilter.RoughnessOf(int level, int levelCount) -> float
 static Vixen.Core.Imaging.EnvironmentPrefilter.Specular(Vixen.Core.Imaging.TextureData cube, int levelCount = 0, int samples = 128) -> Vixen.Core.Imaging.TextureData
+static Vixen.Core.Imaging.ExrCodec.Decode(System.ReadOnlySpan<byte> data) -> Vixen.Core.Imaging.FloatImage
+static Vixen.Core.Imaging.ExrCodec.Encode(Vixen.Core.Imaging.FloatImage image, Vixen.Core.Imaging.ExrPixels pixels = Vixen.Core.Imaging.ExrPixels.Float) -> byte[]
 static Vixen.Core.Imaging.Ktx2.Identifier.get -> System.ReadOnlySpan<byte>
 static Vixen.Core.Imaging.Ktx2.LayoutLength(System.ReadOnlySpan<byte> head) -> int
 static Vixen.Core.Imaging.Ktx2.Read(System.ReadOnlySpan<byte> file) -> Vixen.Core.Imaging.TextureData
@@ -193,7 +211,9 @@ static Vixen.Core.Imaging.MipOptions.CutoutColour.get -> Vixen.Core.Imaging.MipO
 static Vixen.Core.Imaging.MipOptions.Linear.get -> Vixen.Core.Imaging.MipOptions
 static Vixen.Core.Imaging.MipOptions.NormalMap.get -> Vixen.Core.Imaging.MipOptions
 static Vixen.Core.Imaging.PngCodec.Decode(System.ReadOnlySpan<byte> data) -> Vixen.Core.Imaging.Bitmap
+static Vixen.Core.Imaging.PngCodec.Decode16(System.ReadOnlySpan<byte> data) -> (int Width, int Height, int Channels, ushort[] Samples)
 static Vixen.Core.Imaging.PngCodec.Encode(in Vixen.Core.Imaging.Bitmap image) -> byte[]
+static Vixen.Core.Imaging.PngCodec.Encode16(int width, int height, int channels, System.ReadOnlySpan<ushort> samples) -> byte[]
 static Vixen.Core.Imaging.PngCodec.Load(string path) -> Vixen.Core.Imaging.Bitmap
 static Vixen.Core.Imaging.PngCodec.Save(string path, in Vixen.Core.Imaging.Bitmap image) -> void
 static Vixen.Core.Imaging.SphericalHarmonicsL1.Evaluate(Vixen.Core.Mathematics.Vector3 direction, System.Span<float> basis) -> void

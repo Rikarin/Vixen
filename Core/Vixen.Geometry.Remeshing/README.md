@@ -135,10 +135,20 @@ texture are GPU-only and project along an *axis* rather than through a parameter
 coverage rule that is reusable lives in `Vixen.Rendering`, one layer up, which the layering test
 forbids referencing — **and it is pixel-centre only, which silently loses the outermost row of texels
 of every chart in an atlas.** So `AtlasRaster` is conservative coverage by separating axes, written
-here, and `MapBaker` casts along the output's interpolated normal both ways and takes the nearer hit.
+here, and `MapBaker` casts along the normal averaged over each point, both ways, and takes the nearer hit.
 
 ⚠ **Content is rasterized in one pass and dilated in a second**, and the gutter only ever writes where
 coverage is false — so one chart's dilation cannot overwrite the chart abutting it in the atlas.
+
+## The bake has its own tree
+
+`TriangleTree` is a median split with one box test a node, and for a transfer's few thousand questions
+that is the right size. A 4K occlusion bake asks about four billion, so `BakeTree` is a surface-area
+heuristic hierarchy four children wide, tested four boxes and four triangles at a time, with any-hit
+traversal for occlusion. Its answers are checked against `TriangleTree` on random soups. ⚠ **On two
+million triangles most of a ray's cost is cache misses and not arithmetic**: 320 ns on a tree that fits
+in cache against 680 ns on one that does not, measured one-threaded. That is why the scalar test reads
+the block rather than the mesh, and why rays are traversed nearest-first when any hit will do.
 
 ## The mesh maps are measurements on that raster, not a second baker
 

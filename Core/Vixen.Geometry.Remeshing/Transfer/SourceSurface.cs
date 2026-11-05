@@ -34,8 +34,15 @@ sealed class SourceSurface {
     readonly int[] faceOf;
     readonly int[] cornerOf;
 
+    readonly Lazy<TriangleTree> tree;
+
     /// <summary>The tree the queries go through.</summary>
-    public TriangleTree Tree { get; }
+    /// <remarks>
+    ///     ⚠ <b>Built on first use, because a bake never asks.</b> A bake has <see cref="BakeTree" />,
+    ///     and sorting two million triangles a second time for a tree nothing will read is seconds of
+    ///     a bake's start spent on nothing.
+    /// </remarks>
+    public TriangleTree Tree => tree.Value;
 
     /// <summary>How many triangles the surface has.</summary>
     public int TriangleCount => faceOf.Length;
@@ -61,7 +68,7 @@ sealed class SourceSurface {
         this.faceOf = faceOf;
         this.cornerOf = cornerOf;
 
-        Tree = new(mesh.Positions, triangles);
+        tree = new(() => new(mesh.Positions, triangles));
         HasNormals = mesh.Normals.Length == mesh.CornerCount && mesh.CornerCount > 0;
         HasTexCoords = mesh.TexCoords.Length == mesh.CornerCount && mesh.CornerCount > 0;
 
@@ -113,6 +120,11 @@ sealed class SourceSurface {
 
         return new(mesh, triangles, faceOf, cornerOf);
     }
+
+    /// <summary>A ray tree over some of the surface's triangles.</summary>
+    /// <param name="members">The triangles, or null for all of them.</param>
+    /// <returns>A tree answering in this surface's triangle indices.</returns>
+    public BakeTree RayTree(IReadOnlyList<int>? members = null) => new(mesh.Positions, triangles, members);
 
     /// <summary>Which face a triangle came off.</summary>
     /// <param name="triangle">Its index.</param>
