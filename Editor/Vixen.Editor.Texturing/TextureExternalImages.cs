@@ -226,16 +226,15 @@ static class TextureExternalImages {
         ArgumentNullException.ThrowIfNull(pass);
 
         return pass.Moved(static path => {
-                var extension = Path.GetExtension(path);
+            var extension = Path.GetExtension(path);
 
-                return ImageDecoders.DecodeFile(
-                    ImageDecoders.For(ImageDecoders.BuiltIn, extension)
-                    ?? throw new NotSupportedException($"nothing here decodes '{extension}'."),
-                    path,
-                    extension
-                );
-            }
-        );
+            return ImageDecoders.DecodeFile(
+                ImageDecoders.For(ImageDecoders.BuiltIn, extension)
+                ?? throw new NotSupportedException($"nothing here decodes '{extension}'."),
+                path,
+                extension
+            );
+        });
     }
 
     /// <summary>Reads one channel of a paint layer's canvas and uploads it.</summary>
