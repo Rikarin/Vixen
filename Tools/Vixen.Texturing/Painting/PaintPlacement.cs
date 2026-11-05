@@ -23,19 +23,21 @@ public interface IPaintPlacement {
 ///     ⚠ <b>The strongest weight and not the sum.</b> A texel beside a shared edge is reached from both
 ///     triangles, and one stamp must lay one weight there or a mesh's edges paint darker than its faces.
 /// </remarks>
-public sealed class PaintStampTexels {
-    readonly Dictionary<int, float> weights = [];
-    readonly Dictionary<int, PaintRect> pieces = [];
+public sealed class PaintStampTexels(int width, int height) {
+    readonly PaintTexelMap<int> slots = new(width, height);
+    readonly List<(int Texel, float Weight)> texels = [];
+    readonly List<(int Piece, PaintRect Rect)> pieces = [];
 
     /// <summary>Each texel and its weight.</summary>
-    public IReadOnlyDictionary<int, float> Weights => weights;
+    public IReadOnlyList<(int Texel, float Weight)> Texels => texels;
 
     /// <summary>One rectangle for each piece of the atlas the stamp reached.</summary>
-    public IReadOnlyCollection<PaintRect> Pieces => pieces.Values;
+    public IReadOnlyList<(int Piece, PaintRect Rect)> Pieces => pieces;
 
     /// <summary>Forgets the last stamp.</summary>
     public void Clear() {
-        weights.Clear();
+        slots.Clear();
+        texels.Clear();
         pieces.Clear();
     }
 
@@ -43,14 +45,26 @@ public sealed class PaintStampTexels {
     /// <param name="index">Its index, row-major.</param>
     /// <param name="weight">Its weight.</param>
     public void Add(int index, float weight) {
-        if (!weights.TryGetValue(index, out var held) || weight > held) {
-            weights[index] = weight;
+        if (!slots.TryGet(index, out var slot)) {
+            slots.Set(index, texels.Count);
+            texels.Add((index, weight));
+        } else if (weight > texels[slot].Weight) {
+            texels[slot] = (index, weight);
         }
     }
 
     /// <summary>Grows the rectangle of one piece.</summary>
     /// <param name="piece">Which piece, such as a chart.</param>
     /// <param name="touched">What it now also covers.</param>
-    public void Touch(int piece, PaintRect touched) =>
-        pieces[piece] = pieces.TryGetValue(piece, out var held) ? held.Union(touched) : touched;
+    public void Touch(int piece, PaintRect touched) {
+        for (var at = 0; at < pieces.Count; at++) {
+            if (pieces[at].Piece == piece) {
+                pieces[at] = (piece, pieces[at].Rect.Union(touched));
+
+                return;
+            }
+        }
+
+        pieces.Add((piece, touched));
+    }
 }

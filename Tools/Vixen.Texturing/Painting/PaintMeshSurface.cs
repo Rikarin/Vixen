@@ -335,11 +335,12 @@ public sealed class PaintMeshSurface {
         IBrushMask? alpha
     ) : ITexelWeigher {
         readonly TerrainBrush kernel = kernel;
+        readonly float tangent = view.Tangent;
 
         public float Weigh(Vector3 point) =>
             MathF.Abs(view.Depth(point) - depth) > reach
                 ? 0f
-                : PaintBrush.Weight(kernel, view.Project(point), stamp, alpha);
+                : PaintBrush.Weight(kernel, view.Project(point, tangent), stamp, alpha);
     }
 
     /// <summary>

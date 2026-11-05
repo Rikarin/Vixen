@@ -62,15 +62,24 @@ public readonly record struct PaintView(
     /// <summary>Where a point lands on the picture.</summary>
     /// <param name="point">The point.</param>
     /// <returns>Column and row, whether or not that is inside the picture.</returns>
-    public Vector2 Project(Vector3 point) {
+    public Vector2 Project(Vector3 point) => Project(point, HalfHeight);
+
+    /// <summary>Where a point lands, for a caller that has kept the tangent of half the field of view.</summary>
+    /// <param name="point">The point.</param>
+    /// <param name="halfHeight">That tangent, which is the cost of this method if it is worked out each time.</param>
+    /// <returns>Column and row.</returns>
+    public Vector2 Project(Vector3 point, float halfHeight) {
         var offset = point - Eye;
         var depth = Vector3.Dot(offset, Forward);
 
         return new(
-            ((Vector3.Dot(offset, Right) / (depth * HalfWidth)) + 1f) * 0.5f * Width,
-            (1f - (Vector3.Dot(offset, Up) / (depth * HalfHeight))) * 0.5f * Height
+            ((Vector3.Dot(offset, Right) / (depth * halfHeight * Width / Height)) + 1f) * 0.5f * Width,
+            (1f - (Vector3.Dot(offset, Up) / (depth * halfHeight))) * 0.5f * Height
         );
     }
+
+    /// <summary>The tangent of half the field of view.</summary>
+    public float Tangent => HalfHeight;
 
     /// <summary>This camera seen in a mirror: the picture of a point here is the picture of its reflection.</summary>
     /// <param name="plane">The mirror.</param>

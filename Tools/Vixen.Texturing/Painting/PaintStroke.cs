@@ -51,8 +51,8 @@ public sealed class PaintStroke {
     readonly BrushStroke path;
     readonly List<BrushStamp> spaced = [];
     readonly List<(int Texel, float Reach)> pending = [];
-    readonly Dictionary<int, uint> before = [];
-    readonly Dictionary<int, float> reached = [];
+    readonly PaintTexelMap<uint> before;
+    readonly PaintTexelMap<float> reached;
     readonly PaintImageSnapshot origin;
     int recorded;
 
@@ -73,10 +73,10 @@ public sealed class PaintStroke {
     ///         almost never. It is written in the scan now, where the proof of the shorter path is.
     ///     </para>
     /// </remarks>
-    readonly Dictionary<int, int> distance = [];
+    readonly PaintTexelMap<int> distance;
     readonly float smoothing;
     readonly IPaintPlacement? placement;
-    readonly PaintStampTexels placed = new();
+    readonly PaintStampTexels placed;
     Vector2 smoothed;
     float pressed = 1f;
     bool started;
@@ -125,6 +125,11 @@ public sealed class PaintStroke {
                 nameof(coverage)
             );
         }
+
+        before = new(image.Width, image.Height);
+        reached = new(image.Width, image.Height);
+        distance = new(image.Width, image.Height);
+        placed = new(image.Width, image.Height);
 
         this.image = image;
         this.coverage = coverage;
@@ -265,12 +270,9 @@ public sealed class PaintStroke {
     ///     so a finished stroke keeps no number for each texel it touched.
     /// </remarks>
     public void Seal() {
-        before.Clear();
-        before.TrimExcess();
-        reached.Clear();
-        reached.TrimExcess();
-        distance.Clear();
-        distance.TrimExcess();
+        before.Release();
+        reached.Release();
+        distance.Release();
     }
 
     /// <summary>Captures what the stroke left, so it can be redone.</summary>
@@ -347,13 +349,13 @@ public sealed class PaintStroke {
         placed.Clear();
         placement.Place(stamp, brush, kernel, placed);
 
-        foreach (var (index, weight) in placed.Weights) {
+        foreach (var (index, weight) in placed.Texels) {
             WeightsEvaluated++;
             TexelsScanned++;
             Deposit(index, weight, cap);
         }
 
-        foreach (var piece in placed.Pieces) {
+        foreach (var (_, piece) in placed.Pieces) {
             var painted = piece.Union(Dilate(piece));
 
             regions?.Add(painted);
@@ -401,7 +403,7 @@ public sealed class PaintStroke {
             return;
         }
 
-        reached.TryGetValue(index, out var already);
+        reached.TryGet(index, out var already);
 
         var reach = Math.Min(cap, already + (weight * (1f - already)));
 
@@ -409,9 +411,7 @@ public sealed class PaintStroke {
             return;
         }
 
-        Record(index);
-        reached[index] = reach;
-        image[index] = PaintImage.Mix(before[index], colour, reach);
+        Paint(index, reach);
     }
 
     /// <summary>
@@ -510,12 +510,12 @@ public sealed class PaintStroke {
                     // rule the reaches keep.
                     var steps = round + 1;
 
-                    if (!distance.TryGetValue(index, out var known) || steps < known) {
-                        distance[index] = steps;
+                    if (!distance.TryGet(index, out var known) || steps < known) {
+                        distance.Set(index, steps);
                         shortened = true;
                     }
 
-                    if (reached.TryGetValue(index, out var already) && already >= best) {
+                    if (reached.TryGet(index, out var already) && already >= best) {
                         continue;
                     }
 
@@ -538,13 +538,11 @@ public sealed class PaintStroke {
             }
 
             foreach (var (index, reach) in pending) {
-                if (!reached.ContainsKey(index)) {
+                if (!reached.Contains(index)) {
                     DilatedTexels++;
                 }
 
-                Record(index);
-                reached[index] = reach;
-                image[index] = PaintImage.Mix(before[index], colour, reach);
+                Paint(index, reach);
 
                 var x = index % image.Width;
                 var y = index / image.Width;
@@ -576,13 +574,21 @@ public sealed class PaintStroke {
 
         var index = (y * image.Width) + x;
 
-        if (!reached.TryGetValue(index, out var reach)) {
+        if (!reached.TryGet(index, out var reach)) {
             return 0f;
         }
 
         return coverage.IsCovered(index)
             ? round == 0 ? reach : 0f
-            : distance.TryGetValue(index, out var steps) && steps == round ? reach : 0f;
+            : distance.TryGet(index, out var steps) && steps == round ? reach : 0f;
+    }
+
+    /// <summary>Takes a texel to a reach of the colour, over what it held before the stroke.</summary>
+    void Paint(int index, float reach) {
+        Record(index);
+        reached.Set(index, reach);
+        before.TryGet(index, out var held);
+        image[index] = PaintImage.Mix(held, colour, reach);
     }
 
     /// <summary>
