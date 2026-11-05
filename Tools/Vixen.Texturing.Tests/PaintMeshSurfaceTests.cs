@@ -159,8 +159,10 @@ public class PaintMeshSurfaceTests {
     ///     A wall seen nearly side on, with a big triangle: what a stamp looks at must be the texels the disc falls on,
     ///     as a count of work. Scanning a ball as deep as the slope cost this three thousand a stamp and more.
     /// </summary>
-    [Fact]
-    public void A_stamp_on_a_face_seen_side_on_scans_what_it_covers() {
+    [Theory]
+    [InlineData(0f)]
+    [InlineData(0.97f)]
+    public void A_stamp_on_a_face_seen_side_on_scans_what_it_covers(float across) {
         var surface = Sheet();
         var (sine, cosine) = MathF.SinCos(1.4f);
         PaintView side = new(
@@ -172,10 +174,12 @@ public class PaintMeshSurfaceTests {
             512,
             512
         );
+        // The second place is the sheet's far edge, where part of the disc looks past the plane altogether.
+        var aim = side.Project(new(across, 0f, 0f));
         PaintImage image = new(Side, Side);
         var stroke = Stroke(image, surface, surface.Through(side), 0);
 
-        stroke.MoveTo(new(256f, 256f));
+        stroke.MoveTo(aim);
 
         var painted = 0;
 

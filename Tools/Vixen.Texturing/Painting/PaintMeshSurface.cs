@@ -43,6 +43,9 @@ public sealed class PaintMeshSurface {
     /// <summary>The reach of a square alpha's corner, as a share of its radius.</summary>
     const float Corner = 1.4143f;
 
+    /// <summary>The most corners a triangle can have after five planes have each added one.</summary>
+    const int MaximumClipped = 8;
+
     readonly int width;
     readonly int height;
     readonly Lazy<Topology> topology;
@@ -222,46 +225,69 @@ public sealed class PaintMeshSurface {
         }
     }
 
-    /// <summary>Where in the atlas a square on the picture falls on a triangle's plane.</summary>
+    /// <summary>What of a triangle a square on the picture sees, as a rectangle of the atlas.</summary>
+    /// <param name="triangle">The triangle.</param>
+    /// <param name="sides">The inward normals of the pyramid from the eye through the square.</param>
+    /// <param name="eye">Where the eye is.</param>
+    /// <param name="forward">Which way it looks.</param>
+    /// <returns>The texels to scan, empty when the square sees none of it.</returns>
     /// <remarks>
-    ///     ⚠ <b>The square's own corners on the plane, and not a ball round the hit.</b> A brush at a hard edge asks
-    ///     about a face seen nearly side on, whose depth under the brush can be ten radii, and a ball that deep
-    ///     scanned tens of thousands of texels of a big triangle per stamp to find a sliver. A plane maps the
-    ///     square to a four-sided shape, so its corners bound it.
+    ///     ⚠ <b>The triangle clipped by the pyramid, and not a ball round the hit or the square's corners on the
+    ///     plane.</b> A brush at a hard edge asks about a face seen nearly side on, which is ten radii deep under
+    ///     it, and a ball that deep scanned tens of thousands of texels of a big triangle per stamp to find a
+    ///     sliver. A corner of the square can look past the horizon of that same plane, so corners on the plane
+    ///     are no bound there either. Clipping has no such case, and the near plane is what keeps out what is behind.
     /// </remarks>
-    PaintRect Seen(int triangle, in PaintView camera, Vector2 centre, float reach) {
-        var whole = new PaintRect(0, 0, width, height);
-        var density = Projection.Density(triangle, width, height);
+    PaintRect Seen(int triangle, ReadOnlySpan<Vector3> sides, Vector3 eye, Vector3 forward) {
+        Projection.Triangle(triangle, out var a, out var b, out var c, out var ua, out var ub, out var uc);
 
-        if (!density.IsMeasurable) {
-            return whole;
-        }
+        Span<Clipped> polygon = stackalloc Clipped[MaximumClipped];
+        Span<Clipped> next = stackalloc Clipped[MaximumClipped];
 
-        Projection.Triangle(triangle, out var a, out _, out _, out var ua, out _, out _);
+        polygon[0] = new(a, PaintProjection.Texel(ua, width, height));
+        polygon[1] = new(b, PaintProjection.Texel(ub, width, height));
+        polygon[2] = new(c, PaintProjection.Texel(uc, width, height));
 
-        var normal = density.Normal;
-        var height0 = Vector3.Dot(a - camera.Eye, normal);
-        var origin = ua * new Vector2(width, height);
-        var least = new Vector2(float.PositiveInfinity);
-        var most = new Vector2(float.NegativeInfinity);
+        var count = 3;
 
-        for (var corner = 0; corner < 4; corner++) {
-            var aim = centre + new Vector2((corner & 1) == 0 ? -reach : reach, (corner & 2) == 0 ? -reach : reach);
-            var direction = camera.RayAt(aim).Direction;
-            var along = Vector3.Dot(direction, normal);
+        for (var side = 0; side <= sides.Length && count > 0; side++) {
+            var inward = side < sides.Length ? sides[side] : forward;
+            var written = 0;
 
-            // A ray that never reaches the plane leaves the shape unbounded: the triangle's own box says the rest.
-            if (MathF.Abs(along) < 1e-6f || height0 / along <= 0f) {
-                return whole;
+            for (var at = 0; at < count; at++) {
+                var from = polygon[at];
+                var to = polygon[(at + 1) % count];
+                var start = Vector3.Dot(from.Point - eye, inward);
+                var end = Vector3.Dot(to.Point - eye, inward);
+
+                if (start >= 0f) {
+                    next[written++] = from;
+                }
+
+                if ((start >= 0f) != (end >= 0f)) {
+                    var share = start / (start - end);
+
+                    next[written++] = new(
+                        from.Point + ((to.Point - from.Point) * share),
+                        from.Texel + ((to.Texel - from.Texel) * share)
+                    );
+                }
             }
 
-            var offset = camera.Eye + (direction * (height0 / along)) - a;
-            var atlas = origin
-                + (density.PerTangent * Vector3.Dot(offset, density.Tangent))
-                + (density.PerBitangent * Vector3.Dot(offset, density.Bitangent));
+            count = written;
+            next[..count].CopyTo(polygon);
+        }
 
-            least = Vector2.Min(least, atlas);
-            most = Vector2.Max(most, atlas);
+        if (count == 0) {
+            return PaintRect.Empty;
+        }
+
+        var least = polygon[0].Texel;
+        var most = least;
+
+        for (var at = 1; at < count; at++) {
+            least = Vector2.Min(least, polygon[at].Texel);
+            most = Vector2.Max(most, polygon[at].Texel);
         }
 
         return PaintRect.Covering(least - new Vector2(2f), most + new Vector2(2f));
@@ -290,6 +316,9 @@ public sealed class PaintMeshSurface {
 
     static float Edge(Vector2 a, Vector2 b, Vector2 point) =>
         ((b.X - a.X) * (point.Y - a.Y)) - ((b.Y - a.Y) * (point.X - a.X));
+
+    /// <summary>A corner of a clipped triangle, on the mesh and in the atlas.</summary>
+    readonly record struct Clipped(Vector3 Point, Vector2 Texel);
 
     /// <summary>What a stamp weighs at a point on the mesh.</summary>
     interface ITexelWeigher {
@@ -379,6 +408,9 @@ public sealed class PaintMeshSurface {
             var sphere = MathF.Sqrt((radius * radius) + (reach * reach));
             var weigher = new ViewWeigher(camera, depth, reach, kernel, stamp, brush.Alpha);
 
+            Span<Vector3> sides = stackalloc Vector3[4];
+
+            Pyramid(camera, stamp.Centre, stamp.Radius, ray.Direction, sides);
             projection.Overlapping(hit.Point, sphere, near);
 
             foreach (var triangle in near) {
@@ -392,14 +424,36 @@ public sealed class PaintMeshSurface {
                     continue;
                 }
 
+                var seen = surface.Seen(triangle, sides, camera.Eye, camera.Forward);
+
+                if (seen.IsEmpty) {
+                    continue;
+                }
+
                 surface.Scan(
                     triangle,
-                    surface.Seen(triangle, camera, stamp.Centre, stamp.Radius * Corner),
+                    seen,
                     surface.ChartOf(triangle) + offset,
                     ref weigher,
                     into
                 );
             }
+        }
+    }
+
+    /// <summary>The inward normals of the four planes from the eye through the sides of a square on the picture.</summary>
+    static void Pyramid(in PaintView camera, Vector2 centre, float radius, Vector3 middle, Span<Vector3> sides) {
+        Span<Vector3> corners = [
+            camera.RayAt(centre + new Vector2(-radius, -radius)).Direction,
+            camera.RayAt(centre + new Vector2(radius, -radius)).Direction,
+            camera.RayAt(centre + new Vector2(radius, radius)).Direction,
+            camera.RayAt(centre + new Vector2(-radius, radius)).Direction
+        ];
+
+        for (var side = 0; side < sides.Length; side++) {
+            var normal = Vector3.Cross(corners[side], corners[(side + 1) % corners.Length]);
+
+            sides[side] = Vector3.Dot(normal, middle) < 0f ? -normal : normal;
         }
     }
 
