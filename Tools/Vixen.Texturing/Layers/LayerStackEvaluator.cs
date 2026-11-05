@@ -177,9 +177,7 @@ public sealed class LayerStackEvaluator : IDisposable {
 
         var wanted = plan ?? current;
         var changed = tiles.Sync(uploads);
-        var regions = !previous.IsDefault && previous.Length == wanted.Images.Length
-            ? new TextureRegions(previous, changed)
-            : null;
+        var regions = previous.IsDefault ? null : new TextureRegions(Fitted(previous, wanted.Images.Length), changed);
         var bake = evaluator.EvaluateIncremental(wanted, uploads.Externals, regions);
 
         previous = bake.Keys;
@@ -206,6 +204,24 @@ public sealed class LayerStackEvaluator : IDisposable {
 
     /// <inheritdoc />
     public void Dispose() => Discard();
+
+    /// <summary>The last keys, as long as this plan's images.</summary>
+    /// <remarks>
+    ///     ⚠ <b>An extension keeps the plan's images and adds to the end, so the part they share still says
+    ///     what changed.</b> Giving up on any difference in length made the stamp after a thumbnail run the
+    ///     whole stack, once per stroke. An image that is new has no key, and so has nothing to repair.
+    /// </remarks>
+    static ImmutableArray<TextureResultKey> Fitted(ImmutableArray<TextureResultKey> keys, int images) {
+        if (keys.Length == images) {
+            return keys;
+        }
+
+        var fitted = new TextureResultKey[images];
+
+        keys.AsSpan(0, Math.Min(keys.Length, images)).CopyTo(fitted);
+
+        return [.. fitted];
+    }
 
     /// <summary>Whether what is compiled was compiled for this stack's size, seed and library.</summary>
     bool Current(LayerStackAsset stack, NodeTypeRegistry registry, ISubGraphSource? subGraphs) {
