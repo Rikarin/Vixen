@@ -110,7 +110,7 @@ public class PaintTileStoreProperties {
             image[1234] = 0xFF112233u; // a tile that exists and that the drag may or may not touch
 
             var coverage = PaintCoverage.Everywhere(Size, Size);
-            PaintTarget target = new(image, coverage, PaintStackImages.Empty(Size, Size), Gutter: 2);
+            PaintTarget target = new(image, coverage, Gutter: 2);
             var before = image.ToTexels();
             var digest = image.Digest;
             var session = PaintSession.Begin(target, PaintBrush.Default with { Radius = radius, Spacing = 0.25f, Flow = 1f }, colour | 0xFF000000u);
@@ -154,7 +154,7 @@ public class PaintTileStoreProperties {
         Assert.Equal(0L, image.ResidentBytes);
 
         var session = PaintSession.Begin(
-            new(image, PaintCoverage.Everywhere(Size, Size), PaintStackImages.Empty(Size, Size), Gutter: 0),
+            new(image, PaintCoverage.Everywhere(Size, Size), Gutter: 0),
             PaintBrush.Default with { Radius = 16f, Spacing = 0.25f, Flow = 1f },
             0xFF0000FFu
         );

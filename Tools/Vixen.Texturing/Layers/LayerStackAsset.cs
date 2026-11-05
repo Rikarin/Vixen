@@ -252,14 +252,6 @@ public enum LayerMaskSource {
 ///         <c>LayerBlendModeTests</c>, which does not exist and never has: the tests are real and the
 ///         class they are in is not the one that was written down.
 ///     </para>
-///     <para>
-///         ⚠ <b>A third list is kept beside those two and it records a divergence rather than an
-///         agreement</b> — <c>PaintComposite.Reproduces</c> and <c>PaintComposite.Diverges</c>,
-///         which partition this enum. The live paint composite reproduces exactly <c>Copy</c>, so
-///         what an artist watches under the brush is not what the bake produces for the other
-///         fifteen: <a href="https://github.com/Rikarin/Vixen/issues/849">#849</a>, and the partition
-///         is what stops a seventeenth operator widening that silently.
-///     </para>
 /// </remarks>
 public enum LayerBlendMode {
     /// <summary>The foreground, under the opacity and its own alpha. The mode with no neutral.</summary>

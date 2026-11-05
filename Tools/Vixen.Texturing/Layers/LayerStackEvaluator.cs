@@ -22,16 +22,16 @@ public delegate IReadOnlyList<string> LayerStackPictures(
 /// <summary>A layer stack through the one evaluator, with no editor and no panel.</summary>
 /// <remarks>
 ///     <para>
-///         <b>Plan § 3.2: a stack compiles to a graph.</b> This is the headless half of what
-///         <c>LayerStackPreview</c> does in Vixen's editor, and everything it adds to the plan is the
+///         <b>Plan § 3.2: a stack compiles to a graph.</b> This is the whole of what a host needs to
+///         show one, with or without an editor, and everything it adds to the plan is the
 ///         plumbing of painted pixels: <c>vxpaint:</c> references become uploaded images, watched
-///         by a <see cref="PaintTileCache" />.
+///         by a <see cref="PaintTileCache" />. <c>LayerStackPreview</c> is built on this.
 ///     </para>
 ///     <para>
-///         ⚠ <b>There is no composite here.</b> <see cref="PaintComposite" /> is a second opinion about
-///         the arithmetic, which is doc 48's #849. What is under the brush in a host built on this
-///         is what the plan produced, so the fifteen operators <see cref="PaintComposite.Diverges" />
-///         lists are not a divergence here at all.
+///         ⚠ <b>There is no composite anywhere else.</b> What is under the brush in a host built on
+///         this is what the plan produced, for every operator a layer has, and Vixen's own panes are
+///         such a host. A device-free host shows the painted layer's pixels and says so; it does not
+///         get a second opinion about the arithmetic.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>Not thread-safe, and it holds a frame's worth of device state.</b> One thread, the
@@ -45,6 +45,7 @@ public sealed class LayerStackEvaluator : IDisposable {
     readonly LayerStackPictures? pictures;
     readonly PaintTileCache tiles = new();
     TextureGraphCompiler? compiler;
+    NodeTypeRegistry? compiledFor;
     TextureUploads? uploads;
     ImmutableArray<TextureResultKey> previous;
 
@@ -82,6 +83,17 @@ public sealed class LayerStackEvaluator : IDisposable {
     /// <summary>Whether the last <see cref="Prepare" /> compiled, rather than only moving values.</summary>
     public bool Compiled { get; private set; }
 
+    /// <summary>What building the graph said on the last <see cref="Prepare" />, about layers.</summary>
+    public ImmutableArray<LayerStackProblem> Problems { get; private set; } = [];
+
+    /// <summary>What the last compilation said, about nodes.</summary>
+    /// <remarks>Kept across a <see cref="Prepare" /> that only moved values: a refresh never speaks.</remarks>
+    public ImmutableArray<NodeDiagnostic> Diagnostics { get; private set; } = [];
+
+    /// <summary>Which layer emitted each node.</summary>
+    public ImmutableDictionary<NodeId, string> Layers { get; private set; } =
+        ImmutableDictionary<NodeId, string>.Empty;
+
     /// <summary>Brings the plan up to a stack, compiling only for more than a value (plan § 3.2).</summary>
     /// <param name="stack">The stack.</param>
     /// <param name="set">The texture set.</param>
@@ -100,15 +112,22 @@ public sealed class LayerStackEvaluator : IDisposable {
 
         var build = LayerStackGraph.Build(stack, set, registry);
 
+        Problems = build.Problems;
+        Layers = build.Layers;
+
         if (build.HasErrors) {
             Discard();
+            Diagnostics = [];
 
             return [.. build.Problems.Select(static problem => problem.Message)];
         }
 
         Compiled = false;
 
-        if (compiler?.Refresh(build.Graph) is { } refreshed) {
+        // ⚠ `rebuilt`, because `Build` makes a new graph every time, and the compiler's own check on
+        // anything the graph does not say. Its size, its library and its seed came from this stack
+        // once, so a compiler left to answer would answer for the stack it was built for.
+        if (Current(stack, registry, subGraphs) && compiler!.Refresh(build.Graph, rebuilt: true) is { } refreshed) {
             Plan = refreshed;
 
             return [];
@@ -117,6 +136,7 @@ public sealed class LayerStackEvaluator : IDisposable {
         Compiled = true;
         Discard();
 
+        compiledFor = registry;
         compiler = new(registry) {
             BaseWidth = stack.BaseWidth,
             BaseHeight = stack.BaseHeight,
@@ -125,6 +145,8 @@ public sealed class LayerStackEvaluator : IDisposable {
         };
 
         var compilation = compiler.Compile(build.Graph);
+
+        Diagnostics = compilation.Diagnostics;
 
         if (compilation.Artefact is not { } plan) {
             return [.. compilation.Diagnostics.Select(static diagnostic => diagnostic.Message)];
@@ -155,9 +177,7 @@ public sealed class LayerStackEvaluator : IDisposable {
 
         var wanted = plan ?? current;
         var changed = tiles.Sync(uploads);
-        var regions = !previous.IsDefault && previous.Length == wanted.Images.Length
-            ? new TextureRegions(previous, changed)
-            : null;
+        var regions = previous.IsDefault ? null : new TextureRegions(Fitted(previous, wanted.Images.Length), changed);
         var bake = evaluator.EvaluateIncremental(wanted, uploads.Externals, regions);
 
         previous = bake.Keys;
@@ -186,6 +206,41 @@ public sealed class LayerStackEvaluator : IDisposable {
 
     /// <inheritdoc />
     public void Dispose() => Discard();
+
+    /// <summary>The last keys, as long as this plan's images.</summary>
+    /// <remarks>
+    ///     ⚠ <b>An extension keeps the plan's images and adds to the end, so the part they share still says
+    ///     what changed.</b> Giving up on any difference in length made the stamp after a thumbnail run the
+    ///     whole stack, once per stroke. An image that is new has no key, and so has nothing to repair.
+    /// </remarks>
+    static ImmutableArray<TextureResultKey> Fitted(ImmutableArray<TextureResultKey> keys, int images) {
+        if (keys.Length == images) {
+            return keys;
+        }
+
+        var fitted = new TextureResultKey[images];
+
+        keys.AsSpan(0, Math.Min(keys.Length, images)).CopyTo(fitted);
+
+        return [.. fitted];
+    }
+
+    /// <summary>Whether what is compiled was compiled for this stack's size, seed and library.</summary>
+    bool Current(LayerStackAsset stack, NodeTypeRegistry registry, ISubGraphSource? subGraphs) {
+        if (uploads is null
+            || compiler is not { } held
+            || held.BaseWidth != stack.BaseWidth
+            || held.BaseHeight != stack.BaseHeight
+            || !ReferenceEquals(compiledFor, registry)
+            || !ReferenceEquals(held.SubGraphSource, subGraphs)) {
+            return false;
+        }
+
+        // A number like any other, and the one a refresh can move without the graph saying so.
+        held.Seed = stack.Seed;
+
+        return true;
+    }
 
     void Discard() {
         Plan = null;

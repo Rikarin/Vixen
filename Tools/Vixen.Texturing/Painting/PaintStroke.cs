@@ -51,8 +51,8 @@ public sealed class PaintStroke {
     readonly BrushStroke path;
     readonly List<BrushStamp> spaced = [];
     readonly List<(int Texel, float Reach)> pending = [];
-    readonly Dictionary<int, uint> before = [];
-    readonly Dictionary<int, float> reached = [];
+    readonly PaintTexelMap<uint> before;
+    readonly PaintTexelMap<float> reached;
     readonly PaintImageSnapshot origin;
     int recorded;
 
@@ -73,9 +73,12 @@ public sealed class PaintStroke {
     ///         almost never. It is written in the scan now, where the proof of the shorter path is.
     ///     </para>
     /// </remarks>
-    readonly Dictionary<int, int> distance = [];
+    readonly PaintTexelMap<int> distance;
     readonly float smoothing;
+    readonly IPaintPlacement? placement;
+    readonly PaintStampTexels placed;
     Vector2 smoothed;
+    float pressed = 1f;
     bool started;
 
     /// <summary>Begins a stroke on a paint layer.</summary>
@@ -93,6 +96,11 @@ public sealed class PaintStroke {
     ///     to the surface.
     /// </param>
     /// <param name="seed">What the jitter and the random rotations derive from.</param>
+    /// <param name="origin">What undo goes back to, when several strokes share one.</param>
+    /// <param name="placement">
+    ///     Where a stamp lands besides, or instead of, the disc around its centre: a mesh's other side of a
+    ///     seam, or a surface seen through a camera. Nothing paints the atlas under the stamp alone.
+    /// </param>
     /// <exception cref="ArgumentException">The coverage map is not the image's size.</exception>
     public PaintStroke(
         PaintImage image,
@@ -102,7 +110,8 @@ public sealed class PaintStroke {
         int gutter = 4,
         float smoothing = 0f,
         uint seed = 0x9E3779B9u,
-        PaintImageSnapshot? origin = null
+        PaintImageSnapshot? origin = null,
+        IPaintPlacement? placement = null
     ) {
         ArgumentNullException.ThrowIfNull(image);
         ArgumentNullException.ThrowIfNull(coverage);
@@ -117,12 +126,21 @@ public sealed class PaintStroke {
             );
         }
 
+        before = new(image.Width, image.Height);
+        reached = new(image.Width, image.Height);
+        distance = new(image.Width, image.Height);
+        placed = new(image.Width, image.Height) {
+            Reached = reached,
+            FullReach = Math.Clamp(brush.Opacity, 0f, 1f) - (0.5f / byte.MaxValue)
+        };
+
         this.image = image;
         this.coverage = coverage;
         this.brush = brush;
         this.colour = colour;
         this.gutter = gutter;
         this.seed = seed;
+        this.placement = placement;
         this.origin = origin ?? image.Snapshot();
         this.smoothing = Math.Clamp(smoothing, 0f, 0.999f);
 
@@ -191,6 +209,10 @@ public sealed class PaintStroke {
     /// <param name="regions">
     ///     Appended one rectangle <em>per stamp</em>, or <see langword="null" /> to collect none.
     /// </param>
+    /// <param name="pressure">
+    ///     How hard, 0 to 1. Each stamp this move earns takes its share of the way from the last pressure
+    ///     to this one, so a stylus lifting through a long move tapers rather than steps.
+    /// </param>
     /// <returns>The rectangle this move dirtied, for a view to re-upload.</returns>
     /// <remarks>
     ///     <para>
@@ -207,8 +229,15 @@ public sealed class PaintStroke {
     ///         artist moved, which is the opposite of what "independent of atlas size" claims.
     ///     </para>
     /// </remarks>
-    public PaintRect MoveTo(Vector2 texel, List<PaintRect>? regions = null) {
+    public PaintRect MoveTo(Vector2 texel, List<PaintRect>? regions = null, float pressure = 1f) {
+        var from = smoothed;
+
         smoothed = started ? Vector2.Lerp(smoothed, texel, 1f - smoothing) : texel;
+
+        var first = !started;
+        var travel = (smoothed - from).Length();
+        var hard = Math.Clamp(pressure, 0f, 1f);
+
         started = true;
 
         spaced.Clear();
@@ -217,16 +246,14 @@ public sealed class PaintStroke {
         var dirty = PaintRect.Empty;
 
         foreach (var stamp in spaced) {
-            var painted = Apply(Jittered(stamp, StampCount));
+            var along = first || !(travel > 0f) ? 1f : Math.Clamp((stamp.Centre - from).Length() / travel, 0f, 1f);
+            var at = first ? hard : pressed + ((hard - pressed) * along);
 
-            if (!painted.IsEmpty) {
-                regions?.Add(painted);
-            }
-
-            dirty = dirty.Union(painted);
+            dirty = dirty.Union(Apply(Jittered(stamp, StampCount, at), regions));
             StampCount++;
         }
 
+        pressed = hard;
         Rect = Rect.Union(dirty);
 
         return dirty;
@@ -246,12 +273,9 @@ public sealed class PaintStroke {
     ///     so a finished stroke keeps no number for each texel it touched.
     /// </remarks>
     public void Seal() {
-        before.Clear();
-        before.TrimExcess();
-        reached.Clear();
-        reached.TrimExcess();
-        distance.Clear();
-        distance.TrimExcess();
+        before.Release();
+        reached.Release();
+        distance.Release();
     }
 
     /// <summary>Captures what the stroke left, so it can be redone.</summary>
@@ -270,8 +294,10 @@ public sealed class PaintStroke {
     ///     jitter drawn from shared state repaints something else the second time. Each of the three
     ///     jitters takes its own stream so that turning one off does not shift the others.
     /// </remarks>
-    PaintStamp Jittered(BrushStamp stamp, int index) {
-        var radius = brush.Radius * (1f - (Unit(index, 3) * Math.Clamp(brush.SizeJitter, 0f, 1f)));
+    PaintStamp Jittered(BrushStamp stamp, int index, float pressure) {
+        var radius = brush.Radius
+            * (1f - (Unit(index, 3) * Math.Clamp(brush.SizeJitter, 0f, 1f)))
+            * Pressed(brush.PressureSize, pressure);
         var angle = stamp.Rotation + (((Unit(index, 1) * 2f) - 1f) * brush.AngleJitter);
         var centre = stamp.Centre;
 
@@ -291,17 +317,60 @@ public sealed class PaintStroke {
             centre,
             angle,
             MathF.Max(radius, 1e-3f),
-            Math.Clamp(brush.Flow, 0f, 1f) * stamp.Flow,
+            Math.Clamp(brush.Flow, 0f, 1f) * stamp.Flow * Pressed(brush.PressureFlow, pressure),
             brush.Aspect,
             brush.AspectAngle
         );
     }
 
+    /// <summary>What a pressure leaves of something it takes a share of.</summary>
+    static float Pressed(float share, float pressure) => 1f - (Math.Clamp(share, 0f, 1f) * (1f - pressure));
+
     /// <summary>Composites one stamp into the layer and dilates it past the seam.</summary>
-    PaintRect Apply(PaintStamp stamp) {
-        var footprint = brush.FootprintOf(stamp, image.Width, image.Height);
+    /// <remarks>
+    ///     ⚠ <b>One rectangle per piece, because a stamp across a seam is two places in the atlas.</b> The union
+    ///     of a piece in each of two islands is everything between them, and that is what a dilation would
+    ///     scan and a repair would run over.
+    /// </remarks>
+    PaintRect Apply(PaintStamp stamp, List<PaintRect>? regions) {
         var kernel = brush.KernelFor(stamp);
         var cap = Math.Clamp(brush.Opacity, 0f, 1f);
+        var dirty = PaintRect.Empty;
+
+        if (placement is not { ReplacesStamp: true }) {
+            dirty = Under(stamp, kernel, cap);
+
+            if (!dirty.IsEmpty) {
+                regions?.Add(dirty);
+            }
+        }
+
+        if (placement is null) {
+            return dirty;
+        }
+
+        placed.Clear();
+        placement.Place(stamp, brush, kernel, placed);
+
+        foreach (var (index, weight) in placed.Texels) {
+            WeightsEvaluated++;
+            TexelsScanned++;
+            Deposit(index, weight, cap);
+        }
+
+        foreach (var (_, piece) in placed.Pieces) {
+            var painted = piece.Union(Dilate(piece));
+
+            regions?.Add(painted);
+            dirty = dirty.Union(painted);
+        }
+
+        return dirty;
+    }
+
+    /// <summary>The stamp's own footprint in the atlas, dilated.</summary>
+    PaintRect Under(PaintStamp stamp, in TerrainBrush kernel, float cap) {
+        var footprint = brush.FootprintOf(stamp, image.Width, image.Height);
 
         for (var y = footprint.Y; y < footprint.EndY; y++) {
             for (var x = footprint.X; x < footprint.EndX; x++) {
@@ -322,27 +391,30 @@ public sealed class PaintStroke {
 
                 WeightsEvaluated++;
 
-                if (!(weight > 0f)) {
-                    continue;
-                }
-
-                reached.TryGetValue(index, out var already);
-
-                var reach = Math.Min(cap, already + (weight * (1f - already)));
-
-                if (reach <= already) {
-                    continue;
-                }
-
-                Record(index);
-                reached[index] = reach;
-                image[index] = PaintImage.Mix(before[index], colour, reach);
+                Deposit(index, weight, cap);
             }
         }
 
         var dilated = Dilate(footprint);
 
         return footprint.Union(dilated);
+    }
+
+    /// <summary>Lays one stamp's weight on one covered texel, on top of what the stroke has reached there.</summary>
+    void Deposit(int index, float weight, float cap) {
+        if (!(weight > 0f)) {
+            return;
+        }
+
+        reached.TryGet(index, out var already);
+
+        var reach = Math.Min(cap, already + (weight * (1f - already)));
+
+        if (reach <= already) {
+            return;
+        }
+
+        Paint(index, reach);
     }
 
     /// <summary>
@@ -403,54 +475,19 @@ public sealed class PaintStroke {
             // ⚠ What the round changed, and not what it painted — #926. See the break below.
             var shortened = false;
 
-            for (var y = grown.Y; y < grown.EndY; y++) {
-                for (var x = grown.X; x < grown.EndX; x++) {
-                    var index = (y * image.Width) + x;
+            var side = PaintCoverage.BlockSide;
 
-                    // ⚠ The loop exit criterion 8's counter used not to see at all, and the larger
-                    // of a stamp's two: one round over the grown footprint already exceeds the whole
-                    // footprint scan, and an atlas with real islands in it runs up to `gutter` of
-                    // them. #871.
-                    TexelsScanned++;
-
-                    if (coverage.IsCovered(index)) {
-                        continue;
+            for (var blockY = grown.Y / side; blockY <= (grown.EndY - 1) / side; blockY++) {
+                for (var blockX = grown.X / side; blockX <= (grown.EndX - 1) / side; blockX++) {
+                    if (coverage.MayBorder(blockX, blockY)) {
+                        shortened |= Round(
+                            Math.Max(grown.X, blockX * side),
+                            Math.Max(grown.Y, blockY * side),
+                            Math.Min(grown.EndX, (blockX + 1) * side),
+                            Math.Min(grown.EndY, (blockY + 1) * side),
+                            round
+                        );
                     }
-
-                    var best = Neighbour(x - 1, y, x >= 1, round);
-                    best = MathF.Max(best, Neighbour(x + 1, y, x + 1 < image.Width, round));
-                    best = MathF.Max(best, Neighbour(x, y - 1, y >= 1, round));
-                    best = MathF.Max(best, Neighbour(x, y + 1, y + 1 < image.Height, round));
-
-                    if (!(best > 0f)) {
-                        continue;
-                    }
-
-                    // ⚠ Here, before the early-out, and not in the commit loop below — #896. A
-                    // round that got a source has *proved* this texel is `round + 1` from coverage,
-                    // whether or not it also has colour to add; recording that only where the reach
-                    // rose left a texel an earlier stamp reached the long way round holding the long
-                    // distance, and for a uniform opaque stroke, where every stamp contributes reach
-                    // 1, the guard below fires on almost every one. `Neighbour` only lets a texel at
-                    // distance `r` seed round `r`, so the stale number breaks the chain and the
-                    // gutter stops short.
-                    //
-                    // Writing it mid-scan cannot bias this round: the value written is `round + 1`
-                    // and a neighbour is read at `== round`, so nothing filled here becomes a source
-                    // until the next round — which is the same "committed after the round finishes"
-                    // rule the reaches keep.
-                    var steps = round + 1;
-
-                    if (!distance.TryGetValue(index, out var known) || steps < known) {
-                        distance[index] = steps;
-                        shortened = true;
-                    }
-
-                    if (reached.TryGetValue(index, out var already) && already >= best) {
-                        continue;
-                    }
-
-                    pending.Add((index, best));
                 }
             }
 
@@ -469,13 +506,11 @@ public sealed class PaintStroke {
             }
 
             foreach (var (index, reach) in pending) {
-                if (!reached.ContainsKey(index)) {
+                if (!reached.Contains(index)) {
                     DilatedTexels++;
                 }
 
-                Record(index);
-                reached[index] = reach;
-                image[index] = PaintImage.Mix(before[index], colour, reach);
+                Paint(index, reach);
 
                 var x = index % image.Width;
                 var y = index / image.Width;
@@ -485,6 +520,65 @@ public sealed class PaintStroke {
         }
 
         return written;
+    }
+
+    /// <summary>One round of a dilation over one block, whose candidates go in <see cref="pending" />.</summary>
+    /// <returns>Whether it proved a shorter path to any texel.</returns>
+    bool Round(int fromX, int fromY, int toX, int toY, int round) {
+        var shortened = false;
+
+        for (var y = fromY; y < toY; y++) {
+            for (var x = fromX; x < toX; x++) {
+                var index = (y * image.Width) + x;
+
+                // ⚠ The loop exit criterion 8's counter used not to see at all, and the larger
+                // of a stamp's two: one round over the grown footprint already exceeds the whole
+                // footprint scan, and an atlas with real islands in it runs up to `gutter` of
+                // them. #871.
+                TexelsScanned++;
+
+                if (coverage.IsCovered(index)) {
+                    continue;
+                }
+
+                var best = Neighbour(x - 1, y, x >= 1, round);
+                best = MathF.Max(best, Neighbour(x + 1, y, x + 1 < image.Width, round));
+                best = MathF.Max(best, Neighbour(x, y - 1, y >= 1, round));
+                best = MathF.Max(best, Neighbour(x, y + 1, y + 1 < image.Height, round));
+
+                if (!(best > 0f)) {
+                    continue;
+                }
+
+                // ⚠ Here, before the early-out, and not in the commit loop below — #896. A
+                // round that got a source has *proved* this texel is `round + 1` from coverage,
+                // whether or not it also has colour to add; recording that only where the reach
+                // rose left a texel an earlier stamp reached the long way round holding the long
+                // distance, and for a uniform opaque stroke, where every stamp contributes reach
+                // 1, the guard below fires on almost every one. `Neighbour` only lets a texel at
+                // distance `r` seed round `r`, so the stale number breaks the chain and the
+                // gutter stops short.
+                //
+                // Writing it mid-scan cannot bias this round: the value written is `round + 1`
+                // and a neighbour is read at `== round`, so nothing filled here becomes a source
+                // until the next round — which is the same "committed after the round finishes"
+                // rule the reaches keep.
+                var steps = round + 1;
+
+                if (!distance.TryGet(index, out var known) || steps < known) {
+                    distance.Set(index, steps);
+                    shortened = true;
+                }
+
+                if (reached.TryGet(index, out var already) && already >= best) {
+                    continue;
+                }
+
+                pending.Add((index, best));
+            }
+        }
+
+        return shortened;
     }
 
     /// <summary>What one neighbour contributes to a texel being filled in <paramref name="round" />.</summary>
@@ -507,13 +601,21 @@ public sealed class PaintStroke {
 
         var index = (y * image.Width) + x;
 
-        if (!reached.TryGetValue(index, out var reach)) {
+        if (!reached.TryGet(index, out var reach)) {
             return 0f;
         }
 
         return coverage.IsCovered(index)
             ? round == 0 ? reach : 0f
-            : distance.TryGetValue(index, out var steps) && steps == round ? reach : 0f;
+            : distance.TryGet(index, out var steps) && steps == round ? reach : 0f;
+    }
+
+    /// <summary>Takes a texel to a reach of the colour, over what it held before the stroke.</summary>
+    void Paint(int index, float reach) {
+        Record(index);
+        reached.Set(index, reach);
+        before.TryGet(index, out var held);
+        image[index] = PaintImage.Mix(held, colour, reach);
     }
 
     /// <summary>

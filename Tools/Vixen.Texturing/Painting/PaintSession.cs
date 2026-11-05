@@ -6,28 +6,15 @@ using Vixen.Core.Mathematics;
 
 namespace Vixen.Texturing.Painting;
 
-/// <summary>What a paint session writes into: one layer's pixels, its atlas, and the rest of the stack.</summary>
+/// <summary>What a paint session writes into: one layer's pixels and its atlas.</summary>
 /// <param name="Layer">The painted layer's pixels, written in place.</param>
 /// <param name="Coverage">Which texels of the atlas belong to an island.</param>
-/// <param name="Stack">Where the two cached slices come from.</param>
 /// <param name="Gutter">
 ///     How far a stamp is dilated past an island's edge, in texels. ⚠ It should be at least the
 ///     gutter the atlas was packed with: a dilation shorter than the packer's spacing leaves the
 ///     outermost gutter texels unpainted, which is the hairline at a higher mip rather than at mip 1.
 /// </param>
-/// <param name="Shown">
-///     The picture the view is already displaying, or <see langword="null" />.
-///     <see cref="PaintComposite.Result" /> is seeded from it by a copy, which is what stops
-///     pointer-down being a full-atlas source-over —
-///     <a href="https://github.com/Rikarin/Vixen/issues/853">#853</a>.
-/// </param>
-public sealed record PaintTarget(
-    PaintImage Layer,
-    PaintCoverage Coverage,
-    IPaintStack Stack,
-    int Gutter = 4,
-    PaintImage? Shown = null
-);
+public sealed record PaintTarget(PaintImage Layer, PaintCoverage Coverage, int Gutter = 4);
 
 /// <summary>
 ///     One drag, from pointer-down to pointer-up: the seam a viewport drives painting through.
@@ -70,16 +57,14 @@ public sealed record PaintTarget(
 ///         </item>
 ///     </list>
 ///     <para>
-///         Everything else is here: spacing, jitter, smoothing, the cached composite, the dilation
-///         and the single undo entry. A curve or path stroke is <see cref="MoveAll(System.ReadOnlySpan{Vector2})" /> called along the
+///         Everything else is here: spacing, jitter, smoothing, the dilation and the single undo
+///         entry. A curve or path stroke is <see cref="MoveAll(System.ReadOnlySpan{Vector2})" /> called along the
 ///         curve, which is why doc 48 § D13 says it does not touch the kernel.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The composite is built in <see cref="Begin" /> and that is the load-bearing line.</b>
-///         Constructing a <see cref="PaintComposite" /> is what evaluates the stack, so putting it in
-///         the constructor makes "once per stroke" a property of the type rather than a rule a caller
-///         has to remember. A session that took a composite from outside could be handed a fresh one
-///         per stamp, and nothing would report it.
+///         ⚠ <b>A session writes a layer and composites nothing.</b> What a host shows under the brush
+///         is the plan's own output, repaired over the tiles this dirtied: <c>LayerStackEvaluator</c>
+///         watches the image the session writes. There is no arithmetic here to disagree with it.
 ///     </para>
 /// </remarks>
 public sealed class PaintSession {
@@ -108,12 +93,7 @@ public sealed class PaintSession {
         this.colour = colour;
         this.smoothing = smoothing;
         this.seed = seed;
-
-        Composite = new(target.Stack, target.Layer, target.Shown);
     }
-
-    /// <summary>The stack, evaluated once, with the painted layer between its halves.</summary>
-    public PaintComposite Composite { get; }
 
     /// <summary>How many strokes the drag has — one, plus one per mirror.</summary>
     public int Strokes => strokes.Count;
@@ -186,7 +166,7 @@ public sealed class PaintSession {
         }
     }
 
-    /// <summary>Pointer-down. Evaluates the stack once and nothing else.</summary>
+    /// <summary>Pointer-down. Evaluates nothing.</summary>
     /// <param name="target">What is being painted.</param>
     /// <param name="brush">The brush.</param>
     /// <param name="colour">What is being painted, packed <c>0xAABBGGRR</c>.</param>
@@ -252,11 +232,6 @@ public sealed class PaintSession {
             dirty = dirty.Union(strokes[index].MoveTo(positions[index], regions));
         }
 
-        // ⚠ The regions and not their union — #871. Two mirrored paths on opposite sides of the
-        // atlas have a bounding box spanning it, so resolving the union made symmetry, the feature
-        // the plural exists for, recomposite roughly the whole atlas per pointer move.
-        Composite.Resolve(regions);
-
         return dirty;
     }
 
@@ -267,11 +242,11 @@ public sealed class PaintSession {
     /// </param>
     /// <returns>Their union.</returns>
     /// <remarks>
-    ///     ⚠ <b>For the caller that re-uploads, which has the composite's problem one layer up.</b>
-    ///     A view given the union alone re-uploads the bounding box of both mirrors, which is the
-    ///     cost <see cref="PaintComposite.Resolve(IReadOnlyList{PaintRect})" /> was just taken off
-    ///     the composite. The union is still returned, because a small stroke is one rectangle and
-    ///     one upload is cheaper than two.
+    ///     ⚠ <b>For the caller that re-uploads.</b> A view given the union alone re-uploads the
+    ///     bounding box of both mirrors, and two mirrored paths on opposite sides of the atlas have a
+    ///     bounding box spanning it — <a href="https://github.com/Rikarin/Vixen/issues/871">#871</a>.
+    ///     The union is still returned, because a small stroke is one rectangle and one upload is
+    ///     cheaper than two.
     /// </remarks>
     public PaintRect MoveAll(ReadOnlySpan<Vector2> positions, List<PaintRect> dirtied) {
         ArgumentNullException.ThrowIfNull(dirtied);
@@ -307,13 +282,6 @@ public sealed class PaintSession {
             return null;
         }
 
-        return new PaintStrokeCommand(
-            strokes,
-            name,
-            rect => {
-                Composite.Resolve(rect);
-                changed?.Invoke(rect);
-            }
-        );
+        return new PaintStrokeCommand(strokes, name, changed);
     }
 }

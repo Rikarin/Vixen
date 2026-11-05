@@ -31,9 +31,9 @@ namespace Vixen.Editor.Texturing;
 ///         checkerboard</b> (<a href="https://github.com/Rikarin/Vixen/issues/792">#792</a>). Two
 ///         copies of it would be two answers to "what does this pane say about a missing picture" —
 ///         and one of them would be the copy that never learned about <c>vxpaint:</c>.
-///         <a href="https://github.com/Rikarin/Vixen/issues/849">#849</a> wants the same seam again
-///         from the paint side, which is why it takes a project and a document path rather than a
-///         document.
+///         <see cref="Supply" /> is the same seam from the paint side, where
+///         <c>LayerStackEvaluator</c> has already claimed the <c>vxpaint:</c> entries, which is why
+///         it takes a project and a document path rather than a document.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>Every failure is a returned sentence and none is an exception, including the ones
@@ -97,9 +97,33 @@ static class TextureExternalImages {
         ArgumentNullException.ThrowIfNull(plan);
         ArgumentNullException.ThrowIfNull(canvases);
 
-        var owed = TextureGraphExternals.Upload(uploads, plan, externals);
+        return Supply(
+            project,
+            documentPath,
+            uploads,
+            plan,
+            TextureGraphExternals.Upload(uploads, plan, externals),
+            new(canvases)
+        );
+    }
+
+    /// <summary>Fills what the compiler itself could not, for a caller that kept the pass.</summary>
+    /// <param name="project">Whose assets resolve a reference.</param>
+    /// <param name="documentPath">The open document's own file, absolute.</param>
+    /// <param name="uploads">Where the textures are made.</param>
+    /// <param name="plan">The plan.</param>
+    /// <param name="owed">The images still owed.</param>
+    /// <param name="pass">This fill's answers.</param>
+    /// <returns>One sentence per image that could not be filled.</returns>
+    public static List<string> Supply(
+        EditorProject project,
+        string documentPath,
+        TextureUploads uploads,
+        TexturePlan plan,
+        IReadOnlyList<TextureGraphExternal> owed,
+        TextureExternalPass pass
+    ) {
         List<string> unresolved = [];
-        TextureExternalPass pass = new(canvases);
 
         foreach (var entry in owed) {
             if (Resolve(project, documentPath, uploads, plan, entry, pass) is { } why) {
@@ -193,6 +217,24 @@ static class TextureExternalImages {
         // an `InvalidDataException` the pass refuses rather than the codec's own exception escaping
         // it, and what keeps the file saveable on Windows while it decodes.
         return pass.Picture(file, path => ImageDecoders.DecodeFile(decoder, path, extension));
+    }
+
+    /// <summary>Whether a picture a pass read has changed on the disk.</summary>
+    /// <param name="pass">The pass.</param>
+    /// <returns>Whether what it uploaded is stale.</returns>
+    public static bool Moved(TextureExternalPass pass) {
+        ArgumentNullException.ThrowIfNull(pass);
+
+        return pass.Moved(static path => {
+            var extension = Path.GetExtension(path);
+
+            return ImageDecoders.DecodeFile(
+                ImageDecoders.For(ImageDecoders.BuiltIn, extension)
+                ?? throw new NotSupportedException($"nothing here decodes '{extension}'."),
+                path,
+                extension
+            );
+        });
     }
 
     /// <summary>Reads one channel of a paint layer's canvas and uploads it.</summary>

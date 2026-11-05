@@ -22,7 +22,7 @@ public sealed partial class TextureGraphCompiler {
     /// <summary>Whether the refresh in progress had something to say, which only a compile can.</summary>
     bool spoke;
 
-    /// <summary>How many graph changes <see cref="Refresh" /> has answered without a compile.</summary>
+    /// <summary>How many graph changes <see cref="Refresh(NodeGraphModel)" /> has answered without a compile.</summary>
     public int Refreshes { get; private set; }
 
     /// <summary>
@@ -92,10 +92,26 @@ public sealed partial class TextureGraphCompiler {
     ///         answers null. The graph may have been edited any number of times in between.
     ///     </para>
     /// </remarks>
-    public TexturePlan? Refresh(NodeGraphModel graph) {
+    public TexturePlan? Refresh(NodeGraphModel graph) => Refresh(graph, false);
+
+    /// <summary>The same, for a graph a document builds afresh on every edit.</summary>
+    /// <param name="graph">The graph.</param>
+    /// <param name="rebuilt">
+    ///     Whether it may be another object than the one compiled: one the same builder made from the
+    ///     same document, so that its node ids mean what they meant.
+    /// </param>
+    /// <returns>As for <see cref="Refresh(NodeGraphModel)" />.</returns>
+    /// <remarks>
+    ///     ⚠ <b>A layer stack's graph is a new object on every edit, so the identity check made this
+    ///     unreachable from one.</b> <c>LayerStackEvaluator.Prepare</c> said it compiled only for more
+    ///     than a value and every value compiled. Nothing is lost by waiving the check: what is
+    ///     compared afterwards is every node, edge, setting and parameter of the graph, and a builder
+    ///     that numbered its nodes otherwise would differ in them and answer null.
+    /// </remarks>
+    public TexturePlan? Refresh(NodeGraphModel graph, bool rebuilt) {
         ArgumentNullException.ThrowIfNull(graph);
 
-        if (compiled is not { } last || !last.Matches(this, graph)) {
+        if (compiled is not { } last || !last.Matches(this, graph, rebuilt)) {
             return null;
         }
 
@@ -137,7 +153,7 @@ public sealed partial class TextureGraphCompiler {
         return null;
     }
 
-    /// <summary>What <see cref="Refresh" /> does, with nothing yet decided about keeping it.</summary>
+    /// <summary>What <see cref="Refresh(NodeGraphModel)" /> does, with nothing yet decided about keeping it.</summary>
     TexturePlan? Reissue(Compiled last, NodeGraphModel author, uint seed) {
         var everyScope = !last.SameArguments(Arguments);
 
@@ -434,8 +450,8 @@ public sealed partial class TextureGraphCompiler {
             );
 
         /// <summary>Whether this is that compiler's own compilation of this graph, as it was configured.</summary>
-        public bool Matches(TextureGraphCompiler compiler, NodeGraphModel graph) =>
-            ReferenceEquals(graph, Graph)
+        public bool Matches(TextureGraphCompiler compiler, NodeGraphModel graph, bool rebuilt) =>
+            (rebuilt || ReferenceEquals(graph, Graph))
             && Host == (compiler.BaseWidth, compiler.BaseHeight, compiler.BakeLevelOffset, compiler.PreviewEveryNode)
             && compiler.Parameters.SequenceEqual(HostParameters)
             && ReferenceEquals(compiler.SubGraphSource, Source);
@@ -472,7 +488,7 @@ public sealed partial class TextureGraphCompiler {
                 ? Arguments is null
                 : Arguments is not null && !Moved(Arguments, arguments).Any();
 
-        /// <summary>Every setting but the seed, which <see cref="Refresh" /> answers itself.</summary>
+        /// <summary>Every setting but the seed, which <see cref="Refresh(NodeGraphModel)" /> answers itself.</summary>
         bool SameSettings(NodeGraphModel graph) {
             bool Others(IReadOnlyDictionary<string, string> from, IReadOnlyDictionary<string, string> to) =>
                 from.All(

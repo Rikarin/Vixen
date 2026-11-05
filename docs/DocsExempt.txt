@@ -2971,14 +2971,12 @@ T:Vixen.Texturing.Layers.SmartMaterial sweep-pending
 T:Vixen.Texturing.Layers.SmartMaterialApplied sweep-pending
 T:Vixen.Texturing.Layers.SmartMaterialExtract sweep-pending
 T:Vixen.Texturing.Layers.TextureSetAsset sweep-pending
-T:Vixen.Texturing.Painting.IPaintStack sweep-pending
 T:Vixen.Texturing.Painting.PaintAlphas sweep-pending
 T:Vixen.Texturing.Painting.PaintBasis sweep-pending
 T:Vixen.Texturing.Painting.PaintBrush sweep-pending
 T:Vixen.Texturing.Painting.PaintCamera sweep-pending
 T:Vixen.Texturing.Painting.PaintCanvas sweep-pending
 T:Vixen.Texturing.Painting.PaintCanvasStore sweep-pending
-T:Vixen.Texturing.Painting.PaintComposite sweep-pending
 T:Vixen.Texturing.Painting.PaintCoverage sweep-pending
 T:Vixen.Texturing.Painting.PaintDensity sweep-pending
 T:Vixen.Texturing.Painting.PaintEye sweep-pending
@@ -2994,10 +2992,6 @@ T:Vixen.Texturing.Painting.PaintProjector sweep-pending
 T:Vixen.Texturing.Painting.PaintRect sweep-pending
 T:Vixen.Texturing.Painting.PaintReference sweep-pending
 T:Vixen.Texturing.Painting.PaintSession sweep-pending
-T:Vixen.Texturing.Painting.PaintSlices sweep-pending
-T:Vixen.Texturing.Painting.PaintStackImages sweep-pending
-T:Vixen.Texturing.Painting.PaintStackSlice sweep-pending
-T:Vixen.Texturing.Painting.PaintStackSlices sweep-pending
 T:Vixen.Texturing.Painting.PaintStamp sweep-pending
 T:Vixen.Texturing.Painting.PaintStroke sweep-pending
 T:Vixen.Texturing.Painting.PaintStrokeCommand sweep-pending

@@ -59,7 +59,7 @@ public class PaintProjectorTests {
         image = new(Size, Size);
 
         return PaintSession.Begin(
-            new(image, coverage ?? PaintCoverage.Everywhere(Size, Size), PaintStackImages.Empty(Size, Size), gutter),
+            new(image, coverage ?? PaintCoverage.Everywhere(Size, Size), gutter),
             PaintStrokeTests.Hard(radius),
             Opaque
         );
@@ -318,22 +318,13 @@ public class PaintProjectorTests {
 
     /// <summary>The stack is evaluated once for a whole projected drag, not once per stamp.</summary>
     /// <remarks>
-    ///     <para>
-    ///         ⚠ <b>Doc 48 § M9's eighth exit criterion, as the property that makes it reachable
-    ///         rather than as a stopwatch.</b> The composite is built inside
-    ///         <c>PaintSession.Begin</c>; what this asserts is that the projector adds nothing to
-    ///         that — it casts a ray per path per pointer move and never asks the stack for
-    ///         anything, so the per-stamp cost carries no term in the layer count.
-    ///     </para>
-    ///     <para>
-    ///         ⚠ <b>Two and not one, because <c>PaintComposite.Evaluations</c> counts <em>slices</em>
-    ///         and a composite has two halves.</b> The number that matters is the ratio: twenty
-    ///         moves and dozens of stamps still cost the two the constructor spent, where a driver
-    ///         that rebuilt a session per pointer move would read forty.
-    ///     </para>
+    ///     ⚠ <b>Doc 48 § M9's eighth exit criterion, as the property that makes it reachable
+    ///     rather than as a stopwatch.</b> One session takes the whole drag: the projector casts a
+    ///     ray per path per pointer move and never asks the stack for anything, so the per-stamp cost
+    ///     carries no term in the layer count.
     /// </remarks>
     [Fact]
-    public void A_projected_drag_evaluates_the_stack_once() {
+    public void A_projected_drag_is_one_session() {
         PaintProjector projector = new(PaintProjectionTests.Plane(), Size, Size);
 
         Assert.True(projector.Begin(Eye(), PaintProjectionTests.Down(0.2f, 0.5f), 4f, out var footprint));
@@ -349,10 +340,7 @@ public class PaintProjectorTests {
             session.MoveAll(projector.Resolve(PaintProjectionTests.Down(0.2f + (step * 0.02f), 0.5f)));
         }
 
-        Assert.Equal(2, session.Composite.Evaluations);
-
-        // The instrument: a drag that laid one stamp would satisfy the line above for a reason that
-        // has nothing to do with the cache.
+        // The instrument: every stamp of the drag landed in the one session.
         Assert.True(session.StampCount > 20);
     }
 

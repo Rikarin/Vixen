@@ -12,9 +12,9 @@ namespace Vixen.Texturing.Painting;
 /// <remarks>
 ///     <para>
 ///         <b>Doc 48 § D13's first front end, as the object a viewport holds for the length of a
-///         drag.</b> <c>PaintSession</c> owns spacing, jitter, smoothing, the cached composite, the
-///         dilation and the single undo entry, and its remarks name exactly what it cannot do
-///         because it has no geometry. This is that, and nothing else: it does not open a canvas, it
+///         drag.</b> <c>PaintSession</c> owns spacing, jitter, smoothing, the dilation and the
+///         single undo entry, and its remarks name exactly what it cannot do because it has no
+///         geometry. This is that, and nothing else: it does not open a canvas, it
 ///         does not know what a layer is, and it never touches the atlas.
 ///     </para>
 ///     <para>
@@ -40,11 +40,10 @@ namespace Vixen.Texturing.Painting;
 ///     </para>
 ///     <para>
 ///         ⚠ <b>Nothing here evaluates the stack, and that is what makes exit criterion 8
-///         reachable.</b> The composite is built inside <c>PaintSession.Begin</c> and resolved per
-///         dirty rectangle; this type adds one raycast per path per pointer move, which is a
+///         reachable.</b> What shows the stroke is the plan, repaired over its dirty tiles by whoever
+///         hosts this; this type adds one raycast per path per pointer move, which is a
 ///         branch-and-bound descent of a BVH and is not a function of the layer count or of the
-///         atlas size. <c>PaintProjectionTests</c> asserts the composite is evaluated once across a
-///         whole projected drag rather than trusting that sentence.
+///         atlas size.
 ///     </para>
 /// </remarks>
 public sealed class PaintProjector {

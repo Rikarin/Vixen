@@ -557,6 +557,28 @@ public sealed partial class TexturingModule : IEditorPlugin, ITexturing, IDispos
     /// <summary>What the paint pane is showing, so it can be given back.</summary>
     IEditorImage? painted;
 
+    /// <summary>Which picture <see cref="painted" /> is an upload of, so it is patched rather than sent again.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Only the plan's picture is ever recognised here.</b> It is one object for as long as it
+    ///     is followed and <see cref="Present" /> keeps the upload level with it, so a pointer-up need
+    ///     not move a whole channel. A layer's own pixels have no such bookkeeping behind them.
+    /// </remarks>
+    PaintImage? uploadedPicture;
+
+    /// <summary>The layer the last drag wrote, for a host with no plan to ask.</summary>
+    PaintImage? strokeLayer;
+
+    /// <summary>What strokes dirtied since the plan was last repaired, in atlas texels.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Owed rather than served, because one frame is many of these.</b> A pointer move is one
+    ///     call per stamp and a frame is every pointer move the platform queued, and an evaluation
+    ///     waits for the device. So they are repaired together, from <see cref="PluginContext.OnUpdate" />.
+    /// </remarks>
+    readonly List<PaintRect> owed = [];
+
+    /// <summary>What the last repair rewrote. Reused.</summary>
+    readonly List<PaintRect> rewritten = [];
+
     /// <summary>What the 3D pane is showing, on the same terms.</summary>
     /// <remarks>
     ///     ⚠ <b>Its own image and not a share of <see cref="painted" />.</b> The two panes show
@@ -660,6 +682,10 @@ public sealed partial class TexturingModule : IEditorPlugin, ITexturing, IDispos
             // the alternative is a pane that keeps rasterising at whatever size it had when the
             // stack was opened: correct in the middle and stretched at the edges, silently.
             context.OnUpdate(_ => Resized());
+
+            // ⚠ The drag's picture, and an update rather than the pointer event for `owed`'s reason.
+            // Both run before the host's `BeginFrame`, so the evaluator's own frame is legal in either.
+            context.OnUpdate(_ => Flush());
 
             // ⚠ Through the scope rather than in `Deactivate`, because it holds device resources: an
             // evaluator's pipelines and one uploaded image. `Deactivate` runs first and this runs
@@ -799,6 +825,9 @@ public sealed partial class TexturingModule : IEditorPlugin, ITexturing, IDispos
                     Finished = Recorded
                 };
 
+                // A new pane holds no image, so "already uploaded" is about the last one.
+                uploadedPicture = null;
+
                 // ⚠ The overlay belongs to the view and the key that says what is on it belongs to
                 // the module, so reopening the panel resets one and not the other. Without this the
                 // reopened pane keeps its key, agrees that the islands are already drawn, and shows
@@ -816,7 +845,7 @@ public sealed partial class TexturingModule : IEditorPlugin, ITexturing, IDispos
             panel => {
                 meshView = new PaintMeshView(panel, tool) {
                     Target = BeginStroke,
-                    Painted = RedrawFromMesh,
+                    Painted = Redraw,
                     Reverted = Persist,
                     Finished = Recorded,
                     Presented = ShowModel,
@@ -926,14 +955,68 @@ public sealed partial class TexturingModule : IEditorPlugin, ITexturing, IDispos
             return null;
         }
 
-        // ⚠ The coverage is passed *in* rather than rewritten on the record afterwards — #942. The
-        // reason it is the module's at all is which type knows what: a surface holds a canvas and a
-        // layer, and the mesh is this module's because resolving one reads a model file whose answer
-        // is cached across strokes. For a batch this read `surface.Target(...) with { Coverage = … }`,
-        // which left `Target`'s own remarks claiming a coverage of `Everywhere` that no stroke ever
-        // got. #920's dilation is unexercisable until somebody hands a real raster in, and this is
-        // the somebody.
-        return surface.Target(tool.Channel, Mesh()?.Coverage(surface.Canvas.Width, surface.Canvas.Height));
+        if (stackPreview is not null) {
+            stackPreview.Unnamed = surface.NeedsNaming ? (stack, surface.Layer.Id, surface.Relative) : null;
+        }
+
+        var target = Target(surface);
+
+        Arm();
+
+        return target;
+    }
+
+    /// <summary>Brings the plan up to the stack at pointer-down, so that a drag only has to repair it.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Here and not per move, which is what makes a move cost its tiles.</b> It is also
+    ///         where a first stroke's canvas enters the plan, and where the channel the brush is on
+    ///         becomes the one being followed.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A pane is rebuilt only when what it shows is the wrong kind of picture.</b> A
+    ///         <c>PaintUvView.Show</c> may fit the pane, which between a press and its first stamp puts
+    ///         the stroke somewhere other than under the pointer. With no device there is nothing to
+    ///         arm, and the layer it already shows is what the drag writes.
+    ///     </para>
+    /// </remarks>
+    void Arm() {
+        if (stack is null || stackPreview is not { } plan || graphics?.Device is null) {
+            return;
+        }
+
+        var live = plan.Live(stack, tool.Channel, stack.PaintSet);
+
+        if (live.Image is null && uploadedPicture is null) {
+            return;
+        }
+
+        if (ReferenceEquals(live.Image, uploadedPicture)) {
+            Present();
+
+            return;
+        }
+
+        RefreshPaint();
+    }
+
+    /// <summary>What a stroke on a surface writes into.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The coverage is passed <em>in</em> rather than rewritten on the record afterwards</b> —
+    ///     #942. The reason it is the module's at all is which type knows what: a surface holds a
+    ///     canvas and a layer, and the mesh is this module's because resolving one reads a model file
+    ///     whose answer is cached across strokes. #920's dilation is unexercisable until somebody
+    ///     hands a real raster in, and this is the somebody.
+    /// </remarks>
+    PaintTarget Target(PaintSurface opened) {
+        var target = opened.Target(
+            tool.Channel,
+            Mesh()?.Coverage(opened.Canvas.Width, opened.Canvas.Height)
+        );
+
+        strokeLayer = target.Layer;
+
+        return target;
     }
 
     /// <summary>The geometry the open stack is painted on, resolved once per binding.</summary>
@@ -1020,16 +1103,83 @@ public sealed partial class TexturingModule : IEditorPlugin, ITexturing, IDispos
         }
     }
 
-    /// <summary>A move, an undo or a redo dirtied a rectangle: put the composite back on the screen.</summary>
+    /// <summary>A move, an undo or a redo dirtied a rectangle: what shows it has to catch up.</summary>
+    /// <param name="rect">What moved, in atlas texels.</param>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The rectangle is what is uploaded now, and the whole picture is the fallback</b> —
+    ///         ⚠ <b>With a plan this only owes it, and that is what makes a drag cost dirty tiles.</b>
+    ///         <see cref="Flush" /> repairs once a frame, whatever number of stamps the frame held.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Without one there is nothing to wait for</b>: the layer's own pixels are already
+    ///         right, and the sentence under the pane says that is what they are.
+    ///     </para>
+    /// </remarks>
+    void Redraw(PaintRect rect) {
+        owed.Add(rect);
+
+        if (stackPreview is not { Following: true }) {
+            Flush();
+        }
+    }
+
+    /// <summary>Puts what strokes owed on both panes.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Both panes from one call, which is what makes a stroke in either of them visible in
+    ///     the other.</b> They are two pictures of one layer — an atlas, and a render of the model
+    ///     wearing it — so a redraw that served only the pane the pointer is in would leave the
+    ///     other showing the state from before the drag until something else happened to refresh it.
+    /// </remarks>
+    void Flush() {
+        if (owed.Count == 0) {
+            return;
+        }
+
+        if (stackPreview is { Following: true } plan) {
+            owed.Clear();
+            plan.Repair();
+            Present();
+
+            return;
+        }
+
+        if (strokeLayer is { } layer) {
+            foreach (var rect in owed) {
+                Put(layer, rect);
+            }
+        }
+
+        owed.Clear();
+    }
+
+    /// <summary>Puts what the plan rewrote on both panes.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The bake's rectangles and not the stroke's.</b> A filter over the painted layer changes
+    ///     more than the stroke did, an undo can bring back a whole cached picture, and a stroke on a
+    ///     layer a channel does not read changes nothing at all.
+    /// </remarks>
+    void Present() {
+        if (stackPreview?.Picture is not { } picture) {
+            return;
+        }
+
+        stackPreview.TakeMoved(rewritten);
+
+        foreach (var rect in rewritten) {
+            Put(picture, rect);
+        }
+    }
+
+    /// <summary>Puts one rectangle of a picture on both panes.</summary>
+    /// <param name="image">The picture.</param>
+    /// <param name="rect">The rectangle, in its texels.</param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The rectangle is what is uploaded, and the whole picture is the fallback</b> —
     ///         <a href="https://github.com/Rikarin/Vixen/issues/912">#912</a>. This used to hand the
     ///         atlas back on every pointer move because <c>IEditorGraphics</c> had no sub-rectangle
     ///         form: at 4K a stamp that touched a 96-texel disc moved 67 MB, made a texture and wrote
-    ///         a descriptor set, per frame of the drag. That is exactly the cost
-    ///         <c>PaintComposite.Resolve</c>'s rectangles were bought to avoid, and it was being paid
-    ///         one level up.
+    ///         a descriptor set, per frame of the drag.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>The fallback is not decoration.</b> <c>Update</c> refuses an image made before the
@@ -1038,44 +1188,14 @@ public sealed partial class TexturingModule : IEditorPlugin, ITexturing, IDispos
     ///         stroke, which looks precisely like a brush that does not paint.
     ///     </para>
     /// </remarks>
-    void Redraw(PaintRect rect) => Redraw(rect, paintView?.Live);
-
-    /// <summary>The same, for a stroke made in the 3D pane.</summary>
-    /// <param name="rect">What the stamp dirtied, in atlas texels.</param>
-    /// <remarks>
-    ///     ⚠ <b>A second entry point rather than one that reads "whichever pane has a composite",
-    ///     and the difference is a stale one.</b> <c>PaintUvView.Live</c> is deliberately kept after
-    ///     pointer-up so an undo can re-resolve it, so both panes hold a composite for the rest of
-    ///     the session once each has been drawn in — and a redraw that picked between them would
-    ///     eventually pick the one belonging to the drag before last.
-    /// </remarks>
-    void RedrawFromMesh(PaintRect rect) => Redraw(rect, meshView?.Live);
-
-    /// <summary>Puts one dirtied rectangle of a stroke's composite on both panes.</summary>
-    /// <param name="rect">The rectangle, in atlas texels.</param>
-    /// <param name="live">The composite the stroke is building, or null when there is none.</param>
-    /// <remarks>
-    ///     ⚠ <b>Both panes from one call, which is what makes a stroke in either of them visible in
-    ///     the other.</b> They are two pictures of one layer — an atlas, and a render of the model
-    ///     wearing it — so a redraw that served only the pane the pointer is in would leave the
-    ///     other showing the state from before the drag until something else happened to refresh it.
-    /// </remarks>
-    void Redraw(PaintRect rect, PaintComposite? live) {
-        if (live is not { } composite) {
-            return;
-        }
-
-        var image = composite.Result;
+    void Put(PaintImage image, PaintRect rect) {
         var clipped = rect.Clip(image.Width, image.Height);
 
         if (clipped.IsEmpty) {
             return;
         }
 
-        // ⚠ The composite and not the layer, and the 3D pane cannot work that out for itself: what
-        // it was textured with at the last refresh is the layer's own pixels, and what the stroke is
-        // writing is the composite between the stack's two cached halves. What comes back out
-        // through `PaintMeshView.Patched` is in pane pixels rather than in texels.
+        // ⚠ What comes back out through `PaintMeshView.Patched` is in pane pixels rather than in texels.
         meshView?.Repaint(image, clipped);
 
         if (Patch(painted, image, clipped)) {
@@ -1096,7 +1216,7 @@ public sealed partial class TexturingModule : IEditorPlugin, ITexturing, IDispos
     /// <remarks>
     ///     <para>
     ///         ⚠ <b>The extent is checked against the <em>image</em> rather than trusted from the
-    ///         composite.</b> The two disagree for one redraw whenever the atlas resolution changes
+    ///         picture.</b> The two disagree for one redraw whenever the atlas resolution changes
     ///         under an open pane — a stack edited to a different base size — and a patch against the
     ///         old handle would be refused by the host anyway; checking here is what makes the
     ///         fallback take over rather than the pane going quietly stale.
@@ -1187,10 +1307,15 @@ public sealed partial class TexturingModule : IEditorPlugin, ITexturing, IDispos
 
         stack.Stack.Execute(command);
 
+        // The document names it now, and `Unnamed` is only for what it does not.
+        if (stackPreview is not null) {
+            stackPreview.Unnamed = null;
+        }
+
         // ⚠ Both, because they answer to different things. `RefreshStack` rebuilds the map from the
-        // stack, and it refreshes the paint pane only when the *binding* moved — the model, the
-        // mesh, the layer or the channel — since it also runs once per frame of an opacity drag. A
-        // stroke moves none of those and changes the pixels, so the pane is asked directly here.
+        // stack, and it rebuilds the paint pane only when the *binding* moved — the model, the mesh,
+        // the layer or the channel — since it also runs once per frame of an opacity drag. A stroke
+        // moves none of those and the pane has only been shown tiles of it, so it is asked here.
         RefreshStack();
         RefreshPaint();
     }
@@ -1207,16 +1332,14 @@ public sealed partial class TexturingModule : IEditorPlugin, ITexturing, IDispos
     /// </remarks>
     (string Model, string Mesh, string Layer, string Channel) paintBinding;
 
-    /// <summary>Puts the painted layer's own pixels in the paint pane.</summary>
+    /// <summary>Puts what the plan produced for the painted channel in the paint panes.</summary>
     /// <remarks>
-    ///     ⚠ <b>The layer and not the stack, and that is a smaller promise than doc 48 § D13's.</b>
-    ///     What a live composite would show is the layer between the stack's two halves; those halves
-    ///     have to come out of the plan, which is
-    ///     <a href="https://github.com/Rikarin/Vixen/issues/849">#849</a> and is not built. With
-    ///     <see cref="PaintStackImages.Empty" /> under and over it, the composite of the layer <em>is
-    ///     the layer</em> — so this pane and the drag agree exactly, and both of them differ from the
-    ///     map in the layers pane by whatever the stack does. Saying which of the two an artist is
-    ///     looking at is what the sentence under the pane is for.
+    ///     ⚠ <b>The stack and not the layer, and that is doc 48 § D13's promise kept: what an artist
+    ///     watches is what the bake produces.</b> A host with no device, or a stack whose plan refused,
+    ///     has no such picture. It shows the painted layer's own pixels and says so in the sentence
+    ///     under the pane: nothing here composites one, because that would be a second opinion about
+    ///     the arithmetic, which is what <a href="https://github.com/Rikarin/Vixen/issues/849">#849</a>
+    ///     was about.
     /// </remarks>
     void RefreshPaint() {
         if (paintView is null && meshView is null) {
@@ -1252,24 +1375,50 @@ public sealed partial class TexturingModule : IEditorPlugin, ITexturing, IDispos
 
         var bound = Mesh();
         var canvas = opened.Canvas.Channel(tool.Channel);
+        var live = stackPreview?.Live(stack, tool.Channel, stack.PaintSet);
 
-        Show(
-            canvas,
-            $"'{opened.Set.Name}' · '{opened.Layer.Name}' · {tool.Channel} · this layer's own pixels, not "
-            + "the stack's composite (#849)."
-            + " " + (bound is null ? meshRefusal : $"Painting on '{bound.Model}' — {bound.Triangles} triangles.")
-        );
+        // ⚠ A plan's picture the brush cannot be pointed at is not one to show: the pointer is turned
+        // into texels of what the pane holds, and those have to be the canvas's.
+        var composite = live?.Image is { } image && image.Width == canvas.Width && image.Height == canvas.Height
+            ? image
+            : null;
+
+        if (composite is null) {
+            stackPreview?.Stop();
+        }
+
+        owed.Clear();
+
+        var what = composite is not null
+            ? "what the plan produced"
+            : "this layer's own pixels, not the stack's composite: "
+            + (live is { Refusal.Length: > 0 } ? live.Refusal : "this host has no device to evaluate it on");
+        var status = $"'{opened.Set.Name}' · '{opened.Layer.Name}' · {tool.Channel} · {what}."
+            + " " + (bound is null ? meshRefusal : $"Painting on '{bound.Model}' — {bound.Triangles} triangles.");
+
+        // ⚠ Only the sentence when the pane already holds this picture, because `Present` below keeps
+        // that upload level. A pointer-up used to move the whole channel to say what it already showed.
+        if (composite is not null && ReferenceEquals(composite, uploadedPicture) && painted is not null) {
+            paintView?.Say(status);
+        } else {
+            Show(composite ?? canvas, status);
+        }
+
+        uploadedPicture = composite;
 
         // ⚠ The same picture the 2D pane was just handed, which is the sentence #1063's
         // recommendation turns on: every pixel of the 3D pane is the atlas the brush writes, so a
         // stroke shows up on the model without a bake and without an entity's material anywhere.
         Model(
             bound?.Projection,
-            canvas,
+            composite ?? canvas,
             bound is null
                 ? meshRefusal
                 : $"'{opened.Layer.Name}' on '{bound.Model}' · {tool.Channel} · {bound.Triangles} triangles."
         );
+
+        // After the model, because `Show` leaves a pane alone for a picture it already wears.
+        Present();
 
         // ⚠ After `Show`, because `ShowIslands` puts the outlines in texels of the extent `Show`
         // just set. Before it, every segment would be scaled by the atlas the pane was showing
@@ -1440,6 +1589,8 @@ public sealed partial class TexturingModule : IEditorPlugin, ITexturing, IDispos
         // process if it were left. The uploaded image goes in `Release` with the other device
         // objects, because that is what runs while the device is still valid.
         meshView = null;
+        strokeLayer = null;
+        owed.Clear();
 
         // ⚠ The surface and not only the pane. It holds a `PaintCanvas`, which at 4K is 67 MB a
         // channel — a module that let the pane go and kept the canvas would leave the largest thing
@@ -1496,6 +1647,7 @@ public sealed partial class TexturingModule : IEditorPlugin, ITexturing, IDispos
 
         stackPreview?.Dispose();
         stackPreview = null;
+        uploadedPicture = null;
 
         // ⚠ The source before the sink, and not the other way round. Disposing the source releases
         // every number it handed out, which is what empties the sink; disposing the sink first would
@@ -1569,6 +1721,9 @@ public sealed partial class TexturingModule : IEditorPlugin, ITexturing, IDispos
             return;
         }
 
+        // ⚠ Before the evaluator, whose device this is. The held stack's uploads are textures on it.
+        stackPreview?.ReleaseDevice();
+
         evaluator.Dispose();
         evaluator = null;
         evaluatorDevice = null;
@@ -1612,6 +1767,15 @@ public sealed partial class TexturingModule : IEditorPlugin, ITexturing, IDispos
     ///     apart, and at 4K the difference is 134 MB of read and of allocation per stroke.
     /// </remarks>
     internal int CanvasReads => canvases.Reads;
+
+    /// <summary>The brush the panes paint with, for a test that needs a colour that is not neutral.</summary>
+    internal PaintTool Tool => tool;
+
+    /// <summary>The session's open canvases, for a test comparing the panes with a clean evaluation.</summary>
+    internal PaintCanvasStore Canvases => canvases;
+
+    /// <summary>What turns the open stack into pixels, for a test reading its counters.</summary>
+    internal LayerStackPreview? Preview => stackPreview;
 
     /// <summary>How many times an already-open canvas answered instead of the disk.</summary>
     /// <remarks>
@@ -1767,7 +1931,7 @@ public sealed partial class TexturingModule : IEditorPlugin, ITexturing, IDispos
             )
         );
 
-        // ⚠ And the paint pane — but only when the binding moved, which is the whole correction.
+        // ⚠ And the paint pane — but rebuilt only when the binding moved, which is the whole correction.
         // This runs from `stackView.Edited`, and an opacity slider raises that once per frame of a
         // drag; `RefreshPaint` resolves the layer's canvas and uploads a channel, so calling it
         // unconditionally put a 64 MB read and a 64 MB upload on the slider's per-frame path. The
@@ -1795,6 +1959,10 @@ public sealed partial class TexturingModule : IEditorPlugin, ITexturing, IDispos
             paintBinding = binding;
 
             RefreshPaint();
+        } else {
+            // ⚠ And what the evaluation above rewrote, because that pane shows the plan now: an
+            // opacity drag moves the composite under it without moving any of those four.
+            Present();
         }
     }
 }

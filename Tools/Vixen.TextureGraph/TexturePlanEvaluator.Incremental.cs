@@ -168,7 +168,8 @@ public sealed partial class TexturePlanEvaluator {
             Warnings = cautions,
             Keys = [.. keys],
             Reused = decision.Reused,
-            Repaired = decision.Regions.Count
+            Repaired = decision.Regions.Count,
+            Repairs = decision.InPlace.Keys.ToDictionary(image => image, image => decision.Regions[image])
         };
 
         try {

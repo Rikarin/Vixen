@@ -43,7 +43,7 @@ namespace Vixen.Texturing.Painting;
 ///         of rectangles is a rectangle, and a mirrored drag's two strokes sit wherever the atlas
 ///         packer put their islands: undoing one paid for the bounding box between them, which is
 ///         most of the atlas. <see cref="Rect" /> is still the union, because a name for "everything
-///         this entry touched" is a different question from "what to recomposite".
+///         this entry touched" is a different question from "what to redraw".
 ///     </para>
 ///     <para>
 ///         ⚠ <b>Per stroke and deliberately not per stamp, which is where this stops.</b>
@@ -68,7 +68,7 @@ public sealed class PaintStrokeCommand : IAuthoringCommand {
     /// <param name="name">What the undo entry says.</param>
     /// <param name="changed">
     ///     Told which texels moved, on undo and on redo — <b>once per stroke</b>, not once per call.
-    ///     Where a re-upload and a recomposite hang.
+    ///     Where a re-upload hangs.
     /// </param>
     /// <exception cref="ArgumentException">Every stroke touched nothing.</exception>
     public PaintStrokeCommand(

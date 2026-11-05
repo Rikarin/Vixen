@@ -61,6 +61,16 @@ public readonly record struct PaintRect(int X, int Y, int Width, int Height) {
     public PaintRect Grow(int margin) =>
         IsEmpty ? this : new(X - margin, Y - margin, Width + (2 * margin), Height + (2 * margin));
 
+    /// <summary>What two rectangles share.</summary>
+    /// <param name="other">The other.</param>
+    /// <returns>Their overlap, possibly empty.</returns>
+    public PaintRect Intersect(PaintRect other) {
+        var x = Math.Max(X, other.X);
+        var y = Math.Max(Y, other.Y);
+
+        return new(x, y, Math.Max(0, Math.Min(EndX, other.EndX) - x), Math.Max(0, Math.Min(EndY, other.EndY) - y));
+    }
+
     /// <summary>The smallest rectangle containing both.</summary>
     /// <param name="other">The other.</param>
     /// <returns>The union. An empty operand returns the other.</returns>
@@ -389,6 +399,40 @@ public sealed class PaintImage {
                     tile.Texels.AsSpan((((rect.Y + y - box.Y) * box.Width) + (x - box.X)) * BytesPerTexel, to.Length)
                         .CopyTo(to);
                 }
+
+                x += run;
+            }
+        }
+    }
+
+    /// <summary>Copies a rectangle in, row by row.</summary>
+    /// <param name="rect">Which texels, inside the image.</param>
+    /// <param name="from">Their bytes, exactly the rectangle's size.</param>
+    /// <exception cref="ArgumentException">It is not the rectangle's size, or the rectangle leaves the image.</exception>
+    /// <remarks>The other half of <see cref="CopyRect" />, for a picture repaired a rectangle at a time.</remarks>
+    public void WriteRect(PaintRect rect, ReadOnlySpan<byte> from) {
+        var stride = rect.Width * BytesPerTexel;
+
+        if (rect.X < 0 || rect.Y < 0 || rect.EndX > Width || rect.EndY > Height || from.Length != stride * rect.Height) {
+            throw new ArgumentException(
+                $"{rect} of a {Width}×{Height} image is {stride * rect.Height} bytes, and {from.Length} were given.",
+                nameof(from)
+            );
+        }
+
+        for (var y = 0; y < rect.Height; y++) {
+            var row = from.Slice(y * stride, stride);
+            var x = rect.X;
+
+            while (x < rect.EndX) {
+                var tileX = x / TileSize;
+                var tileY = (rect.Y + y) / TileSize;
+                var box = TileRect(tileX, tileY);
+                var run = Math.Min(box.EndX, rect.EndX) - x;
+                var tile = Writable((tileY * tilesWide) + tileX);
+
+                row.Slice((x - rect.X) * BytesPerTexel, run * BytesPerTexel)
+                    .CopyTo(tile.Texels.AsSpan(((rect.Y + y - box.Y) * box.Width + (x - box.X)) * BytesPerTexel));
 
                 x += run;
             }

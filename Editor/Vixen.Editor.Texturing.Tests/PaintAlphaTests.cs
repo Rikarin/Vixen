@@ -219,7 +219,7 @@ public class PaintAlphaTests(ITestOutputHelper output) {
         const int Size = 192;
 
         PaintImage layer = new(Size, Size);
-        PaintTarget target = new(layer, PaintCoverage.Everywhere(Size, Size), new BlankStack(Size), Gutter: 4);
+        PaintTarget target = new(layer, PaintCoverage.Everywhere(Size, Size), Gutter: 4);
 
         var brush = Brush(24f, PaintAlphas.Chisel, 0.6458f) with {
             Spacing = 0.2f,
@@ -357,7 +357,7 @@ public class PaintAlphaTests(ITestOutputHelper output) {
 
     static (long Weights, TimeSpan Elapsed) Cost(int size, float radius, int stamps, string alpha) {
         PaintImage layer = new(size, size);
-        PaintTarget target = new(layer, PaintCoverage.Everywhere(size, size), new BlankStack(size), Gutter: 4);
+        PaintTarget target = new(layer, PaintCoverage.Everywhere(size, size), Gutter: 4);
 
         var session = PaintSession.Begin(target, Brush(radius, alpha, 0.5f) with { Spacing = 1f }, Opaque);
 
@@ -379,10 +379,5 @@ public class PaintAlphaTests(ITestOutputHelper output) {
         Assert.Equal(stamps, session.StampCount);
 
         return (session.WeightsEvaluated, elapsed);
-    }
-
-    /// <summary>A stack with nothing in it, which is what a cost measured per stamp wants.</summary>
-    sealed class BlankStack(int size) : IPaintStack {
-        public PaintImage Evaluate(PaintStackSlice slice) => new(size, size);
     }
 }

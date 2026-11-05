@@ -14,7 +14,7 @@ namespace Tests;
 /// <remarks>
 ///     <para>
 ///         <b>No device, and that is why it can reach the whole library.</b> The compiler is its own
-///         oracle: the plan <see cref="TextureGraphCompiler.Refresh" /> patches together has to equal,
+///         oracle: the plan <see cref="TextureGraphCompiler.Refresh(Vixen.NodeGraph.NodeGraphModel)" /> patches together has to equal,
 ///         op for op, the plan a fresh compiler builds from the same graph. There is no second idea of
 ///         what a node emits, because the node's own <c>Compile</c> is what ran both times.
 ///     </para>

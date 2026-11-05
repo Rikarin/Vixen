@@ -30,7 +30,10 @@ namespace Vixen.Texturing.Painting;
 ///     </para>
 /// </remarks>
 public sealed class PaintCoverage {
+    const int BlockBits = 6;
+
     readonly bool[] covered;
+    bool[]? borders;
 
     PaintCoverage(int width, int height, bool[] covered) {
         Width = width;
@@ -70,6 +73,66 @@ public sealed class PaintCoverage {
     /// <returns>Whether it does, and <see langword="false" /> outside the atlas.</returns>
     public bool IsCovered(int x, int y) =>
         x >= 0 && y >= 0 && x < Width && y < Height && covered[(y * Width) + x];
+
+    /// <summary>Which blocks of the atlas can hold a gutter texel, as one flag per block.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Most of a brush is nowhere near an edge.</b> A dilation looks at every texel of a stamp's rectangle a
+    ///     few times over to find the ones no island covers, which on a big brush is several times the
+    ///     stamp's own cost and finds nothing. A block needs looking at if it has an uncovered texel and it or a
+    ///     block beside it has a covered one, which holds for any gutter up to a block wide.
+    /// </remarks>
+    bool[] Borders {
+        get {
+            if (borders is { } known) {
+                return known;
+            }
+
+            var (across, down) = (BlocksAcross, ((Height - 1) >> BlockBits) + 1);
+            var some = new bool[across * down];
+            var gaps = new bool[across * down];
+
+            for (var y = 0; y < Height; y++) {
+                for (var x = 0; x < Width; x++) {
+                    var block = ((y >> BlockBits) * across) + (x >> BlockBits);
+
+                    if (covered[(y * Width) + x]) {
+                        some[block] = true;
+                    } else {
+                        gaps[block] = true;
+                    }
+                }
+            }
+
+            var found = new bool[across * down];
+
+            for (var y = 0; y < down; y++) {
+                for (var x = 0; x < across; x++) {
+                    if (!gaps[(y * across) + x]) {
+                        continue;
+                    }
+
+                    for (var row = Math.Max(y - 1, 0); row <= Math.Min(y + 1, down - 1); row++) {
+                        for (var column = Math.Max(x - 1, 0); column <= Math.Min(x + 1, across - 1); column++) {
+                            found[(y * across) + x] |= some[(row * across) + column];
+                        }
+                    }
+                }
+            }
+
+            return borders = found;
+        }
+    }
+
+    int BlocksAcross => ((Width - 1) >> BlockBits) + 1;
+
+    /// <summary>The side of the blocks <see cref="MayBorder" /> answers for.</summary>
+    public static int BlockSide => 1 << BlockBits;
+
+    /// <summary>Whether a block of the atlas can hold a texel of an island's gutter.</summary>
+    /// <param name="column">The block's column, in blocks.</param>
+    /// <param name="row">Its row.</param>
+    /// <returns>Whether it can.</returns>
+    public bool MayBorder(int column, int row) => Borders[(row * BlocksAcross) + column];
 
     /// <summary>A coverage map where every texel is surface. The 2D view's flat case.</summary>
     /// <param name="width">The atlas width.</param>

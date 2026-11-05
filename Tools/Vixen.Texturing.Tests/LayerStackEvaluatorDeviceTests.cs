@@ -127,6 +127,44 @@ public sealed class LayerStackEvaluatorDeviceTests : IDisposable {
         }
     }
 
+    /// <summary>⚠ A number moves a plan and compiles nothing, and everything else still compiles.</summary>
+    /// <remarks>
+    ///     <b>This said it compiled only for more than a value and every value compiled</b>: the graph
+    ///     a stack builds is a new object each time, and the compiler refused anything but the object
+    ///     it was given. The picture was right either way, so only asking can see it.
+    /// </remarks>
+    [Fact]
+    public void A_value_edit_does_not_compile_and_what_the_graph_does_not_say_does() {
+        using var device = OpenDevice();
+        using var evaluator = new TexturePlanEvaluator(device);
+        var run = Open(evaluator, 2, 1, filter: 0, out _, out var stack);
+
+        using (run) {
+            using (run.Evaluate()) { }
+
+            var first = Pixels(run, clean: false);
+            var layers = stack.Sets[0].Layers;
+            var index = layers.FindIndex(static layer => layer.Id == "painted");
+
+            layers[index] = layers[index] with { Opacity = 0.2f };
+
+            Assert.Empty(run.Prepare(stack, stack.Sets[0], Library.Registry, Library.SubGraphs));
+            Assert.False(run.Compiled, "a value edit compiled");
+            Same(run, "after a value edit");
+            Assert.False(first.AsSpan().SequenceEqual(Pixels(run, clean: false)), "the opacity reached no pixel");
+
+            // The seed is in no node, so nothing about the graph says it moved.
+            stack = stack with { Seed = stack.Seed + 1 };
+            Assert.Empty(run.Prepare(stack, stack.Sets[0], Library.Registry, Library.SubGraphs));
+            Assert.Equal(stack.Seed, run.Plan!.Seed);
+
+            // ⚠ Nor is the size, and a refresh answering for it would be the old picture at the old size.
+            stack = stack with { BaseWidth = Size / 2, BaseHeight = Size / 2 };
+            run.Prepare(stack, stack.Sets[0], Library.Registry, Library.SubGraphs);
+            Assert.True(run.Compiled, "the size moved and nothing compiled");
+        }
+    }
+
     void Check(TexturePlanEvaluator evaluator, int count, int mode, int filter, int seed, (int X, int Y, int R)[] stamps) {
         using var run = Open(evaluator, count, mode, filter, out var image);
 
@@ -168,7 +206,7 @@ public sealed class LayerStackEvaluatorDeviceTests : IDisposable {
 
     static IAuthoringCommand Paint(PaintImage image, int x, int y, uint colour, float radius) {
         var session = PaintSession.Begin(
-            new(image, PaintCoverage.Everywhere(image.Width, image.Height), PaintStackImages.Empty(image.Width, image.Height), Gutter: 0),
+            new(image, PaintCoverage.Everywhere(image.Width, image.Height), Gutter: 0),
             PaintBrush.Default with { Radius = radius, Spacing = 0.25f, Flow = 1f },
             colour
         );
@@ -179,7 +217,17 @@ public sealed class LayerStackEvaluatorDeviceTests : IDisposable {
         return session.End("Stroke")!;
     }
 
-    LayerStackEvaluator Open(TexturePlanEvaluator evaluator, int count, int mode, int filter, out PaintImage image) {
+    LayerStackEvaluator Open(TexturePlanEvaluator evaluator, int count, int mode, int filter, out PaintImage image) =>
+        Open(evaluator, count, mode, filter, out image, out _);
+
+    LayerStackEvaluator Open(
+        TexturePlanEvaluator evaluator,
+        int count,
+        int mode,
+        int filter,
+        out PaintImage image,
+        out LayerStackAsset asset
+    ) {
         var file = Path.Combine(folder, $"{Guid.NewGuid():N}.vxlayers");
         var paint = $"{Guid.NewGuid():N}.vxpaint";
         PaintCanvas canvas = new(Size, Size);
@@ -256,6 +304,8 @@ public sealed class LayerStackEvaluatorDeviceTests : IDisposable {
         var refusals = run.Prepare(stack, stack.Sets[0], Library.Registry, Library.SubGraphs);
 
         Assert.Empty(refusals);
+
+        asset = stack;
 
         return run;
     }

@@ -320,49 +320,40 @@ past its footprint; over real islands all four rounds run and it scans 49 564 �
 `PaintCostTests`' bound always allowed and had never measured. `PaintIslandCostTests` derives both
 from the same run rather than writing either down.
 
-Two seams are stated rather than papered over, and the line under the pane is what says you are
-looking at one of them. ⚠ **Both are this pane's and neither is the library's any more**:
-`LayerStackEvaluator` is a stack through the plan with no composite of its own, repaired tile by tile,
-and a host on it has neither gap. Moving this pane onto it is the rest of #849.
+**What is under the brush is what the plan produced.** Both panes show the output of the stack for
+the painted channel, for all sixteen operators, masks and per-channel enables, because there is no
+other arithmetic: `LayerStackPreview` holds a `LayerStackEvaluator` over the module's one evaluator,
+the painted layers are external images watched by its `PaintTileCache`, and a drag repairs the plan
+over its dirty tiles. The C# source-over composite is gone, and so is the argument that kept it
+([#849](https://github.com/Rikarin/Vixen/issues/849) was refused on the cost of evaluating the slices
+at pointer-down; there are no slices now).
 
-* **The pane shows the layer, not the stack.** `PaintComposite`'s two halves come from an
-  `IPaintStack`, and the module supplies `PaintStackImages.Empty` — so the composite of the layer
-  between two transparent halves *is* the layer. Making them the plan's is
-  [#849](https://github.com/Rikarin/Vixen/issues/849); ⚠ what that needs is **not** the read-back
-  that issue names (`TextureBake.Read` already exists and `LayerStackPreview` already calls it) but
-  a seam that evaluates an arbitrary sliced `TextureSetAsset`.
-
-* **The pane composites with one of the bake's sixteen operators, and the other fifteen diverge.**
-  `PaintComposite.Resolve` is straight-alpha source-over, which is exactly `LayerBlendMode.Copy` at
-  full opacity; a compiled stack joins through `Colour/Blend`. So a painted layer whose blend mode is
-  anything but `Copy` — or which carries a mask, or per-channel enables — bakes to something other
-  than what was under the brush. ⚠ **This is written down and pinned rather than fixed**, and the two
-  lists that say which is which are `PaintComposite.Reproduces` and `PaintComposite.Diverges`;
-  `PaintCompositeTests` asserts they partition `LayerBlendMode`, so a *seventeenth* operator appended
-  to the bake cannot widen the gap silently.
-
-  ⚠ **Why implementing the fifteen is not the fix, measured rather than argued.** Over two
-  `PaintStackImages.Empty` halves every separable operator degenerates to the foreground, so the
-  fifteen would move **zero texels** for any stack anybody can open today — there is a test for that
-  too. ⚠ **And a second one for the supply, which is the half the first cannot see**: the degeneracy
-  case builds its own empty halves, so `PaintSurfaceTests`
-  `.The_surface_supplies_two_blank_halves_which_is_what_makes_the_degeneracy_a_claim` reads
-  `PaintSurface.Target`'s instead. That is what goes red the day the halves stop being blank, and
-  without it this whole paragraph would have stayed true-sounding after it stopped being true.
-  What would make them observable is real halves, and real halves force the seed and the resolved
-  rectangles to come from the same join, which is `PaintComposite.ResolveAll`: **2712 ms at 4096² in
-  Debug**, measured on two machines and corroborated by [#853](https://github.com/Rikarin/Vixen/issues/853)'s
-  1878 ms on a third — and it would land on the pointer-down path *and* on an opacity slider's
-  per-frame path. #849's own design (the painted layer as an external image the stroke re-uploads per
-  dirty rectangle, so the plan does the join) is the one that closes this, and it does not begin with
-  a C# operator table.
+* **Owed once per frame.** A pointer move is one `Painted` per stamp and a frame is every move the
+  platform queued, so `TexturingModule.Redraw` only records the rectangles and `Flush`, on the plugin's
+  update, repairs the plan once. That and pointer events both run before the host's `BeginFrame`.
+* **The bake says what moved.** A stroke's rectangle is not what changed in an output: a filter over
+  the layer runs whole and spreads it, and an undo can bring a whole picture back out of the cache.
+  `TextureBake.RepairOf` names the rectangles of an output repaired in place; otherwise the key says
+  whether it changed at all, and a change of unknown extent is read whole. So a stack with a blur over
+  the painted layer pays for a whole picture per frame of a drag: that is the plan's cost, and it is
+  the right picture.
+* **A first stroke's canvas is in the plan before the document names it.** Only pointer-up writes the
+  name, since it is an undoable edit a missed click must not make, and a layer that names no file
+  reaches the plan as nothing. `LayerStackPreview.Unnamed` carries it for the length of the stroke.
+* **A value moves numbers.** `LayerStackEvaluator.Prepare` refreshes the plan and keeps its uploads, so
+  an opacity drag does not compile. A picture a layer reads is kept with the plan, and
+  `TextureExternalPass.Moved` is what notices its file changed.
+* **No device, no composite.** A host with no device, or a stack whose plan refuses (a mesh map,
+  which this pane is not told about, is the usual reason), shows the painted layer's own pixels and the
+  line under the pane says so. There is no CPU twin to fall back to.
+* ⚠ **A stroke on a channel the layer does not write changes nothing under the brush**, because it
+  changes nothing in the plan.
 
 ⚠ **A pointer move uploads its own rectangle** ([#912](https://github.com/Rikarin/Vixen/issues/912),
 closed). `IEditorGraphics.Update` takes a rectangle and the host defers the copy to the frame that
 draws next, behind a barrier out of `ShaderRead` — which orders it behind the frame that may still be
 sampling the texture, so no second texture and no wait. `PaintUvView` raises `Painted` once per
-*stamp* rather than once for their union, so what is uploaded is exactly what `PaintComposite.Resolve`
-recomputed. ⚠ That is not uniformly fewer bytes and the union is smaller for a slow drag; what the
+*stamp* rather than once for their union. ⚠ That is not uniformly fewer bytes and the union is smaller for a slow drag; what the
 union cannot bound is a diagonal jump between two frames or a mirrored pair on opposite sides of the
 atlas. The caller keeps a whole-picture fallback, because `Update` refuses an image made before the
 atlas changed size and refuses everything in a host with no surface.
