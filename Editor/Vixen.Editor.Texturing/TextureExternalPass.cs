@@ -71,6 +71,30 @@ sealed class TextureExternalPass(PaintCanvasStore canvases) {
         return answer;
     }
 
+    /// <summary>Whether a picture this pass read is no longer what its file holds.</summary>
+    /// <param name="decode">How to read one, as for <see cref="Picture" />.</param>
+    /// <returns>Whether anything uploaded from this pass is stale.</returns>
+    /// <remarks>
+    ///     ⚠ <b>For the pass a plan outlives, which is the exception to "per fill and never longer".</b>
+    ///     A held plan keeps its uploads across edits, so a re-exported texture has no fill left to be
+    ///     noticed in. The store's stamp is still what notices, so this asks it and compares objects.
+    /// </remarks>
+    public bool Moved(Func<string, TextureData> decode) {
+        foreach (var (file, (picture, _)) in pictures) {
+            try {
+                if (!ReferenceEquals(canvases.Picture(file, decode), picture)) {
+                    return true;
+                }
+            } catch (Exception failure) when (failure is IOException
+                or InvalidDataException or NotSupportedException or ArgumentException
+                or UnauthorizedAccessException) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     /// <summary>The decoded picture at a path, asked of the store once per pass.</summary>
     /// <param name="absolute">Where the picture is.</param>
     /// <param name="decode">How to read one, called only when neither this pass nor the store holds it.</param>

@@ -22,7 +22,7 @@ namespace Vixen.Editor.Texturing.Tests;
 /// <remarks>
 ///     <para>
 ///         <b><a href="https://github.com/Rikarin/Vixen/issues/852">#852</a>'s last half.</b> The
-///         brush, the stroke, the spacing, the dilation, the composite, the undo entry and the
+///         brush, the stroke, the spacing, the dilation, the undo entry and the
 ///         <c>.vxpaint</c> all existed and nothing turned a pointer position into a texel, so every
 ///         one of the fifty-two tests behind them exercised a model no artist could reach.
 ///     </para>
@@ -185,7 +185,7 @@ public class PaintUvViewTests {
         using var fixture = new TexturingFixture();
         PaintImage layer = new(64, 64);
         var session = PaintSession.Begin(
-            new(layer, PaintCoverage.Everywhere(64, 64), PaintStackImages.Empty(64, 64), 0, layer),
+            new(layer, PaintCoverage.Everywhere(64, 64), 0),
             PaintBrush.Default with { Radius = 3f, Spacing = 1f },
             0xFFFFFFFFu
         );
@@ -354,47 +354,20 @@ public class PaintUvViewTests {
         );
     }
 
-    /// <summary>⚠ The seed is what the untouched atlas is, and it is not what a resolve would write.</summary>
+    /// <summary>⚠ A host with no device shows the layer's own pixels, and the pane says that is what they are.</summary>
     /// <remarks>
-    ///     <para>
-    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/853">#853</a>'s replacement, with
-    ///         a caller at last.</b> <c>PaintComposite</c>'s constructor stopped compositing the
-    ///         whole atlas — 1.9 s at 4K — and seeds <c>Result</c> from the picture the view already
-    ///         has instead. Nothing called <c>Seed</c> but the constructor and nothing passed
-    ///         <c>PaintTarget.Shown</c>, so the mechanism's correctness was unobservable.
-    ///     </para>
-    ///     <para>
-    ///         ⚠ <b>The halves are deliberately <em>not</em> empty here.</b> With
-    ///         <c>PaintStackImages.Empty</c> the composite of a layer between two transparent halves
-    ///         is the layer, so a seed and a resolve agree whatever either does — a test built on
-    ///         that input could not fail. An opaque upper half makes the two differ, which is what
-    ///         lets the assertion see the seam.
-    ///     </para>
+    ///     There is no plan to ask and no twin of it to ask instead, so the sentence is the whole of
+    ///     what stops an artist reading the layer as the stack.
     /// </remarks>
     [Fact]
-    public void The_seeded_atlas_is_the_picture_the_view_had_and_the_resolved_part_is_the_composite() {
-        PaintImage layer = new(32, 32);
-        PaintImage shown = new(32, 32, 0xFF0000FFu);
-        PaintImage below = new(32, 32, 0xFF000000u);
-        PaintImage above = new(32, 32, 0x8000FF00u);
+    public void With_no_device_the_pane_says_it_shows_the_layers_own_pixels() {
+        using var fixture = new TexturingFixture(graphics: true);
 
-        var session = PaintSession.Begin(
-            new(layer, PaintCoverage.Everywhere(32, 32), new PaintStackImages(below, above), 0, shown),
-            PaintBrush.Default with { Radius = 2f },
-            0xFFFFFFFFu
-        );
+        OpenPaintable(fixture, "Hull");
 
-        session.Move(new Vector2(4f, 4f));
+        var pane = OpenPaintPane(fixture);
 
-        // Untouched: exactly the seed, and not the composite of a blank layer — which with this
-        // upper half would be a green-tinted black rather than the red the view was showing.
-        Assert.Equal(0xFF0000FFu, session.Composite.Result.At(28, 28));
-
-        // Touched: the composite, which is neither the seed nor the layer.
-        var painted = session.Composite.Result.At(4, 4);
-
-        Assert.NotEqual(0xFF0000FFu, painted);
-        Assert.Equal(PaintComposite.Over(PaintComposite.Over(below.At(4, 4), layer.At(4, 4)), above.At(4, 4)), painted);
+        Assert.Contains("own pixels", Status(pane), StringComparison.Ordinal);
     }
 
     /// <summary>A 2D view converts a brush radius the other way: to screen pixels, for the cursor.</summary>
@@ -595,7 +568,7 @@ public class PaintUvViewTests {
         List<IAuthoringCommand> entries = [];
 
         tool.SetRadius(3f);
-        view.Target = () => new(layer, PaintCoverage.Everywhere(128, 128), new EmptyStack(128), Gutter: 0);
+        view.Target = () => new(layer, PaintCoverage.Everywhere(128, 128), Gutter: 0);
         view.Finished = entries.Add;
         view.Show(0ul, 128, 128, "");
         fixture.Shell.Document.Update();
@@ -659,7 +632,7 @@ public class PaintUvViewTests {
         List<IAuthoringCommand> entries = [];
 
         tool.SetRadius(2f);
-        view.Target = () => new(layer, PaintCoverage.Everywhere(64, 64), new EmptyStack(64), Gutter: 0);
+        view.Target = () => new(layer, PaintCoverage.Everywhere(64, 64), Gutter: 0);
         view.Finished = entries.Add;
         view.Show(0ul, 64, 64, "");
         fixture.Shell.Document.Update();
@@ -861,7 +834,7 @@ public class PaintUvViewTests {
         List<IAuthoringCommand> laid = [];
 
         tool.SetRadius(3f);
-        view.Target = () => new(canvas, PaintCoverage.Everywhere(128, 128), new EmptyStack(128), Gutter: 0);
+        view.Target = () => new(canvas, PaintCoverage.Everywhere(128, 128), Gutter: 0);
         view.Finished = laid.Add;
         view.Show(0ul, 128, 128, "");
         fixture.Shell.Document.Update();
@@ -924,11 +897,6 @@ public class PaintUvViewTests {
     }
 
     static bool Painted(PaintImage image, Vector2 texel) => image.At((int)texel.X, (int)texel.Y) >> 24 != 0u;
-
-    /// <summary>A stack with nothing under or over the layer, which is what a pane test wants.</summary>
-    sealed class EmptyStack(int size) : IPaintStack {
-        public PaintImage Evaluate(PaintStackSlice slice) => new(size, size);
-    }
 
     // ── The harness ─────────────────────────────────────────────────────────────────────────────
 

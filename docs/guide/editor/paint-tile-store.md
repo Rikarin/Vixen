@@ -54,8 +54,9 @@ when the structure changed, and `Evaluate` repairs what moved. `EvaluateClean` s
 earlier evaluation, which is what an export owes and what a repair is checked against. A host fills
 externals that are not painted pixels through a `LayerStackPictures`.
 
-Nothing in it composites. What `PaintComposite` does in the editor's pane is a second opinion that
-reproduces one blend mode of sixteen; a host on this class has no such gap.
+Nothing in it composites: what is under the brush is what the plan produced. The editor's paint panes
+are a host on this class, and a host with no device shows the painted layer's own pixels and says so.
+`TextureBake.RepairOf` names the rectangles of an output a repair rewrote, for a host keeping a copy.
 
 ## The file
 

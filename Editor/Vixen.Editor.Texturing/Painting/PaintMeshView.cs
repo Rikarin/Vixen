@@ -245,14 +245,6 @@ sealed class PaintMeshView {
     /// <summary>What the line under the pane says.</summary>
     public string Status { get; private set; }
 
-    /// <summary>The composite the last drag built, kept after pointer-up.</summary>
-    /// <remarks>
-    ///     Not cleared at pointer-up, for <c>PaintUvView.Live</c>'s reason: the undo of a stroke
-    ///     re-resolves it, and a field cleared with the session would leave the first undo redrawing
-    ///     nothing.
-    /// </remarks>
-    public PaintComposite? Live { get; private set; }
-
     /// <summary>Asked at pointer-down for what to paint into, or null when nothing can be.</summary>
     public Func<PaintTarget?>? Target { get; set; }
 
@@ -336,8 +328,8 @@ sealed class PaintMeshView {
 
     /// <summary>Puts one dirtied rectangle of an atlas back on the model.</summary>
     /// <param name="picture">
-    ///     What the model wears now — during a drag, <c>PaintComposite.Result</c> and not the
-    ///     layer's own image.
+    ///     What the model wears now: the plan's output, or the layer's own pixels on a host with no
+    ///     device to evaluate one.
     /// </param>
     /// <param name="rect">What changed in it, in atlas texels.</param>
     /// <exception cref="ArgumentNullException"><paramref name="picture" /> is null.</exception>
@@ -625,8 +617,6 @@ sealed class PaintMeshView {
             tool.Colour,
             tool.Smoothing
         );
-
-        Live = session.Composite;
 
         Say($"Painting: {footprint.Radius:F1} texels from {tool.Brush.Radius:F0} px, "
             + $"aspect {footprint.Aspect:F2}. {Describe()}");

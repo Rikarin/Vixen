@@ -85,13 +85,10 @@ namespace Vixen.Editor.Texturing.Painting;
 ///         <c>MoveAll</c> a drag uses.
 ///     </para>
 ///     <para>
-///         ⚠ <b>What the pane shows during a drag is <see cref="PaintComposite.Result" />, which is
-///         an approximation whose size is stated.</b> The composite is straight-alpha source-over
-///         between the two cached halves; a compiled stack composites through <c>Colour/Blend</c>'s
-///         sixteen operators. Whoever supplies the <see cref="PaintTarget" /> decides how good the
-///         halves are, and today the module supplies empty ones —
-///         <a href="https://github.com/Rikarin/Vixen/issues/849">#849</a> is the seam that makes them
-///         the plan's, and <see cref="PaintStackImages" /> is the shape it will arrive in.
+///         ⚠ <b>What the pane shows during a drag is the plan's output.</b> This view writes the
+///         layer and says which texels moved; <c>TexturingModule</c> repairs the plan over them and
+///         draws what came back, so the picture under the brush is the bake's for all sixteen
+///         operators. A host with no device has no plan to ask, and shows the layer and says so.
 ///     </para>
 /// </remarks>
 sealed class PaintUvView {
@@ -241,15 +238,6 @@ sealed class PaintUvView {
 
     /// <summary>What the line under the pane says.</summary>
     public string Status { get; private set; }
-
-    /// <summary>The composite the last drag built, kept after pointer-up.</summary>
-    /// <remarks>
-    ///     ⚠ <b>Not cleared at pointer-up, and that is what an undo needs.</b>
-    ///     <c>PaintStrokeCommand</c> re-resolves the composite when the drag is undone or redone —
-    ///     it is the picture the pane is showing — so a field cleared with the session would leave
-    ///     the first undo after a stroke redrawing nothing.
-    /// </remarks>
-    public PaintComposite? Live { get; private set; }
 
     /// <summary>Asked at pointer-down for what to paint into, or null when nothing can be.</summary>
     /// <remarks>
@@ -603,7 +591,6 @@ sealed class PaintUvView {
         }
 
         session = started;
-        Live = started.Composite;
 
         // ⚠ Its own list rather than the preview's. `Stamp` can redraw the cursor, which resamples
         // into `sampled` — so walking that one here would be mutating the collection being walked,
@@ -762,7 +749,6 @@ sealed class PaintUvView {
                 }
 
                 session = started;
-                Live = started.Composite;
 
                 Image.Document.Focus(Image);
 
@@ -928,18 +914,15 @@ sealed class PaintUvView {
         // can show whether it works.
         session.MoveAll(one, dirtied);
 
-        // ⚠ One call per stamp and not one for their union, so that what is uploaded is exactly what
-        // `PaintComposite.Resolve` recomputed — these are the same rectangles it was just given.
-        // Outside them `Result` still holds the seed, so the union would hand the host texels that
-        // did not change.
+        // ⚠ One call per stamp and not one for their union, so that the union of a mirrored pair
+        // does not reach a host that draws layer pixels: it would hand over texels that did not move.
         //
         // ⚠ It is not uniformly *fewer bytes*, and saying so is the honest form of #871's argument.
         // At the default spacing consecutive stamps overlap by most of their footprint, so their
         // union is the smaller number; what the union cannot bound is the case the rectangles were
         // bought for — a diagonal jump between two frames, or a mirrored pair on opposite sides of
-        // the atlas, whose bounding box is a square spanning everything between the ends. Matching
-        // the composite makes the upload the composite's own cost, which is a counter
-        // `PaintCostTests` already gates; the union makes it a function of how far the pointer moved.
+        // the atlas, whose bounding box is a square spanning everything between the ends. The union
+        // makes the upload a function of how far the pointer moved.
         foreach (var rect in dirtied) {
             Painted?.Invoke(rect);
         }

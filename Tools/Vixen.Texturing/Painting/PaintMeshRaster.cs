@@ -21,8 +21,8 @@ namespace Vixen.Texturing.Painting;
 ///     <para>
 ///         ⚠ <b>Two passes and not one, and the split is the exit criterion rather than a
 ///         structure.</b> Doc 48's criterion 8 asks that a stamp on a 4K set with twelve layers
-///         under it stays local, and <c>PaintComposite</c> already earns that for the atlas: the
-///         stack is evaluated once per stroke and resolved per dirty rectangle. A rasteriser that
+///         under it stays local, and <c>LayerStackEvaluator</c> already earns that for the atlas: a
+///         stroke repairs the plan's output over its dirty tiles. A rasteriser that
 ///         redrew the mesh on every pointer move would put the model's triangle count straight back
 ///         into the per-stamp path and lose it again — which is the obvious way to miss it, and is
 ///         what <see cref="Renders" /> is for. <see cref="Draw(PaintProjection, PaintCamera, int, int)" /> is the geometry, run when the
@@ -175,8 +175,7 @@ public sealed class PaintMeshRaster {
 
     /// <summary>How many geometry passes have run: doc 48's exit criterion, counted.</summary>
     /// <remarks>
-    ///     ⚠ <b>The counter a stroke is asserted against, in <c>PaintComposite.Evaluations</c>'
-    ///     shape.</b> A pane that redraws the mesh per pointer move is the way this path misses the
+    ///     ⚠ <b>The counter a stroke is asserted against.</b> A pane that redraws the mesh per pointer move is the way this path misses the
     ///     criterion, and it is invisible in a picture — the frames look identical. Only a count
     ///     says it.
     /// </remarks>

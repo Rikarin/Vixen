@@ -5,59 +5,6 @@ using Vixen.Texturing.Layers;
 
 namespace Vixen.Texturing.Painting;
 
-/// <summary>Two images somebody else evaluated, as the stack a composite caches.</summary>
-/// <remarks>
-///     <para>
-///         <b>The trivial <see cref="IPaintStack" />, and it is what makes the seam a seam.</b>
-///         <see cref="PaintComposite" /> asks for two pictures once per stroke; where they come from
-///         is the caller's problem, and this is the shape they arrive in whichever answer wins.
-///     </para>
-///     <para>
-///         ⚠ <b><see cref="Empty" /> is honest and it is not free of consequence.</b> With both
-///         halves transparent, <c>PaintComposite.Result</c> is exactly the painted layer — so the
-///         pane shows the layer alone rather than the stack, which is a smaller promise than
-///         "what the artist watches is what the bake produces" and is stated where a reader of the
-///         pane will find it. Making it the stack's real halves is
-///         <a href="https://github.com/Rikarin/Vixen/issues/849">#849</a>, and what that needs is
-///         named there: a seam that evaluates an arbitrary sliced <c>TextureSetAsset</c> and reads
-///         the texels back. ⚠ The read-back itself is <em>not</em> the missing piece —
-///         <c>TextureBake.Read</c> already returns a bitmap and <c>LayerStackPreview</c> already
-///         calls it.
-///     </para>
-/// </remarks>
-public sealed class PaintStackImages : IPaintStack {
-    readonly PaintImage below;
-    readonly PaintImage above;
-
-    /// <summary>Holds two evaluated halves.</summary>
-    /// <param name="below">Everything under the painted layer.</param>
-    /// <param name="above">Everything over it.</param>
-    /// <exception cref="ArgumentNullException">Either is null.</exception>
-    public PaintStackImages(PaintImage below, PaintImage above) {
-        ArgumentNullException.ThrowIfNull(below);
-        ArgumentNullException.ThrowIfNull(above);
-
-        this.below = below;
-        this.above = above;
-    }
-
-    /// <summary>A stack of nothing at a resolution: the painted layer over and under transparency.</summary>
-    /// <param name="width">The atlas width in texels.</param>
-    /// <param name="height">Its height.</param>
-    /// <returns>The stack.</returns>
-    /// <remarks>
-    ///     ⚠ <b>Transparent both ways, and the upper half being transparent is the half that
-    ///     matters.</b> <c>PaintStackSlices</c> found the same thing one level up: a channel's
-    ///     authored default has alpha 1, so an upper half built from the defaults composites as
-    ///     fully opaque and <c>Over(anything, Above)</c> is <c>Above</c> — a stroke that could never
-    ///     be visible, which fifty-two tests did not see.
-    /// </remarks>
-    public static PaintStackImages Empty(int width, int height) => new(new(width, height), new(width, height));
-
-    /// <inheritdoc />
-    public PaintImage Evaluate(PaintStackSlice slice) => slice == PaintStackSlice.Below ? below : above;
-}
-
 /// <summary>
 ///     One paint layer of an open stack, its <c>.vxpaint</c>, and the target a session paints into.
 /// </summary>
@@ -293,45 +240,14 @@ public sealed class PaintSurface {
     ///         had.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The stack's two halves were a parameter here for one batch and are not one now</b>
-    ///         — <a href="https://github.com/Rikarin/Vixen/issues/977">#977</a>. It was added against
-    ///         a caller that <a href="https://github.com/Rikarin/Vixen/issues/849">#849</a> would
-    ///         supply, every caller passed the default, and #849 has now been refused a third time on
-    ///         the same measurement rather than deferred — so what stood here was this workstream's
-    ///         own named defect, in the method whose remarks name it. The halves are still where the
-    ///         composite takes them, <see cref="PaintTarget.Stack" />; what has gone is the pretence
-    ///         that this method could be told.
-    ///     </para>
-    ///     <para>
-    ///         ⚠ <b><see cref="PaintStackImages.Empty" /> is an honest answer rather than a stand-in,
-    ///         and so is the coverage's default.</b> A 2D view over a stack that names no mesh has no
-    ///         islands, so every texel is paintable and the dilation finds nothing to do — which is
-    ///         what <c>PaintCoverage.Everywhere</c>'s own remarks say it is for. And two transparent
-    ///         halves make the composite of the layer <em>be</em> the layer, which is a smaller
-    ///         promise than doc 48 § D13's and is stated where the pane's reader is.
-    ///     </para>
-    ///     <para>
-    ///         ⚠ <b>The seed is the layer's own pixels, and it is only correct while the halves are
-    ///         empty.</b> <see cref="PaintComposite.Seed" /> exists so the untouched atlas is a
-    ///         picture rather than transparency; with <see cref="PaintStackImages.Empty" /> the
-    ///         composite of the layer between two transparent halves <em>is</em> the layer, so the
-    ///         seeded region and a resolved one agree exactly. Whatever eventually hands a stroke
-    ///         real halves has to seed from the picture the pane is showing instead, or the edge of
-    ///         what the drag has touched is a visible discontinuity — which is the second of #849's
-    ///         two reasons and the one a parameter here would not have addressed.
+    ///         ⚠ <b>The coverage's default is an honest answer rather than a stand-in.</b> A 2D view
+    ///         over a stack that names no mesh has no islands, so every texel is paintable and the
+    ///         dilation finds nothing to do — which is what <c>PaintCoverage.Everywhere</c>'s own
+    ///         remarks say it is for.
     ///     </para>
     /// </remarks>
-    public PaintTarget Target(string usage, PaintCoverage? coverage = null, int gutter = 4) {
-        var image = Canvas.Channel(usage);
-
-        return new(
-            image,
-            coverage ?? PaintCoverage.Everywhere(Canvas.Width, Canvas.Height),
-            PaintStackImages.Empty(Canvas.Width, Canvas.Height),
-            gutter,
-            image
-        );
-    }
+    public PaintTarget Target(string usage, PaintCoverage? coverage = null, int gutter = 4) =>
+        new(Canvas.Channel(usage), coverage ?? PaintCoverage.Everywhere(Canvas.Width, Canvas.Height), gutter);
 
     /// <summary>Writes the canvas beside the stack.</summary>
     /// <remarks>

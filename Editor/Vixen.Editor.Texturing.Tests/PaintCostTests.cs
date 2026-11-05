@@ -23,12 +23,10 @@ namespace Vixen.Editor.Texturing.Tests;
 ///     </para>
 ///     <para>
 ///         ⚠ <b>So the gate is the property the budget was a proxy for, and the milliseconds are
-///         reported beside it.</b> What makes a stamp cheap at 4K with twelve layers under it is
-///         that its work is its own footprint and nothing else — the stack is evaluated once at
-///         pointer-down, so the layer count leaves the per-stamp path entirely, and the composite is
-///         resolved per rectangle, so the atlas size does too. Both are exact counters, both are
-///         asserted equal across the two axes in <c>PaintCompositeTests</c>, and here they are
-///         asserted against a closed-form bound at the criterion's own size.
+///         reported beside it.</b> What makes a stamp cheap at 4K is that its work is its own
+///         footprint and nothing else: a session writes the layer and touches no stack at all, so the
+///         layer count is not on this path, and what repairs the plan afterwards is measured by
+///         <c>LayerStackEvaluatorDeviceTests</c> in tiles.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>The one time assertion is an absurd ceiling and its message says so.</b> It is a
@@ -56,20 +54,18 @@ public class PaintCostTests(ITestOutputHelper output) {
 
     /// <summary>A stamp's work is bounded by its own footprint, at the criterion's size.</summary>
     [Fact]
-    public void A_stamp_on_a_4k_set_with_twelve_layers_costs_its_footprint_and_no_more() {
+    public void A_stamp_on_a_4k_set_costs_its_footprint_and_no_more() {
         const int Size = 4096;
         const int Radius = 48;
         const int Stamps = 64;
 
-        FlatStack stack = new(Size, Size, layers: 12);
         PaintImage layer = new(Size, Size);
-        PaintTarget target = new(layer, PaintCoverage.Everywhere(Size, Size), stack, Gutter: 4);
+        PaintTarget target = new(layer, PaintCoverage.Everywhere(Size, Size), Gutter: 4);
 
         var started = Stopwatch.GetTimestamp();
         var session = PaintSession.Begin(target, PaintStrokeTests.Hard(Radius) with { Spacing = 1f }, Opaque);
         var opened = Stopwatch.GetElapsedTime(started);
 
-        var resolvedAtStart = session.Composite.TexelsResolved;
         var stamping = Stopwatch.GetTimestamp();
 
         session.Move(new(1024f, 2048f));
@@ -80,11 +76,10 @@ public class PaintCostTests(ITestOutputHelper output) {
 
         var elapsed = Stopwatch.GetElapsedTime(stamping);
 
-        Assert.Equal(2, stack.Evaluations);
         Assert.Equal(Stamps, session.StampCount);
 
-        // The closed form: a stamp evaluates at most its own square, and recomposites at most that
-        // square grown by the gutter on every side. Neither number mentions the atlas or the stack.
+        // The closed form: a stamp evaluates at most its own square, and scans at most that square
+        // grown by the gutter on every side. Neither number mentions the atlas or the stack.
         const int Gutter = 4;
 
         var square = (long)((2 * Radius) + 2) * ((2 * Radius) + 2);
@@ -125,16 +120,10 @@ public class PaintCostTests(ITestOutputHelper output) {
             + "the one it did."
         );
 
-        Assert.True(
-            session.Composite.TexelsResolved - resolvedAtStart <= Stamps * dilated,
-            $"{session.Composite.TexelsResolved - resolvedAtStart} texels recomposited for {Stamps} stamps; "
-            + $"{Stamps * dilated} is the dilated-footprint bound."
-        );
-
         var perStamp = elapsed.TotalMilliseconds / Stamps;
 
         output.WriteLine(
-            $"4096², 12 layers, radius {Radius}: stroke start {opened.TotalMilliseconds:F1} ms, "
+            $"4096², radius {Radius}: stroke start {opened.TotalMilliseconds:F1} ms, "
             + $"{perStamp:F3} ms per stamp over {Stamps} stamps. Exit criterion 8 asks for under 16."
         );
 
@@ -146,27 +135,6 @@ public class PaintCostTests(ITestOutputHelper output) {
         );
     }
 
-    /// <summary>The stroke's start is the only thing that pays for the stack.</summary>
-    /// <remarks>
-    ///     ⚠ <b>Stated as a counter rather than as a time, for this file's whole argument.</b> Twelve
-    ///     layers cost twelve passes and one layer costs one, exactly once, whatever the drag does
-    ///     afterwards — which is doc 48 § D13's sentence turned into a number.
-    /// </remarks>
-    [Fact]
-    public void The_layer_count_is_paid_once_at_pointer_down_and_never_again() {
-        FlatStack thin = new(512, 512, layers: 1);
-        FlatStack thick = new(512, 512, layers: 12);
-
-        var one = Drag(thin);
-        var twelve = Drag(thick);
-
-        Assert.Equal(1 * 2, thin.LayerPasses);
-        Assert.Equal(12 * 2, thick.LayerPasses);
-        Assert.Equal(one.Weights, twelve.Weights);
-        Assert.Equal(one.Resolved, twelve.Resolved);
-        Assert.True(one.Weights > 0, "The drag evaluated no weights at all.");
-    }
-
     /// <summary>
     ///     ⚠ Two mirrored paths cost the same however far apart they are, which is what #871 found
     ///     they did not.
@@ -175,11 +143,11 @@ public class PaintCostTests(ITestOutputHelper output) {
     ///     <para>
     ///         <b>A closed-form oracle rather than a bound, because the swept parameter must not
     ///         appear in the answer at all.</b> The separation between the two mirrors is the only
-    ///         thing that differs between the two runs; a composite that resolved the union of the
-    ///         two dirty rectangles pays for the bounding box between them, so the number would grow
-    ///         as the square of the separation. A composite that resolves the regions pays for two
-    ///         stamps, twice, whatever the geometry — so the two runs must be <em>equal</em>, and
-    ///         there is nothing here to re-bless when the brush changes.
+    ///         thing that differs between the two runs; a view handed the union of the two dirty
+    ///         rectangles pays for the bounding box between them, so the number would grow as the
+    ///         square of the separation. A view handed the regions pays for two stamps, whatever the
+    ///         geometry — so the two runs must be <em>equal</em>, and there is nothing here to
+    ///         re-bless when the brush changes.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>Symmetry is the worst case and not an edge case, which is why this is worth a
@@ -196,7 +164,7 @@ public class PaintCostTests(ITestOutputHelper output) {
 
         Assert.Equal(near.Resolved, far.Resolved);
         Assert.Equal(near.Weights, far.Weights);
-        Assert.True(near.Resolved > 0, "nothing was recomposited at all, so this proves nothing.");
+        Assert.True(near.Resolved > 0, "nothing was dirtied at all, so this proves nothing.");
 
         // The instrument: the far pair really is far apart, so a union would have been enormous.
         // 900² is a hundred times two stamps of radius 12, and the assertion above would not have
@@ -219,7 +187,7 @@ public class PaintCostTests(ITestOutputHelper output) {
     ///         <a href="https://github.com/Rikarin/Vixen/issues/891">#891</a>.</b>
     ///         <c>PaintStrokeCommand</c> rebuilt exactly the bounding-box union that #871 removed
     ///         from <c>PaintSession.MoveAll</c>: <c>rect.Union(stroke.Undo())</c> over every stroke
-    ///         and one resolve on the result. So an artist who painted a symmetric model and pressed
+    ///         and one redraw of the result. So an artist who painted a symmetric model and pressed
     ///         Ctrl+Z paid the whole-atlas cost the drag itself had just stopped paying.
     ///     </para>
     ///     <para>
@@ -240,8 +208,8 @@ public class PaintCostTests(ITestOutputHelper output) {
 
         Assert.Equal(near.Undone, far.Undone);
         Assert.Equal(near.Redone, far.Redone);
-        Assert.True(near.Undone > 0, "nothing was recomposited on undo at all, so this proves nothing.");
-        Assert.True(near.Redone > 0, "nothing was recomposited on redo at all, so this proves nothing.");
+        Assert.True(near.Undone > 0, "nothing moved on undo at all, so this proves nothing.");
+        Assert.True(near.Redone > 0, "nothing moved on redo at all, so this proves nothing.");
 
         // The instrument, as above: the far pair really is far apart, so a union would have been
         // enormous and the equality could not have survived it.
@@ -261,31 +229,14 @@ public class PaintCostTests(ITestOutputHelper output) {
     ///         a screen radius through the hit triangle's Jacobian.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>What this case adds is the <em>size</em>, and the two <c>Evaluations</c> lines
-    ///         below are not the reason it exists.</b> This test builds its own
-    ///         <c>PaintSession</c> and hands the projector's texels to it, so nothing on the
-    ///         projected path could rebuild the session even if it wanted to — the once-per-stroke
-    ///         property is <c>PaintCompositeTests</c>' and is already proved there. Repeating the
-    ///         assertion here reads as coverage of the new path and is not; it is kept only because
-    ///         a 4K twelve-layer fixture that silently re-evaluated would still be worth catching.
-    ///     </para>
-    ///     <para>
-    ///         ⚠ <b>Two is once, and the two are the slices rather than the strokes.</b>
-    ///         <c>PaintComposite</c> evaluates the stack above the painted layer and the stack below
-    ///         it, once each, in its constructor. A drag of sixty-four stamps that read three would
-    ///         have paid for twelve layers of a 4096² atlas somewhere in the middle of a pointer
-    ///         move.
-    ///     </para>
-    ///     <para>
-    ///         ⚠ <b>The atlas is the criterion's and so is the layer count, and neither may appear in
-    ///         the bound.</b> The closed form below is the sibling of the one at the top of this file,
+    ///         ⚠ <b>The atlas is the criterion's, and it may not appear in the bound.</b> The closed form below is the sibling of the one at the top of this file,
     ///         with the footprint measured off the radius the <em>projection</em> chose rather than
     ///         off a number the test picked — which is the whole difference between measuring this
     ///         path and measuring the other one with a 3D-sounding name.
     ///     </para>
     /// </remarks>
     [Fact]
-    public void A_projected_stamp_on_a_4k_set_with_twelve_layers_pays_for_the_stack_once() {
+    public void A_projected_stamp_on_a_4k_set_costs_its_footprint() {
         const int Size = 4096;
         const int Moves = 64;
 
@@ -297,9 +248,8 @@ public class PaintCostTests(ITestOutputHelper output) {
         PaintProjector projector = new(projection, Size, Size);
         var eye = PaintEye.Orthographic(new(0.5f, 0.5f, 10f), new(0f, 0f, -1f), 1f, Size);
 
-        FlatStack stack = new(Size, Size, layers: 12);
         PaintImage layer = new(Size, Size);
-        PaintTarget target = new(layer, PaintCoverage.Everywhere(Size, Size), stack, Gutter: 4);
+        PaintTarget target = new(layer, PaintCoverage.Everywhere(Size, Size), Gutter: 4);
 
         Assert.True(projector.Begin(eye, PaintProjectionTests.Down(0.25f, 0.5f), 48f, out var footprint));
         Assert.Equal(48f, footprint.Radius, 2);
@@ -320,13 +270,8 @@ public class PaintCostTests(ITestOutputHelper output) {
 
         var elapsed = Stopwatch.GetElapsedTime(stamping);
 
-        // ⚠ The property, and it is the one the 16 ms was a proxy for: the stack is evaluated in the
-        // session's constructor and never again, so the layer count is not in the per-stamp path.
-        Assert.Equal(2, session.Composite.Evaluations);
-        Assert.Equal(2, stack.Evaluations);
-
-        // The instrument: a drag that laid one stamp would satisfy that for a reason that has
-        // nothing to do with the cache, and a projector that missed the mesh would lay none.
+        // The instrument: a drag that laid one stamp would satisfy the bound below for a reason that
+        // has nothing to do with the footprint, and a projector that missed the mesh would lay none.
         Assert.True(
             session.StampCount >= Moves - 1,
             $"{session.StampCount} stamps from {Moves} projected moves — the rays are not reaching the mesh."
@@ -347,7 +292,7 @@ public class PaintCostTests(ITestOutputHelper output) {
         var perStamp = elapsed.TotalMilliseconds / session.StampCount;
 
         output.WriteLine(
-            $"4096², 12 layers, projected: stroke start {opened.TotalMilliseconds:F1} ms, "
+            $"4096², projected: stroke start {opened.TotalMilliseconds:F1} ms, "
             + $"{perStamp:F3} ms per stamp over {session.StampCount} stamps at radius {footprint.Radius:F1}. "
             + "Exit criterion 8 asks for under 16."
         );
@@ -359,132 +304,44 @@ public class PaintCostTests(ITestOutputHelper output) {
         );
     }
 
-    /// <summary>⚠ Pointer-down does not composite the atlas, which is #853's 1.9 seconds.</summary>
-    /// <remarks>
-    ///     <b>A counter, for this file's whole argument.</b> The measurement in #853 is a wall clock
-    ///     and the property under it is that starting a stroke touches no texel of the result:
-    ///     everything the composite has at pointer-down is the two slices, which the stack owes it
-    ///     whatever this type does. The milliseconds are reported beside it as evidence.
-    /// </remarks>
-    [Fact]
-    public void Beginning_a_stroke_composites_no_texels_at_all() {
-        const int Size = 4096;
-
-        FlatStack stack = new(Size, Size, layers: 12);
-        PaintImage layer = new(Size, Size);
-        PaintTarget target = new(layer, PaintCoverage.Everywhere(Size, Size), stack, Gutter: 4);
-
-        var started = Stopwatch.GetTimestamp();
-        var session = PaintSession.Begin(target, PaintStrokeTests.Hard(48f), Opaque);
-        var opened = Stopwatch.GetElapsedTime(started);
-
-        Assert.Equal(2, stack.Evaluations);
-        Assert.Equal(0L, session.Composite.TexelsResolved);
-
-        // ⚠ The instrument, and it is the half that could not be false on its own. `ResolveAll` is
-        // the pass the constructor used to make, so a build in which the composite has quietly
-        // stopped compositing at all would satisfy the assertion above and fail this one. Timed, so
-        // the number the constructor no longer pays is in the same output as the number it does.
-        var all = Stopwatch.GetTimestamp();
-
-        Assert.Equal((long)Size * Size, session.Composite.ResolveAll().Area);
-
-        var resolving = Stopwatch.GetElapsedTime(all);
-
-        Assert.Equal((long)Size * Size, session.Composite.TexelsResolved);
-
-        output.WriteLine(
-            $"4096², 12 layers: stroke start {opened.TotalMilliseconds:F1} ms, "
-            + $"{session.Composite.TexelsResolved - ((long)Size * Size)} texels composited by it. The "
-            + $"whole-atlas pass it used to make costs {resolving.TotalMilliseconds:F1} ms; what is left is "
-            + "the two slice evaluations, which are the stack's own cost and #849's."
-        );
-    }
-
-    /// <summary>What one undo and the redo after it recomposite, for a drag with one mirror.</summary>
+    /// <summary>What one undo and the redo after it hand a redraw, for a drag with one mirror.</summary>
     static (long Undone, long Redone) MirroredUndo(float separation) {
         const int Size = 1024;
 
-        FlatStack stack = new(Size, Size, layers: 2);
         PaintImage layer = new(Size, Size);
-        PaintTarget target = new(layer, PaintCoverage.Everywhere(Size, Size), stack, Gutter: 2);
+        PaintTarget target = new(layer, PaintCoverage.Everywhere(Size, Size), Gutter: 2);
         var session = PaintSession.Begin(target, PaintStrokeTests.Hard(12f), Opaque);
 
         Span<Vector2> both = [new(60f, 512f), new(60f + separation, 512f)];
 
         session.MoveAll(both);
 
-        var command = session.End("Paint");
+        var moved = 0L;
+        var command = session.End("Paint", rect => moved += rect.Area);
 
         Assert.NotNull(command);
 
-        var painted = session.Composite.TexelsResolved;
-
         command.Undo(NoContext);
 
-        var undone = session.Composite.TexelsResolved - painted;
+        var undone = moved;
 
         command.Do(NoContext);
 
-        return (undone, session.Composite.TexelsResolved - painted - undone);
+        return (undone, moved - undone);
     }
 
     static (long Weights, long Resolved) Mirrored(float separation) {
         const int Size = 1024;
 
-        FlatStack stack = new(Size, Size, layers: 2);
         PaintImage layer = new(Size, Size);
-        PaintTarget target = new(layer, PaintCoverage.Everywhere(Size, Size), stack, Gutter: 2);
+        PaintTarget target = new(layer, PaintCoverage.Everywhere(Size, Size), Gutter: 2);
         var session = PaintSession.Begin(target, PaintStrokeTests.Hard(12f), Opaque);
-        var start = session.Composite.TexelsResolved;
 
         Span<Vector2> both = [new(60f, 512f), new(60f + separation, 512f)];
+        List<PaintRect> dirtied = [];
 
-        session.MoveAll(both);
+        session.MoveAll(both, dirtied);
 
-        return (session.WeightsEvaluated, session.Composite.TexelsResolved - start);
-    }
-
-    static (long Weights, long Resolved) Drag(FlatStack stack) {
-        PaintImage layer = new(512, 512);
-        PaintTarget target = new(layer, PaintCoverage.Everywhere(512, 512), stack, Gutter: 2);
-        var session = PaintSession.Begin(target, PaintStrokeTests.Hard(10f) with { Spacing = 0.5f }, Opaque);
-        var start = session.Composite.TexelsResolved;
-
-        session.Move(new(100f, 256f));
-
-        for (var step = 1; step <= 40; step++) {
-            session.Move(new(100f + (step * 5f), 256f));
-        }
-
-        return (session.WeightsEvaluated, session.Composite.TexelsResolved - start);
-    }
-
-    /// <summary>A stack whose evaluation costs one pass per layer, and says how many it ran.</summary>
-    sealed class FlatStack : IPaintStack {
-        readonly int width;
-        readonly int height;
-        readonly int layers;
-
-        public FlatStack(int width, int height, int layers) {
-            this.width = width;
-            this.height = height;
-            this.layers = layers;
-        }
-
-        public int Evaluations { get; private set; }
-
-        public int LayerPasses { get; private set; }
-
-        public PaintImage Evaluate(PaintStackSlice slice) {
-            Evaluations++;
-
-            PaintImage image = new(width, height);
-
-            LayerPasses += layers;
-            image.Fill(slice == PaintStackSlice.Below ? 0xFF202020u : 0u);
-
-            return image;
-        }
+        return (session.WeightsEvaluated, dirtied.Sum(static rect => (long)rect.Area));
     }
 }

@@ -25,9 +25,8 @@ namespace Vixen.Editor.Texturing.Tests;
 ///         count would be back in the inner loop.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Three counters and a clock, in that order of authority.</b> The stack is evaluated
-///         twice for the whole drag; the mesh is rasterised once; the pane pixels shaded per stamp
-///         are bounded by the brush's own disc rather than by the pane. All three are exact and none
+///         ⚠ <b>Counters and a clock, in that order of authority.</b> The mesh is rasterised once; the
+///         pane pixels shaded per stamp are bounded by the brush's own disc rather than by the pane. All three are exact and none
 ///         of them is a wall clock — the milliseconds are reported beside them as evidence, with an
 ///         absurd ceiling that is a hang check and says so, which is this repository's rule for a
 ///         budget calibrated on an idle machine.
@@ -43,9 +42,9 @@ namespace Vixen.Editor.Texturing.Tests;
 public class PaintMeshCostTests(ITestOutputHelper output) {
     const uint Opaque = 0xFF0000FFu;
 
-    /// <summary>A projected drag over a 4K set with twelve layers pays for neither the stack nor the mesh.</summary>
+    /// <summary>A projected drag over a 4K set does not pay for the mesh.</summary>
     [Fact]
-    public void A_projected_stamp_on_a_4k_set_with_twelve_layers_redraws_neither_the_stack_nor_the_mesh() {
+    public void A_projected_stamp_on_a_4k_set_does_not_redraw_the_mesh() {
         const int Size = 4096;
         const int Moves = 64;
         const int Wide = 1280;
@@ -67,9 +66,8 @@ public class PaintMeshCostTests(ITestOutputHelper output) {
 
         raster.Draw(mesh, camera, Wide, Tall);
 
-        FlatStack stack = new(Size, Size, layers: 12);
         PaintImage layer = new(Size, Size);
-        PaintTarget target = new(layer, PaintCoverage.Everywhere(Size, Size), stack, Gutter: 4);
+        PaintTarget target = new(layer, PaintCoverage.Everywhere(Size, Size), Gutter: 4);
 
         raster.Texture(layer);
 
@@ -111,19 +109,14 @@ public class PaintMeshCostTests(ITestOutputHelper output) {
             session.MoveAll(projector.Resolve(ray), dirtied);
 
             foreach (var rect in dirtied) {
-                raster.Retexture(session.Composite.Result, rect);
+                raster.Retexture(layer, rect);
             }
         }
 
         var elapsed = Stopwatch.GetElapsedTime(started);
         var shaded = raster.Shaded - before;
 
-        // ⚠ The property the 16 ms was a proxy for, on the atlas side — the stack is evaluated in the
-        // session's constructor and never again, so the layer count is not in the per-stamp path.
-        Assert.Equal(2, session.Composite.Evaluations);
-        Assert.Equal(2, stack.Evaluations);
-
-        // ⚠ And on the pane side: sixty-four stamps drew no geometry, so the model's triangle count
+        // ⚠ On the pane side: sixty-four stamps drew no geometry, so the model's triangle count
         // is not in the per-stamp path. ⚠ This is an assertion about `Retexture` and not about the
         // pane, and the difference matters — the loop above calls `Retexture` directly, so a view
         // that rendered on every pointer move would leave it green. That half is asserted where it
@@ -457,30 +450,4 @@ public class PaintMeshCostTests(ITestOutputHelper output) {
             [new(0f, 0f), new(1f, 0f), new(1f, 1f), new(0f, 1f)],
             [0, 1, 2, 0, 2, 3]
         );
-
-    /// <summary>A stack whose evaluation costs one pass per layer, and says how many it ran.</summary>
-    /// <remarks>
-    ///     ⚠ <b>Its own rather than <c>PaintCostTests</c>', which is private to that class</b> — and
-    ///     deliberately left that way: what a shared one would buy is six lines, and what it would
-    ///     cost is a fixture two suites can silently change under each other.
-    /// </remarks>
-    sealed class FlatStack(int width, int height, int layers) : IPaintStack {
-        /// <summary>How many slices have been asked for.</summary>
-        public int Evaluations { get; private set; }
-
-        /// <summary>How many layer passes those slices cost between them.</summary>
-        public int LayerPasses { get; private set; }
-
-        /// <inheritdoc />
-        public PaintImage Evaluate(PaintStackSlice slice) {
-            Evaluations++;
-            LayerPasses += layers;
-
-            PaintImage image = new(width, height);
-
-            image.Fill(slice == PaintStackSlice.Below ? 0xFF202020u : 0u);
-
-            return image;
-        }
-    }
 }
