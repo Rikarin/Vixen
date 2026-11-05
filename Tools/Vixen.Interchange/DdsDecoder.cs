@@ -287,6 +287,7 @@ public sealed class DdsDecoder : IImageDecoder {
             80 or 79 => SourceFormat.Blocks(PixelFormat.Bc4RUNorm),         // BC4_UNORM, BC4_TYPELESS
             83 or 82 => SourceFormat.Blocks(PixelFormat.Bc5RgUNorm),        // BC5_UNORM, BC5_TYPELESS
             95 or 94 => SourceFormat.Blocks(PixelFormat.Bc6HRgbUFloat),     // BC6H_UF16, BC6H_TYPELESS
+            96 => SourceFormat.Blocks(PixelFormat.Bc6HRgbSFloat),           // BC6H_SF16
             98 or 97 => SourceFormat.Blocks(PixelFormat.Bc7RgbaUNorm),      // BC7_UNORM, BC7_TYPELESS
             99 => SourceFormat.Blocks(PixelFormat.Bc7RgbaUNormSrgb),        // BC7_UNORM_SRGB
 
@@ -306,7 +307,6 @@ public sealed class DdsDecoder : IImageDecoder {
             ),
             81 => throw Unsupported("BC4_SNORM", "the engine's BC4 is the unsigned one"),
             84 or 85 => throw Unsupported("BC5_SNORM", "the engine's BC5 is the unsigned one"),
-            96 => throw Unsupported("BC6H_SF16", "the engine's BC6H is the unsigned one"),
             2 or 10 or 11 => throw Unsupported(
                 "an uncompressed high-dynamic-range surface",
                 "this widens eight-bit channels and would have to narrow those, which is the one thing a "

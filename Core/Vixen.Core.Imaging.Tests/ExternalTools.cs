@@ -18,13 +18,15 @@ namespace Vixen.Core.Imaging.Tests;
 ///         agreeing with for as long as they existed.
 ///     </para>
 ///     <para>
-///         <b>Neither tool is vendored.</b> <c>ktx</c> comes from Khronos's KTX-Software
+///         <b>None of these tools is vendored.</b> <c>ktx</c> comes from Khronos's KTX-Software
 ///         (<c>brew install ktx</c>) and the BCn oracle is built from
 ///         <see href="https://github.com/iOrange/bcdec">bcdec.h</see>, which
 ///         <c>Tools/Vixen.BcnOracle/build.sh</c> downloads into a cache outside the tree. Committing
 ///         either would put third-party source under this repository's attribution gate for no gain:
 ///         a developer-run check that says loudly when it did not run is worth more than a committed
-///         copy of somebody else's decoder.
+///         copy of somebody else's decoder. The Metal oracle downloads nothing at all:
+///         <c>Tools/Vixen.BcnOracle/build-metal.sh</c> compiles the Swift beside it, and the decoder
+///         it wraps is the GPU's.
 ///     </para>
 ///     <para>
 ///         <b>What this prints on the day it does not run.</b> Absent tools <i>skip</i>, which xunit
@@ -41,6 +43,9 @@ public static class ExternalTools {
     /// <summary>Overrides where the BCn oracle binary lives.</summary>
     public const string OracleVariable = "VIXEN_BCN_ORACLE";
 
+    /// <summary>Overrides where the Metal oracle binary lives.</summary>
+    public const string MetalOracleVariable = "VIXEN_BCN_METAL_ORACLE";
+
     /// <summary>Whether a missing tool has to fail rather than skip.</summary>
     public static bool Required => Environment.GetEnvironmentVariable(RequireVariable) == "1";
 
@@ -48,7 +53,10 @@ public static class ExternalTools {
     public static string? KtxTool { get; } = Locate("ktx");
 
     /// <summary>The compiled bcdec oracle, if it has been built.</summary>
-    public static string? BcnOracle { get; } = LocateOracle();
+    public static string? BcnOracle { get; } = LocateOracle(OracleVariable, "bcn-oracle");
+
+    /// <summary>The compiled Metal oracle, if it has been built and this machine's GPU has BC formats.</summary>
+    public static string? BcnMetalOracle { get; } = LocateMetalOracle();
 
     /// <summary>Skips — or fails, when the suite is required — because a tool is missing.</summary>
     /// <param name="tool">What could not be found.</param>
@@ -135,8 +143,18 @@ public static class ExternalTools {
         return path;
     }
 
-    static string? LocateOracle() {
-        var declared = Environment.GetEnvironmentVariable(OracleVariable);
+    /// <summary>
+    ///     Finds the Metal oracle and asks it about the device, since a binary that builds on a
+    ///     machine whose GPU has no BC formats has nothing to say.
+    /// </summary>
+    static string? LocateMetalOracle() {
+        var oracle = LocateOracle(MetalOracleVariable, "bcn-metal-oracle");
+
+        return oracle is not null && Run(oracle, "--probe").ExitCode == 0 ? oracle : null;
+    }
+
+    static string? LocateOracle(string variable, string name) {
+        var declared = Environment.GetEnvironmentVariable(variable);
 
         if (!string.IsNullOrEmpty(declared)) {
             return File.Exists(declared) ? declared : null;
@@ -147,7 +165,7 @@ public static class ExternalTools {
             ".cache",
             "vixen",
             "bcn-oracle",
-            "bcn-oracle"
+            name
         );
 
         return File.Exists(cached) ? cached : null;
