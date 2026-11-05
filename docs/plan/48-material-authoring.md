@@ -433,7 +433,7 @@ the node. Not a hand-rolled expression evaluator, not a scripting language, not 
 graph" of forty tiny nodes.
 
 ⚠ **The machinery for the mapping already exists and already has a UI caller.** `NodeDiagnostic`
-carries a `NodeSpan`, `RavenEmitter` counts the lines it writes, and `ShaderGraphView.vxml:398` reads
+carries a `NodeSpan`, `RavenEmitter` counts the lines it writes, and `ShaderGraphView.vxml:399` reads
 `SourceNodeDiagnostics` so a Raven complaint names a node the author can select. This node is that
 mechanism's second consumer, which is the cheapest possible proof it was built at the right altitude.
 

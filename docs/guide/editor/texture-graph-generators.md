@@ -215,9 +215,9 @@ Which to reach for is now a real choice rather than a workaround:
 - ⚠ **This bullet said no host calls `TextureCompoundLibrary.Publish`, so the shipped compounds were
   "not in the panel's search" and a `Source/Mesh Map` graph "compiles and does not bake" — and every
   clause of it is false, re-measured 2026-09-08.** `TextureCompoundLibrary.Publish` has two production
-  callers: `TextureNodeLibrary.Publish` (`Editor/Vixen.Editor.Texturing/TextureNodeLibrary.cs:138`),
+  callers: `TextureNodeLibrary.Publish` (`Tools/Vixen.Texturing/TextureNodeLibrary.cs:138`),
   which both documents, the compound watch and the layer-stack compiler start from, and
-  `Tools/Vixen.Cli/TextureGraphRunner.cs:107`. ⚠ **Not `TextureNodeLibrary.Create`** — the two are
+  `Tools/Vixen.Cli/TextureGraphRunner.cs:110`. ⚠ **Not `TextureNodeLibrary.Create`** — the two are
   different methods and `Create` registers the generated node types and deliberately publishes no
   compounds, which is a distinction worth keeping rather than blurring.
   A mesh map resolves as a `meshmap:` external through `TextureExternalImages` and bakes on a device.
@@ -226,7 +226,7 @@ Which to reach for is now a real choice rather than a workaround:
   re-reads a page whose subject somebody else repaired.
 - ⚠ **What is still true, one name along: `MeshMapBinding` — `Vixen.Editor.Assets`' resolver — has
   no caller outside its own assembly.** The plugin resolves the scheme itself and says so
-  (`TextureExternalImages.cs:49` duplicates `TextureMeshMaps.Scheme` deliberately, because the
+  (`TextureExternalImages.cs:53` duplicates `TextureMeshMaps.Scheme` deliberately, because the
   alternative is telling an artist that `meshmap:curvature` is a missing file), so this is two
   answers to one question rather than a missing one.
 - ⚠ **Two `Source/Mesh Map` nodes asking for one usage ask for it twice.** Each allocates its own
