@@ -1,8 +1,8 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
-using CsCheck;
 using System.Diagnostics;
+using CsCheck;
 using Xunit;
 
 namespace Vixen.Core.Imaging.Tests;
