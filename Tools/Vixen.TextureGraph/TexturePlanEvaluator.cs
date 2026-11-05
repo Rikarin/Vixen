@@ -182,11 +182,17 @@ public sealed class TextureBake : IDisposable {
         var raw = ReadTexels(images);
         var pictures = new Vixen.Core.Imaging.Bitmap[raw.Count];
 
-        for (var index = 0; index < pictures.Length; index++) {
-            var size = Plan.SizeOf(images[index]);
+        // ⚠ On the thread pool, because this and not the device is what is left of the cost: rounding
+        // forty-one half-float thumbnails to bytes on one thread took as long as the wait it replaced.
+        Parallel.For(
+            0,
+            pictures.Length,
+            index => {
+                var size = Plan.SizeOf(images[index]);
 
-            pictures[index] = TexturePixels.ToBitmap(raw[index], size.X, size.Y, Plan.Images[images[index]].Format);
-        }
+                pictures[index] = TexturePixels.ToBitmap(raw[index], size.X, size.Y, Plan.Images[images[index]].Format);
+            }
+        );
 
         return pictures;
     }
