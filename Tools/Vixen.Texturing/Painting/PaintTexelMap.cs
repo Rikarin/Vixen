@@ -64,6 +64,28 @@ public sealed class PaintTexelMap<T> where T : unmanaged {
         return false;
     }
 
+    /// <summary>What a texel holds, for a caller that already has its row and column.</summary>
+    /// <param name="column">Its column.</param>
+    /// <param name="row">Its row.</param>
+    /// <param name="value">What it holds, or the default.</param>
+    /// <returns>Whether it holds anything.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public bool TryGet(int column, int row, out T value) {
+        if (tiles[((row >> TileBits) * tilesWide) + (column >> TileBits)] is { } tile) {
+            var at = ((row & TileMask) << TileBits) | (column & TileMask);
+
+            if (tile.Marks[at] == generation) {
+                value = tile.Values[at];
+
+                return true;
+            }
+        }
+
+        value = default;
+
+        return false;
+    }
+
     /// <summary>Whether a texel holds anything.</summary>
     /// <param name="index">Its index, row-major.</param>
     /// <returns>Whether it does.</returns>

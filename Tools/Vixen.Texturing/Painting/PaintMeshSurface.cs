@@ -197,7 +197,7 @@ public sealed class PaintMeshSurface {
                 var wb = Edge(tc, ta, centre) / area;
                 var wc = Edge(ta, tb, centre) / area;
 
-                if (wa < -slackA || wb < -slackB || wc < -slackC) {
+                if (wa < -slackA || wb < -slackB || wc < -slackC || into.IsFull(x, y)) {
                     continue;
                 }
 

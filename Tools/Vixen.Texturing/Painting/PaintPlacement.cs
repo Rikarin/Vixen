@@ -34,6 +34,24 @@ public sealed class PaintStampTexels(int width, int height) {
     /// <summary>One rectangle for each piece of the atlas the stamp reached.</summary>
     public IReadOnlyList<(int Piece, PaintRect Rect)> Pieces => pieces;
 
+    /// <summary>What the stroke has reached at each texel, which says where a stamp can add nothing.</summary>
+    /// <remarks>
+    ///     ⚠ <b>This is most of a brush.</b> Stamps a sixth of a radius apart cross each texel a dozen times and the
+    ///     first one fills the middle of the disc, so without this a stroke weighs the same texels over again
+    ///     to find they are full.
+    /// </remarks>
+    public PaintTexelMap<float>? Reached { get; init; }
+
+    /// <summary>The reach past which a texel has no more to take.</summary>
+    public float FullReach { get; init; } = float.PositiveInfinity;
+
+    /// <summary>Whether a stamp can add nothing to a texel.</summary>
+    /// <param name="column">Its column.</param>
+    /// <param name="row">Its row.</param>
+    /// <returns>Whether it is full.</returns>
+    public bool IsFull(int column, int row) =>
+        Reached is { } held && held.TryGet(column, row, out var reach) && reach >= FullReach;
+
     /// <summary>Forgets the last stamp.</summary>
     public void Clear() {
         slots.Clear();

@@ -129,7 +129,10 @@ public sealed class PaintStroke {
         before = new(image.Width, image.Height);
         reached = new(image.Width, image.Height);
         distance = new(image.Width, image.Height);
-        placed = new(image.Width, image.Height);
+        placed = new(image.Width, image.Height) {
+            Reached = reached,
+            FullReach = Math.Clamp(brush.Opacity, 0f, 1f) - (0.5f / byte.MaxValue)
+        };
 
         this.image = image;
         this.coverage = coverage;
