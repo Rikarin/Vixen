@@ -68,7 +68,7 @@ moves them on. A tile out of order is refused.
 
 A stamp, repaired and read back, in a host with no editor:
 
-```csharp
+```csharp no-compile="needs a device and a compiled stack"
 using var run = new LayerStackEvaluator(evaluator, canvases, stackPath);
 
 run.Prepare(stack, stack.Sets[0], library.Registry, library.SubGraphs);
