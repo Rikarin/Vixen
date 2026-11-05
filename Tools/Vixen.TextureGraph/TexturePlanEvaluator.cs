@@ -25,6 +25,9 @@ namespace Vixen.TextureGraph;
 ///     </para>
 /// </remarks>
 public sealed class TextureBake : IDisposable {
+    /// <summary>What every copy in a read-back buffer starts on a multiple of.</summary>
+    const long ReadAlignment = 16;
+
     readonly IGraphicsDevice device;
     readonly TextureHandle[] textures;
     readonly List<TextureViewHandle> views;
@@ -63,7 +66,7 @@ public sealed class TextureBake : IDisposable {
     ///     named <see cref="QueueKind.Compute" /> in one method and the read-back named
     ///     <see cref="QueueKind.Graphics" /> in another, and on every adapter this engine has been
     ///     developed on the two are one family, so nothing anywhere said so. There is one object here
-    ///     now, and <see cref="Read" /> takes both its list kind and its submission from it.
+    ///     now, and <see cref="Read(int)" /> takes both its list kind and its submission from it.
     /// </remarks>
     public ICommandSubmitter Queue { get; }
 
@@ -159,22 +162,56 @@ public sealed class TextureBake : IDisposable {
     ///         submission, so a copy recorded for one queue can never be submitted to another.
     ///     </para>
     /// </remarks>
-    public Vixen.Core.Imaging.Bitmap Read(int image) {
-        var raw = ReadTexels(image);
-        var size = Plan.SizeOf(image);
+    public Vixen.Core.Imaging.Bitmap Read(int image) => Read([image])[0];
 
-        return TexturePixels.ToBitmap(raw, size.X, size.Y, Plan.Images[image].Format);
+    /// <summary>Reads several images back as eight-bit RGBA, in one submission.</summary>
+    /// <param name="images">Their indices in <see cref="TexturePlan.Images" />. May repeat.</param>
+    /// <returns>The pictures, in the order they were asked for, each top row first.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="images" /> is null.</exception>
+    /// <exception cref="ArgumentException">An image is one this bake does not hold, as for <see cref="Read(int)" />.</exception>
+    /// <exception cref="ObjectDisposedException">The bake has been disposed.</exception>
+    /// <exception cref="InvalidOperationException">The device already has a frame open.</exception>
+    /// <remarks>
+    ///     <b>What a caller showing many images wants.</b> <see cref="Read(int)" /> in a loop opens a
+    ///     frame and waits for the device once per image, and that wait, not the copy, is what it
+    ///     costs: forty-one thumbnails were 80 ms of a 138 ms slider. Here every copy is recorded on
+    ///     one list and the device is waited for once, and <see cref="Read(int)" /> is this with one
+    ///     image, so the two cannot come to disagree.
+    /// </remarks>
+    public IReadOnlyList<Vixen.Core.Imaging.Bitmap> Read(IReadOnlyList<int> images) {
+        var raw = ReadTexels(images);
+        var pictures = new Vixen.Core.Imaging.Bitmap[raw.Count];
+
+        for (var index = 0; index < pictures.Length; index++) {
+            var size = Plan.SizeOf(images[index]);
+
+            pictures[index] = TexturePixels.ToBitmap(raw[index], size.X, size.Y, Plan.Images[images[index]].Format);
+        }
+
+        return pictures;
     }
 
     /// <summary>Reads one image back exactly as it is on the device.</summary>
     /// <param name="image">Its index in <see cref="TexturePlan.Images" />.</param>
     /// <returns>The texels, tightly packed, top row first.</returns>
     /// <remarks>
-    ///     ⚠ <b>Before the encode, which is the point.</b> <see cref="Read" /> rounds a half-float to
+    ///     ⚠ <b>Before the encode, which is the point.</b> <see cref="Read(int)" /> rounds a half-float to
     ///     eight bits, so "the two evaluations agree" asked of its answer would forgive every
     ///     difference smaller than a 255th.
     /// </remarks>
-    internal byte[] ReadTexels(int image) {
+    internal byte[] ReadTexels(int image) => ReadTexels([image])[0];
+
+    /// <summary>Reads images back exactly as they are on the device, in one submission.</summary>
+    /// <param name="images">Their indices in <see cref="TexturePlan.Images" />. May repeat.</param>
+    /// <returns>The texels of each, tightly packed, top row first, in the order asked for.</returns>
+    /// <remarks>
+    ///     ⚠ <b>A barrier per texture and not per image.</b> Images may share a texture on the
+    ///     whole-plan path, where the pool reuses a slot, and the second barrier out of
+    ///     <see cref="ResourceState.ShaderRead" /> would be a lie about a texture already in
+    ///     <see cref="ResourceState.CopySource" />.
+    /// </remarks>
+    internal IReadOnlyList<byte[]> ReadTexels(IReadOnlyList<int> images) {
+        ArgumentNullException.ThrowIfNull(images);
         ObjectDisposedException.ThrowIf(disposed, this);
 
         // ⚠ The same refusal `TexturePlanEvaluator.RefuseInsideAFrame` makes, and it belongs here as
@@ -190,6 +227,80 @@ public sealed class TextureBake : IDisposable {
             );
         }
 
+        if (images.Count == 0) {
+            return [];
+        }
+
+        // Every image is checked before anything is created, so that a refusal leaks no buffer.
+        var copies = new ReadCopy[images.Count];
+        Dictionary<int, ReadCopy> distinct = [];
+        long total = 0;
+
+        for (var index = 0; index < copies.Length; index++) {
+            var image = images[index];
+
+            if (!distinct.TryGetValue(image, out var copy)) {
+                var size = Plan.SizeOf(image);
+                var length = size.X * size.Y * TextureFormats.BytesPerTexel(Plan.Images[image].Format);
+
+                copy = new(Readable(image), size, total, length);
+                distinct[image] = copy;
+                total += AlignUp(length);
+            }
+
+            copies[index] = copy;
+        }
+
+        TextureHandle[] touched = [.. distinct.Values.Select(static copy => copy.Texture).Distinct()];
+        var before = new TextureBarrier[touched.Length];
+        var after = new TextureBarrier[touched.Length];
+
+        for (var index = 0; index < touched.Length; index++) {
+            before[index] = new(touched[index], ResourceState.ShaderRead, ResourceState.CopySource);
+            after[index] = new(touched[index], ResourceState.CopySource, ResourceState.ShaderRead);
+        }
+
+        var readback = device.CreateBuffer(
+            new(total, BufferUsage.CopyDestination, MemoryAccess.HostReadback, "texture graph readback")
+        );
+
+        device.BeginFrame();
+
+        using (var commands = device.BeginCommandList(Queue.Kind, "texture graph readback")) {
+            commands.Barrier(new BarrierGroup([], before));
+
+            foreach (var copy in distinct.Values) {
+                commands.CopyTextureToBuffer(
+                    new TextureRegion(copy.Texture),
+                    new(copy.Size.X, copy.Size.Y, 1),
+                    readback,
+                    copy.Offset
+                );
+            }
+
+            commands.Barrier(new BarrierGroup([], after));
+
+            commands.Finish();
+            Queue.Submit([commands]);
+        }
+
+        device.EndFrame();
+        device.WaitIdle();
+
+        var raw = new byte[copies.Length][];
+
+        for (var index = 0; index < raw.Length; index++) {
+            raw[index] = new byte[copies[index].Length];
+            device.Read(readback, copies[index].Offset, raw[index]);
+        }
+
+        device.Destroy(readback);
+
+        return raw;
+    }
+
+    /// <summary>The texture of an image a caller is about to read.</summary>
+    TextureHandle Readable(int image) {
         var texture = TextureOf(image);
 
         if (!texture.IsValid) {
@@ -202,47 +313,20 @@ public sealed class TextureBake : IDisposable {
             );
         }
 
-        var size = Plan.SizeOf(image);
-        var format = Plan.Images[image].Format;
-        var length = size.X * size.Y * TextureFormats.BytesPerTexel(format);
-
-        var readback = device.CreateBuffer(
-            new(length, BufferUsage.CopyDestination, MemoryAccess.HostReadback, "texture graph readback")
-        );
-
-        device.BeginFrame();
-
-        using (var commands = device.BeginCommandList(Queue.Kind, "texture graph readback")) {
-            commands.Barrier(
-                new BarrierGroup([], [new TextureBarrier(texture, ResourceState.ShaderRead, ResourceState.CopySource)])
-            );
-
-            commands.CopyTextureToBuffer(new TextureRegion(texture), new(size.X, size.Y, 1), readback, 0);
-
-            commands.Barrier(
-                new BarrierGroup([], [new TextureBarrier(texture, ResourceState.CopySource, ResourceState.ShaderRead)])
-            );
-
-            commands.Finish();
-            Queue.Submit([commands]);
-        }
-
-        device.EndFrame();
-        device.WaitIdle();
-
-        var raw = new byte[length];
-
-        device.Read(readback, 0, raw);
-        device.Destroy(readback);
-
-        return raw;
+        return texture;
     }
+
+    /// <summary>The next offset in a read-back buffer: every format's texel divides sixteen.</summary>
+    static long AlignUp(long length) => (length + ReadAlignment - 1) & ~(ReadAlignment - 1);
+
+    /// <summary>One image's place in a read-back.</summary>
+    readonly record struct ReadCopy(TextureHandle Texture, Int2 Size, long Offset, int Length);
 
     /// <summary>Writes one image to a PNG.</summary>
     /// <param name="image">Its index in <see cref="TexturePlan.Images" />.</param>
     /// <param name="path">Where to write it.</param>
     /// <remarks>
-    ///     ⚠ <b>The <c>Vixen.</c> on the front is load-bearing, here and on <see cref="Read" />, and
+    ///     ⚠ <b>The <c>Vixen.</c> on the front is load-bearing, here and on <see cref="Read(int)" />, and
     ///     shortening it is a build failure in a file nobody edited</b> —
     ///     <a href="https://github.com/Rikarin/Vixen/issues/717">#717</a>. A relative <c>Core.Imaging</c>
     ///     is resolved by walking out from <c>Vixen.TextureGraph</c> until something called
@@ -1205,7 +1289,7 @@ public sealed partial class TexturePlanEvaluator : IDisposable {
     ///     <para>
     ///         ⚠ <b>A frame of its own rather than more lists inside one frame.</b> The read-back has
     ///         to complete before the bytes are mapped, and the pattern that is proved on this
-    ///         repository's devices — <see cref="TextureBake.Read" /> — is begin, record, submit,
+    ///         repository's devices — <see cref="TextureBake.Read(int)" /> — is begin, record, submit,
     ///         end, wait, map. Doing it inside the bake's frame would be a second arrangement of the
     ///         same four calls whose failure mode is reading whatever the allocator left.
     ///     </para>

@@ -23,7 +23,7 @@ namespace Tests;
 ///         suites hold to arithmetic.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Raw texels, not <see cref="TextureBake.Read" />.</b> That rounds half-floats to eight
+///         ⚠ <b>Raw texels, not <see cref="TextureBake.Read(int)" />.</b> That rounds half-floats to eight
 ///         bits, and a stale result one 300th away from the right one would pass.
 ///     </para>
 ///     <para>
