@@ -46,7 +46,7 @@ env:
 jobs:
   build:
     name: build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     # `packages` to push the image, `pull-requests` to leave the pull command on the pull request
     # that produced one. The registry needs no secret of its own: `GITHUB_TOKEN` authenticates to

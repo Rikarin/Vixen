@@ -53,7 +53,7 @@ jobs:
         # is arm64 — *is* the assertion that two peers encode a value identically. Dropping a leg
         # silently drops that, and the failure it would have caught is a desync rather than a build
         # error. Same argument for content determinism, which wants the same three.
-        os: [ubuntu-latest, windows-latest, macos-14]
+        os: [ubuntu-24.04, windows-latest, macos-14]
 
     steps:
       - uses: actions/checkout@v4
@@ -76,7 +76,7 @@ jobs:
       # Silk.NET loader finds SDL2.dll next to the test binary; that is owed to
       # Vixen.Platform.Native, and until it exists the Windows leg skips those tests.
       - name: Install SDL2 (Linux)
-        if: matrix.os == 'ubuntu-latest'
+        if: matrix.os == 'ubuntu-24.04'
         run: sudo apt-get update && sudo apt-get install -y libsdl2-2.0-0
 
       # Assimp is the opposite case to SDL2 and needs the step anyway. Silk.NET.Assimp *does* bring
@@ -91,7 +91,7 @@ jobs:
       # ⚠ The version has to be 5. Silk.NET.Assimp 2.23.0 binds Assimp 5's C ABI, Ubuntu's libassimp5
       # is 5.3, and a 6 here would load and then be wrong in ways a signature cannot catch.
       - name: Install Assimp (Linux)
-        if: matrix.os == 'ubuntu-latest'
+        if: matrix.os == 'ubuntu-24.04'
         run: sudo apt-get install -y libassimp5
 
       # lavapipe: Mesa's software Vulkan, a conformant driver with no GPU. docs/plan/10 calls Linux
@@ -100,7 +100,7 @@ jobs:
       # where a backend's real bugs live. The first run of this leg found one MoltenVK had accepted
       # in silence for weeks.
       - name: Install Vulkan and lavapipe (Linux)
-        if: matrix.os == 'ubuntu-latest'
+        if: matrix.os == 'ubuntu-24.04'
         run: |
           # spirv-tools carries spirv-val, which Raven's golden SPIR-V tests require and which
           # they fail rather than skip without — the same guard as VIXEN_REQUIRE_VULKAN below.
@@ -238,7 +238,7 @@ jobs:
           # runner that lost its ICD would report a green build having proved nothing at all, which
           # is the most expensive kind of green there is — and is precisely why the SDL install step
           # above exists too.
-          VIXEN_REQUIRE_VULKAN: ${{ matrix.os == 'ubuntu-latest' && '1' || '' }}
+          VIXEN_REQUIRE_VULKAN: ${{ matrix.os == 'ubuntu-24.04' && '1' || '' }}
 
           # The same argument, on the leg where it has been observed to hold. macOS is where
           # wgpu-native was actually brought up against this backend — Metal, an Apple-silicon
@@ -274,7 +274,7 @@ jobs:
           # which is exactly why the promise stays off here: the change can only turn skips into
           # passes and can never turn this leg red. Add ubuntu-latest to this condition once the
           # leg's skip count for that suite reads zero.
-          VIXEN_REQUIRE_SPIRV_CROSS: ${{ matrix.os == 'ubuntu-latest' && '' || '1' }}
+          VIXEN_REQUIRE_SPIRV_CROSS: ${{ matrix.os == 'ubuntu-24.04' && '' || '1' }}
 
           # ⚠ The fourth time, for the editor's golden screenshots (#500). They skip where no
           # reference applies, and until this they skipped on every leg but macOS with the build
@@ -366,7 +366,7 @@ jobs:
 
   checks:
     name: checks
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     steps:
       - uses: actions/checkout@v4
@@ -470,7 +470,7 @@ jobs:
   # "CheckArchitecture failed", which is the mistake the Assimp comments above record twice.
   web:
     name: web
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     steps:
       - uses: actions/checkout@v4
@@ -574,7 +574,7 @@ jobs:
 
   pack:
     name: pack
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [test, checks]
 
     steps:
@@ -690,7 +690,7 @@ jobs:
       # informative result there is, and cancelling the others hides which ones were fine.
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-14]
+        os: [ubuntu-24.04, windows-latest, macos-14]
 
     # Measured at 2 m 35 s for the publish on an M1 Max with a warm restore. ILC is single-threaded
     # over a 29-assembly rooted graph and a hosted runner is slower than that, so the cap is generous
@@ -717,7 +717,7 @@ jobs:
       # the zlib headers ILC links against, and the failure without them is a linker error at the very
       # end of a several-minute publish. Installed rather than hoped for.
       - name: Install the native toolchain (Linux)
-        if: matrix.os == 'ubuntu-latest'
+        if: matrix.os == 'ubuntu-24.04'
         run: sudo apt-get update && sudo apt-get install -y clang zlib1g-dev
 
       - name: Publish every runtime assembly ahead of time
@@ -768,7 +768,7 @@ jobs:
   # here — #405 cites #188 for it and #188 is "Owed 51: Raven — Vixen.Raven.Transpile".
   sample-frame:
     name: sample-frame
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     # ⚠ NOT MEASURED, AND SAID SO RATHER THAN IMPLIED. What has been measured is a real GPU: on an
     # M1 Max the run is under a minute, and the frame count is not what it costs — 16 frames took
@@ -878,7 +878,7 @@ jobs:
   # the failure this repository keeps having. The shape check below is this job's own.
   content-bytes:
     name: content-bytes
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [test]
 
     steps:
@@ -1047,7 +1047,7 @@ jobs:
   # gate becomes one people read past. Take it off when #1526 lands and one run reads green here.
   remesh-bytes:
     name: remesh-bytes
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [test]
 
     steps:

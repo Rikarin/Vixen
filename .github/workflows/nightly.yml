@@ -62,7 +62,7 @@ jobs:
   # in the registry's order. Nothing here parses C#, and nothing in C# parses YAML.
   targets:
     name: targets
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     outputs:
       matrix: ${{ steps.read.outputs.matrix }}
@@ -84,7 +84,7 @@ jobs:
   fuzz:
     name: fuzz (${{ matrix.target.name }})
     needs: targets
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     strategy:
       # ⚠ Without this, one target finding something cancels the other nineteen — which is the exact
@@ -219,7 +219,7 @@ jobs:
   # fuzz matrix above records at length.
   properties:
     name: properties (${{ matrix.suite.name }})
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     strategy:
       fail-fast: false
@@ -353,7 +353,7 @@ jobs:
   # Nothing but this job would catch the second one.
   postgres:
     name: postgres
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
 
     services:
@@ -413,7 +413,7 @@ jobs:
   # real daemon or a real API server accepts what was built.
   docker:
     name: docker
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
 
     steps:
@@ -454,7 +454,7 @@ jobs:
 
   kubernetes:
     name: kubernetes
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 25
 
     steps:
@@ -534,7 +534,7 @@ jobs:
   # not cry wolf.
   ci-freshness:
     name: ci-freshness
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
 
     # Read-only, and named rather than inherited: the default token's scope is a repository setting,
