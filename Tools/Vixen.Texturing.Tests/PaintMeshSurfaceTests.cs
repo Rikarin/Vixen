@@ -155,6 +155,38 @@ public class PaintMeshSurfaceTests {
         Assert.InRange(area, MathF.PI * radius * radius * 0.9f, MathF.PI * radius * radius * 1.1f);
     }
 
+    /// <summary>
+    ///     A wall seen nearly side on, with a big triangle: what a stamp looks at must be the texels the disc falls on,
+    ///     as a count of work. Scanning a ball as deep as the slope cost this three thousand a stamp and more.
+    /// </summary>
+    [Fact]
+    public void A_stamp_on_a_face_seen_side_on_scans_what_it_covers() {
+        var surface = Sheet();
+        var (sine, cosine) = MathF.SinCos(1.4f);
+        PaintView side = new(
+            new(sine * 4f, 0f, cosine * 4f),
+            new(cosine, 0f, -sine),
+            new(0f, 1f, 0f),
+            new(-sine, 0f, -cosine),
+            2f * MathF.Atan(0.5f),
+            512,
+            512
+        );
+        PaintImage image = new(Side, Side);
+        var stroke = Stroke(image, surface, surface.Through(side), 0);
+
+        stroke.MoveTo(new(256f, 256f));
+
+        var painted = 0;
+
+        for (var at = 0; at < Side * Side; at++) {
+            painted += image[at] != 0u ? 1 : 0;
+        }
+
+        Assert.True(painted > 0, "The stamp missed, so the count below says nothing.");
+        Assert.InRange(stroke.WeightsEvaluated, painted, painted * 2L);
+    }
+
     [Fact]
     public void A_camera_paints_the_side_it_can_see_and_not_the_back_of_a_thin_wall() {
         var surface = Wall();

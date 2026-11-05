@@ -222,6 +222,51 @@ public sealed class PaintMeshSurface {
         }
     }
 
+    /// <summary>Where in the atlas a square on the picture falls on a triangle's plane.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The square's own corners on the plane, and not a ball round the hit.</b> A brush at a hard edge asks
+    ///     about a face seen nearly side on, whose depth under the brush can be ten radii, and a ball that deep
+    ///     scanned tens of thousands of texels of a big triangle per stamp to find a sliver. A plane maps the
+    ///     square to a four-sided shape, so its corners bound it.
+    /// </remarks>
+    PaintRect Seen(int triangle, in PaintView camera, Vector2 centre, float reach) {
+        var whole = new PaintRect(0, 0, width, height);
+        var density = Projection.Density(triangle, width, height);
+
+        if (!density.IsMeasurable) {
+            return whole;
+        }
+
+        Projection.Triangle(triangle, out var a, out _, out _, out var ua, out _, out _);
+
+        var normal = density.Normal;
+        var height0 = Vector3.Dot(a - camera.Eye, normal);
+        var origin = ua * new Vector2(width, height);
+        var least = new Vector2(float.PositiveInfinity);
+        var most = new Vector2(float.NegativeInfinity);
+
+        for (var corner = 0; corner < 4; corner++) {
+            var aim = centre + new Vector2((corner & 1) == 0 ? -reach : reach, (corner & 2) == 0 ? -reach : reach);
+            var direction = camera.RayAt(aim).Direction;
+            var along = Vector3.Dot(direction, normal);
+
+            // A ray that never reaches the plane leaves the shape unbounded: the triangle's own box says the rest.
+            if (MathF.Abs(along) < 1e-6f || height0 / along <= 0f) {
+                return whole;
+            }
+
+            var offset = camera.Eye + (direction * (height0 / along)) - a;
+            var atlas = origin
+                + (density.PerTangent * Vector3.Dot(offset, density.Tangent))
+                + (density.PerBitangent * Vector3.Dot(offset, density.Bitangent));
+
+            least = Vector2.Min(least, atlas);
+            most = Vector2.Max(most, atlas);
+        }
+
+        return PaintRect.Covering(least - new Vector2(2f), most + new Vector2(2f));
+    }
+
     /// <summary>Where in the atlas a triangle can hold anything within a distance of a point.</summary>
     PaintRect Reach(int triangle, Vector3 point, float distance) {
         var density = Projection.Density(triangle, width, height);
@@ -349,7 +394,7 @@ public sealed class PaintMeshSurface {
 
                 surface.Scan(
                     triangle,
-                    surface.Reach(triangle, hit.Point, sphere),
+                    surface.Seen(triangle, camera, stamp.Centre, stamp.Radius * Corner),
                     surface.ChartOf(triangle) + offset,
                     ref weigher,
                     into
