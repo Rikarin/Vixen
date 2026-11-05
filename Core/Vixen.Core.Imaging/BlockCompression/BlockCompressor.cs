@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Buffers.Binary;
-using System.Collections.Concurrent;
 using Vixen.Graphics;
 
 namespace Vixen.Core.Imaging.BlockCompression;
@@ -136,18 +135,19 @@ public static class BlockCompressor {
             return destination;
         }
 
-        Parallel.ForEach(
-            Partitioner.Create(0, runs.Length, 1),
+        // The token stops the loop between runs, and a run is a fraction of a second at the slowest
+        // level. Nothing here can see what any other run produced, which is the whole of why the
+        // thread count cannot reach the bytes.
+        Parallel.For(
+            0,
+            runs.Length,
             new ParallelOptions {
                 CancellationToken = token,
                 MaxDegreeOfParallelism = options.MaxDegreeOfParallelism == 0 ? -1 : options.MaxDegreeOfParallelism
             },
-            range => {
-                for (var index = range.Item1; index < range.Item2; index++) {
-                    token.ThrowIfCancellationRequested();
-                    EncodeRun(source, destination, target, options.Quality, runs[index]);
-                    report.Add(runs[index].Blocks);
-                }
+            index => {
+                EncodeRun(source, destination, target, options.Quality, runs[index]);
+                report.Add(runs[index].Blocks);
             }
         );
 

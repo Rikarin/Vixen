@@ -261,20 +261,18 @@ public sealed class BlockEncoderTests {
     }
 
     /// <summary>
-    ///     BC7 mode 6 spends seven bits per channel plus one parity bit shared by all four, so a
-    ///     flat block is exact exactly when its four channels agree about their low bit — and off by
-    ///     one when they do not. That is worth stating as a test rather than discovering in an
-    ///     artefact report.
+    ///     Mode 6 alone would be exact only when a flat block's four channels agreed about their low
+    ///     bit, since they share one. A flat block takes mode 5 instead, where any byte is reachable.
     /// </summary>
     [Fact]
-    public void ABc7BlockOfOneColourIsExactWhenItsChannelsShareTheirLowBit() {
+    public void ABc7BlockOfOneColourIsExactWhetherOrNotItsChannelsShareTheirLowBit() {
         var even = Flat(200, 100, 50, 254);
 
         Assert.Equal(even, RoundTrip(PixelFormat.Bc7RgbaUNorm, even));
 
         var mixed = Flat(200, 101, 50, 255);
 
-        Assert.True(MaxError(mixed, RoundTrip(PixelFormat.Bc7RgbaUNorm, mixed), channels: 4) <= 1);
+        Assert.Equal(mixed, RoundTrip(PixelFormat.Bc7RgbaUNorm, mixed));
     }
 
     /// <summary>
@@ -293,9 +291,8 @@ public sealed class BlockEncoderTests {
 
         var decoded = RoundTrip(PixelFormat.Bc7RgbaUNorm, rgba);
 
-        // Within one: black-with-opaque-alpha and white-with-opaque-alpha disagree about the low bit
-        // the two endpoints share, so one of the four channels gives it up. Without the swap the
-        // whole index stream would shift and neither texel would be close to either colour.
+        // Within one, whichever mode wins. Without the swap the whole index stream would shift and
+        // neither texel would be close to either colour.
         for (var channel = 0; channel < 4; channel++) {
             Assert.True(255 - decoded[channel] <= 1, $"texel zero, channel {channel}: {decoded[channel]}");
             Assert.True(decoded[4 + channel] <= 1 || channel == 3, $"texel one, channel {channel}");
@@ -305,8 +302,7 @@ public sealed class BlockEncoderTests {
     }
 
     /// <summary>
-    ///     Mode 6 fits alpha on the same line as colour, which makes constant colour with varying
-    ///     alpha its best case and BC1's worst.
+    ///     Constant colour with varying alpha: mode 6's best case, on one line, and BC1's worst.
     /// </summary>
     [Fact]
     public void Bc7CarriesAlphaOnTheSameLineAsColour() {

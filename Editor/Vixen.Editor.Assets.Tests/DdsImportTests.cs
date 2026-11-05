@@ -140,11 +140,33 @@ public sealed class DdsImportTests {
     [InlineData(80u, PixelFormat.Bc4RUNorm, 8)]
     [InlineData(83u, PixelFormat.Bc5RgUNorm, 16)]
     [InlineData(95u, PixelFormat.Bc6HRgbUFloat, 16)]
+    [InlineData(96u, PixelFormat.Bc6HRgbSFloat, 16)]
     public void TheBlockSizedFormatsAreReadAtTheirOwnSize(uint dxgi, PixelFormat expected, int blockBytes) {
         var texture = DdsDecoder.Read(MinimalDds.Write(4, 4, dxgi, Counting(blockBytes)));
 
         Assert.Equal(expected, texture.Format);
         Assert.Equal(blockBytes, texture.Level(0).Length);
+    }
+
+    /// <summary>
+    ///     The engine's own writer past the engine's own tolerant reader. They were written years
+    ///     apart for opposite ends of a pipeline, so what one says the header means is a check on
+    ///     the other.
+    /// </summary>
+    [Theory]
+    [InlineData(PixelFormat.Bc7RgbaUNormSrgb)]
+    [InlineData(PixelFormat.Bc6HRgbSFloat)]
+    [InlineData(PixelFormat.Bc1RgbaUNorm)]
+    public void WhatDdsCodecWritesIsWhatTheDecoderReads(PixelFormat format) {
+        var written = new TextureData(format, 16, 8);
+
+        new Random(16).NextBytes(written.PixelSpan());
+
+        var read = DdsDecoder.Read(DdsCodec.Write(written));
+
+        Assert.Equal(format, read.Format);
+        Assert.Equal(written.LevelCount, read.LevelCount);
+        Assert.Equal(written.Pixels.ToArray(), read.Pixels.ToArray());
     }
 
     /// <summary>

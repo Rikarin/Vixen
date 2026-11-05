@@ -71,7 +71,7 @@ approximated:
 | Setting | What a `.hdr` gets | Why |
 |---|---|---|
 | `Content` | Linear, whatever it says | No float format has an sRGB form, and Radiance is linear by definition. Reported as information, because `Colour` is the default and is what an artist importing a sky will leave alone |
-| `GenerateMips` | One level, with a warning | The mip filter averages eight-bit channels. A float form of it is owed; a chain built by narrowing to bytes first would throw the range away |
+| `GenerateMips` | One level, with a warning | `MipChain.Generate` reduces float now, but this importer has not been moved onto it; a chain built by narrowing to bytes first would throw the range away |
 | `MaxSize` | Full size, with a warning | Reducing runs through that same filter |
 
 `Compression` is refused rather than approximated in both directions: BC1, BC3, BC4, BC5 and BC7 all
@@ -108,7 +108,7 @@ constructor. `.exr`, `.tif` and `.webp` are the ones doc 08's table still asks f
 ## Examples
 
 **What DDS claims, and what it refuses.** `DdsDecoder` reads a plain 2D texture: one array element,
-one face, any number of mip levels, in BC1/BC3/BC4/BC5/BC6H/BC7 or an eight-bit-a-channel
+one face, any number of mip levels, in BC1/BC3/BC4/BC5/BC7, either BC6H or an eight-bit-a-channel
 uncompressed layout, through either a DX10 extension header or a pre-D3D10 four-character code or bit
 mask.
 

@@ -1,12 +1,14 @@
 # Vixen.BcnOracle
 
-A pipe around somebody else's BCn decoder, so `BcnReferenceDecoderTests` can check Vixen's against
-one it did not write.
+Two pipes around decoders nobody here wrote, so the tests can check Vixen's BCn against them.
+`bcn-oracle` wraps [bcdec](https://github.com/iOrange/bcdec) and is what `BcnReferenceDecoderTests`
+reads; `bcn-metal-oracle` wraps the GPU in this machine and is what `GpuBcnDecoderTests` reads.
 
 ```sh
-sh Tools/Vixen.BcnOracle/build.sh
+sh Tools/Vixen.BcnOracle/build.sh          # downloads bcdec.h into a cache outside the tree
+sh Tools/Vixen.BcnOracle/build-metal.sh    # downloads nothing; needs swiftc and Metal
 dotnet test Core/Vixen.Core.Imaging.Tests/Vixen.Core.Imaging.Tests.csproj \
-    --filter FullyQualifiedName~BcnReferenceDecoderTests
+    --filter "FullyQualifiedName~BcnReferenceDecoderTests|FullyQualifiedName~GpuBcnDecoderTests"
 ```
 
 ## Why this exists
@@ -38,6 +40,25 @@ oracle built the suite *skips*, which xunit counts and prints, and never passes 
 supposed to have the tools should set. The same variable governs `Ktx2ConformanceTests`, which needs
 Khronos's `ktx` (`brew install ktx`) and is not vendored either, for the same reasons.
 
+## The Metal oracle
+
+`bcn-metal-oracle.swift` uploads raw blocks into a compressed Metal texture and reads every texel
+back through a compute kernel. Nothing in it decodes a block, so a mismatch is a mismatch with the
+texture unit every shipped texture ends up on.
+
+**Metal does have BC formats.** The README that used to send people here said it did not, on the
+machine it was being written on. `MTLDevice.supportsBCTextureCompression` is true on an M1 Max, and
+`--probe` says what the device in front of you answers. A device that says no exits 3, and the tests
+skip loudly, or fail under `VIXEN_REQUIRE_EXTERNAL_TOOLS=1`.
+
+⚠ **`texture.read` returns float, so bytes are recovered by rounding and halves by converting back.**
+That is lossless on both: a unorm byte over 255 survives the round trip, and a half fits a float
+exactly, denormals included. The suite agrees on every bit, which is what would not happen if either
+were not so.
+
+The same protocol as below, plus `bc6hs` for the signed format and `--probe`. `VIXEN_BCN_METAL_ORACLE`
+overrides where the tests look for it.
+
 ## The protocol
 
 `bcn-oracle <format>`, blocks on stdin, decoded texels on stdout, until stdin ends.
@@ -49,6 +70,7 @@ Khronos's `ktx` (`brew install ktx`) and is not vendored either, for the same re
 | `bc4` | 8 bytes | 16 bytes, sixteen R8 texels |
 | `bc5` | 16 bytes | 32 bytes, sixteen RG8 texels |
 | `bc6h` | 16 bytes | 96 bytes, sixteen RGB unsigned-half texels |
+| `bc6hs` | 16 bytes | 96 bytes, sixteen RGB half texels, signed (Metal oracle only) |
 | `bc7` | 16 bytes | 64 bytes, sixteen RGBA8 texels |
 
 `BCDEC_BC4BC5_PRECISE` is defined, because bcdec's default BC4/BC5 path is a deliberate speed

@@ -28,7 +28,8 @@ namespace Vixen.Core.Imaging.Tests;
 ///         has been shown rather than assumed: with the two-subset search and the three-subset search
 ///         switched off, <see cref="TwoFlatColoursOnAnyTwoSubsetPatternComeBackAlmostExact" /> and
 ///         <see cref="ThreeFlatColoursOnAnyThreeSubsetPatternComeBackClose" /> go red and the
-///         three-colour target falls from 58 dB to 26.
+///         three-colour target falls from 58 dB to 31, or to 26 at <see cref="BlockQuality.Fast" />,
+///         which is what mode 6 alone had always scored.
 ///     </para>
 /// </remarks>
 public sealed class BlockQualityTests {
@@ -73,7 +74,7 @@ public sealed class BlockQualityTests {
         { true, BlockQuality.Best, 63.0 }
     };
 
-    /// <summary>Colour pairs chosen to disagree in every channel and share no low bits.</summary>
+    /// <summary>Every partition number. BC6H uses the first thirty-two of them.</summary>
     public static TheoryData<int> Partitions {
         get {
             var data = new TheoryData<int>();
