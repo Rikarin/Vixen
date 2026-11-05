@@ -212,6 +212,29 @@ public interface ICommandList : IDisposable {
     /// <param name="groupsZ">Workgroups in Z.</param>
     void Dispatch(int groupsX, int groupsY = 1, int groupsZ = 1);
 
+    /// <summary>Runs a compute shader over a rectangle of its range, with its ids starting at the base.</summary>
+    /// <param name="baseX">The first workgroup in X.</param>
+    /// <param name="baseY">The first workgroup in Y.</param>
+    /// <param name="groupsX">Workgroups in X.</param>
+    /// <param name="groupsY">Workgroups in Y.</param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The ids a shader sees are absolute, and that is the whole reason this exists.</b> A
+    ///         kernel that derives its texel from its invocation id needs no change to run over a
+    ///         part of its image, where a uniform origin would touch every kernel in a library.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The pipeline has to have asked for it</b> —
+    ///         <see cref="ComputePipelineDescription.DispatchBase" />, and only where
+    ///         <see cref="IGraphicsDevice.SupportsDispatchBase" /> says so. A backend that has no such
+    ///         thing keeps this default rather than dispatching from zero, which would write the
+    ///         wrong texels and report nothing.
+    ///     </para>
+    /// </remarks>
+    /// <exception cref="NotSupportedException">This backend cannot start a dispatch anywhere but zero.</exception>
+    void DispatchBase(int baseX, int baseY, int groupsX, int groupsY) =>
+        throw new NotSupportedException("This backend cannot start a dispatch anywhere but zero.");
+
     /// <summary>Runs a compute shader with a group count the GPU wrote.</summary>
     /// <param name="arguments">The buffer holding it.</param>
     /// <param name="offset">Where it starts, in bytes.</param>

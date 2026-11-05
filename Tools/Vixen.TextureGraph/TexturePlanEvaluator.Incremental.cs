@@ -6,6 +6,7 @@ using System.Globalization;
 using System.IO.Hashing;
 using System.Runtime.InteropServices;
 using System.Text;
+using Vixen.Core.Mathematics;
 using Vixen.Graphics;
 using Vixen.Shaders;
 
@@ -72,6 +73,40 @@ public sealed partial class TexturePlanEvaluator {
     public TextureBake EvaluateIncremental(
         TexturePlan plan,
         IReadOnlyDictionary<int, TextureExternal> externals
+    ) => EvaluateIncremental(plan, externals, null);
+
+    /// <summary>
+    ///     An evaluation that repairs what changed in place, when it can, rather than running each op
+    ///     over its whole image.
+    /// </summary>
+    /// <param name="plan">The plan.</param>
+    /// <param name="externals">The images the plan reads, with the content they have now.</param>
+    /// <param name="regions">
+    ///     What changed since the evaluation whose keys these are, or <see langword="null" /> for an
+    ///     ordinary evaluation.
+    /// </param>
+    /// <returns>The bake, whose <see cref="TextureBake.Repaired" /> says how many ops were repaired.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Plan § 3.2's dirty regions: a stroke invalidates tiles, not images.</b> The ops that
+    ///         sit downstream of a changed image and read it texel by texel are dispatched over the
+    ///         changed rectangles alone, into the texture the previous evaluation left. The kernels
+    ///         are the same kernels, so there is still one evaluator; a dispatch's base is the whole
+    ///         of the difference.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A repair is a promise about the texels it did not write</b>: they are the texels
+    ///         the new key would have produced. That holds only where the op's output depends on the
+    ///         same texel of its inputs and its old picture is still held, so everything else runs
+    ///         whole, exactly as without this — and an op that runs whole hands a whole change to
+    ///         the ops after it. <c>TexturePlanEvaluatorRegionTests</c> compares a repaired
+    ///         picture to a clean evaluation byte for byte.
+    ///     </para>
+    /// </remarks>
+    public TextureBake EvaluateIncremental(
+        TexturePlan plan,
+        IReadOnlyDictionary<int, TextureExternal> externals,
+        TextureRegions? regions
     ) {
         var problems = Admit(plan, externals);
         var keys = KeysOf(plan, externals);
@@ -82,9 +117,33 @@ public sealed partial class TexturePlanEvaluator {
             TextureResultCache.Pin(entry);
         }
 
+        var repairs = RepairsFor(plan, externals, keys, decision, regions);
         var kept = Keep(plan, decision);
+
+        foreach (var image in repairs.Keys) {
+            kept[image] = true;
+        }
+
         var schedule = TexturePoolSchedule.For(plan, decision.Runs, kept);
+
+        // ⚠ A repaired image's slot must be its alone: a transient that shared it would overwrite the
+        // texels the repair is keeping. Only a plan with more than the cache could keep gets here,
+        // and running it whole is always correct.
+        if (repairs.Count > 0 && schedule.SlotOf.Where((slot, image) => slot >= 0 && repairs.ContainsKey(image))
+                .Any(slot => schedule.SlotOf.Count(other => other == slot) > 1)) {
+            repairs.Clear();
+            schedule = TexturePoolSchedule.For(plan, decision.Runs, kept);
+        }
+
         var rented = new TextureResultCache.Rented?[schedule.Allocations];
+        long repairedBytes = 0;
+
+        // Out of the cache before anything can be reclaimed, or the reclaim could take them.
+        foreach (var (image, repair) in repairs) {
+            rented[schedule.SlotOf[image]] = Results.TakeOut(repair.Prior);
+            repairedBytes += TextureResultCache.BytesOf(repair.Prior.Shape);
+        }
+
         List<TextureViewHandle> owned = [];
         List<TextureResultCache.Entry> pinned = [.. decision.Reads.Values];
 
@@ -115,22 +174,23 @@ public sealed partial class TexturePlanEvaluator {
         ) {
             Warnings = cautions,
             Keys = [.. keys],
-            Reused = decision.Reused
+            Reused = decision.Reused,
+            Repaired = repairs.Count
         };
 
         try {
             // ⚠ Reclaim, rent, trim, in that order: an idle texture of the right shape is free, so the
             // oldest results are offered to this run before anything is created or destroyed.
-            Results.Reclaim(schedule.Bytes);
+            Results.Reclaim(schedule.Bytes - repairedBytes);
 
             for (var slot = 0; slot < rented.Length; slot++) {
                 var name = string.Create(CultureInfo.InvariantCulture, $"texture graph result {slot}");
 
-                rented[slot] = Results.Rent(schedule.Slots[slot], name);
+                rented[slot] ??= Results.Rent(schedule.Slots[slot], name);
                 bake.Fill(slot, rented[slot]!.Value.Texture);
             }
 
-            Results.Trim(schedule.Bytes);
+            Results.Trim(schedule.Bytes - repairedBytes);
 
             var views = ExternalViews(plan, externals, owned);
             var supplied = new Dictionary<int, TextureExternal>(externals);
@@ -147,7 +207,7 @@ public sealed partial class TexturePlanEvaluator {
                     slotViews[slot] = rented[slot]!.Value.View;
                 }
 
-                Run(plan, schedule, bake, slotViews, views, supplied);
+                Run(plan, schedule, bake, slotViews, views, supplied, repairs);
             }
 
             bake.Ran = [.. Enumerable.Range(0, plan.Ops.Length).Where(index => decision.Runs[index])];
@@ -173,6 +233,130 @@ public sealed partial class TexturePlanEvaluator {
     ///     not do that. So what the budget cannot hold is pooled as the whole-plan path would pool
     ///     it, and the next edit re-runs it.
     /// </remarks>
+    /// <summary>Which of the images about to run can be repaired, and over what.</summary>
+    /// <remarks>
+    ///     ⚠ <b>An image the cache answered under a new key changed by an unknown amount</b>: it is a
+    ///     picture from another moment, such as before an undo, so what reads it cannot be repaired
+    ///     from the rectangles of this change.
+    /// </remarks>
+    Dictionary<int, Repair> RepairsFor(
+        TexturePlan plan,
+        IReadOnlyDictionary<int, TextureExternal> externals,
+        TextureResultKey[] keys,
+        Decision decision,
+        TextureRegions? regions
+    ) {
+        Dictionary<int, Repair> repairs = [];
+
+        if (regions is null || !device.SupportsDispatchBase || regions.Previous.Length != plan.Images.Length) {
+            return repairs;
+        }
+
+        var changed = new ImmutableArray<TextureRect>?[plan.Images.Length];
+        var whole = new bool[plan.Images.Length];
+
+        foreach (var (image, rects) in regions.Changed) {
+            changed[image] = rects;
+        }
+
+        for (var index = 0; index < plan.Ops.Length; index++) {
+            var op = plan.Ops[index];
+            var image = op.Output;
+            var moved = keys[image] != regions.Previous[image];
+
+            if (!decision.Runs[index]) {
+                whole[image] = moved;
+
+                continue;
+            }
+
+            if (!moved) {
+                continue;
+            }
+
+            whole[image] = true;
+
+            if (Touched(op, changed, whole, out var limited)
+                && TextureLocality.Of(op) is { } locality
+                && SameExtent(plan, externals, op, image)
+                && Results.Find(regions.Previous[image], ShapeOf(plan, image)) is { Pins: 0 } prior
+                && repairs.Values.All(other => !ReferenceEquals(other.Prior, prior))) {
+                var size = plan.SizeOf(image);
+                var rects = Align(limited, locality, size);
+
+                repairs[image] = new(prior, rects);
+                changed[image] = rects;
+                whole[image] = false;
+            }
+        }
+
+        return repairs;
+    }
+
+    /// <summary>The rectangles an op's inputs changed over, when each that changed knows them.</summary>
+    static bool Touched(
+        TextureOp op,
+        ImmutableArray<TextureRect>?[] changed,
+        bool[] whole,
+        out List<TextureRect> limited
+    ) {
+        limited = [];
+
+        foreach (var input in op.Inputs) {
+            if (whole[input]) {
+                return false;
+            }
+
+            if (changed[input] is { } rects) {
+                limited.AddRange(rects);
+            }
+        }
+
+        return limited.Count > 0;
+    }
+
+    static bool SameExtent(
+        TexturePlan plan,
+        IReadOnlyDictionary<int, TextureExternal> externals,
+        TextureOp op,
+        int image
+    ) {
+        var size = plan.SizeOf(image);
+
+        foreach (var input in op.Inputs) {
+            var extent = externals.TryGetValue(input, out var supplied) && supplied.HasSize
+                ? supplied.Size
+                : plan.SizeOf(input);
+
+            if (extent != size) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>The rectangles an op has to rewrite, on whole workgroups and inside the image.</summary>
+    static ImmutableArray<TextureRect> Align(List<TextureRect> rects, int reach, Int2 size) {
+        HashSet<TextureRect> aligned = [];
+
+        foreach (var rect in rects) {
+            var x = ((rect.X - reach) / GroupSize) * GroupSize;
+            var y = ((rect.Y - reach) / GroupSize) * GroupSize;
+            var endX = Math.Min(Groups(rect.EndX + reach) * GroupSize, Groups(size.X) * GroupSize);
+            var endY = Math.Min(Groups(rect.EndY + reach) * GroupSize, Groups(size.Y) * GroupSize);
+
+            x = Math.Max(0, x);
+            y = Math.Max(0, y);
+
+            if (endX > x && endY > y) {
+                aligned.Add(new(x, y, endX - x, endY - y));
+            }
+        }
+
+        return [.. aligned];
+    }
+
     bool[] Keep(TexturePlan plan, Decision decision) {
         var kept = new bool[plan.Images.Length];
         var room = Results.Budget;
@@ -453,6 +637,11 @@ public sealed partial class TexturePlanEvaluator {
 
         return true;
     }
+
+    /// <summary>One image repaired in place: the picture it starts from and the rectangles it rewrites.</summary>
+    /// <param name="Prior">The result under the key the image had before this change.</param>
+    /// <param name="Rects">What to dispatch over, on whole workgroups.</param>
+    readonly record struct Repair(TextureResultCache.Entry Prior, ImmutableArray<TextureRect> Rects);
 
     static TexturePoolSlot ShapeOf(TexturePlan plan, int image) {
         var size = plan.SizeOf(image);

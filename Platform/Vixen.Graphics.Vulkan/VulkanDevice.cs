@@ -321,6 +321,10 @@ public sealed unsafe partial class VulkanDevice : IGraphicsDevice {
     public IGraphicsAdapter Adapter => adapter;
 
     /// <inheritdoc />
+    /// <remarks>Core since Vulkan 1.1, which <see cref="AdapterSelection.MinimumApiVersion" /> requires.</remarks>
+    public bool SupportsDispatchBase => true;
+
+    /// <inheritdoc />
     public GraphicsDeviceFeatures Features => adapter.Features;
 
     /// <inheritdoc />

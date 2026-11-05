@@ -18,7 +18,7 @@ namespace Vixen.TextureGraph;
 ///     plan's <see cref="TexturePlan.Outputs" /> is what stops the pool from handing an output's slot
 ///     to a later op, and nothing about the handle says which it was.
 ///     <para>
-///         ⚠ <b>Except from <see cref="TexturePlanEvaluator.EvaluateIncremental" />, where it owns
+///         ⚠ <b>Except from <see cref="TexturePlanEvaluator.EvaluateIncremental(TexturePlan, IReadOnlyDictionary{int, TextureExternal})" />, where it owns
 ///         nothing.</b> Those textures are the result cache's, and this holds a claim on them until it
 ///         is disposed: reading stays valid through any later evaluation, and only what the plan
 ///         names in its outputs and what fitted the budget can be read at all.
@@ -100,6 +100,9 @@ public sealed class TextureBake : IDisposable {
     /// <summary>How many of the plan's ops were answered from the result cache.</summary>
     public int Reused { get; internal set; }
 
+    /// <summary>How many ops rewrote part of the image they already held, rather than running whole.</summary>
+    public int Repaired { get; internal set; }
+
     /// <summary>What one image's texels are a function of, on an incremental evaluation.</summary>
     /// <param name="image">Its index in <see cref="TexturePlan.Images" />.</param>
     /// <returns>Its key, or the default on a whole-plan evaluation.</returns>
@@ -110,7 +113,7 @@ public sealed class TextureBake : IDisposable {
     public TextureResultKey KeyOf(int image) => Keys.IsDefaultOrEmpty ? default : Keys[image];
 
     /// <summary>Every image's key.</summary>
-    internal ImmutableArray<TextureResultKey> Keys { get; set; }
+    public ImmutableArray<TextureResultKey> Keys { get; internal set; }
 
     /// <summary>Lends a rented texture to a slot, for the length of the run.</summary>
     internal void Fill(int slot, TextureHandle texture) => textures[slot] = texture;
@@ -206,6 +209,83 @@ public sealed class TextureBake : IDisposable {
     ///     difference smaller than a 255th.
     /// </remarks>
     internal byte[] ReadTexels(int image) => ReadTexels([image])[0];
+
+    /// <summary>Reads rectangles of one image in its own format, one array per rectangle.</summary>
+    /// <param name="image">The image.</param>
+    /// <param name="rects">What to read, each inside the image.</param>
+    /// <returns>Each rectangle's texels, row by row.</returns>
+    /// <remarks>
+    ///     ⚠ <b>For a repair, whose whole point is that the rest of the picture did not move.</b> A
+    ///     4K half-float image is 134 MB and reading it back would spend what the repair saved.
+    /// </remarks>
+    public IReadOnlyList<byte[]> ReadTexels(int image, IReadOnlyList<TextureRect> rects) {
+        ArgumentNullException.ThrowIfNull(rects);
+        ObjectDisposedException.ThrowIf(disposed, this);
+
+        if (device.IsFrameOpen) {
+            throw new InvalidOperationException(
+                "A bake cannot be read back inside a frame: this method opens and closes one of its own."
+            );
+        }
+
+        var texture = Readable(image);
+        var texel = TextureFormats.BytesPerTexel(Plan.Images[image].Format);
+        var offsets = new long[rects.Count];
+        var total = 0L;
+
+        for (var index = 0; index < rects.Count; index++) {
+            offsets[index] = total;
+            total += AlignUp((long)rects[index].Width * rects[index].Height * texel);
+        }
+
+        if (total == 0) {
+            return [.. rects.Select(static _ => Array.Empty<byte>())];
+        }
+
+        var readback = device.CreateBuffer(
+            new(total, BufferUsage.CopyDestination, MemoryAccess.HostReadback, "texture graph region readback")
+        );
+
+        device.BeginFrame();
+
+        using (var commands = device.BeginCommandList(Queue.Kind, "texture graph region readback")) {
+            commands.Barrier(
+                new BarrierGroup([], [new TextureBarrier(texture, ResourceState.ShaderRead, ResourceState.CopySource)])
+            );
+
+            for (var index = 0; index < rects.Count; index++) {
+                var rect = rects[index];
+
+                commands.CopyTextureToBuffer(
+                    new TextureRegion(texture, Origin: new(rect.X, rect.Y, 0)),
+                    new(rect.Width, rect.Height, 1),
+                    readback,
+                    offsets[index]
+                );
+            }
+
+            commands.Barrier(
+                new BarrierGroup([], [new TextureBarrier(texture, ResourceState.CopySource, ResourceState.ShaderRead)])
+            );
+
+            commands.Finish();
+            Queue.Submit([commands]);
+        }
+
+        device.EndFrame();
+        device.WaitIdle();
+
+        var raw = new byte[rects.Count][];
+
+        for (var index = 0; index < raw.Length; index++) {
+            raw[index] = new byte[rects[index].Width * rects[index].Height * texel];
+            device.Read(readback, offsets[index], raw[index]);
+        }
+
+        device.Destroy(readback);
+
+        return raw;
+    }
 
     /// <summary>Reads images back exactly as they are on the device, in one submission.</summary>
     /// <param name="images">Their indices in <see cref="TexturePlan.Images" />. May repeat.</param>
@@ -450,7 +530,7 @@ public sealed class TextureBake : IDisposable {
 ///         <see cref="Compilations" /> cannot: it counts what was built and never what is held.
 ///     </para>
 ///     <para>
-///         <b>Two ways in, one way through.</b> <see cref="EvaluateIncremental" /> keeps results in
+///         <b>Two ways in, one way through.</b> <see cref="EvaluateIncremental(TexturePlan, IReadOnlyDictionary{int, TextureExternal})" /> keeps results in
 ///         <see cref="Results" /> and runs what has no result; the <c>Evaluate</c> overloads run
 ///         everything and keep nothing past the bake. Both end in the one recording loop, because a
 ///         second one is how a preview and a bake come to disagree. A bake that ends in a file stays
@@ -1171,7 +1251,8 @@ public sealed partial class TexturePlanEvaluator : IDisposable {
         TextureBake bake,
         TextureViewHandle[] slotViews,
         Dictionary<int, TextureViewHandle> externals,
-        IReadOnlyDictionary<int, TextureExternal> supplied
+        IReadOnlyDictionary<int, TextureExternal> supplied,
+        IReadOnlyDictionary<int, Repair>? repairs = null
     ) {
         var state = new ResourceState[schedule.Allocations];
         List<BufferHandle> constants = [];
@@ -1179,6 +1260,13 @@ public sealed partial class TexturePlanEvaluator : IDisposable {
         List<DescriptorSetHandle> sets = [];
 
         Array.Fill(state, ResourceState.Undefined);
+
+        // ⚠ What a repair keeps is the old picture, and a barrier from Undefined may discard it.
+        if (repairs is not null) {
+            foreach (var image in repairs.Keys) {
+                state[schedule.SlotOf[image]] = ResourceState.ShaderRead;
+            }
+        }
 
         device.BeginFrame();
 
@@ -1229,6 +1317,22 @@ public sealed partial class TexturePlanEvaluator : IDisposable {
 
                 commands.BindPipeline(variant.Pipeline);
                 commands.BindDescriptorSet(DescriptorSetSlot.PerMaterial, sets[^1]);
+
+                if (repairs is not null && repairs.TryGetValue(image, out var repair)) {
+                    foreach (var rect in repair.Rects) {
+                        commands.DispatchBase(
+                            rect.X / GroupSize,
+                            rect.Y / GroupSize,
+                            Groups(rect.Width),
+                            Groups(rect.Height)
+                        );
+
+                        Dispatches++;
+                        bake.Dispatches++;
+                    }
+
+                    continue;
+                }
 
                 var size = plan.SizeOf(image);
 
@@ -1771,7 +1875,9 @@ public sealed partial class TexturePlanEvaluator : IDisposable {
             Data = data,
             Effect = effect,
             Module = module,
-            Pipeline = device.CreateComputePipeline(new(module, effect.Layout, name)),
+            Pipeline = device.CreateComputePipeline(
+                new(module, effect.Layout, name, device.SupportsDispatchBase)
+            ),
             SetLayout = effect.SetLayouts[(int)DescriptorSetSlot.PerMaterial]
         };
 

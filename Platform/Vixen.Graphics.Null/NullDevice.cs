@@ -418,6 +418,9 @@ public sealed class NullDevice : IGraphicsDevice {
     public IGraphicsAdapter Adapter { get; }
 
     /// <inheritdoc />
+    public bool SupportsDispatchBase => true;
+
+    /// <inheritdoc />
     public GraphicsDeviceFeatures Features { get; }
 
     /// <inheritdoc />
