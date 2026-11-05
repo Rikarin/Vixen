@@ -112,6 +112,38 @@ public class TextureIncrementalPropertyTests(ITestOutputHelper output) {
         Assert.True(totals.Ran < totals.Ops * 3 / 4, $"{totals.Ran} of {totals.Ops} ops ran, so nothing was reused.");
     }
 
+    /// <summary>The property again, over graphs that are mostly compounds, with their knobs moving.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Fewer of them, because one compound is a dozen ops</b>, and the guards are its own: an
+    ///     edit that reaches inside a compound has to have been answered without a compile, or this
+    ///     says nothing about a refresh.
+    /// </remarks>
+    [Fact]
+    public void Any_edit_to_a_compound_evaluated_incrementally_is_byte_identical_to_a_clean_evaluation() {
+        using var device = TextureKernelHarness.Open();
+        using var evaluator = new TexturePlanEvaluator(device);
+        using var clean = new TexturePlanEvaluator(device);
+
+        var registry = Registry();
+        var library = TextureCompoundLibrary.Publish(registry, null, out _);
+        var totals = new Totals();
+
+        Gen.Int.Sample(
+            seed => new Session(registry, device, evaluator, clean, seed, library).Run(totals),
+            iter: Iterations() / 4,
+            threads: 1
+        );
+
+        output.WriteLine(
+            $"{TextureKernelHarness.Adapter(device)}: {totals.Compared} comparisons over {totals.Bytes} bytes; {totals.Refreshed} refreshed "
+            + $"({totals.RefreshedCompounds} with a compound, {totals.Knobs} knobs moved), {totals.Compiled} compiled, {totals.Refused} refused"
+        );
+
+        Assert.True(totals.Compared > 100, $"Only {totals.Compared} images were compared.");
+        Assert.True(totals.RefreshedCompounds > 20, $"Only {totals.RefreshedCompounds} edits on compounds were answered without a compile.");
+        Assert.True(totals.Knobs > 3, $"Only {totals.Knobs} knobs moved.");
+    }
+
     /// <summary>Each ingredient the property reaches, which it has to notice going missing.</summary>
     public static TheoryData<int> Ingredients() =>
         new(
@@ -171,6 +203,8 @@ public class TextureIncrementalPropertyTests(ITestOutputHelper output) {
         public int Refreshed;
         public int Compiled;
         public int Refused;
+        public int RefreshedCompounds;
+        public int Knobs;
         public int Ran;
         public int Ops;
     }
@@ -181,16 +215,24 @@ public class TextureIncrementalPropertyTests(ITestOutputHelper output) {
         VulkanDevice device,
         TexturePlanEvaluator evaluator,
         TexturePlanEvaluator clean,
-        int seed
+        int seed,
+        ISubGraphSource? library = null
     ) {
         readonly Random random = new(seed);
+
+        // Mostly compounds when there is a library, and the rest of the pool is what feeds them.
         readonly string[] pool = Pool(registry);
+        readonly string[] compounds = library is null
+            ? []
+            : [.. TextureCompoundLibrary.Shipped.Intersect(Pool(registry), StringComparer.Ordinal)];
         readonly NodeGraphModel graph = new();
         readonly List<GraphNode> nodes = [];
+        int knobsMoved;
         readonly TextureGraphCompiler compiler = new(registry) {
             BaseWidth = Side,
             BaseHeight = Side,
-            PreviewEveryNode = true
+            PreviewEveryNode = true,
+            SubGraphSource = library
         };
 
         public void Run(Totals totals) {
@@ -217,19 +259,27 @@ public class TextureIncrementalPropertyTests(ITestOutputHelper output) {
         ///     is every later step of the session. This suite's own guard is what found that: 681
         ///     refused steps against 39 evaluated, all of them green.
         /// </remarks>
-        bool Holds() => !Oracle().Compile(graph).HasErrors;
+        bool Holds() {
+            var oracle = Oracle();
+
+            // ⚠ And a compound holding a mesh map names an asset this suite has no way to supply.
+            return !oracle.Compile(graph).HasErrors && oracle.Externals.All(static external => external.Asset.Length == 0);
+        }
 
         TextureGraphCompiler Oracle() =>
             new(registry) {
                 BaseWidth = Side,
                 BaseHeight = Side,
                 BakeLevelOffset = compiler.BakeLevelOffset,
-                PreviewEveryNode = true
+                PreviewEveryNode = true,
+                SubGraphSource = library
             };
 
         void AddNode() {
             for (var attempt = 0; attempt < 8; attempt++) {
-                var type = pool[random.Next(pool.Length)];
+                var type = compounds.Length > 0 && random.Next(3) > 0
+                    ? compounds[random.Next(compounds.Length)]
+                    : pool[random.Next(pool.Length)];
                 var node = graph.Add(type);
 
                 if (type == "Filters/Pixel Processor") {
@@ -352,7 +402,38 @@ public class TextureIncrementalPropertyTests(ITestOutputHelper output) {
             }
         }
 
+        /// <summary>Moves an exposed parameter on a compound, inside its range.</summary>
+        bool Knob(GraphNode node) {
+            var knobs = registry.Get(node.Type).Settings
+                .Where(setting => setting.Kind is SettingKind.Float or SettingKind.Int)
+                .ToArray();
+
+            if (knobs.Length == 0 || random.Next(2) == 0) {
+                return false;
+            }
+
+            var knob = knobs[random.Next(knobs.Length)];
+            var low = float.IsFinite(knob.Minimum) ? knob.Minimum : 0f;
+            var high = float.IsFinite(knob.Maximum) ? knob.Maximum : 1f;
+            var before = node.TextOf(knob.Name);
+            var value = low + ((high - low) * (float)random.NextDouble());
+
+            node.SetText(knob.Name, value.ToString("R", CultureInfo.InvariantCulture));
+
+            if (Holds()) {
+                knobsMoved++;
+            } else {
+                node.SetText(knob.Name, before);
+            }
+
+            return true;
+        }
+
         void Number(GraphNode node) {
+            if (Knob(node)) {
+                return;
+            }
+
             var numbers = registry.Get(node.Type).Ports
                 .Where(port => port is { Direction: PortDirection.Input, Kind: PortKind.Float or PortKind.Int or PortKind.Bool })
                 .ToArray();
@@ -381,6 +462,9 @@ public class TextureIncrementalPropertyTests(ITestOutputHelper output) {
         }
 
         void Evaluate(Totals totals) {
+            totals.Knobs += knobsMoved;
+            knobsMoved = 0;
+
             var oracle = Oracle();
             var fresh = oracle.Compile(graph);
 
@@ -397,6 +481,10 @@ public class TextureIncrementalPropertyTests(ITestOutputHelper output) {
                 totals.Compiled++;
             } else {
                 totals.Refreshed++;
+
+                if (!compiler.Inlining.IsEmpty) {
+                    totals.RefreshedCompounds++;
+                }
             }
 
             Assert.Equal(expected.Images, plan.Images);

@@ -771,12 +771,23 @@ thousand random edits.
 
 `TexturePlan.WithValues` is the same thing one level down, for a front end holding op indices.
 
-⚠ **Null is always a correct answer, and it is the answer to anything that is not a number on a port**: a
-wire, a node, a setting's text (a blend mode, an expression), a base resolution, an exposed parameter.
-⚠ **And any graph that inlined a sub-graph**, which is the expensive refusal and the first thing the next
-slice owes: a compound's contents are an object this cannot watch, so a compile is what reads them.
-Such a graph compiles on every edit and still evaluates incrementally, because a key does not care how
-the plan was built. The seed is the one setting `Refresh` answers, because no node can read it.
+⚠ **Null is always a correct answer, and it is the answer to anything that is not a number**: a wire, a
+node, a setting's text (a blend mode, an expression), a base resolution, a compound's contents changing
+shape. The seed is the one setting `Refresh` answers, because no node can read it.
+
+**A compound is inlined again, and that is all it costs.** A number on a sub-graph node reaches the nodes
+inside it through `SubGraphs.Flatten`, so `Refresh` runs the flattener, compares the result with the graph
+the compile walked, and asks the nodes whose numbers moved. One graph flattens to the same identities
+twice, which is what the emission log is keyed on, and a number edited inside a compound is read the same
+way. An expression on a sub-graph node is one Raven compilation per flatten, so its answer is remembered by
+everything it is a function of, and a slider beside it compiles none.
+
+**An exposed parameter is a number too**, as a knob's text on a sub-graph node or an entry in `Arguments`.
+A knob reaches a node by an expression or a `$` reference and in no other way, so moving one folds that
+scope's expressions and asks the nodes holding either, in that expansion and in any nested inside it. A
+name knob goes the same way: a blend mode is a uniform and comes back as a patch, and a name that changes
+a kernel diverges. ⚠ **Anything said during a refresh is a compile.** A refused override is a diagnostic,
+and only a compilation has anywhere to put one.
 
 ⚠ **A compiler with no past cannot refresh**, so `TextureGraphPreviews` needs the same object per rebuild
 and `TexturingModule` now holds one per canvas library. That module's lambda built a new compiler
@@ -793,7 +804,8 @@ edit, and a layer stack's plan comes from `LayerStackGraph`, which rebuilds its 
 ### What proves it
 
 - **`TextureIncrementalPropertyTests`**: random graphs over the whole library less what needs a host, random
-  edits (numbers, wires, seed, resolution, expressions, nodes), under three budgets. Each step compares
+  edits (numbers, wires, seed, resolution, expressions, nodes), under three budgets, and again with most
+  nodes compounds and their knobs moving. Each step compares
   raw texels — not `Read`, which rounds to eight bits — with a clean `Evaluate` from a fresh compiler on
   an evaluator whose cache has never been touched, on the same device. 4 519 images and 84 MB on the
   run this was written against. ⚠ **Its own guard found its first version testing nothing**: 681 of 720
@@ -808,7 +820,8 @@ edit, and a layer stack's plan comes from `LayerStackGraph`, which rebuilds its 
   and not `a` or `d`" is an equality. Closed forms hold after an edit. The layers are asked about a run
   over cached inputs, because `ShaderRead` on arrival and a recycled texture from `Undefined` are claims
   no picture on a unified adapter can check.
-- **`TextureGraphRefreshTests`**: no device, so it reaches every node: the plan `Refresh` patches together is
+- **`TextureGraphRefreshTests`**: no device, so it reaches every node and every shipped compound, knobs
+  included: the plan `Refresh` patches together is
   compared op by op with a fresh compile of the same graph.
 
 ### What one slider costs

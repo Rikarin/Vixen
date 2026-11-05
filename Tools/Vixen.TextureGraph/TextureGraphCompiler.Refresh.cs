@@ -16,6 +16,12 @@ public sealed partial class TextureGraphCompiler {
     /// <summary>The last compilation, when a value edit can still be answered from it.</summary>
     Compiled? compiled;
 
+    /// <summary>Whether a refresh is in progress, so that a diagnostic has nowhere to go.</summary>
+    bool refreshing;
+
+    /// <summary>Whether the refresh in progress had something to say, which only a compile can.</summary>
+    bool spoke;
+
     /// <summary>How many graph changes <see cref="Refresh" /> has answered without a compile.</summary>
     public int Refreshes { get; private set; }
 
@@ -50,12 +56,34 @@ public sealed partial class TextureGraphCompiler {
     ///     </para>
     ///     <para>
     ///         ⚠ <b>Null is always a correct answer, and it is deliberately the answer to anything
-    ///         that is not a number on a port</b>: a wire, a node added or removed, a setting's text
-    ///         (a blend mode is a setting, an expression is a text), a base resolution, an exposed
-    ///         parameter — and <b>any graph that inlined a sub-graph</b>. That last one is the
-    ///         expensive refusal: a compound's contents are an object this cannot watch, so a compile
-    ///         is what reads them. The graph's seed is the one setting this does answer, because
-    ///         nothing a node emits can depend on it: it is read in <c>SeedFor</c>, at evaluation.
+    ///         that is not a number</b>: a wire, a node added or removed, a setting's text (a blend
+    ///         mode is a setting, an expression is a text), a base resolution, a compound's contents
+    ///         changing shape. The graph's seed is the one setting this does answer, because nothing
+    ///         a node emits can depend on it: it is read in <c>SeedFor</c>, at evaluation.
+    ///     </para>
+    ///     <para>
+    ///         <b>A compound is inlined again, and that is the whole of what it costs.</b> A number
+    ///         on a sub-graph node reaches the nodes inside it through
+    ///         <see cref="SubGraphs.Flatten(NodeGraphModel,ISubGraphSource,out IReadOnlyList{NodeDiagnostic})" />,
+    ///         and a table of which inner port a number lands on would be a second statement of that
+    ///         walk. So the flattener runs, its answer is compared with the graph the compile walked,
+    ///         and the nodes whose numbers moved are asked again. A compound's contents are read the
+    ///         same way, so an edit inside one is answered like any other. Its ops are not touched:
+    ///         flattening one graph twice numbers its nodes alike, which is what a replay's log is
+    ///         keyed on, and comparing the two is what says so.
+    ///     </para>
+    ///     <para>
+    ///         <b>An exposed parameter is a number too</b>, whether it is a text on a sub-graph node
+    ///         or an entry in <see cref="Arguments" />. A knob reaches a node by an expression or by a
+    ///         <c>$</c> reference and in no other way, so moving one folds that scope's expressions
+    ///         again and asks the nodes holding either. A name knob is answered the same way: a
+    ///         name that makes a node emit something else diverges like any other number.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Anything said during a refresh is a compile.</b> A refused override or an
+    ///         expression that no longer folds is a diagnostic, and only a compilation has anywhere
+    ///         to put one. This is also why a graph that compiled with a warning from an expression
+    ///         compiles whenever that expression is folded again.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>Compilation state is what makes this short, so it has to be this compiler's own
@@ -71,20 +99,88 @@ public sealed partial class TextureGraphCompiler {
             return null;
         }
 
-        if (SubGraphSource is { } source && SubGraphs.ContainsSubGraph(graph, source)) {
+        var seed = TextureGraphSettings.SeedOf(graph, Seed, out var seedProblem);
+
+        if (seedProblem is not null) {
             return null;
         }
 
-        var seed = TextureGraphSettings.SeedOf(graph, Seed, out var seedProblem);
+        var values = ParameterValues;
+        var inlining = Inlining;
+        var walked = this.graph;
+        Dictionary<(NodeId Node, string Port), float> numbers = new(folded);
 
-        if (seedProblem is not null || !last.Differences(graph, out var changed)) {
+        refreshing = true;
+        spoke = false;
+
+        try {
+            if (Reissue(last, graph, seed) is { } plan) {
+                Refreshes++;
+
+                return plan;
+            }
+        } finally {
+            refreshing = false;
+        }
+
+        // ⚠ Put back rather than forgotten, because null says only "not this graph": the same
+        // compilation still answers the moment the number that diverged is put back.
+        ParameterValues = values;
+        Inlining = inlining;
+        this.graph = walked;
+        folded.Clear();
+
+        foreach (var (port, number) in numbers) {
+            folded[port] = number;
+        }
+
+        return null;
+    }
+
+    /// <summary>What <see cref="Refresh" /> does, with nothing yet decided about keeping it.</summary>
+    TexturePlan? Reissue(Compiled last, NodeGraphModel author, uint seed) {
+        var everyScope = !last.SameArguments(Arguments);
+
+        if (everyScope && !Reread(last)) {
             return null;
+        }
+
+        var walked = author;
+        var inlining = NodeGraphInlining.Empty;
+
+        if (SubGraphSource is { } source && SubGraphs.ContainsSubGraph(author, source)) {
+            walked = SubGraphs.Flatten(author, source, SubGraphValues, out var refused, out inlining);
+
+            if (refused.Count > 0 || spoke) {
+                return null;
+            }
+        }
+
+        if (!last.Differences(walked, out var changed) || !Retuned(last.Inlining, inlining, everyScope, out var retuned)) {
+            return null;
+        }
+
+        Inlining = inlining;
+        graph = walked;
+
+        if (retuned.Count > 0) {
+            foreach (var (expansion, scope, expressions) in Collect(walked)) {
+                if (retuned.Contains(expansion)) {
+                    Fold(expansion, scope, expressions);
+                }
+            }
+
+            if (spoke) {
+                return null;
+            }
+
+            changed.AddRange(walked.Nodes.Where(node => !changed.Contains(node) && Reads(node, retuned)));
         }
 
         Dictionary<int, TextureOp> patched = [];
 
         foreach (var node in changed) {
-            // The live model: with nothing inlined, the graph the walk was over is this one.
+            // The graph the walk was over, which is this one with nothing inlined.
             if (!Registry.TryGet(node.Type, out var definition) || !Replay(node, definition, patched)) {
                 return null;
             }
@@ -102,10 +198,125 @@ public sealed partial class TextureGraphCompiler {
             plan = plan.Reissued(next.ToImmutable(), seed);
         }
 
-        compiled = last with { Plan = plan, Nodes = NodeSnapshot.Of(graph) };
-        Refreshes++;
+        compiled = last with {
+            Plan = plan,
+            Nodes = NodeSnapshot.Of(walked),
+            Inlining = inlining,
+            Arguments = Copied(Arguments)
+        };
 
         return plan;
+    }
+
+    /// <summary>Takes new arguments, which have to be numbers for knobs this graph declares.</summary>
+    bool Reread(Compiled last) {
+        foreach (var key in Moved(last.Arguments, Arguments)) {
+            if (!declared.Exists(parameter => string.Equals(parameter.Name, key, StringComparison.Ordinal))) {
+                return false;
+            }
+        }
+
+        ParameterValues = TextureGraphParameters.Read(declared, Arguments, out var refused);
+
+        return refused.IsEmpty;
+    }
+
+    /// <summary>Which scopes had a knob move, when nothing else about the inlining did.</summary>
+    /// <param name="before">The inlining the compile walked.</param>
+    /// <param name="after">The inlining now.</param>
+    /// <param name="everyScope">Whether the author's own knobs moved, which every scope can read.</param>
+    /// <param name="retuned">The expansions, with <c>0</c> for the author's own graph.</param>
+    /// <returns>False when the two are not one inlining.</returns>
+    /// <remarks>
+    ///     ⚠ <b>A nested expansion moves with the one around it</b>, because a <c>$</c> reference is
+    ///     followed outwards and what an inner setting names can be a knob of the outer scope.
+    /// </remarks>
+    bool Retuned(NodeGraphInlining before, NodeGraphInlining after, bool everyScope, out HashSet<int> retuned) {
+        HashSet<int> moved = [];
+
+        retuned = moved;
+
+        if (before.Expansions.Count != after.Expansions.Count
+            || before.Origins.Count != after.Origins.Count
+            || before.Origins.Any(origin => !after.TryGet(origin.Key, out var other) || origin.Value != other)) {
+            return false;
+        }
+
+        foreach (var (number, was) in before.Expansions) {
+            if (!after.Expansions.TryGetValue(number, out var now)
+                || !string.Equals(was.Type, now.Type, StringComparison.Ordinal)
+                || was.Source != now.Source
+                || !was.Path.SequenceEqual(now.Path)) {
+                return false;
+            }
+
+            var keys = Moved(was.Settings, now.Settings).ToArray();
+
+            if (keys.Length == 0) {
+                continue;
+            }
+
+            var parameters = (SubGraphSource as ITextureGraphLibrary)?.ParametersOf(now.Type) ?? [];
+
+            if (keys.Any(key => !parameters.Any(parameter => string.Equals(parameter.Name, key, StringComparison.Ordinal)))) {
+                return false;
+            }
+
+            moved.Add(number);
+        }
+
+        if (everyScope) {
+            moved.Add(0);
+            moved.UnionWith(after.Expansions.Keys);
+
+            return true;
+        }
+
+        var outer = after.Expansions
+            .Where(expansion => moved.Contains(expansion.Key))
+            .Select(expansion => expansion.Value.Path)
+            .ToArray();
+
+        foreach (var (number, expansion) in after.Expansions) {
+            if (outer.Any(path => expansion.Path.Length > path.Length && expansion.Path.Take(path.Length).SequenceEqual(path))) {
+                moved.Add(number);
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>Whether a node reads a knob of a scope that moved: by expression, or by reference.</summary>
+    bool Reads(GraphNode node, HashSet<int> retuned) =>
+        retuned.Contains(Inlining.TryGet(node.Id, out var origin) ? origin.Expansion : 0)
+        && node.Texts.Any(
+            text => TextureGraphExpressions.IsExpression(text.Key, out _)
+                || TextureGraphParameters.IsReference(text.Value, out _)
+        );
+
+    /// <summary>The keys two tables disagree on.</summary>
+    static IEnumerable<string> Moved(
+        IReadOnlyDictionary<string, string>? from,
+        IReadOnlyDictionary<string, string>? to
+    ) {
+        from ??= ImmutableDictionary<string, string>.Empty;
+        to ??= ImmutableDictionary<string, string>.Empty;
+
+        return from.Keys.Union(to.Keys, StringComparer.Ordinal).Where(
+            key => !string.Equals(from.GetValueOrDefault(key), to.GetValueOrDefault(key), StringComparison.Ordinal)
+        );
+    }
+
+    static Dictionary<string, string>? Copied(IReadOnlyDictionary<string, string>? table) =>
+        table is null ? null : new Dictionary<string, string>(table, StringComparer.Ordinal);
+
+    /// <summary>Says something about a node, which during a refresh makes it a compile, where it can be said.</summary>
+    internal void Say(NodeDiagnostic diagnostic) {
+        if (refreshing) {
+            spoke = true;
+        } else {
+            Report(diagnostic);
+        }
     }
 
     /// <summary>Asks one node again, against the record of what it did.</summary>
@@ -126,15 +337,16 @@ public sealed partial class TextureGraphCompiler {
         }
     }
 
-    /// <summary>Records a finished compilation, if a value edit could be answered from it.</summary>
-    void Remember(TexturePlan plan) {
-        if (compiling is { } author && Inlining.IsEmpty) {
-            compiled = Compiled.Of(this, author, plan);
+    /// <summary>Records a finished compilation, so that a value edit can be answered from it.</summary>
+    void Remember(TexturePlan plan, NodeGraphModel walked) {
+        if (compiling is { } author) {
+            compiled = Compiled.Of(this, author, walked, plan);
         }
     }
 
     void Forget() {
         compiled = null;
+        resolutions.Clear();
         Emission.Clear();
     }
 
@@ -187,21 +399,33 @@ public sealed partial class TextureGraphCompiler {
         ImmutableArray<SettingDefinition> GraphParameters,
         ImmutableArray<TextureGraphParameter> HostParameters,
         (int Width, int Height, int Bake, bool Previews) Host,
-        Dictionary<string, string>? Arguments
+        Dictionary<string, string>? Arguments,
+        ISubGraphSource? Source,
+        NodeGraphInlining Inlining
     ) {
-        public static Compiled Of(TextureGraphCompiler compiler, NodeGraphModel graph, TexturePlan plan) =>
+        /// <summary>Records a compilation.</summary>
+        /// <param name="compiler">Who compiled it.</param>
+        /// <param name="author">The graph the caller holds.</param>
+        /// <param name="walked">The graph the walk was over, which is <paramref name="author" /> unless it inlined.</param>
+        /// <param name="plan">What came out.</param>
+        public static Compiled Of(
+            TextureGraphCompiler compiler,
+            NodeGraphModel author,
+            NodeGraphModel walked,
+            TexturePlan plan
+        ) =>
             new(
-                graph,
+                author,
                 plan,
-                NodeSnapshot.Of(graph),
-                [.. graph.Edges],
-                new(graph.Settings, StringComparer.Ordinal),
-                [.. graph.Parameters],
+                NodeSnapshot.Of(walked),
+                [.. walked.Edges],
+                new(author.Settings, StringComparer.Ordinal),
+                [.. author.Parameters],
                 [.. compiler.Parameters],
                 (compiler.BaseWidth, compiler.BaseHeight, compiler.BakeLevelOffset, compiler.PreviewEveryNode),
-                compiler.Arguments is null
-                    ? null
-                    : new Dictionary<string, string>(compiler.Arguments, StringComparer.Ordinal)
+                Copied(compiler.Arguments),
+                compiler.SubGraphSource,
+                compiler.Inlining
             );
 
         /// <summary>Whether this is that compiler's own compilation of this graph, as it was configured.</summary>
@@ -209,9 +433,11 @@ public sealed partial class TextureGraphCompiler {
             ReferenceEquals(graph, Graph)
             && Host == (compiler.BaseWidth, compiler.BaseHeight, compiler.BakeLevelOffset, compiler.PreviewEveryNode)
             && compiler.Parameters.SequenceEqual(HostParameters)
-            && SameArguments(compiler.Arguments);
+            && ReferenceEquals(compiler.SubGraphSource, Source);
 
         /// <summary>The nodes whose numbers moved.</summary>
+        /// <param name="graph">The graph a walk would be over now.</param>
+        /// <param name="changed">Those nodes.</param>
         /// <returns>False when anything other than a number moved.</returns>
         public bool Differences(NodeGraphModel graph, out List<GraphNode> changed) {
             changed = [];
@@ -236,15 +462,10 @@ public sealed partial class TextureGraphCompiler {
             return true;
         }
 
-        bool SameArguments(IReadOnlyDictionary<string, string>? arguments) =>
+        public bool SameArguments(IReadOnlyDictionary<string, string>? arguments) =>
             arguments is null
                 ? Arguments is null
-                : Arguments is not null
-                  && Arguments.Count == arguments.Count
-                  && Arguments.All(
-                      argument => arguments.TryGetValue(argument.Key, out var other)
-                          && string.Equals(argument.Value, other, StringComparison.Ordinal)
-                  );
+                : Arguments is not null && !Moved(Arguments, arguments).Any();
 
         /// <summary>Every setting but the seed, which <see cref="Refresh" /> answers itself.</summary>
         bool SameSettings(NodeGraphModel graph) {

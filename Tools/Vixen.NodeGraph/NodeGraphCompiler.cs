@@ -78,7 +78,7 @@ public abstract class NodeGraphCompiler<TArtefact> where TArtefact : class {
     ///         one over a graph with no sub-graphs in it.
     ///     </para>
     /// </remarks>
-    public NodeGraphInlining Inlining { get; private set; } = NodeGraphInlining.Empty;
+    public NodeGraphInlining Inlining { get; protected set; } = NodeGraphInlining.Empty;
 
     /// <summary>Who decides what an unfed sub-graph input is worth, when it is not a literal.</summary>
     /// <remarks>

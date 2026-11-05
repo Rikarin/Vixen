@@ -329,8 +329,8 @@ using var bake = evaluator.EvaluateIncremental(plan, uploads.Externals);
 // bake.Ran lists the ops that ran; bake.KeyOf(image) is unchanged when the picture is.
 ```
 
-`TextureGraphCompiler.Refresh` answers an edit that only moved numbers on ports without a compile; null
-means compile, and is always correct. `TexturePlan.WithValues` does the same for a caller holding op
+`TextureGraphCompiler.Refresh` answers an edit that only moved numbers without a compile, whether on a
+port, inside a compound or on an exposed parameter; null means compile, and is always correct. `TexturePlan.WithValues` does the same for a caller holding op
 indices, taking one `TextureValue` per number.
 
 > ⚠ A picture is known by a digest of its bytes, which `TextureUploads` takes for you. A
