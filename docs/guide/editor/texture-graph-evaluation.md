@@ -4,7 +4,7 @@ slug: editor/texture-graph-evaluation
 kind: guide
 area: Editor
 summary: The plan of compute kernels a texture graph and a layer stack both compile to, the image pool that runs it, and the resolution rule that keeps a graph the same material at every size.
-api: [T:Vixen.TextureGraph.TexturePlan, T:Vixen.TextureGraph.TextureOp, T:Vixen.TextureGraph.TextureImage, T:Vixen.TextureGraph.TextureParameter, T:Vixen.TextureGraph.TextureParameterUnit, T:Vixen.TextureGraph.TextureFormat, T:Vixen.TextureGraph.TextureFormats, T:Vixen.TextureGraph.TexturePoolSlot, T:Vixen.TextureGraph.TexturePoolSchedule, T:Vixen.TextureGraph.TextureKernels, T:Vixen.TextureGraph.TextureKernelPrelude, T:Vixen.TextureGraph.TexturePlanEvaluator, T:Vixen.TextureGraph.TextureBake, T:Vixen.TextureGraph.TextureProblem, T:Vixen.TextureGraph.TextureProblemSeverity, T:Vixen.TextureGraph.ITextureCpuOperation, T:Vixen.TextureGraph.TextureCpuImage, T:Vixen.TextureGraph.TextureCpuInvocation, T:Vixen.TextureGraph.TextureUploads, T:Vixen.TextureGraph.TextureExternal]
+api: [T:Vixen.TextureGraph.TextureResultCache, T:Vixen.TextureGraph.TextureResultKey, T:Vixen.TextureGraph.TextureValue, T:Vixen.TextureGraph.TexturePlan, T:Vixen.TextureGraph.TextureOp, T:Vixen.TextureGraph.TextureImage, T:Vixen.TextureGraph.TextureParameter, T:Vixen.TextureGraph.TextureParameterUnit, T:Vixen.TextureGraph.TextureFormat, T:Vixen.TextureGraph.TextureFormats, T:Vixen.TextureGraph.TexturePoolSlot, T:Vixen.TextureGraph.TexturePoolSchedule, T:Vixen.TextureGraph.TextureKernels, T:Vixen.TextureGraph.TextureKernelPrelude, T:Vixen.TextureGraph.TexturePlanEvaluator, T:Vixen.TextureGraph.TextureBake, T:Vixen.TextureGraph.TextureProblem, T:Vixen.TextureGraph.TextureProblemSeverity, T:Vixen.TextureGraph.ITextureCpuOperation, T:Vixen.TextureGraph.TextureCpuImage, T:Vixen.TextureGraph.TextureCpuInvocation, T:Vixen.TextureGraph.TextureUploads, T:Vixen.TextureGraph.TextureExternal]
 tags: [editor, texture-graph, material-authoring, compute, raven, baking]
 since: 0.1
 status: preview
@@ -310,6 +310,33 @@ missing, rather than run.
 node upstream does not change the numbers every node downstream draws. A kernel that declares a `seed`
 uniform is given it by the evaluator; `Levels` uses it for the ordered dither that keeps a lifted curve
 from banding in an 8-bit file.
+
+## Evaluating what changed
+
+`EvaluateIncremental` takes the same plan and runs only what has no result yet. Results live in
+`TexturePlanEvaluator.Results`, a `TextureResultCache` of textures on the device, least recently used
+against a byte `Budget`, keyed by a `TextureResultKey` of what each image is a function of: the kernel's
+source, its uniform block, its inputs' keys, its size and its format.
+
+```csharp no-compile="a fragment over a compiler, a graph and an evaluator a host already holds"
+var plan = compiler.Refresh(graph) ?? compiler.Compile(graph).Value;
+
+using var uploads = new TextureUploads(evaluator.Device);
+TextureGraphExternals.Upload(uploads, plan, compiler.Externals);
+
+using var bake = evaluator.EvaluateIncremental(plan, uploads.Externals);
+
+// bake.Ran lists the ops that ran; bake.KeyOf(image) is unchanged when the picture is.
+```
+
+`TextureGraphCompiler.Refresh` answers an edit that only moved numbers on ports without a compile; null
+means compile, and is always correct. `TexturePlan.WithValues` does the same for a caller holding op
+indices, taking one `TextureValue` per number.
+
+> ⚠ A picture is known by a digest of its bytes, which `TextureUploads` takes for you. A
+> `TextureExternal` declared by hand with no `Content` makes everything downstream of it run every time.
+> The textures of an incremental bake belong to the cache: read them through the bake, and only what
+> the plan names in its outputs is sure to be there.
 
 ## What a bake does not do yet
 
