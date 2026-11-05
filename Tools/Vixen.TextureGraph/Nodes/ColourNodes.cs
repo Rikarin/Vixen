@@ -526,9 +526,9 @@ sealed partial class AutoLevelsNode : TextureNode {
         var scratch = ImmutableArray.CreateBuilder<int>(levels.Length);
 
         foreach (var rung in levels) {
-            // Rgba16Float, because a rung carries a `(min, max)` pair rather than a colour and both
-            // lanes are reduced independently. R16Float would keep the minimum and lose the maximum.
-            scratch.Add(emitter.Scratch(TextureFormat.Rgba16Float, level + rung));
+            // Four lanes, because a rung carries a `(min, max)` pair rather than a colour and both
+            // are reduced independently. One lane would keep the minimum and lose the maximum.
+            scratch.Add(emitter.Scratch(emitter.FormatOf(TextureChannels.Colour), level + rung));
         }
 
         emitter.Dispatch(TextureAdjust.AutoLevels(target, source, scratch.ToImmutable(), size.X, size.Y));

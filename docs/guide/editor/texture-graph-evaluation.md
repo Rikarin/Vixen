@@ -90,8 +90,9 @@ caller's own `BeginFrame` and `EndFrame`. A bake is a modal operation somebody s
 
 ## Resolution is relative, and every length is in texels at the base
 
-The plan declares the resolution the graph was **authored** at. Every image is a power of two away from
-it — `LevelOffset` `1` is half, `-1` is double — and only an external image has a size of its own.
+The plan declares the resolution the graph was **authored** at, which may be any size. Every image is a
+power of two away from it — `LevelOffset` `1` is half, `-1` is double — and only an external image has a
+size of its own. A level is a floored halving, so 101×67 has a 50×33 below it.
 
 **Every radius, width and length is authored in texels at the base resolution** and scaled by the
 evaluator to the image the op writes. `TextureParameterUnit.TexelsAtBase` is what says so, and
@@ -210,19 +211,22 @@ written to once.
 
 ## Formats
 
-`R8` · `Rg8` · `Rgba8` · `R16Float` · `Rgba16Float`. 32-bit float is deliberately absent.
+`R8` · `Rg8` · `Rgba8` · `R16Float` · `Rgba16Float` · `R32Float` · `Rgba32Float`. A graph computes in
+half-floats unless it declares a bit depth of 32:
+
+```csharp no-compile="a fragment of a host configuring a graph it holds"
+graph.Settings[TextureGraphSettings.BitDepth] = "32";   // every image a node writes, and its scratch
+```
 
 > ⚠ **`R8` and `Rg8` can be read and cannot be written.** Raven declares no `r8` or `rg8` storage image
 > and Vulkan requires storage support for neither, so a kernel writing one fails at pipeline creation.
-> `TexturePlan.Validate` refuses it where the plan is built; compute in one of the three storable
+> `TexturePlan.Validate` refuses it where the plan is built; compute in one of the five storable
 > formats and narrow at the encode.
 
-> ⚠ **The 32-bit absence is a decision about material maps, not a capability.** Raven admits `r32f`,
-> `rg32f` and `rgba32f`, the RHI maps all three, and `HiZPyramid` already dispatches into an
-> `R32Float` storage image — so the argument is the memory, and it is larger than it looks: an
-> `Rgba16Float` intermediate at 4K is 128 MiB and `Rgba32Float` is 256 MiB. § 4.5's two
-> position-carrying records are the case for widening it to `rgba32f`
-> ([#690](https://github.com/Rikarin/Vixen/issues/690)); a colour never is.
+> ⚠ **32 bits are for a height or a position, and they cost twice the memory.** An `Rgba16Float`
+> intermediate at 4K is 128 MiB and `Rgba32Float` is 256 MiB, so sixteen is the default and a graph asks.
+> No kernel has a per-format source: one `[Format]` is rewritten, and every read is a `Load`, so a 32-bit
+> image not being filterable on a device costs nothing. A PNG is eight bits whatever the plan computed in.
 
 ## What a kernel is compiled against
 

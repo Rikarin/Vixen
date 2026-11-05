@@ -71,8 +71,22 @@ internal static class TexturePixels {
                     break;
                 }
 
+                case TextureFormat.R32Float: {
+                    Grey(pixels, destination, Byte(BitConverter.ToSingle(source)));
+
+                    break;
+                }
+
+                case TextureFormat.Rgba32Float: {
+                    for (var channel = 0; channel < 4; channel++) {
+                        pixels[destination + channel] = Byte(BitConverter.ToSingle(source[(channel * 4)..]));
+                    }
+
+                    break;
+                }
+
                 default:
-                    throw new ArgumentOutOfRangeException(nameof(format), format, "Not one of the five plan formats.");
+                    throw new ArgumentOutOfRangeException(nameof(format), format, "Not one of the seven plan formats.");
             }
         }
 

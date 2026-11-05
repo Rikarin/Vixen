@@ -159,9 +159,9 @@ sealed partial class FloodFillNode : TextureNode {
         var scratch = ImmutableArray.CreateBuilder<int>(iterations);
 
         for (var pass = 0; pass < iterations; pass++) {
-            // ⚠ Rgba16Float and not the node's own channels: a bounds record is a pair of texel
+            // ⚠ Four lanes and not the node's own channels: a bounds record is a pair of texel
             // coordinates, not a picture, and a grey scratch would hold one lane of one corner.
-            scratch.Add(emitter.Scratch(TextureFormat.Rgba16Float));
+            scratch.Add(emitter.Scratch(emitter.FormatOf(TextureChannels.Colour)));
         }
 
         try {

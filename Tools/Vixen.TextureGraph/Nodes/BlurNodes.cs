@@ -42,7 +42,7 @@ sealed partial class BlurHqNode : TextureNode {
         ArgumentNullException.ThrowIfNull(emitter);
 
         var source = emitter.Read("Input");
-        var scratch = emitter.Scratch(TextureEmitter.FormatOf(emitter.Resolved));
+        var scratch = emitter.Scratch(emitter.FormatOf(emitter.Resolved));
         var target = emitter.Write("Out");
 
         if (source < 0) {

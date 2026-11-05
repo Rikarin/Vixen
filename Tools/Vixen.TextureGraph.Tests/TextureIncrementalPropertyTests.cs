@@ -30,9 +30,9 @@ namespace Tests;
 ///         ⚠ <b>The edits are chosen so that each ingredient of a key can be the only thing that
 ///         moved</b>: a number with nothing else touched, a wire, the seed, the resolution, and a
 ///         Pixel Processor's expression, which changes a kernel and leaves its uniforms exactly as
-///         they were. <see cref="Dropping_an_ingredient_from_the_key_fails_the_property" /> is what
-///         says they do. Format and an external's digest cannot be reached from a graph alone and
-///         are sabotaged by hand in <c>TextureIncrementalDeviceTests</c>, which says why.
+///         they were, and the bit depth, which is a format. <see cref="Dropping_an_ingredient_from_the_key_fails_the_property" /> is what
+///         says they do. An external's digest cannot be reached from a graph alone and
+///         is sabotaged by hand in <c>TextureIncrementalDeviceTests</c>, which says why.
 ///     </para>
 /// </remarks>
 public class TextureIncrementalPropertyTests(ITestOutputHelper output) {
@@ -144,6 +144,34 @@ public class TextureIncrementalPropertyTests(ITestOutputHelper output) {
         Assert.True(totals.Knobs > 3, $"Only {totals.Knobs} knobs moved.");
     }
 
+    /// <summary>
+    ///     ⚠ The property at a size that is not a power of two: odd at every level, so a result kept at
+    ///     one floored size and asked for at another is a wrong picture and not a coincidence.
+    /// </summary>
+    [Fact]
+    public void Any_edit_at_an_odd_size_evaluated_incrementally_is_byte_identical_to_a_clean_evaluation() {
+        using var device = TextureKernelHarness.Open();
+        using var evaluator = new TexturePlanEvaluator(device);
+        using var clean = new TexturePlanEvaluator(device);
+
+        var registry = Registry();
+        var totals = new Totals();
+
+        Gen.Int.Sample(
+            seed => new Session(registry, device, evaluator, clean, seed, Width: 101, Height: 67).Run(totals),
+            iter: Iterations() / 4,
+            threads: 1
+        );
+
+        output.WriteLine(
+            $"{TextureKernelHarness.Adapter(device)}: {totals.Compared} comparisons over {totals.Bytes} bytes; {totals.Refreshed} refreshed, "
+            + $"{totals.Compiled} compiled, {totals.Refused} refused"
+        );
+
+        Assert.True(totals.Compared > 100, $"Only {totals.Compared} images were compared.");
+        Assert.True(totals.Refreshed > 5, $"Only {totals.Refreshed} edits were answered without a compile.");
+    }
+
     /// <summary>Each ingredient the property reaches, which it has to notice going missing.</summary>
     public static TheoryData<int> Ingredients() =>
         new(
@@ -151,7 +179,8 @@ public class TextureIncrementalPropertyTests(ITestOutputHelper output) {
             (int)TextureKeyParts.Parameters,
             (int)TextureKeyParts.Inputs,
             (int)TextureKeyParts.Resolution,
-            (int)TextureKeyParts.Seed
+            (int)TextureKeyParts.Seed,
+            (int)TextureKeyParts.Format
         );
 
     /// <summary>The sabotage, kept: the property above, with one ingredient out of the hash.</summary>
@@ -216,7 +245,9 @@ public class TextureIncrementalPropertyTests(ITestOutputHelper output) {
         TexturePlanEvaluator evaluator,
         TexturePlanEvaluator clean,
         int seed,
-        ISubGraphSource? library = null
+        ISubGraphSource? library = null,
+        int Width = Side,
+        int Height = Side
     ) {
         readonly Random random = new(seed);
 
@@ -229,14 +260,14 @@ public class TextureIncrementalPropertyTests(ITestOutputHelper output) {
         readonly List<GraphNode> nodes = [];
         int knobsMoved;
         readonly TextureGraphCompiler compiler = new(registry) {
-            BaseWidth = Side,
-            BaseHeight = Side,
+            BaseWidth = Width,
+            BaseHeight = Height,
             PreviewEveryNode = true,
             SubGraphSource = library
         };
 
         public void Run(Totals totals) {
-            TextureGraphSettings.Declare(graph, Side, Side, (uint)random.Next());
+            TextureGraphSettings.Declare(graph, Width, Height, (uint)random.Next());
 
             var count = random.Next(3, MaximumNodes);
 
@@ -268,8 +299,8 @@ public class TextureIncrementalPropertyTests(ITestOutputHelper output) {
 
         TextureGraphCompiler Oracle() =>
             new(registry) {
-                BaseWidth = Side,
-                BaseHeight = Side,
+                BaseWidth = Width,
+                BaseHeight = Height,
                 BakeLevelOffset = compiler.BakeLevelOffset,
                 PreviewEveryNode = true,
                 SubGraphSource = library
@@ -359,8 +390,14 @@ public class TextureIncrementalPropertyTests(ITestOutputHelper output) {
                     break;
                 }
 
-                case < 82:
-                    TextureGraphSettings.Declare(graph, Side, Side, (uint)random.Next());
+                case < 80:
+                    TextureGraphSettings.Declare(graph, Width, Height, (uint)random.Next());
+
+                    break;
+
+                case < 84:
+                    graph.Settings[TextureGraphSettings.BitDepth] =
+                        graph.SettingOf(TextureGraphSettings.BitDepth) == "32" ? "16" : "32";
 
                     break;
 

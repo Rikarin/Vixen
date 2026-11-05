@@ -936,7 +936,7 @@ public sealed class TexturePlan {
                     TextureProblem.Refusal(
                         $"Op {index} writes image {op.Output}, which is {target.Format}. Raven declares no storage "
                         + "image of that format and Vulkan requires none, so no kernel can write it — compute in "
-                        + "Rgba8, R16Float or Rgba16Float and narrow at the encode."
+                        + "Rgba8 or one of the float formats and narrow at the encode."
                     )
                 );
             }

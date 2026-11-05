@@ -206,7 +206,7 @@ sealed partial class BlurNode : TextureNode {
         ArgumentNullException.ThrowIfNull(emitter);
 
         var source = emitter.Read("Input");
-        var format = TextureEmitter.FormatOf(emitter.Resolved);
+        var format = emitter.FormatOf(emitter.Resolved);
         var scratch = emitter.Scratch(format);
         var target = emitter.Write("Out");
 
@@ -503,10 +503,10 @@ sealed partial class DistanceNode : TextureNode {
         var scratch = ImmutableArray.CreateBuilder<int>(passes);
 
         for (var pass = 0; pass < passes; pass++) {
-            // ⚠ Rgba16Float and not the node's own channels: a jump flood's record is a *signed
+            // ⚠ Four lanes and not the node's own channels: a jump flood's record is a *signed
             // offset in texels*, not a picture, and a grey scratch would hold one lane of a
             // coordinate pair.
-            scratch.Add(emitter.Scratch(TextureFormat.Rgba16Float));
+            scratch.Add(emitter.Scratch(emitter.FormatOf(TextureChannels.Colour)));
         }
 
         try {

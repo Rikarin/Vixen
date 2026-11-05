@@ -210,6 +210,9 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
     int authoredHeight;
     uint authoredSeed;
 
+    /// <summary>What this compilation's floats are, in bits.</summary>
+    int bitDepth = TextureGraphSettings.DefaultBitDepth;
+
     /// <summary>The graph being walked — the flattened one, not the author's. See the base class.</summary>
     NodeGraphModel? graph;
 
@@ -728,8 +731,9 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
         authoredWidth = TextureGraphSettings.Extent(graph, TextureGraphSettings.BaseWidth, BaseWidth, out var width);
         authoredHeight = TextureGraphSettings.Extent(graph, TextureGraphSettings.BaseHeight, BaseHeight, out var height);
         authoredSeed = TextureGraphSettings.SeedOf(graph, Seed, out var seed);
+        bitDepth = TextureGraphSettings.BitDepthOf(graph, out var depth);
 
-        foreach (var problem in new[] { width, height, seed }) {
+        foreach (var problem in new[] { width, height, seed, depth }) {
             if (problem is not null) {
                 // Against no node, because it is the graph's own declaration — the same choice
                 // `Bind` makes for a parameter list that does not hold together.
@@ -1457,7 +1461,7 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
 
     /// <summary>Allocates the image one output port carries.</summary>
     internal int Write(GraphNode node, string port, TextureChannels wanted, int levelOffset) {
-        var image = Allocate(TextureEmitter.FormatOf(wanted), wanted, levelOffset);
+        var image = Allocate(FormatOf(wanted), wanted, levelOffset);
 
         imageOf[Variable(node, port)] = image;
 
@@ -1505,11 +1509,10 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
 
     /// <summary>Allocates an image no port names.</summary>
     internal int Scratch(TextureFormat format, int levelOffset) =>
-        Allocate(
-            format,
-            format == TextureFormat.R16Float ? TextureChannels.Grey : TextureChannels.Colour,
-            levelOffset
-        );
+        Allocate(format, TextureFormats.ChannelsOf(format), levelOffset);
+
+    /// <summary>The storage one number of channels is kept in, in this compilation.</summary>
+    internal TextureFormat FormatOf(TextureChannels channels) => TextureFormats.Of(channels, bitDepth);
 
     /// <summary>Allocates an image the caller supplies, and records what fills it.</summary>
     /// <remarks>
@@ -1646,7 +1649,7 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
         // ⚠ At the source's level and not at the base. The splat is a `ChannelShuffle`, which is a
         // pointwise kernel like any other — a base-sized promotion of a half-resolution mask is
         // #779's corner crop, inserted by the compiler itself rather than by any node.
-        promoted = Allocate(TextureFormat.Rgba16Float, TextureChannels.Colour, LevelOf(source));
+        promoted = Allocate(FormatOf(TextureChannels.Colour), TextureChannels.Colour, LevelOf(source));
 
         // ⚠ The same image bound to both of `ChannelShuffle`'s inputs, because the kernel declares two
         // and the evaluator binds an op's images over them positionally. Selector 0 is the first
