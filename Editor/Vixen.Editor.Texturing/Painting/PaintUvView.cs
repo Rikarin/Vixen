@@ -20,7 +20,7 @@ namespace Vixen.Editor.Texturing.Painting;
 ///     <para>
 ///         <b>The first surface in this tree that paints, and the three obligations it discharges are
 ///         <see cref="PaintSession" />'s.</b> Until this existed the whole paint model — brush,
-///         stroke, spacing, dilation, the cached composite, the undo entry, the <c>.vxpaint</c> —
+///         stroke, spacing, dilation, the undo entry, the <c>.vxpaint</c> —
 ///         was reachable only from xunit, which is
 ///         <a href="https://github.com/Rikarin/Vixen/issues/852">#852</a> and this repository's
 ///         commonest defect.
