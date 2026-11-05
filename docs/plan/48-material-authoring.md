@@ -356,6 +356,12 @@ over a storage image, and gated by the folder-reading check D1 owes. The plan ru
 from a pool of intermediate images, evaluates in the compiler's topological order, and frees an
 intermediate when its last reader has run.
 
+⚠ **One evaluator still, with two ways in** — `Evaluate` as written here, and `EvaluateIncremental`, which
+keeps results by content and gives the same loop a schedule holding only what has no result. Which
+one a caller wants is a decision about memory and not about pictures: the two are held byte-identical
+on one device. [The evaluator's README](../../Tools/Vixen.TextureGraph/README.md#evaluating-what-changed--patinas-p2-first-slice)
+has the key, the budget and the measurement.
+
 ⚠ **There is no CPU implementation of any node, and a headless bake needs a real device.** B4's
 argument, and it has a second edge worth stating: `--vixen-offscreen` is what buys a real GPU device on
 this repository's headless runs, and without one everything falls back to the Null device, exits 0 and
