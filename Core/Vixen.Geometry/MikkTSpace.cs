@@ -484,7 +484,9 @@ public static class MikkTSpace {
                     var two = list[(face * 3) + (corner < 2 ? corner + 1 : 0)];
 
                     edges[(face * 3) + corner] = new() {
-                        Low = one < two ? one : two, High = !(one < two) ? one : two, Face = face
+                        Low = one < two ? one : two,
+                        High = !(one < two) ? one : two,
+                        Face = face
                     };
                 }
             }
