@@ -21,6 +21,12 @@ first. `Restore` puts a table back. An undo entry is two tables, so it holds the
 changed, and a drag with mirrors cannot leave any of its paint behind, since nothing is undone texel
 by texel.
 
+## What it is for
+
+Painting at 4K on a stack of twenty layers, with the composite under the brush being the plan's and not
+an imitation of it. A stroke costs its tiles rather than its image, and an undo entry costs the tiles
+it changed.
+
 ## What a stroke costs
 
 A stroke reports the tiles it wrote through `TilesChangedSince`, and `PaintTileCache` uploads only
@@ -41,7 +47,7 @@ strokes, undos and redos.
 ⚠ A host must keep a canvas for as long as it has strokes no file holds, so a `PaintCanvasStore` under
 a long session needs a budget it cannot reach.
 
-## A stack with no editor
+## Using it
 
 `LayerStackEvaluator` holds a stack's plan, its uploads and a `PaintTileCache`. `Prepare` compiles only
 when the structure changed, and `Evaluate` repairs what moved. `EvaluateClean` shares nothing with any
@@ -57,3 +63,25 @@ A `.vxpaint` at version 3 is a pack: for each channel, its usage, its background
 differs from the background, in order of position, each deflated on its own. An unpainted channel is
 a header, and one picture is always the same bytes. Versions 1 and 2 still open, and the next save
 moves them on. A tile out of order is refused.
+
+## Examples
+
+A stamp, repaired and read back, in a host with no editor:
+
+```csharp
+using var run = new LayerStackEvaluator(evaluator, canvases, stackPath);
+
+run.Prepare(stack, stack.Sets[0], library.Registry, library.SubGraphs);
+run.Evaluate().Dispose();
+
+var dirty = stroke.MoveTo(new Vector2(512f, 512f));
+
+using var bake = run.Evaluate();
+var map = run.Outputs.First(output => output.Usage == "baseColor").Image;
+var texels = bake.ReadTexels(map, [new(0, 0, 256, 256)]);
+```
+
+## See also
+
+- [Evaluating a texture graph](texture-graph-evaluation.md)
+- [Compiling a texture graph](texture-graph-compiling.md)
