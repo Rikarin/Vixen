@@ -63,7 +63,7 @@ sealed partial class TriplanarNode : TextureNode {
     public Scalar Scale = 1f;
 
     /// <summary>How hard the seam between two planes is. Ignored by a single-axis projection.</summary>
-    [Input]
+    [Input(Minimum = 0f)]
     public Scalar Sharpness = 4f;
 
     /// <summary>Which projection: all three planes blended, or one alone.</summary>

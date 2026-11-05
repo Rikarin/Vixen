@@ -22,6 +22,10 @@ public enum PortDirection {
 ///     The value an unconnected input takes, one float per lane, or empty when it has none.
 /// </param>
 /// <param name="Summary">One line saying what it means.</param>
+/// <param name="Minimum">The smallest value that means anything, or negative infinity. Inclusive.</param>
+/// <param name="Maximum">The largest value that means anything, or positive infinity. Inclusive.</param>
+/// <param name="SoftMinimum">Where a slider starts, or negative infinity for <paramref name="Minimum" />.</param>
+/// <param name="SoftMaximum">Where a slider ends, or positive infinity for <paramref name="Maximum" />.</param>
 /// <remarks>
 ///     <b>Named rather than numbered, and that is a compatibility decision.</b> A node type that gains
 ///     a port must not renumber the ones a saved graph is already connected to, and an author who
@@ -34,7 +38,11 @@ public sealed record PortDefinition(
     PortDirection Direction,
     PortKind Kind,
     ImmutableArray<float> Default = default,
-    string Summary = ""
+    string Summary = "",
+    float Minimum = float.NegativeInfinity,
+    float Maximum = float.PositiveInfinity,
+    float SoftMinimum = float.NegativeInfinity,
+    float SoftMaximum = float.PositiveInfinity
 ) {
     /// <summary>The default, or an empty span when the port has none.</summary>
     public ImmutableArray<float> Default { get; } = Default.IsDefault ? [] : Default;

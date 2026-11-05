@@ -21,11 +21,11 @@ sealed partial class EdgeDetectNode : TextureNode {
     public Image Input;
 
     /// <summary>The operator's tap spacing, in texels at the base resolution.</summary>
-    [Input]
+    [Input(Minimum = 1f, Maximum = 256f)]
     public Scalar Width = 1f;
 
     /// <summary>Magnitudes at or below this are black.</summary>
-    [Input]
+    [Input(SoftMinimum = 0f, SoftMaximum = 1f)]
     public Scalar Threshold = 0f;
 
     /// <summary>The edges.</summary>
@@ -103,11 +103,11 @@ sealed partial class FloodFillNode : TextureNode {
     public Image Mask;
 
     /// <summary>How many propagation iterations to run. ⚠ A budget: see the node's remarks.</summary>
-    [Input]
+    [Input(Minimum = 1f, Maximum = MaxIterations)]
     public Int Iterations = 32;
 
     /// <summary>What counts as inside the mask.</summary>
-    [Input]
+    [Input(SoftMinimum = 0f, SoftMaximum = 1f)]
     public Scalar Threshold = 0.5f;
 
     /// <summary>Whether diagonally touching texels are one island.</summary>

@@ -113,7 +113,51 @@ sealed class TextureGraphLibrary : ITextureGraphLibrary {
 
         graphs.Add(path, graph);
         parameters[path] = [.. knobs];
-        registry?.Add(TextureGraphParameters.Definition(graph, knobs, path));
+
+        if (registry is not null) {
+            var definition = TextureGraphParameters.Definition(graph, knobs, path);
+
+            registry.Add(definition with { Ports = [.. definition.Ports.Select(port => Ranged(port, graph, registry))] });
+        }
+    }
+
+    /// <summary>A published input, with the range of the port it feeds.</summary>
+    /// <remarks>
+    ///     An interface has no range of its own, and the wire says what its number becomes: the value
+    ///     on a sub-graph node's port arrives at the inner port unchanged. ⚠ <b>Only where every wire
+    ///     agrees.</b> A port feeding two ports with two ranges has no one meaning to state, so it
+    ///     stays open.
+    /// </remarks>
+    static PortDefinition Ranged(PortDefinition port, NodeGraphModel graph, NodeTypeRegistry registry) {
+        if (port.Direction != PortDirection.Input || port.Kind is not (PortKind.Float or PortKind.Int)) {
+            return port;
+        }
+
+        var entry = graph.Nodes.FirstOrDefault(
+            static node => string.Equals(node.Type, SubGraphs.InputType, StringComparison.Ordinal)
+        );
+
+        if (entry is null) {
+            return port;
+        }
+
+        var ranges = graph.Edges
+            .Where(edge => edge.From.Node == entry.Id && string.Equals(edge.From.Port, port.Name, StringComparison.Ordinal))
+            .Select(edge => graph.TryGet(edge.To.Node, out var node) && registry.TryGet(node.Type, out var type)
+                ? type.Port(edge.To.Port, PortDirection.Input)
+                : null)
+            .Select(static fed => fed is null ? default : (fed.Minimum, fed.Maximum, fed.SoftMinimum, fed.SoftMaximum))
+            .Distinct()
+            .ToArray();
+
+        return ranges is [var range] && range != default
+            ? port with {
+                Minimum = range.Minimum,
+                Maximum = range.Maximum,
+                SoftMinimum = range.SoftMinimum,
+                SoftMaximum = range.SoftMaximum
+            }
+            : port;
     }
 
     /// <inheritdoc />

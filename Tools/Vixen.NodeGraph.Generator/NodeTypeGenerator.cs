@@ -198,7 +198,11 @@ public sealed class NodeTypeGenerator : IIncrementalGenerator {
                 kind,
                 Default(marker, field, syntax.SemanticModel),
                 field.Type.Name,
-                Named(marker, "Summary") as string ?? ""
+                Named(marker, "Summary") as string ?? "",
+                Named(marker, "Minimum") as float? ?? float.NegativeInfinity,
+                Named(marker, "Maximum") as float? ?? float.PositiveInfinity,
+                Named(marker, "SoftMinimum") as float? ?? float.NegativeInfinity,
+                Named(marker, "SoftMaximum") as float? ?? float.PositiveInfinity
             ));
         }
 
@@ -256,9 +260,14 @@ public sealed class NodeTypeGenerator : IIncrementalGenerator {
                 ? "[]"
                 : "[" + string.Join(", ", port.Default.Select(Float)) + "]";
 
+            // Only a bounded port spells its bounds, so that the common line stays the short one.
+            var bounds = port.IsBounded
+                ? $", {Number(port.Minimum)}, {Number(port.Maximum)}, {Number(port.SoftMinimum)}, {Number(port.SoftMaximum)}"
+                : "";
+
             text.AppendLine(
                 $"            new({Quote(port.Name)}, PortDirection.{direction}, PortKind.{port.Kind}, "
-                + $"{defaults}, {Quote(port.Summary)}){comma}"
+                + $"{defaults}, {Quote(port.Summary)}{bounds}){comma}"
             );
         }
 

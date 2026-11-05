@@ -71,11 +71,11 @@ sealed partial class ColourSelectNode : TextureNode {
     public Float4 Colour;
 
     /// <summary>How far from that colour still counts, as a distance in linear RGB.</summary>
-    [Input]
+    [Input(Minimum = 0f, SoftMaximum = 1.7320508f)]
     public Scalar Tolerance = 0.02f;
 
     /// <summary>How much further the mask takes to reach zero. 0 is a hard step.</summary>
-    [Input]
+    [Input(Minimum = 0f, SoftMaximum = 1.7320508f)]
     public Scalar Softness = 0f;
 
     /// <summary>The mask.</summary>

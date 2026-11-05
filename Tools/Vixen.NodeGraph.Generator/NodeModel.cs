@@ -18,8 +18,19 @@ sealed record PortModel(
     string Kind,
     ImmutableArray<float> Default,
     string Type,
-    string Summary
+    string Summary,
+    float Minimum = float.NegativeInfinity,
+    float Maximum = float.PositiveInfinity,
+    float SoftMinimum = float.NegativeInfinity,
+    float SoftMaximum = float.PositiveInfinity
 ) {
+    /// <summary>Whether any bound was declared.</summary>
+    public bool IsBounded =>
+        !float.IsNegativeInfinity(Minimum)
+        || !float.IsPositiveInfinity(Maximum)
+        || !float.IsNegativeInfinity(SoftMinimum)
+        || !float.IsPositiveInfinity(SoftMaximum);
+
     public bool Equals(PortModel? other) =>
         other is not null
         && Field == other.Field
@@ -28,6 +39,10 @@ sealed record PortModel(
         && Kind == other.Kind
         && Type == other.Type
         && Summary == other.Summary
+        && Minimum.Equals(other.Minimum)
+        && Maximum.Equals(other.Maximum)
+        && SoftMinimum.Equals(other.SoftMinimum)
+        && SoftMaximum.Equals(other.SoftMaximum)
         && Default.SequenceEqual(other.Default);
 
     public override int GetHashCode() {

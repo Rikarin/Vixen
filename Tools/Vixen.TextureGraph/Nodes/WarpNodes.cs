@@ -21,11 +21,11 @@ sealed partial class EmbossNode : TextureNode {
     public Image Height;
 
     /// <summary>Where the light is, in radians from +x towards +y.</summary>
-    [Input]
+    [Input(SoftMinimum = -MathF.PI, SoftMaximum = MathF.PI)]
     public Scalar Angle = 0f;
 
     /// <summary>How far above the surface it is, in radians. A quarter turn flattens the relief.</summary>
-    [Input]
+    [Input(SoftMinimum = 0f, SoftMaximum = MathF.PI / 2f)]
     public Scalar Elevation = 0.5f;
 
     /// <summary>How steep the relief reads. ⚠ 0 is a flat mid grey — a node that looks like it failed.</summary>
@@ -119,7 +119,7 @@ sealed partial class DirectionalWarpNode : TextureNode {
     public Image Warp;
 
     /// <summary>Which way, in radians from +x towards +y.</summary>
-    [Input]
+    [Input(SoftMinimum = -MathF.PI, SoftMaximum = MathF.PI)]
     public Scalar Angle = 0f;
 
     /// <summary>What a fully lit texel displaces by, in texels at the base resolution.</summary>
@@ -238,7 +238,7 @@ sealed partial class SlopeBlurNode : TextureNode {
     public Scalar Intensity = 4f;
 
     /// <summary>How many steps the walk is cut into. ⚠ 0 is a copy, and the count is not a quality dial.</summary>
-    [Input]
+    [Input(Minimum = 0f, Maximum = 32f)]
     public Int Samples = 8;
 
     /// <summary>The walked image.</summary>

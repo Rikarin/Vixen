@@ -37,7 +37,7 @@ sealed partial class MirrorNode : TextureNode {
     ///     ⚠ Only at 0.5 is a flip an exact involution: anywhere else part of the image mirrors
     ///     outside itself, the load clamps, and a clamp cannot be undone. See <c>Mirror.rvn</c>.
     /// </remarks>
-    [Input]
+    [Input(SoftMinimum = 0f, SoftMaximum = 1f)]
     public Scalar Offset = 0.5f;
 
     /// <summary>The folded image.</summary>
@@ -87,19 +87,19 @@ sealed partial class TileNode : TextureNode {
     public Image Input;
 
     /// <summary>How many times across. Below one is clamped by the kernel.</summary>
-    [Input(Name = "Repeat X")]
+    [Input(Name = "Repeat X", Minimum = 1f)]
     public Int RepeatX = 1;
 
     /// <summary>How many times down.</summary>
-    [Input(Name = "Repeat Y")]
+    [Input(Name = "Repeat Y", Minimum = 1f)]
     public Int RepeatY = 1;
 
     /// <summary>How far each successive tile row is shifted along x, in tiles.</summary>
-    [Input(Name = "Offset X")]
+    [Input(Name = "Offset X", SoftMinimum = 0f, SoftMaximum = 1f)]
     public Scalar OffsetX = 0f;
 
     /// <summary>How far each successive tile column is shifted along y, in tiles.</summary>
-    [Input(Name = "Offset Y")]
+    [Input(Name = "Offset Y", SoftMinimum = 0f, SoftMaximum = 1f)]
     public Scalar OffsetY = 0f;
 
     /// <summary>The repeated image.</summary>
@@ -172,19 +172,19 @@ sealed partial class CropNode : TextureNode {
     public Image Input;
 
     /// <summary>The rect's left edge, from 0 to 1 across the source.</summary>
-    [Input(Name = "Rect X")]
+    [Input(Name = "Rect X", SoftMinimum = 0f, SoftMaximum = 1f)]
     public Scalar RectX = 0f;
 
     /// <summary>Its top edge.</summary>
-    [Input(Name = "Rect Y")]
+    [Input(Name = "Rect Y", SoftMinimum = 0f, SoftMaximum = 1f)]
     public Scalar RectY = 0f;
 
     /// <summary>Its width, from 0 to 1.</summary>
-    [Input(Name = "Rect W")]
+    [Input(Name = "Rect W", SoftMinimum = 0f, SoftMaximum = 1f)]
     public Scalar RectW = 1f;
 
     /// <summary>Its height.</summary>
-    [Input(Name = "Rect H")]
+    [Input(Name = "Rect H", SoftMinimum = 0f, SoftMaximum = 1f)]
     public Scalar RectH = 1f;
 
     /// <summary>The cropped image.</summary>

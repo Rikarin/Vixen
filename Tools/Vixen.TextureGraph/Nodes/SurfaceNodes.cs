@@ -32,7 +32,7 @@ sealed partial class HeightToNormalNode : TextureNode {
     public Scalar Intensity = 1f;
 
     /// <summary>The Sobel's tap spacing, in texels at the base resolution.</summary>
-    [Input]
+    [Input(Minimum = 1f, Maximum = 256f)]
     public Scalar Width = 1f;
 
     /// <summary>The normal map.</summary>
@@ -74,7 +74,7 @@ sealed partial class NormalCombineNode : TextureNode {
     public Image DetailMap;
 
     /// <summary>How much of the detail is applied. 0 is the base alone.</summary>
-    [Input]
+    [Input(Minimum = 0f, Maximum = 1f)]
     public Scalar Opacity = 1f;
 
     /// <summary>The combined map.</summary>
@@ -115,7 +115,7 @@ sealed partial class NormalTransformNode : TextureNode {
     public Bool FlipGreen = false;
 
     /// <summary>How far the frame turns, in radians, clockwise on screen.</summary>
-    [Input]
+    [Input(SoftMinimum = -MathF.PI, SoftMaximum = MathF.PI)]
     public Scalar Rotation = 0f;
 
     /// <summary>Whether the result is made unit length.</summary>
@@ -163,7 +163,7 @@ sealed partial class CurvatureNode : TextureNode {
     public Image Normal;
 
     /// <summary>The central difference's half-width, in texels at the base resolution.</summary>
-    [Input]
+    [Input(Minimum = 1f, Maximum = 256f)]
     public Scalar Radius = 1f;
 
     /// <summary>What the divergence is multiplied by before it is centred.</summary>
@@ -206,15 +206,15 @@ sealed partial class AmbientOcclusionNode : TextureNode {
     public Image HeightMap;
 
     /// <summary>How far each ray marches, in texels at the base resolution.</summary>
-    [Input]
+    [Input(Minimum = 1f)]
     public Scalar Radius = 16f;
 
     /// <summary>How many directions are searched. Capped by the kernel at sixteen.</summary>
-    [Input]
+    [Input(Minimum = 1f, Maximum = 16f)]
     public Int Samples = 8;
 
     /// <summary>How tall a height of one is, as a fraction of the image's width. ⚠ Zero is white.</summary>
-    [Input(Name = "Height Scale")]
+    [Input(Name = "Height Scale", SoftMinimum = 0f)]
     public Scalar HeightScale = 0.1f;
 
     /// <summary>The occlusion.</summary>

@@ -64,6 +64,34 @@ public sealed class InputAttribute : Attribute {
     ///     common case reading as ordinary C#.
     /// </remarks>
     public float[] Default { get; init; } = [];
+
+    /// <summary>The smallest value that means anything: below it the node clamps or refuses.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A statement about the node and not a preference.</b> Name a bound only where the
+    ///         code says so: a kernel's <c>saturate</c>, a <c>MaxRadius</c>, a refusal. A number with no
+    ///         such bound stays open, and a slider guessing is more honest than a range nothing means.
+    ///     </para>
+    ///     <para>
+    ///         Metadata for a front end. Nothing compiled reads it, and the kernel's own clamp stays
+    ///         what is true.
+    ///     </para>
+    /// </remarks>
+    public float Minimum { get; init; } = float.NegativeInfinity;
+
+    /// <summary>The largest value that means anything. See <see cref="Minimum" />.</summary>
+    public float Maximum { get; init; } = float.PositiveInfinity;
+
+    /// <summary>Where a slider starts, when the useful range is narrower than the valid one.</summary>
+    /// <remarks>
+    ///     Past a soft bound the value still works, and a number box may take it: an angle is a whole
+    ///     turn because it repeats, and a coordinate is <c>0..1</c> because that is the image. Named
+    ///     only where the port's meaning gives the number, which is why many ports have none.
+    /// </remarks>
+    public float SoftMinimum { get; init; } = float.NegativeInfinity;
+
+    /// <summary>Where a slider ends. See <see cref="SoftMinimum" />.</summary>
+    public float SoftMaximum { get; init; } = float.PositiveInfinity;
 }
 
 /// <summary>Marks a <see langword="string" /> field as one of a node's settings.</summary>

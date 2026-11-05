@@ -22,15 +22,15 @@ sealed partial class HslNode : TextureNode {
     public Image Input;
 
     /// <summary>How far the hue turns, in turns. 0 leaves it alone.</summary>
-    [Input]
+    [Input(SoftMinimum = -0.5f, SoftMaximum = 0.5f)]
     public Scalar Hue = 0f;
 
     /// <summary>What the saturation is multiplied by. 1 leaves it alone; 0 is grey.</summary>
-    [Input]
+    [Input(Minimum = 0f)]
     public Scalar Saturation = 1f;
 
     /// <summary>What is added to the lightness. 0 leaves it alone.</summary>
-    [Input]
+    [Input(Minimum = -1f, Maximum = 1f)]
     public Scalar Lightness = 0f;
 
     /// <summary>The adjusted image.</summary>
@@ -97,15 +97,15 @@ sealed partial class GrayscaleNode : TextureNode {
     public Image Input;
 
     /// <summary>Red's share.</summary>
-    [Input(Name = "Weight R")]
+    [Input(Name = "Weight R", SoftMinimum = 0f, SoftMaximum = 1f)]
     public Scalar WeightR = 0.2126f;
 
     /// <summary>Green's share.</summary>
-    [Input(Name = "Weight G")]
+    [Input(Name = "Weight G", SoftMinimum = 0f, SoftMaximum = 1f)]
     public Scalar WeightG = 0.7152f;
 
     /// <summary>Blue's share.</summary>
-    [Input(Name = "Weight B")]
+    [Input(Name = "Weight B", SoftMinimum = 0f, SoftMaximum = 1f)]
     public Scalar WeightB = 0.0722f;
 
     /// <summary>
@@ -371,7 +371,7 @@ sealed partial class CurveNode : TextureNode {
     public Image Input;
 
     /// <summary>How much of the curved result to keep. 0 is the input, 1 is the curve.</summary>
-    [Input]
+    [Input(Minimum = 0f, Maximum = 1f)]
     public Scalar Amount = 1f;
 
     /// <summary>The shaped image.</summary>
