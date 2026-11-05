@@ -122,6 +122,157 @@ public sealed record BakeSettings {
     ///     inside of a closed shape wants it at or above one.
     /// </remarks>
     public float OcclusionRadius { get; init; } = 0.5f;
+
+    /// <summary>How many samples a texel is divided into along each side, so the total is the square.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         One is the texel's centre and what a bake has always done, and it aliases: a source
+    ///         feature narrower than a texel is either struck or missed. Two costs four probes and is
+    ///         the usual answer for a shipping map; four is for a map that is going to be read closely.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><see cref="OcclusionSamples" /> stays a count per texel.</b> The hemisphere set is
+    ///         dealt out between the samples rather than cast again at each, so a texel's occlusion
+    ///         costs the same at any setting and is estimated across its whole footprint. Supersampling
+    ///         pays for the first ray, not for the two hundred and fifty-six behind it.
+    ///     </para>
+    /// </remarks>
+    public int Supersampling { get; init; } = 1;
+
+    /// <summary>A surface enclosing the target, which the rays start from, or null for none.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The same faces in the same order as the target, moved rather than rebuilt.</b> A
+    ///         point of the target and the point of the cage with the same weights on the same face are
+    ///         the two ends of one ray; a cage with another layout has no such pairing and is refused.
+    ///     </para>
+    ///     <para>
+    ///         With a cage the ray runs from the cage through the target and on for
+    ///         <see cref="SearchRadius" /> behind it, and the first thing it strikes wins. So an artist
+    ///         decides what a ray can reach by moving the cage, which is the production answer to
+    ///         geometry the nearer-of-two-hits rule picks wrongly: a strap lying close over a body.
+    ///     </para>
+    /// </remarks>
+    public EditMesh? Cage { get; init; }
+
+    /// <summary>How far rays lean from the smoothed direction towards the target's own normal.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         Zero, the default, follows the direction that is continuous across a hard edge, which is
+    ///         what stops a seam there; see <see cref="MapBaker" />. ⚠ <b>The price is that rays near a
+    ///         hard edge are slanted</b>, so a bolt sitting on a flat face next to one bakes sheared
+    ///         towards the edge. One casts along the target's own normal, which keeps the bolt round
+    ///         and brings the seam back. Between the two is the trade, and a map says where to make it.
+    ///     </para>
+    /// </remarks>
+    public float Skew { get; init; }
+
+    /// <summary>Where to apply <see cref="Skew" />, over the atlas, or null for everywhere.</summary>
+    public BakeMask? SkewMap { get; init; }
+
+    /// <summary>Which target faces may strike which source faces, or null for all of them.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Occlusion ignores this on purpose.</b> Matching stops a neighbouring part's surface
+    ///     being baked into a part's normal map, and a neighbouring part still shades it, so contact
+    ///     shadows between parts stay in the occlusion map.
+    /// </remarks>
+    public BakeParts? Parts { get; init; }
+
+    /// <summary>How many threads the casting may use, or zero for all of them.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Not a quality setting.</b> Nothing about a texel's value depends on when it was reached,
+    ///     so the output is byte-identical at any count, which the content hash a bake rests on needs.
+    /// </remarks>
+    public int Threads { get; init; }
+}
+
+/// <summary>One value per atlas texel, read nearest.</summary>
+/// <param name="Resolution">The edge length, which need not be the bake's.</param>
+/// <param name="Values">Row-major from the bottom-left, as <see cref="BakedMaps" /> is, in <c>[0, 1]</c>.</param>
+public sealed record BakeMask(int Resolution, IReadOnlyList<float> Values) {
+    /// <summary>The value at an atlas coordinate.</summary>
+    /// <param name="uv">The coordinate; anything outside the atlas reads its edge.</param>
+    /// <returns>The value.</returns>
+    public float At(Vector2 uv) {
+        var x = Math.Clamp((int) (uv.X * Resolution), 0, Resolution - 1);
+        var y = Math.Clamp((int) (uv.Y * Resolution), 0, Resolution - 1);
+
+        return Values[(y * Resolution) + x];
+    }
+}
+
+/// <summary>Which part each face of the source and of the target belongs to.</summary>
+/// <param name="Source">A part per source face, or <c>-1</c> for no part.</param>
+/// <param name="Target">A part per target face, or <c>-1</c> for one that may strike anything.</param>
+/// <remarks>
+///     <para>
+///         <b>Exploding a mesh apart by hand is what this replaces.</b> Parts modelled close together
+///         strike each other's rays, so the hand of a gun bakes the grip's bolts. Named parts need
+///         nothing moved: a ray from a part strikes only the source of that part.
+///     </para>
+///     <para>
+///         ⚠ <b>Numbers rather than names, because a name is a file's idea.</b> This assembly has no
+///         file in it. <see cref="ByName" /> is the usual way of getting these.
+///     </para>
+/// </remarks>
+public sealed record BakeParts(IReadOnlyList<int> Source, IReadOnlyList<int> Target) {
+    static readonly string[] Suffixes = ["_high", "_low", "_hi", "_lo", "_hp", "_lp"];
+
+    /// <summary>The name two parts have in common, once what says which end they are is gone.</summary>
+    /// <param name="name">A mesh's name: <c>Bolt_high</c>, <c>bolt_low.001</c>.</param>
+    /// <returns>The part's own name, lower case: <c>bolt</c>.</returns>
+    public static string Key(string name) {
+        ArgumentNullException.ThrowIfNull(name);
+
+        var key = name.Trim().ToLowerInvariant();
+        var dot = key.LastIndexOf('.');
+
+        // An exporter's copy number, which is not part of the name.
+        if (dot > 0 && dot < key.Length - 1 && key[(dot + 1)..].All(char.IsAsciiDigit)) {
+            key = key[..dot];
+        }
+
+        foreach (var suffix in Suffixes) {
+            if (key.EndsWith(suffix, StringComparison.Ordinal)) {
+                return key[..^suffix.Length];
+            }
+        }
+
+        return key;
+    }
+
+    /// <summary>Numbers named meshes laid end to end in two merged meshes.</summary>
+    /// <param name="source">Each source mesh's name and face count, in merge order.</param>
+    /// <param name="target">Each target mesh's name and face count, in merge order.</param>
+    /// <returns>The parts. A target mesh whose name no source shares is <c>-1</c>.</returns>
+    public static BakeParts ByName(
+        IReadOnlyList<(string Name, int Faces)> source,
+        IReadOnlyList<(string Name, int Faces)> target
+    ) {
+        ArgumentNullException.ThrowIfNull(source);
+        ArgumentNullException.ThrowIfNull(target);
+
+        Dictionary<string, int> numbers = new(StringComparer.Ordinal);
+        List<int> sources = [];
+        List<int> targets = [];
+
+        foreach (var (name, faces) in source) {
+            var key = Key(name);
+
+            if (!numbers.TryGetValue(key, out var number)) {
+                number = numbers.Count;
+                numbers.Add(key, number);
+            }
+
+            sources.AddRange(Enumerable.Repeat(number, faces));
+        }
+
+        foreach (var (name, faces) in target) {
+            targets.AddRange(Enumerable.Repeat(numbers.GetValueOrDefault(Key(name), -1), faces));
+        }
+
+        return new(sources, targets);
+    }
 }
 
 /// <summary>A normal map and a displacement map, as pixels, with no file anywhere in sight.</summary>
@@ -271,6 +422,22 @@ public sealed record BakedMaps {
 ///         opposed hits is the answer available to a content build with nobody watching.
 ///     </para>
 ///     <para>
+///         ⚠ <b>The ray follows the direction averaged over every corner on a position, not the
+///         corner's own normal.</b> The two are the same on a smooth surface. At a hard edge the
+///         corner normals disagree, so rays cast along them leave a wedge of the source nothing
+///         strikes and two charts that see different things at the same point, which is the seam a
+///         hard edge shows. The averaged direction is continuous there: both sides of the edge cast
+///         the same ray and find the same surface. The tangent frame still uses the corner's own
+///         normal, because that is what will shade the texel. <see cref="BakeSettings.Skew" /> is the
+///         way back, for the detail this slants.
+///     </para>
+///     <para>
+///         ⚠ <b>A texel's value is a function of the texel alone.</b> The chart triangles claim texels
+///         first, the lowest triangle winning whatever the order they ran in; then each row is baked on
+///         whichever thread reaches it, into its own texels, and the maximums are merged afterwards.
+///         So the atlas does not depend on the thread count, which a content hash needs.
+///     </para>
+///     <para>
 ///         ⚠ <b>A texel that finds nothing falls back to the closest point rather than to a
 ///         default.</b> A default normal in the middle of a chart is a flat patch that reads as a
 ///         modelling error; the closest point is at worst the right answer measured from slightly the
@@ -285,16 +452,8 @@ public sealed record BakedMaps {
 ///     </para>
 /// </remarks>
 public static class MapBaker {
-    /// <summary>How far off the surface an occlusion ray starts, as a fraction of the diagonal.</summary>
-    /// <remarks>
-    ///     ⚠ <b>Relative, and the one number in this file that has to be.</b> A ray leaving a point
-    ///     that lies exactly on a triangle strikes it at zero distance about half the time, so the
-    ///     origin is nudged along the normal first — and an absolute nudge is the same claim about
-    ///     the model's size that <see cref="BakeSettings.SearchRadius" /> exists to refuse. Ten
-    ///     thousandths of the diagonal is far enough clear of the surface's own floating-point
-    ///     thickness and far short of any feature an occlusion map resolves.
-    /// </remarks>
-    const float SelfHitBias = 1e-4f;
+    /// <summary>The most a texel is divided along each side.</summary>
+    const int MaxSupersampling = 8;
 
     /// <summary>Bakes a normal and a displacement map from the source onto the output's atlas.</summary>
     /// <param name="source">The high-resolution surface. Read, never modified.</param>
@@ -317,7 +476,7 @@ public static class MapBaker {
     /// <param name="target">The remeshed output. Must carry texture coordinates.</param>
     /// <param name="settings">The size, the gutter and the search radius.</param>
     /// <param name="progress">Told what fraction of the casting is done, or null.</param>
-    /// <param name="cancellationToken">Checked once per texel row of every chart triangle.</param>
+    /// <param name="cancellationToken">Checked once per atlas row.</param>
     /// <returns>The pixels, and what was measured about them.</returns>
     /// <exception cref="ArgumentNullException">Any argument but <paramref name="progress" /> is null.</exception>
     /// <exception cref="ArgumentOutOfRangeException">The resolution is not positive, or the gutter is negative.</exception>
@@ -332,25 +491,16 @@ public static class MapBaker {
     ///         that the task centre's controls are decorative.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A texel <i>row</i> is the granularity, and neither of its neighbours would
-    ///         do.</b> Per texel is a branch inside the hemisphere loop, which is the one place in this
-    ///         file where a predictable branch is worth avoiding; per chart triangle is not a bound at
-    ///         all, because a single quad can cover the whole atlas and is the ordinary case for the
-    ///         planes these bakes are tested on. ⚠ A row is a check every <c>width × samples</c>
-    ///         rays, which is a few thousand on the 64-texel fixtures and <em>millions</em> at the
-    ///         4096 the panel offers with occlusion on — so the honest claim is that the check costs
-    ///         nothing measurable, and not that it cancels within a frame. At the top resolution a
-    ///         cancel waits for the row in flight, which is seconds rather than milliseconds; per
-    ///         texel would fix that and pay a branch inside the hemisphere loop for every bake that
-    ///         is never cancelled.
+    ///         ⚠ <b>An atlas row is the granularity.</b> Per texel is a branch inside the hemisphere
+    ///         loop; per chart triangle is not a bound at all, because a single quad can cover the whole
+    ///         atlas. A row is one thread's few milliseconds at most resolutions, and the threads
+    ///         already running finish the row they are in, so a cancel lands within a row or so.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><paramref name="progress" /> is a fraction of rows, counted before the first ray is
-    ///         cast, and not a fraction of triangles.</b> Chart triangles differ in atlas area by
-    ///         orders of magnitude — that is what a packer is for — so a bar driven by how many of them
-    ///         are done sits still and then jumps, which is a bar that reports the loop's shape rather
-    ///         than the work. The pre-pass that counts the rows walks the same triangles and casts
-    ///         nothing.
+    ///         ⚠ <b><paramref name="progress" /> is a fraction of the rows holding chart content, and is
+    ///         called from whichever thread finished one, one call at a time and never going back.</b>
+    ///         An atlas row with nothing on it costs nothing, so counting it would be a bar that jumps
+    ///         through the gutters.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>The dilation is deliberately outside the reported fraction and cannot be
@@ -373,11 +523,31 @@ public static class MapBaker {
         ArgumentOutOfRangeException.ThrowIfNegative(settings.Gutter);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(settings.OcclusionSamples);
         ArgumentOutOfRangeException.ThrowIfNegative(settings.OcclusionRadius);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(settings.Supersampling);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(settings.Supersampling, MaxSupersampling);
+        ArgumentOutOfRangeException.ThrowIfNegative(settings.Threads);
+        ArgumentOutOfRangeException.ThrowIfNegative(settings.Skew);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(settings.Skew, 1f);
 
         if (target.TexCoords.Length != target.CornerCount) {
             throw new ArgumentException(
                 "The target has no texture-coordinate layer, so there is no atlas to bake into.",
                 nameof(target)
+            );
+        }
+
+        if (settings.Cage is { } cage && !SameLayout(cage, target)) {
+            throw new ArgumentException(
+                "The cage does not have the target's faces, so its points have no partner on the target.",
+                nameof(settings)
+            );
+        }
+
+        if (settings.Parts is { } parts
+            && (parts.Source.Count != source.FaceCount || parts.Target.Count != target.FaceCount)) {
+            throw new ArgumentException(
+                "The parts must name one part per source face and one per target face.",
+                nameof(settings)
             );
         }
 
@@ -403,44 +573,61 @@ public static class MapBaker {
             warnings.Add("The source has no extent, so the search radius is zero and every ray misses.");
         }
 
-        var shading = target.Normals.Length == target.CornerCount ? target.Normals.ToArray() : Geometric(target);
-
         // ⚠ Once for the whole source, not once per texel. The Laplacian is a property of the source
         // mesh and a million texels asking it the same question is the shape of bug § D12's "the
         // expensive half is already built" is about — the tree is built once for the same reason.
         var curvature = settings.Maps.HasFlag(MeshMaps.Curvature) ? MeanCurvature.Build(surface) : null;
-        var cast = new Casting(progress, Rows(target, resolution), cancellationToken);
+        var rays = BakeRays.Build(surface, source, target, settings.Parts, warnings);
+        var bake = new TexelBake(surface, rays, settings, radius, curvature, buffers);
+        var options = new ParallelOptions { MaxDegreeOfParallelism = settings.Threads > 0 ? settings.Threads : -1 };
+        var charts = BakeCharts.Build(target, settings, options, cancellationToken);
 
-        for (var face = 0; face < target.FaceCount; face++) {
-            var entry = target.Faces[face];
-            var loop = target.CornersOf(face);
+        cancellationToken.ThrowIfCancellationRequested();
 
-            for (var corner = 1; corner + 1 < loop.Length; corner++) {
-                Span<int> slots = [entry.Start, entry.Start + corner, entry.Start + corner + 1];
+        buffers.Covered = charts.ClaimCoverage(buffers.Coverage);
 
-                var uv = new Vector2[3];
-                var points = new Vector3[3];
-                var shaded = new Vector3[3];
+        var cast = new Casting(progress, charts.RowsWithContent(), cancellationToken);
 
-                for (var at = 0; at < 3; at++) {
-                    uv[at] = target.TexCoords[slots[at]];
-                    points[at] = target.Positions[loop[slots[at] - entry.Start]];
-                    shaded[at] = shading[slots[at]];
-                }
+        Parallel.For(0, resolution, options, (row, loop) => {
+            if (cancellationToken.IsCancellationRequested) {
+                loop.Stop();
 
-                Rasterize(surface, settings, uv, points, shaded, radius, curvature, buffers, cast);
+                return;
             }
-        }
 
+            if (charts.RowIsEmpty(row)) {
+                return;
+            }
+
+            bake.Row(row, charts);
+            cast.Row();
+        });
+
+        cancellationToken.ThrowIfCancellationRequested();
         cast.Done();
 
-        var dilated = Dilate(settings, buffers);
+        var dilated = Dilate(settings, buffers, options);
 
         if (buffers.Covered == 0) {
             warnings.Add("No chart covered any texel — the target's coordinates are outside the unit square.");
         }
 
         return Assemble(settings, buffers, dilated, warnings);
+    }
+
+    /// <summary>Whether two meshes have the same faces in the same order.</summary>
+    static bool SameLayout(EditMesh one, EditMesh other) {
+        if (one.FaceCount != other.FaceCount || one.CornerCount != other.CornerCount) {
+            return false;
+        }
+
+        for (var face = 0; face < one.FaceCount; face++) {
+            if (one.Faces[face].Count != other.Faces[face].Count) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /// <summary>Which id each source face bakes as: the group somebody assigned, or its shell.</summary>
@@ -531,114 +718,51 @@ public static class MapBaker {
         };
     }
 
-    /// <summary>The texels a chart triangle could touch, or null where it lies off the atlas.</summary>
-    /// <param name="uv">The triangle's three atlas coordinates.</param>
-    /// <param name="resolution">The atlas's edge length in texels.</param>
-    /// <returns>The inclusive texel bounds.</returns>
-    /// <remarks>
-    ///     ⚠ <b>Floor and ceiling rather than a round, and then one texel of slack on each side.</b> A
-    ///     triangle that ends at x = 4.0 exactly still touches the <i>edge</i> of texel 3, and
-    ///     conservative coverage counts a shared edge — the separating-axis test is what decides, so
-    ///     the bounds only have to be generous enough not to exclude a candidate it would have
-    ///     accepted.
-    /// </remarks>
-    static (int X0, int Y0, int X1, int Y1)? Box(Vector2[] uv, int resolution) {
-        var minimum = Vector2.Min(uv[0], Vector2.Min(uv[1], uv[2])) * resolution;
-        var maximum = Vector2.Max(uv[0], Vector2.Max(uv[1], uv[2])) * resolution;
-
-        if (maximum.X < 0f || maximum.Y < 0f || minimum.X > resolution || minimum.Y > resolution) {
-            return null;
-        }
-
-        return (
-            Math.Clamp((int) MathF.Floor(minimum.X) - 1, 0, resolution - 1),
-            Math.Clamp((int) MathF.Floor(minimum.Y) - 1, 0, resolution - 1),
-            Math.Clamp((int) MathF.Ceiling(maximum.X) + 1, 0, resolution - 1),
-            Math.Clamp((int) MathF.Ceiling(maximum.Y) + 1, 0, resolution - 1)
-        );
-    }
-
-    /// <summary>How many texel rows the whole casting pass will walk.</summary>
-    /// <param name="target">The mesh with the atlas.</param>
-    /// <param name="resolution">The atlas's edge length in texels.</param>
-    /// <returns>The sum of every chart triangle's row count.</returns>
-    /// <remarks>
-    ///     ⚠ <b>The same walk the bake does, with <see cref="Box" /> and nothing else in it.</b> It
-    ///     exists so that a fraction can be reported at all: progress needs its denominator before the
-    ///     first ray, and the alternative — counting triangles — is a bar that reports the loop's
-    ///     shape rather than the work, because chart areas differ by orders of magnitude.
-    /// </remarks>
-    static long Rows(EditMesh target, int resolution) {
-        var rows = 0L;
-        var uv = new Vector2[3];
-
-        for (var face = 0; face < target.FaceCount; face++) {
-            var entry = target.Faces[face];
-            var loop = target.CornersOf(face);
-
-            for (var corner = 1; corner + 1 < loop.Length; corner++) {
-                uv[0] = target.TexCoords[entry.Start];
-                uv[1] = target.TexCoords[entry.Start + corner];
-                uv[2] = target.TexCoords[entry.Start + corner + 1];
-
-                if (Box(uv, resolution) is { } box) {
-                    rows += box.Y1 - box.Y0 + 1;
-                }
-            }
-        }
-
-        return rows;
-    }
-
-    /// <summary>How far through the casting the bake is, and whether it may go on.</summary>
+    /// <summary>How far through the casting the bake is, and whether anyone is listening.</summary>
     /// <param name="progress">Told the fraction, or null.</param>
-    /// <param name="rows">How many texel rows the whole pass will walk.</param>
+    /// <param name="rows">How many rows the whole pass will walk.</param>
     /// <param name="cancellationToken">What stops it.</param>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Reported on a step rather than on every row.</b> A 4K bake walks millions of
-    ///         rows and a bar is two hundred pixels wide, so all but one report in every few thousand
-    ///         is a callback nobody could see the effect of. The step is about the width of a pixel
-    ///         of it.
+    ///         ⚠ <b>Reported on a step rather than on every row.</b> A bar is two hundred pixels wide, so
+    ///         all but one report in every few is a callback nobody could see the effect of.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>An <see cref="Action{T}" /> rather than an <see cref="IProgress{T}" />, which is
     ///         the opposite of the usual advice and is right here.</b> <c>Progress&lt;T&gt;</c>
     ///         captures a synchronisation context at construction and <i>posts</i> to it — so the
     ///         reports arrive out of band, possibly out of order, and possibly after the bake has
-    ///         returned. This callback is invoked synchronously on the thread doing the casting, which
-    ///         is what every other progress callback in this repository does (<c>ContentPipeline</c>'s
-    ///         is an <c>Action</c> for the same reason) and what a caller reading a counter needs.
+    ///         returned. This callback runs before the row's thread moves on, under a lock, so a caller
+    ///         reading a counter sees it rise.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Not thread-safe, deliberately.</b> The casting loop is single-threaded and this
-    ///         holds its counters; making it safe would be an interlocked increment on the hottest
-    ///         path in the file for a property nothing has asked for.
+    ///         ⚠ <b>Nothing is reported once the bake is cancelled</b>, so a cancelled bake's last report
+    ///         is near the point it stopped however many threads were still finishing a row.
     ///     </para>
     /// </remarks>
     sealed class Casting(Action<float>? progress, long rows, CancellationToken cancellationToken) {
+        readonly Lock reporting = new();
         long done;
         float said = -1f;
 
-        /// <summary>Counts a texel row, and stops the bake if it has been cancelled.</summary>
-        /// <exception cref="OperationCanceledException">The bake was cancelled.</exception>
+        /// <summary>Counts a finished row.</summary>
         public void Row() {
-            cancellationToken.ThrowIfCancellationRequested();
+            lock (reporting) {
+                done++;
 
-            done++;
+                if (progress is null || rows <= 0 || cancellationToken.IsCancellationRequested) {
+                    return;
+                }
 
-            if (progress is null || rows <= 0) {
-                return;
+                var fraction = MathF.Min((float) ((double) done / rows), 1f);
+
+                if (fraction - said < Step) {
+                    return;
+                }
+
+                said = fraction;
+                progress(fraction);
             }
-
-            var fraction = MathF.Min((float) ((double) done / rows), 1f);
-
-            if (fraction - said < Step) {
-                return;
-            }
-
-            said = fraction;
-            progress(fraction);
         }
 
         /// <summary>Says the casting is over, whatever the last step reported.</summary>
@@ -650,380 +774,6 @@ public static class MapBaker {
 
         /// <summary>How much the fraction must move before it is worth saying again.</summary>
         const float Step = 0.005f;
-    }
-
-    /// <summary>Rasterizes one chart triangle conservatively and bakes every texel it touches.</summary>
-    static void Rasterize(
-        SourceSurface surface,
-        BakeSettings settings,
-        Vector2[] uv,
-        Vector3[] points,
-        Vector3[] shaded,
-        float radius,
-        float[]? curvature,
-        BakeBuffers buffers,
-        Casting cast
-    ) {
-        var resolution = settings.Resolution;
-
-        if (Box(uv, resolution) is not { } bounds) {
-            return;
-        }
-
-        var (x0, y0, x1, y1) = bounds;
-        var scaled = new Vector2[3];
-
-        for (var at = 0; at < 3; at++) {
-            scaled[at] = uv[at] * resolution;
-        }
-
-        var frame = Frame(uv, points);
-
-        for (var y = y0; y <= y1; y++) {
-            // ⚠ Before the row rather than after it, so that a bake cancelled at the very first row
-            // has cast nothing. After would make the first row unconditional, which at 4K with a
-            // chart spanning the atlas is several million rays a Cancel cannot reach.
-            cast.Row();
-
-            for (var x = x0; x <= x1; x++) {
-                var index = (y * resolution) + x;
-
-                // ⚠ First chart to claim a texel keeps it, in face order. Two charts overlapping in
-                // the atlas is a packing defect rather than a bake one, and a bake that blended them
-                // would hide it; a bake that let the later one win would make the answer depend on
-                // face order, which § D14 forbids just as firmly.
-                if (buffers.Coverage[index]) {
-                    continue;
-                }
-
-                Vector2 low = new(x, y);
-                Vector2 high = new(x + 1, y + 1);
-
-                if (!AtlasRaster.Overlaps(scaled[0], scaled[1], scaled[2], low, high)) {
-                    continue;
-                }
-
-                var weights = AtlasRaster.Barycentric(low + new Vector2(0.5f, 0.5f), scaled[0], scaled[1], scaled[2]);
-
-                var point = (points[0] * weights.X) + (points[1] * weights.Y) + (points[2] * weights.Z);
-                var along = ScaleSafe.Unit((shaded[0] * weights.X) + (shaded[1] * weights.Y) + (shaded[2] * weights.Z));
-
-                if (along.LengthSquared() <= 0f) {
-                    along = frame.Normal;
-                }
-
-                buffers.Coverage[index] = true;
-                buffers.Covered++;
-
-                var sample = Probe(surface, point, along, radius);
-
-                if (!sample.Struck) {
-                    buffers.Missed++;
-                }
-
-                buffers.Normals[index] = settings.Space == BakeSpace.Object
-                    ? sample.Normal
-                    : ToTangent(sample.Normal, along, frame);
-
-                buffers.Displacement[index] = sample.Distance;
-                buffers.DisplacementRange = MathF.Max(buffers.DisplacementRange, MathF.Abs(sample.Distance));
-
-                if (settings.Maps != MeshMaps.None) {
-                    Measure(surface, settings, curvature, buffers, index, sample, along, frame);
-                }
-            }
-        }
-    }
-
-    /// <summary>The six further measurements at a texel whose source point the probe already found.</summary>
-    /// <remarks>
-    ///     ⚠ <b>Every one of them is made at the <i>source</i>'s point and about the source's
-    ///     normal, never the cage's.</b> The cage is a few thousand quads that deliberately do not
-    ///     have the geometry doing the occluding, and an occlusion measured on it is a picture of the
-    ///     cage — which is the failure mode that makes a baked AO map look like a smoothed version of
-    ///     the thing it was supposed to capture.
-    /// </remarks>
-    static void Measure(
-        SourceSurface surface,
-        BakeSettings settings,
-        float[]? curvature,
-        BakeBuffers buffers,
-        int index,
-        SourceSample sample,
-        Vector3 along,
-        (Vector3 Tangent, Vector3 Bitangent, Vector3 Normal) frame
-    ) {
-        if (buffers.Position is { } position) {
-            position[index] = Normalised(surface.Bounds, sample.Point);
-        }
-
-        if (buffers.WorldNormal is { } world) {
-            world[index] = sample.Normal;
-        }
-
-        if (buffers.Ids is { } ids && buffers.Labels is { } labels && sample.Triangle >= 0) {
-            ids[index] = labels[surface.FaceOf(sample.Triangle)];
-        }
-
-        if (curvature is not null && buffers.Curvature is { } curve && sample.Triangle >= 0) {
-            var slots = surface.PositionsOf(sample.Triangle);
-
-            var value = (curvature[slots[0]] * sample.Barycentric.X)
-                + (curvature[slots[1]] * sample.Barycentric.Y)
-                + (curvature[slots[2]] * sample.Barycentric.Z);
-
-            curve[index] = value;
-            buffers.CurvatureRange = MathF.Max(buffers.CurvatureRange, MathF.Abs(value));
-        }
-
-        if (!BakeBuffers.NeedsRays(settings.Maps)) {
-            return;
-        }
-
-        Occlude(
-            surface,
-            settings,
-            index,
-            sample.Point,
-            sample.Normal,
-            out var open,
-            out var unoccluded,
-            out var thickness
-        );
-
-        if (buffers.Occlusion is { } occlusion) {
-            occlusion[index] = open;
-        }
-
-        if (buffers.Bent is { } average) {
-            average[index] = settings.Space == BakeSpace.Object
-                ? unoccluded
-                : ToTangent(unoccluded, along, frame);
-        }
-
-        if (buffers.Thickness is { } inside) {
-            inside[index] = thickness;
-        }
-    }
-
-    /// <summary>One hemisphere of rays, answering occlusion, the bent normal and thickness together.</summary>
-    /// <remarks>
-    ///     <para>
-    ///         ⚠ <b>One loop, three accumulators, and the second cast is the first one mirrored.</b>
-    ///         § D12 says the bent normal is "the average unoccluded direction from the same rays —
-    ///         one accumulator, no second pass", and thickness is "the same hemisphere, inverted":
-    ///         casting a second, independently generated set for either would cost twice as much and
-    ///         answer about a different set of directions, so a bent normal would not agree with the
-    ///         occlusion beside it.
-    ///     </para>
-    ///     <para>
-    ///         ⚠ <b>The occlusion is the plain mean of the samples and carries no <c>cos θ</c>
-    ///         weight</b>, because <see cref="HemisphereSampler" /> draws the directions <i>from</i>
-    ///         the cosine density. Weighting them again would compute the cosine-squared integral,
-    ///         which is a darker map that still looks plausible.
-    ///     </para>
-    ///     <para>
-    ///         ⚠ <b>The ray starts a bias off the surface, along the normal it was built about.</b>
-    ///         A ray leaving a point that lies exactly on the triangle it came from strikes that
-    ///         triangle at zero distance about as often as not, and the map is then uniformly black
-    ///         for reasons nothing in it shows. The bias is a fraction of the diagonal for the same
-    ///         reason every other tolerance here is.
-    ///     </para>
-    /// </remarks>
-    static void Occlude(
-        SourceSurface surface,
-        BakeSettings settings,
-        int texel,
-        Vector3 point,
-        Vector3 normal,
-        out float open,
-        out Vector3 unoccluded,
-        out float thickness
-    ) {
-        var count = settings.OcclusionSamples;
-        var reach = surface.Diagonal * MathF.Max(settings.OcclusionRadius, 0f);
-        var bias = surface.Diagonal * SelfHitBias;
-        var (tangent, bitangent) = HemisphereSampler.Basis(normal);
-        var turn = HemisphereSampler.Turn(texel);
-        var wanted = settings.Maps.HasFlag(MeshMaps.Thickness);
-
-        var clear = 0;
-        var enclosed = 0;
-        var sum = Vector3.Zero;
-
-        for (var sample = 0; sample < count; sample++) {
-            var local = HemisphereSampler.Local(sample, count, turn);
-            var direction = (tangent * local.X) + (bitangent * local.Y) + (normal * local.Z);
-
-            if (reach <= 0f || surface.Tree.Raycast(point + (normal * bias), direction * reach).Triangle < 0) {
-                clear++;
-                sum += direction;
-            }
-
-            if (!wanted) {
-                continue;
-            }
-
-            // The same direction reflected through the tangent plane, which is what makes this the
-            // same hemisphere seen from the other side rather than a second set of samples.
-            var inward = direction - (normal * (2f * local.Z));
-
-            if (reach > 0f && surface.Tree.Raycast(point - (normal * bias), inward * reach).Triangle >= 0) {
-                enclosed++;
-            }
-        }
-
-        open = clear / (float) count;
-        thickness = enclosed / (float) count;
-
-        var unit = ScaleSafe.Unit(sum);
-
-        // Every ray blocked leaves nothing to average, and a zero vector is not a direction. The
-        // surface normal is the honest answer for a texel that can see nothing at all.
-        unoccluded = unit.LengthSquared() > 0f ? unit : normal;
-    }
-
-    /// <summary>A point as a fraction of the source's bounding box, on each axis.</summary>
-    static Vector3 Normalised(BoundingBox bounds, Vector3 point) {
-        var size = bounds.Maximum - bounds.Minimum;
-        var offset = point - bounds.Minimum;
-
-        return new(
-            size.X > 0f ? offset.X / size.X : 0f,
-            size.Y > 0f ? offset.Y / size.Y : 0f,
-            size.Z > 0f ? offset.Z / size.Z : 0f
-        );
-    }
-
-    /// <summary>Casts along the normal both ways and takes the nearer source surface.</summary>
-    /// <remarks>
-    ///     ⚠ <b>The direction handed to the tree has the search radius as its <i>length</i></b>, so
-    ///     the hit comes back as a fraction in <c>(0, 1]</c> and there is no second limit that could
-    ///     disagree with it. That is also why the radius is relative: it is a fraction of the
-    ///     source's diagonal, computed once, rather than a distance somebody has to keep in step with
-    ///     the model's units.
-    /// </remarks>
-    static SourceSample Probe(SourceSurface surface, Vector3 point, Vector3 along, float radius) {
-        if (radius > 0f) {
-            var outward = surface.Tree.Raycast(point, along * radius);
-            var inward = surface.Tree.Raycast(point, -along * radius);
-
-            var hit = outward.Triangle >= 0 && (inward.Triangle < 0 || outward.Distance <= inward.Distance)
-                ? (Hit: outward, Sign: 1f)
-                : (Hit: inward, Sign: -1f);
-
-            if (hit.Hit.Triangle >= 0) {
-                return new(
-                    true,
-                    hit.Hit.Triangle,
-                    hit.Hit.Barycentric,
-                    hit.Hit.Point,
-                    surface.NormalAt(hit.Hit.Triangle, hit.Hit.Barycentric),
-                    hit.Hit.Distance * radius * hit.Sign
-                );
-            }
-        }
-
-        // Nothing along the normal. The closest point is the honest fallback: at worst it is the
-        // right source measured from slightly the wrong place, and a default normal here would be a
-        // flat patch in the middle of a chart that reads as a modelling error.
-        var closest = surface.Tree.Closest(point);
-
-        if (closest.Triangle < 0) {
-            // ⚠ The cage's own point and normal, because there is no source to speak of — an empty
-            // tree, or a radius of zero on a source with no extent. A position map full of zeroes
-            // would be a claim about where the surface is; the cage is at least where the texel is.
-            return new(false, -1, Vector3.Zero, point, along, 0f);
-        }
-
-        var offset = closest.Point - point;
-
-        return new(
-            false,
-            closest.Triangle,
-            closest.Barycentric,
-            closest.Point,
-            surface.NormalAt(closest.Triangle, closest.Barycentric),
-            MathF.Sqrt(closest.DistanceSquared) * (Vector3.Dot(offset, along) < 0f ? -1f : 1f)
-        );
-    }
-
-    /// <summary>The tangent frame a chart triangle implies, from its texture-coordinate gradient.</summary>
-    /// <remarks>
-    ///     <para>
-    ///         Lengyel's construction: the two texture-space edge vectors are inverted against the
-    ///         two world edge vectors, which gives the directions <c>u</c> and <c>v</c> increase in.
-    ///         Gram–Schmidt against the interpolated normal makes it orthonormal, and the sign of the
-    ///         bitangent against the cross product carries the handedness — a mirrored chart has the
-    ///         other one, and getting it wrong inverts every mirrored surface in the bake.
-    ///     </para>
-    ///     <para>
-    ///         ⚠ <b>The determinant is an <i>area</i> in texture space, so the guard on it has to be
-    ///         relative.</b> It is <c>du₁ × du₂</c>, which carries the coordinates' units squared;
-    ///         an absolute epsilon on it is a claim about how large a chart is, and a chart occupying
-    ///         a hundredth of a 4K atlas has determinants around <c>1e-8</c>. Compared against the
-    ///         product of the two edges' own lengths instead, which makes the ratio a squared sine
-    ///         and the comparison dimensionless — the same shape as
-    ///         <c>TriangleTree</c>'s Möller–Trumbore guard.
-    ///     </para>
-    /// </remarks>
-    static (Vector3 Tangent, Vector3 Bitangent, Vector3 Normal) Frame(Vector2[] uv, Vector3[] points) {
-        var e1 = points[1] - points[0];
-        var e2 = points[2] - points[0];
-        var normal = ScaleSafe.Unit(Vector3.Cross(ScaleSafe.Unit(e1), ScaleSafe.Unit(e2)));
-
-        var d1 = uv[1] - uv[0];
-        var d2 = uv[2] - uv[0];
-        var determinant = (d1.X * d2.Y) - (d2.X * d1.Y);
-        var span = d1.LengthSquared() * d2.LengthSquared();
-
-        if (determinant * determinant <= MathUtil.ZeroTolerance * MathUtil.ZeroTolerance * span) {
-            return (Fallback(normal), Vector3.Cross(normal, Fallback(normal)), normal);
-        }
-
-        var inverse = 1f / determinant;
-        var tangent = ((e1 * d2.Y) - (e2 * d1.Y)) * inverse;
-        var bitangent = ((e2 * d1.X) - (e1 * d2.X)) * inverse;
-
-        var straight = ScaleSafe.Unit(tangent - (normal * Vector3.Dot(normal, tangent)));
-
-        if (straight.LengthSquared() <= 0f) {
-            straight = Fallback(normal);
-        }
-
-        var crossed = Vector3.Cross(normal, straight);
-
-        return (straight, Vector3.Dot(crossed, bitangent) < 0f ? -crossed : crossed, normal);
-    }
-
-    /// <summary>Any unit vector perpendicular to another, for a chart whose gradient said nothing.</summary>
-    static Vector3 Fallback(Vector3 normal) {
-        var axis = MathF.Abs(normal.X) < 0.9f ? Vector3.UnitX : Vector3.UnitY;
-        var perpendicular = ScaleSafe.Unit(Vector3.Cross(normal, axis));
-
-        return perpendicular.LengthSquared() > 0f ? perpendicular : Vector3.UnitX;
-    }
-
-    /// <summary>A source normal expressed in the output's tangent frame at this texel.</summary>
-    /// <remarks>
-    ///     The frame is rebuilt against the <i>interpolated</i> normal rather than the triangle's
-    ///     flat one, so a smooth surface's baked map is smooth across a triangle boundary instead of
-    ///     stepping at every edge of the cage.
-    /// </remarks>
-    static Vector3 ToTangent(Vector3 normal, Vector3 along, (Vector3 Tangent, Vector3 Bitangent, Vector3 Normal) frame) {
-        var tangent = ScaleSafe.Unit(frame.Tangent - (along * Vector3.Dot(along, frame.Tangent)));
-
-        if (tangent.LengthSquared() <= 0f) {
-            tangent = Fallback(along);
-        }
-
-        var bitangent = Vector3.Cross(along, tangent);
-
-        if (Vector3.Dot(bitangent, frame.Bitangent) < 0f) {
-            bitangent = -bitangent;
-        }
-
-        return new(Vector3.Dot(normal, tangent), Vector3.Dot(normal, bitangent), Vector3.Dot(normal, along));
     }
 
     /// <summary>Grows the charts outward into the background, never over another chart's content.</summary>
@@ -1048,18 +798,21 @@ public static class MapBaker {
     ///         directional bias that shows up as a lopsided halo at low mips.
     ///     </para>
     /// </remarks>
-    static int Dilate(BakeSettings settings, BakeBuffers buffers) {
+    static int Dilate(BakeSettings settings, BakeBuffers buffers, ParallelOptions options) {
         var resolution = settings.Resolution;
         var filled = (bool[]) buffers.Coverage.Clone();
-        var pending = new List<int>();
+        var next = (bool[]) filled.Clone();
         var total = 0;
 
-        Span<int> offsets = stackalloc int[4];
-
         for (var round = 0; round < settings.Gutter; round++) {
-            pending.Clear();
+            var grown = 0;
 
-            for (var y = 0; y < resolution; y++) {
+            // ⚠ A row writes only texels `filled` says are empty and reads only texels it says are
+            // full, so rows cannot see each other's writes and may run in any order.
+            Parallel.For(0, resolution, options, y => {
+                Span<int> offsets = stackalloc int[4];
+                var added = 0;
+
                 for (var x = 0; x < resolution; x++) {
                     var index = (y * resolution) + x;
 
@@ -1144,14 +897,15 @@ public static class MapBaker {
                     Write(buffers.Bent, index, Unit(unoccluded / found));
                     Write(buffers.WorldNormal, index, Unit(world / found));
 
-                    pending.Add(index);
+                    next[index] = true;
+                    added++;
                 }
-            }
 
-            foreach (var index in pending) {
-                filled[index] = true;
-                total++;
-            }
+                Interlocked.Add(ref grown, added);
+            });
+
+            total += grown;
+            next.CopyTo(filled, 0);
         }
 
         return total;
@@ -1169,22 +923,6 @@ public static class MapBaker {
         var unit = ScaleSafe.Unit(value);
 
         return unit.LengthSquared() > 0f ? unit : value;
-    }
-
-    /// <summary>Per-corner normals for a target that arrived without a layer.</summary>
-    static Vector3[] Geometric(EditMesh target) {
-        var normals = new Vector3[target.CornerCount];
-
-        for (var face = 0; face < target.FaceCount; face++) {
-            var entry = target.Faces[face];
-            var normal = ScaleSafe.Unit(target.Normal(face));
-
-            for (var at = 0; at < entry.Count; at++) {
-                normals[entry.Start + at] = normal;
-            }
-        }
-
-        return normals;
     }
 
     /// <summary>The buffers as a result, including a bake that found nothing to do.</summary>
@@ -1210,19 +948,4 @@ public static class MapBaker {
             Warnings = warnings
         };
 
-    /// <summary>What one probe found: where on the source, which triangle, and how far away.</summary>
-    /// <param name="Struck">Whether a ray hit, rather than the closest-point fallback answering.</param>
-    /// <param name="Triangle">The source triangle, or <c>-1</c> when there was no source at all.</param>
-    /// <param name="Barycentric">Where on that triangle, as weights summing to one.</param>
-    /// <param name="Point">The point on the source, which every further measurement is made at.</param>
-    /// <param name="Normal">The source's interpolated normal there.</param>
-    /// <param name="Distance">Signed, positive when the source stands proud of the cage.</param>
-    readonly record struct SourceSample(
-        bool Struck,
-        int Triangle,
-        Vector3 Barycentric,
-        Vector3 Point,
-        Vector3 Normal,
-        float Distance
-    );
 }

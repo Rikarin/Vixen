@@ -14,6 +14,9 @@
         <PackageTags>geometry;retopology;remesh;quad;mesh;vixen</PackageTags>
         <PackageReadmeFile>README.md</PackageReadmeFile>
 
+        <!-- For `[SkipLocalsInit]` on BakeTree's queries, which run billions of times per bake. -->
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+
         <!--
             ⚠ Optimised even in Debug, for the reason Vixen.Geometry.Uv records at length: the field
             solve and the extractor are float inner loops, and unoptimised they are what makes a

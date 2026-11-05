@@ -22,6 +22,8 @@ namespace Vixen.Geometry.Remeshing;
 ///     </para>
 /// </remarks>
 sealed class BakeBuffers {
+    readonly Lock merging = new();
+
     /// <summary>The struck source normal per texel, in the requested space.</summary>
     public Vector3[] Normals { get; }
 
@@ -73,6 +75,22 @@ sealed class BakeBuffers {
 
     /// <summary>The largest absolute curvature seen.</summary>
     public float CurvatureRange { get; set; }
+
+    /// <summary>Adds what one row found to the bake's totals, which any thread may do at any time.</summary>
+    /// <param name="missed">How many of its texels found no source.</param>
+    /// <param name="displacement">The largest absolute displacement in it.</param>
+    /// <param name="curvature">The largest absolute curvature in it.</param>
+    /// <remarks>
+    ///     ⚠ <b>Sums and maximums, because neither remembers the order it was given things in.</b> That
+    ///     is the whole of what lets these be totalled by whichever thread finishes first.
+    /// </remarks>
+    public void Merge(int missed, float displacement, float curvature) {
+        lock (merging) {
+            Missed += missed;
+            DisplacementRange = MathF.Max(DisplacementRange, displacement);
+            CurvatureRange = MathF.Max(CurvatureRange, curvature);
+        }
+    }
 
     /// <summary>Allocates exactly the channels the settings asked for.</summary>
     /// <param name="settings">What to bake, and how big.</param>

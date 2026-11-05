@@ -129,6 +129,153 @@ public static class PngCodec {
         return new(width, height, Unfilter(raw, width, height));
     }
 
+    /// <summary>Encodes 16-bit samples, which is what a map needing more than 256 levels is written as.</summary>
+    /// <param name="width">The width in pixels.</param>
+    /// <param name="height">The height in pixels.</param>
+    /// <param name="channels">One for grey, three for RGB, four for RGBA.</param>
+    /// <param name="samples">Interleaved, top row first, width × height × channels of them.</param>
+    /// <returns>The file.</returns>
+    /// <exception cref="ArgumentException">The channels or the sample count are not ones a file can hold.</exception>
+    /// <remarks>
+    ///     ⚠ <b>Filter type 0 on every row, for the reason <see cref="Encode" /> gives</b>, and big-endian
+    ///     samples because the format is, which is the mistake a 16-bit writer makes silently: a
+    ///     byte-swapped image of a smooth gradient is noise that decodes without complaint.
+    /// </remarks>
+    public static byte[] Encode16(int width, int height, int channels, ReadOnlySpan<ushort> samples) {
+        var colourType = channels switch {
+            1 => 0,
+            3 => 2,
+            4 => 6,
+            _ => throw new ArgumentException($"{channels} channels: one, three or four are written.", nameof(channels))
+        };
+
+        if (width <= 0 || height <= 0 || samples.Length != width * height * channels) {
+            throw new ArgumentException("The samples do not fill the image.", nameof(samples));
+        }
+
+        var stride = width * channels * sizeof(ushort);
+        var raw = new byte[(height * stride) + height];
+
+        for (var y = 0; y < height; y++) {
+            var row = samples.Slice(y * width * channels, width * channels);
+            var at = (y * (stride + 1)) + 1;
+
+            foreach (var sample in row) {
+                BinaryPrimitives.WriteUInt16BigEndian(raw.AsSpan(at), sample);
+                at += sizeof(ushort);
+            }
+        }
+
+        using var output = new MemoryStream();
+        output.Write(Signature);
+
+        var header = new byte[13];
+        BinaryPrimitives.WriteInt32BigEndian(header, width);
+        BinaryPrimitives.WriteInt32BigEndian(header.AsSpan(4), height);
+        header[8] = 16;
+        header[9] = (byte)colourType;
+
+        WriteChunk(output, "IHDR", header);
+        WriteChunk(output, "IDAT", Deflate(raw));
+        WriteChunk(output, "IEND", []);
+        return output.ToArray();
+    }
+
+    /// <summary>Decodes what <see cref="Encode16" /> and <see cref="Encode" /> write, keeping its depth.</summary>
+    /// <param name="data">The file.</param>
+    /// <returns>The picture as 16-bit samples: an 8-bit file's levels scaled to fill the range.</returns>
+    /// <exception cref="InvalidDataException">It is palette, interlaced, or of another depth.</exception>
+    public static (int Width, int Height, int Channels, ushort[] Samples) Decode16(ReadOnlySpan<byte> data) {
+        if (data.Length < 8 || !data[..8].SequenceEqual(Signature)) {
+            throw new InvalidDataException("Not a PNG: the signature does not match.");
+        }
+
+        var offset = 8;
+        var (width, height, depth, channels) = (0, 0, 0, 0);
+        using var compressed = new MemoryStream();
+
+        while (offset + 8 <= data.Length) {
+            var length = BinaryPrimitives.ReadInt32BigEndian(data[offset..]);
+            var kind = Encoding.ASCII.GetString(data.Slice(offset + 4, 4));
+            var body = data.Slice(offset + 8, length);
+            offset += 12 + length;
+
+            switch (kind) {
+                case "IHDR":
+                    width = BinaryPrimitives.ReadInt32BigEndian(body);
+                    height = BinaryPrimitives.ReadInt32BigEndian(body[4..]);
+                    depth = body[8];
+                    channels = body[9] switch {
+                        0 => 1,
+                        2 => 3,
+                        4 => 2,
+                        6 => 4,
+                        _ => throw new InvalidDataException("Palette PNGs are not read.")
+                    };
+
+                    if (depth is not (8 or 16) || body[12] != 0) {
+                        throw new InvalidDataException($"A PNG of depth {depth}, or interlaced, is not read.");
+                    }
+
+                    break;
+
+                case "IDAT":
+                    compressed.Write(body);
+                    break;
+
+                case "IEND":
+                    offset = data.Length;
+                    break;
+            }
+        }
+
+        if (width <= 0 || height <= 0) {
+            throw new InvalidDataException("The PNG has no IHDR, or names an empty image.");
+        }
+
+        var bytes = depth / 8;
+        var stride = width * channels * bytes;
+        var pixels = Reverse(Inflate(compressed.ToArray(), (height * stride) + height), stride, height, channels * bytes);
+        var samples = new ushort[width * height * channels];
+
+        for (var index = 0; index < samples.Length; index++) {
+            samples[index] = bytes == 2
+                ? BinaryPrimitives.ReadUInt16BigEndian(pixels.AsSpan(index * 2))
+                : (ushort)(pixels[index] * 257);
+        }
+
+        return (width, height, channels, samples);
+    }
+
+    /// <summary>Undoes the row filters of a picture of any pixel size.</summary>
+    static byte[] Reverse(byte[] raw, int stride, int height, int pixel) {
+        var pixels = new byte[height * stride];
+
+        for (var y = 0; y < height; y++) {
+            var filter = raw[y * (stride + 1)];
+            var source = (y * (stride + 1)) + 1;
+            var destination = y * stride;
+
+            for (var x = 0; x < stride; x++) {
+                var value = raw[source + x];
+                var left = x >= pixel ? pixels[destination + x - pixel] : 0;
+                var up = y > 0 ? pixels[destination - stride + x] : 0;
+                var upLeft = y > 0 && x >= pixel ? pixels[destination - stride + x - pixel] : 0;
+
+                pixels[destination + x] = filter switch {
+                    0 => value,
+                    1 => (byte)(value + left),
+                    2 => (byte)(value + up),
+                    3 => (byte)(value + ((left + up) / 2)),
+                    4 => (byte)(value + Paeth(left, up, upLeft)),
+                    _ => throw new InvalidDataException($"Unknown PNG row filter {filter}.")
+                };
+            }
+        }
+
+        return pixels;
+    }
+
     /// <summary>Reads a picture from disk.</summary>
     /// <param name="path">Where it is.</param>
     /// <returns>The picture.</returns>

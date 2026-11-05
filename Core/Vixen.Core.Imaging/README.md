@@ -26,6 +26,14 @@ openable in a file browser. Three things in this repository write one: the golde
 UI baselines, and `--vixen-capture`. None of them can reference the others, so the encoder sits under
 all three. See [capturing a frame](../../docs/guide/rendering/capturing-a-frame.md).
 
+**Two more that are not it either, and both exist for the same kind of reason.** A baked map is a
+measurement and eight bits is not enough of one, so `PngCodec.Encode16` writes grey, RGB or RGBA at
+sixteen bits, and `ExrCodec` writes 16- and 32-bit float scanline OpenEXR with ZIP compression. ⚠ **The
+EXR writer is managed on purpose**: the reference library is four native binaries to build and sign per
+platform, and a flat image with one compression method is about two hundred lines over the deflate
+this assembly already has. It reads what it writes, and a tiled, deep or multi-part file is refused.
+Checked against macOS ImageIO and FFmpeg, neither of which shares a line with it.
+
 ## KTX2
 
 **Level data is stored smallest first.** The level index is ordered largest first and the bytes it
