@@ -228,7 +228,7 @@ public class PaintAlphaTests(ITestOutputHelper output) {
             SizeJitter = 0.3f
         };
 
-        var before = (byte[])layer.Texels.Clone();
+        var before = (byte[])layer.ToTexels().Clone();
         var session = PaintSession.Begin(target, brush, Opaque);
 
         for (var step = 0; step < 6; step++) {
@@ -242,20 +242,20 @@ public class PaintAlphaTests(ITestOutputHelper output) {
         Assert.NotNull(command);
         Assert.Equal(2, session.Strokes);
 
-        var painted = (byte[])layer.Texels.Clone();
+        var painted = (byte[])layer.ToTexels().Clone();
 
         Assert.False(before.AsSpan().SequenceEqual(painted), "the drag painted nothing, so nothing is proved.");
 
         command.Undo(NoContext);
 
         Assert.True(
-            before.AsSpan().SequenceEqual(layer.Texels),
+            before.AsSpan().SequenceEqual(layer.ToTexels()),
             "one undo left paint behind, so the drag was more than one entry's worth of record."
         );
 
         command.Do(NoContext);
 
-        Assert.True(painted.AsSpan().SequenceEqual(layer.Texels), "the redo did not reproduce the drag.");
+        Assert.True(painted.AsSpan().SequenceEqual(layer.ToTexels()), "the redo did not reproduce the drag.");
     }
 
     // --- The cost ------------------------------------------------------------

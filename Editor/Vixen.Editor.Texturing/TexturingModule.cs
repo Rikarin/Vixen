@@ -1121,11 +1121,7 @@ public sealed partial class TexturingModule : IEditorPlugin, ITexturing, IDispos
             patch = new byte[bytes];
         }
 
-        for (var row = 0; row < rect.Height; row++) {
-            var from = (((rect.Y + row) * image.Width) + rect.X) * PaintImage.BytesPerTexel;
-
-            Array.Copy(image.Texels, from, patch, row * stride, stride);
-        }
+        image.CopyRect(rect, patch);
 
         return graphics.Update(live, rect.X, rect.Y, rect.Width, rect.Height, patch.AsSpan(0, bytes));
     }
@@ -1309,7 +1305,7 @@ public sealed partial class TexturingModule : IEditorPlugin, ITexturing, IDispos
             return;
         }
 
-        var uploaded = graphics?.Upload(picture.Width, picture.Height, picture.Texels);
+        var uploaded = graphics?.Upload(picture.Width, picture.Height, picture.ToTexels());
 
         modelled?.Dispose();
         modelled = uploaded;
@@ -1410,7 +1406,7 @@ public sealed partial class TexturingModule : IEditorPlugin, ITexturing, IDispos
             return;
         }
 
-        var uploaded = graphics?.Upload(image.Width, image.Height, image.Texels);
+        var uploaded = graphics?.Upload(image.Width, image.Height, image.ToTexels());
 
         // One live upload per redraw: a pane re-uploaded on every pointer move would otherwise hold
         // a texture and a descriptor set per frame of the drag. `LayerStackPreview` says the same.

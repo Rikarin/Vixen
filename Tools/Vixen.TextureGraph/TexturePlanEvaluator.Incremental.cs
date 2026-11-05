@@ -122,6 +122,11 @@ public sealed partial class TexturePlanEvaluator {
         }
 
         var kept = Keep(plan, decision);
+
+        foreach (var image in decision.InPlace.Keys) {
+            kept[image] = true;
+        }
+
         var schedule = TexturePoolSchedule.For(plan, decision.Runs, kept, decision.InPlace);
         var rented = new TextureResultCache.Rented?[schedule.Allocations];
         long repairedBytes = 0;
@@ -214,13 +219,6 @@ public sealed partial class TexturePlanEvaluator {
         return bake;
     }
 
-    /// <summary>Which images of a run stay in the cache, as a mask over the image table.</summary>
-    /// <remarks>
-    ///     ⚠ <b>Outputs always, and the rest while they fit.</b> A forty-op bake at 4K has no business
-    ///     keeping forty 128 MB intermediates because it was asked for one map, and the pool exists to
-    ///     not do that. So what the budget cannot hold is pooled as the whole-plan path would pool
-    ///     it, and the next edit re-runs it.
-    /// </remarks>
     /// <summary>What has to run for a change, and over how much of each image.</summary>
     /// <returns>The decision, or <see langword="null" /> when this cannot be done by repair at all.</returns>
     /// <remarks>
@@ -389,6 +387,13 @@ public sealed partial class TexturePlanEvaluator {
         return aligned;
     }
 
+    /// <summary>Which images of a run stay in the cache, as a mask over the image table.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Outputs always, and the rest while they fit.</b> A forty-op bake at 4K has no business
+    ///     keeping forty 128 MB intermediates because it was asked for one map, and the pool exists to
+    ///     not do that. So what the budget cannot hold is pooled as the whole-plan path would pool
+    ///     it, and the next edit re-runs it.
+    /// </remarks>
     bool[] Keep(TexturePlan plan, Decision decision) {
         var kept = new bool[plan.Images.Length];
         var room = Results.Budget;
@@ -413,7 +418,7 @@ public sealed partial class TexturePlanEvaluator {
             var image = plan.Ops[index].Output;
 
             // ⚠ An image that ran over rectangles is a picture only there: filed, it would be served
-            // whole. What is repaired in place is an output, so the loop above has already kept it.
+            // whole. What is repaired in place is the exception, and the caller keeps it.
             if (!decision.Runs[index] || kept[image] || decision.Regions.ContainsKey(image)) {
                 continue;
             }

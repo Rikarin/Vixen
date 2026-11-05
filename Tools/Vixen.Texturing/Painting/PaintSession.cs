@@ -94,13 +94,13 @@ public sealed class PaintSession {
     readonly float smoothing;
     readonly uint seed;
 
-    /// <summary>What the drag found before any of its paths painted, or null for a single path.</summary>
+    /// <summary>What the drag found before any of its paths painted.</summary>
     /// <remarks>
-    ///     ⚠ <b>The undo record of a <em>drag</em>, which is not its strokes' records put together</b>
-    ///     — see <see cref="PaintOriginal" />. Latched with the strokes, at the first move, because
-    ///     that is the moment the path count is fixed.
+    ///     ⚠ <b>One snapshot for every path, because two paths that overlap in the atlas record each
+    ///     other's paint.</b> Undoing per-texel records in any order left some of it behind, and four
+    ///     texels of a mirror used to survive their own undo; a table of tiles cannot.
     /// </remarks>
-    PaintOriginal? original;
+    PaintImageSnapshot? origin;
 
     PaintSession(PaintTarget target, PaintBrush brush, uint colour, float smoothing, uint seed) {
         this.target = target;
@@ -218,11 +218,7 @@ public sealed class PaintSession {
         }
 
         if (strokes.Count == 0) {
-            // ⚠ Only for a drag that has mirrors, and `PaintOriginal`'s remarks are the whole
-            // argument: two paths that overlap in the atlas cannot be undone by undoing their
-            // records in any order, and one path cannot overlap itself. A single-path drag — every
-            // stroke the 2D pane makes — allocates nothing here.
-            original = positions.Length > 1 ? new(target.Layer) : null;
+            origin = target.Layer.Snapshot();
 
             for (var index = 0; index < positions.Length; index++) {
                 // ⚠ A different seed per mirror. Sharing one would make a mirrored stroke's jitter
@@ -236,7 +232,7 @@ public sealed class PaintSession {
                     target.Gutter,
                     smoothing,
                     seed + ((uint)index * 0x85EBCA6Bu),
-                    original
+                    origin
                 ));
             }
         } else if (strokes.Count != positions.Length) {
@@ -317,8 +313,7 @@ public sealed class PaintSession {
             rect => {
                 Composite.Resolve(rect);
                 changed?.Invoke(rect);
-            },
-            original
+            }
         );
     }
 }

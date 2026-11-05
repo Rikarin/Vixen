@@ -96,7 +96,7 @@ public class PaintCompositeTests {
 
         layer.Fill(0x0A0B0C0Du);
 
-        var original = (byte[])layer.Texels.Clone();
+        var original = (byte[])layer.ToTexels().Clone();
         PaintTarget target = new(layer, PaintStrokeTests.Islands(128, 128), stack);
         var session = PaintSession.Begin(target, PaintStrokeTests.Hard(10f) with { Spacing = 0.2f }, Opaque);
 
@@ -106,7 +106,7 @@ public class PaintCompositeTests {
             session.Move(new(20f + step, 64f));
         }
 
-        var painted = (byte[])layer.Texels.Clone();
+        var painted = (byte[])layer.ToTexels().Clone();
         var command = session.End("Paint");
 
         Assert.NotNull(command);
@@ -114,11 +114,11 @@ public class PaintCompositeTests {
 
         command.Undo(NoContext);
 
-        Assert.Equal(original, layer.Texels);
+        Assert.Equal(original, layer.ToTexels());
 
         command.Do(NoContext);
 
-        Assert.Equal(painted, layer.Texels);
+        Assert.Equal(painted, layer.ToTexels());
 
         // ⚠ And it never merges. Two strokes are two undos, which is what an artist means.
         Assert.False(command.TryMergeWith(command, out _));

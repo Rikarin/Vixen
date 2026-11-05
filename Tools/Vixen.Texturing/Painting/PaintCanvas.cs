@@ -38,10 +38,15 @@ namespace Vixen.Texturing.Painting;
 ///         save, on the save of a document whose whole point is that the artist is dragging on it.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The block format with per-tile storage this issue reached for is a different
-///         problem.</b> Tiles buy an <em>incremental</em> save — writing only the tiles a session
-///         touched — and nothing here is bounded by the whole-file write once it is 4 MB. It is worth
-///         doing when a stroke has to be saved during the drag rather than at the end of it.
+///         <b>A pack of tiles since version 3</b>, each deflated on its own and in order of position, so
+///         that a tile nobody painted is not in the file and the same picture is always the same
+///         bytes. An unpainted channel is a header. Each version before this stays readable, and the
+///         first save rewrites the file.
+///     </para>
+///     <para>
+///         ⚠ <b>Tiles do not buy an incremental save here</b>, and #850 was right that nothing is
+///         bounded by the whole-file write once it is 4 MB. What they buy is what the image holds in
+///         memory; a save still writes every tile that holds anything.
 ///     </para>
 /// </remarks>
 public sealed class PaintCanvas {
@@ -49,7 +54,7 @@ public sealed class PaintCanvas {
     public static readonly byte[] Magic = "VXPAINT\0"u8.ToArray();
 
     /// <summary>What this build writes.</summary>
-    public const int CurrentVersion = 2;
+    public const int CurrentVersion = 3;
 
     /// <summary>The oldest version this build can still open.</summary>
     /// <remarks>
@@ -63,6 +68,9 @@ public sealed class PaintCanvas {
     /// <summary>Where the channel bytes stop being raw texels.</summary>
     /// <remarks>The version that introduced Deflate, so the reader's branch is named rather than 2.</remarks>
     const int CompressedFrom = 2;
+
+    /// <summary>Where a channel stops being one image and becomes a pack of tiles.</summary>
+    const int TiledFrom = 3;
 
     readonly Dictionary<string, PaintImage> channels = new(StringComparer.OrdinalIgnoreCase);
     readonly List<string> order = [];
@@ -129,7 +137,7 @@ public sealed class PaintCanvas {
     ///         than as an error.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Each channel's compressed length is written before its bytes, and the compression
+    ///         ⚠ <b>Each tile's compressed length is written before its bytes, and the compression
     ///         therefore happens into memory first.</b> A <c>DeflateStream</c> straight onto the
     ///         output would need the length patched afterwards, which needs a seekable stream — and
     ///         <see cref="PaintSurface.Save" /> writes through a temporary file precisely because the
@@ -149,17 +157,58 @@ public sealed class PaintCanvas {
         writer.Write(order.Count);
 
         foreach (var usage in order) {
-            writer.Write(usage);
+            WriteChannel(writer, usage, channels[usage]);
+        }
+    }
 
-            using MemoryStream packed = new();
+    /// <summary>The bytes this canvas holds in memory, which is what a store's budget has to count.</summary>
+    public long ResidentBytes {
+        get {
+            var total = 0L;
 
-            using (DeflateStream deflate = new(packed, CompressionLevel.Fastest, leaveOpen: true)) {
-                deflate.Write(channels[usage].Texels);
+            foreach (var image in channels.Values) {
+                total += image.ResidentBytes;
             }
 
-            writer.Write((int)packed.Length);
-            writer.Write(packed.GetBuffer(), 0, (int)packed.Length);
+            return total;
         }
+    }
+
+    static void WriteChannel(BinaryWriter writer, string usage, PaintImage image) {
+        writer.Write(usage);
+        writer.Write(image.Background);
+
+        List<(int X, int Y)> held = [];
+
+        for (var y = 0; y < image.TilesHigh; y++) {
+            for (var x = 0; x < image.TilesWide; x++) {
+                if (!image.IsBackground(x, y)) {
+                    held.Add((x, y));
+                }
+            }
+        }
+
+        var packed = new byte[held.Count][];
+
+        Parallel.For(0, held.Count, index => packed[index] = Deflated(image.TileTexels(held[index].X, held[index].Y).Span));
+
+        writer.Write(held.Count);
+
+        for (var index = 0; index < held.Count; index++) {
+            writer.Write((held[index].Y * image.TilesWide) + held[index].X);
+            writer.Write(packed[index].Length);
+            writer.Write(packed[index]);
+        }
+    }
+
+    static byte[] Deflated(ReadOnlySpan<byte> texels) {
+        using MemoryStream packed = new();
+
+        using (DeflateStream deflate = new(packed, CompressionLevel.Fastest, leaveOpen: true)) {
+            deflate.Write(texels);
+        }
+
+        return packed.ToArray();
     }
 
     /// <summary>Reads a canvas.</summary>
@@ -209,16 +258,23 @@ public sealed class PaintCanvas {
                 var usage = reader.ReadString();
                 var image = canvas.Channel(usage);
 
-                var read = version >= CompressedFrom
-                    ? Inflate(reader, image.Texels)
-                    : Fill(reader, image.Texels);
+                if (version >= TiledFrom) {
+                    ReadTiles(reader, usage, image);
 
-                if (read != image.Texels.Length) {
+                    continue;
+                }
+
+                var texels = new byte[(long)width * height * PaintImage.BytesPerTexel];
+                var read = version >= CompressedFrom ? Inflate(reader, texels) : Fill(reader, texels);
+
+                if (read != texels.Length) {
                     throw new InvalidDataException(
                         $"This .vxpaint's '{usage}' channel is {read} bytes and its header says "
-                        + $"{image.Texels.Length}. A truncated paint file reads as a half-painted layer."
+                        + $"{texels.Length}. A truncated paint file reads as a half-painted layer."
                     );
                 }
+
+                image.CopyFrom(texels);
             }
 
             return canvas;
@@ -228,6 +284,50 @@ public sealed class PaintCanvas {
                 + "reads as a half-painted layer.",
                 ended
             );
+        }
+    }
+
+    /// <summary>Reads a version-3 channel: the background, then each tile that differs from it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>In strictly rising order or refused.</b> A writer has one order, so a file with a tile
+    ///     twice or out of place did not come from one, and taking the last of two would be a picture
+    ///     nobody can explain.
+    /// </remarks>
+    static void ReadTiles(BinaryReader reader, string usage, PaintImage image) {
+        image.Reset(reader.ReadUInt32());
+
+        var count = reader.ReadInt32();
+        var slots = image.TilesWide * image.TilesHigh;
+
+        if (count < 0 || count > slots) {
+            throw new InvalidDataException($"This .vxpaint's '{usage}' channel declares {count} tiles of {slots}.");
+        }
+
+        var previous = -1;
+
+        for (var index = 0; index < count; index++) {
+            var slot = reader.ReadInt32();
+
+            if (slot <= previous || slot >= slots) {
+                throw new InvalidDataException(
+                    $"This .vxpaint's '{usage}' channel has tile {slot} after tile {previous}, of {slots}."
+                );
+            }
+
+            previous = slot;
+
+            var rect = image.TileRect(slot % image.TilesWide, slot / image.TilesWide);
+            var texels = new byte[rect.Area * PaintImage.BytesPerTexel];
+            var read = Inflate(reader, texels);
+
+            if (read != texels.Length) {
+                throw new InvalidDataException(
+                    $"Tile {slot} of this .vxpaint's '{usage}' channel is {read} bytes and should be "
+                    + $"{texels.Length}. A truncated paint file reads as a half-painted layer."
+                );
+            }
+
+            image.Adopt(slot % image.TilesWide, slot / image.TilesWide, texels);
         }
     }
 

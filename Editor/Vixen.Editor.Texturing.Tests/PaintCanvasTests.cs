@@ -34,12 +34,12 @@ public class PaintCanvasTests {
         Assert.Equal(48, read.Width);
         Assert.Equal(32, read.Height);
         Assert.Equal(["baseColor", "roughness"], read.Channels);
-        Assert.Equal(colour.Texels, read.Channel("baseColor").Texels);
-        Assert.Equal(rough.Texels, read.Channel("roughness").Texels);
+        Assert.Equal(colour.ToTexels(), read.Channel("baseColor").ToTexels());
+        Assert.Equal(rough.ToTexels(), read.Channel("roughness").ToTexels());
 
         // The instrument: an all-zero canvas would round-trip through a reader that returned an
         // empty image, so the picture has to be a picture.
-        Assert.Contains(colour.Texels, texel => texel != 0);
+        Assert.Contains(colour.ToTexels(), texel => texel != 0);
     }
 
     /// <summary>A file that is not a <c>.vxpaint</c> is refused rather than read as one.</summary>
@@ -76,11 +76,8 @@ public class PaintCanvasTests {
 
         var bytes = stream.ToArray();
 
-        // The instrument. `Read` walks magic · version · width, so a cut that left more than sixteen
-        // bytes would be refused somewhere else and this test would be about somewhere else.
-        Assert.InRange(bytes.Length - 64, 9, 16);
-
-        using MemoryStream cut = new(bytes[..(bytes.Length - 64)]);
+        // `Read` walks magic · version · width, so this cut is in the header and nowhere else.
+        using MemoryStream cut = new(bytes[..12]);
 
         var refused = Assert.Throws<InvalidDataException>(() => PaintCanvas.Read(cut));
 
@@ -169,6 +166,9 @@ public class PaintCanvasTests {
             writer.Write(4);
             writer.Write(1);
             writer.Write("baseColor");
+            writer.Write(0u);
+            writer.Write(1);
+            writer.Write(0);
             writer.Write(-1);
         }
 
@@ -213,8 +213,8 @@ public class PaintCanvasTests {
         var read = PaintCanvas.Read(trickle);
 
         Assert.Equal(["baseColor", "height"], read.Channels);
-        Assert.Equal(canvas.Channel("baseColor").Texels, read.Channel("baseColor").Texels);
-        Assert.Equal(canvas.Channel("height").Texels, read.Channel("height").Texels);
+        Assert.Equal(canvas.Channel("baseColor").ToTexels(), read.Channel("baseColor").ToTexels());
+        Assert.Equal(canvas.Channel("height").ToTexels(), read.Channel("height").ToTexels());
     }
 
     /// <summary>⚠ The file is a fraction of the texels it holds, which is the whole of version 2.</summary>
@@ -263,7 +263,7 @@ public class PaintCanvasTests {
 
         canvas.Write(stream);
 
-        var raw = (long)colour.Texels.Length;
+        var raw = (long)colour.ToTexels().Length;
 
         Assert.True(
             stream.Length < raw / 4,
@@ -276,7 +276,7 @@ public class PaintCanvasTests {
         // dropped the channel.
         stream.Position = 0;
 
-        Assert.Equal(colour.Texels, PaintCanvas.Read(stream).Channel("baseColor").Texels);
+        Assert.Equal(colour.ToTexels(), PaintCanvas.Read(stream).Channel("baseColor").ToTexels());
     }
 
     /// <summary>⚠ A version-1 file — raw texels — still opens, one byte at a time.</summary>
@@ -309,7 +309,7 @@ public class PaintCanvasTests {
             writer.Write(4);
             writer.Write(1);
             writer.Write("baseColor");
-            writer.Write(expected.Texels);
+            writer.Write(expected.ToTexels());
         }
 
         using Trickle trickle = new(stream.ToArray());
@@ -317,7 +317,7 @@ public class PaintCanvasTests {
         var read = PaintCanvas.Read(trickle);
 
         Assert.Equal(["baseColor"], read.Channels);
-        Assert.Equal(expected.Texels, read.Channel("baseColor").Texels);
+        Assert.Equal(expected.ToTexels(), read.Channel("baseColor").ToTexels());
     }
 
     /// <summary>A channel is created on first use and kept in the order it was asked for.</summary>

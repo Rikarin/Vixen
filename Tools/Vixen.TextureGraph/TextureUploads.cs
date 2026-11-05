@@ -174,7 +174,25 @@ public sealed class TextureUploads : IDisposable {
     ///     the size and the format imply.
     /// </exception>
     /// <exception cref="ObjectDisposedException">This set has been disposed.</exception>
-    public TextureHandle Add(TexturePlan plan, int image, int width, int height, ReadOnlySpan<byte> texels) {
+    public TextureHandle Add(TexturePlan plan, int image, int width, int height, ReadOnlySpan<byte> texels) =>
+        Add(plan, image, width, height, texels, default);
+
+    /// <summary>Uploads an image the caller already holds a digest of.</summary>
+    /// <param name="plan">The plan.</param>
+    /// <param name="image">Which of its images.</param>
+    /// <param name="width">Its width in texels.</param>
+    /// <param name="height">Its height in texels.</param>
+    /// <param name="texels">Its texels.</param>
+    /// <param name="content">The digest, or the default to take one here.</param>
+    /// <returns>The texture.</returns>
+    public TextureHandle Add(
+        TexturePlan plan,
+        int image,
+        int width,
+        int height,
+        ReadOnlySpan<byte> texels,
+        TextureResultKey content
+    ) {
         RefuseInsideAFrame();
 
         ObjectDisposedException.ThrowIf(disposed, this);
@@ -235,7 +253,9 @@ public sealed class TextureUploads : IDisposable {
         //
         // ⚠ The digest is taken here because this is the one place that has both the bytes and the
         // promise that they are what the texture holds, and xxHash is cheap beside the upload.
-        declared[image] = new(texture, UploadUsage, sizes[image]) { Content = TextureResultKey.Of(texels) };
+        declared[image] = new(texture, UploadUsage, sizes[image]) {
+            Content = content.IsValid ? content : TextureResultKey.Of(texels)
+        };
 
         return texture;
     }
@@ -250,7 +270,7 @@ public sealed class TextureUploads : IDisposable {
     ///     </para>
     ///     <para>
     ///         ⚠ <b>Nothing may be evaluating</b>, for the same reason nothing may be when
-    ///         <see cref="Add" /> runs: the images go through <see cref="ResourceState.CopyDestination" />.
+    ///         <c>Add</c> runs: the images go through <see cref="ResourceState.CopyDestination" />.
     ///     </para>
     /// </remarks>
     public void Update(IReadOnlyList<TextureImageChange> changes) {
@@ -381,7 +401,7 @@ public sealed class TextureUploads : IDisposable {
     /// <exception cref="ArgumentException">
     ///     The image is not an <see cref="TextureFormat.R8" />, or the field is not
     ///     <paramref name="width" /> × <paramref name="height" /> long — plus everything
-    ///     <see cref="Add" /> refuses.
+    ///     <c>Add</c> refuses.
     /// </exception>
     public TextureHandle AddCoverage(
         TexturePlan plan,

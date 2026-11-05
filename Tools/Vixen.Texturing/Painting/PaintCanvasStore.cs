@@ -383,8 +383,7 @@ public sealed class PaintCanvasStore {
         return file.Exists ? (file.LastWriteTimeUtc, file.Length) : null;
     }
 
-    static long Size(PaintCanvas canvas) =>
-        (long)canvas.Width * canvas.Height * PaintImage.BytesPerTexel * Math.Max(1, canvas.Channels.Count);
+    static long Size(PaintCanvas canvas) => canvas.ResidentBytes;
 
     /// <summary>One thing this store holds, what the file looked like when it arrived, and what it costs.</summary>
     /// <param name="Canvas">The canvas, which a live session may be writing into, or null for a picture.</param>

@@ -6,64 +6,6 @@ using Vixen.Terrain;
 
 namespace Vixen.Texturing.Painting;
 
-/// <summary>What the texels of one drag held before <em>any</em> of its paths touched them.</summary>
-/// <remarks>
-///     <para>
-///         <b>⚠ A drag's undo record cannot be its strokes' records concatenated, and a mirrored
-///         stroke is where that stops being an implementation detail.</b> Each
-///         <see cref="PaintStroke" /> remembers what a texel held before <em>it</em> first wrote
-///         there, which is what <c>PaintImage.Mix</c> has to blend from. Where two paths of one drag
-///         overlap in the atlas — two mirrors whose islands the packer put next to each other, which
-///         is the ordinary case for a symmetric model — the second one's record holds the <em>first
-///         one's paint</em>. Undoing them in any fixed order therefore leaves some of that paint
-///         behind: forward order restores the original and then puts the sibling's colour back on
-///         top, and reverse order fails the mirror-image interleaving. There is no order that works,
-///         because the strokes interleave per pointer move and a texel's first writer can be either
-///         of them.
-///     </para>
-///     <para>
-///         ⚠ <b>So the drag keeps one map beside them, and it is the <em>first</em> value anybody
-///         saw.</b> <see cref="Remember" /> is called from the same place the per-stroke record is
-///         written and before the texel is, so whichever path arrives first wins and every later
-///         claim is dropped. Restoring from it is exact whatever the order was.
-///     </para>
-///     <para>
-///         ⚠ <b>Made only for a drag with more than one path.</b> It is the union of the strokes'
-///         records, so it is a third copy of the undo record — the size
-///         <a href="https://github.com/Rikarin/Vixen/issues/850">#850</a> is already about — and a
-///         single-path drag cannot have the defect it exists for. Every stroke the 2D pane makes is
-///         a single path, so nothing there pays for this.
-///     </para>
-/// </remarks>
-public sealed class PaintOriginal {
-    readonly PaintImage image;
-    readonly Dictionary<int, uint> texels = [];
-
-    /// <summary>Remembers a layer's texels for the length of one drag.</summary>
-    /// <param name="image">The layer.</param>
-    /// <exception cref="ArgumentNullException"><paramref name="image" /> is null.</exception>
-    public PaintOriginal(PaintImage image) {
-        ArgumentNullException.ThrowIfNull(image);
-
-        this.image = image;
-    }
-
-    /// <summary>How many texels the drag has claimed.</summary>
-    public int Count => texels.Count;
-
-    /// <summary>Notes what a texel holds, if nothing has noted it yet.</summary>
-    /// <param name="index">Which texel.</param>
-    /// <remarks>⚠ Before the write, or what is remembered is what the stamp just put there.</remarks>
-    public void Remember(int index) => texels.TryAdd(index, image[index]);
-
-    /// <summary>Puts every claimed texel back the way the drag found it.</summary>
-    public void Restore() {
-        foreach (var (texel, value) in texels) {
-            image[texel] = value;
-        }
-    }
-}
-
 /// <summary>
 ///     One drag on a paint layer: stamps into the atlas, dilated across the seam, recorded so it can
 ///     be undone once.
@@ -111,7 +53,8 @@ public sealed class PaintStroke {
     readonly List<(int Texel, float Reach)> pending = [];
     readonly Dictionary<int, uint> before = [];
     readonly Dictionary<int, float> reached = [];
-    readonly PaintOriginal? original;
+    readonly PaintImageSnapshot origin;
+    int recorded;
 
     /// <summary>How many four-neighbour steps from coverage each dilated texel is.</summary>
     /// <remarks>
@@ -159,7 +102,7 @@ public sealed class PaintStroke {
         int gutter = 4,
         float smoothing = 0f,
         uint seed = 0x9E3779B9u,
-        PaintOriginal? original = null
+        PaintImageSnapshot? origin = null
     ) {
         ArgumentNullException.ThrowIfNull(image);
         ArgumentNullException.ThrowIfNull(coverage);
@@ -180,7 +123,7 @@ public sealed class PaintStroke {
         this.colour = colour;
         this.gutter = gutter;
         this.seed = seed;
-        this.original = original;
+        this.origin = origin ?? image.Snapshot();
         this.smoothing = Math.Clamp(smoothing, 0f, 0.999f);
 
         path = new(brush.Kernel, seed);
@@ -193,7 +136,7 @@ public sealed class PaintStroke {
     public int StampCount { get; private set; }
 
     /// <summary>How many texels the record holds.</summary>
-    public int RecordedTexels => before.Count;
+    public int RecordedTexels => recorded;
 
     /// <summary>How many texel weights have been evaluated, over the whole stroke.</summary>
     /// <remarks>
@@ -238,10 +181,10 @@ public sealed class PaintStroke {
     public long TexelsScanned { get; private set; }
 
     /// <summary>Whether anything has been painted.</summary>
-    public bool IsEmpty => before.Count == 0;
+    public bool IsEmpty => recorded == 0;
 
     /// <summary>How many bytes the record occupies, before and after together.</summary>
-    public long Bytes => (long)before.Count * (sizeof(uint) + sizeof(int)) * 2;
+    public long Bytes => image.BytesApartFrom(origin);
 
     /// <summary>Moves the pointer, painting whatever stamps that earned.</summary>
     /// <param name="texel">Where the pointer is now, in texels of the atlas.</param>
@@ -292,11 +235,23 @@ public sealed class PaintStroke {
     /// <summary>Puts the layer back the way it was before the stroke.</summary>
     /// <returns>What the stroke had touched.</returns>
     public PaintRect Undo() {
-        foreach (var (texel, value) in before) {
-            image[texel] = value;
-        }
+        image.Restore(origin);
 
         return Rect;
+    }
+
+    /// <summary>Drops what only a stroke under the pointer needs.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Per-texel maps are for blending, and an undo entry outlives them.</b> Undo holds tiles,
+    ///     so a finished stroke keeps no number for each texel it touched.
+    /// </remarks>
+    public void Seal() {
+        before.Clear();
+        before.TrimExcess();
+        reached.Clear();
+        reached.TrimExcess();
+        distance.Clear();
+        distance.TrimExcess();
     }
 
     /// <summary>Captures what the stroke left, so it can be redone.</summary>
@@ -306,15 +261,7 @@ public sealed class PaintStroke {
     ///     the after image is needed once and building it as the stroke ran would double the record's
     ///     cost for a stroke nobody undoes, which is almost all of them.
     /// </remarks>
-    public PaintStrokeRedo Capture() {
-        Dictionary<int, uint> after = new(before.Count);
-
-        foreach (var texel in before.Keys) {
-            after[texel] = image[texel];
-        }
-
-        return new(image, after, Rect);
-    }
+    public PaintStrokeRedo Capture() => new(image, image.Snapshot(), Rect, recorded);
 
     /// <summary>A stamp with this brush's jitter applied to it.</summary>
     /// <remarks>
@@ -579,11 +526,9 @@ public sealed class PaintStroke {
     ///     <see cref="PaintImage.Mix" /> composite onto its own output.
     /// </remarks>
     void Record(int index) {
-        // ⚠ The drag's map first, and both read `image[index]` before the stamp writes it. They are
-        // not the same claim: `before` is this stroke's blend base and is written once per stroke,
-        // and the drag's is written once per texel across every path — see `PaintOriginal`.
-        original?.Remember(index);
-        before.TryAdd(index, image[index]);
+        if (before.TryAdd(index, image[index])) {
+            recorded++;
+        }
     }
 
     /// <summary>A 0…1 number from the stroke's seed, a stamp's index and a stream.</summary>
@@ -608,26 +553,25 @@ public sealed class PaintStroke {
 /// </remarks>
 public sealed class PaintStrokeRedo {
     readonly PaintImage image;
-    readonly Dictionary<int, uint> after;
+    readonly PaintImageSnapshot after;
 
-    internal PaintStrokeRedo(PaintImage image, Dictionary<int, uint> after, PaintRect rect) {
+    internal PaintStrokeRedo(PaintImage image, PaintImageSnapshot after, PaintRect rect, int recorded) {
         this.image = image;
         this.after = after;
         Rect = rect;
+        RecordedTexels = recorded;
     }
 
-    /// <summary>Everything the stroke touched.</summary>
+    /// <summary>Which texels it covers.</summary>
     public PaintRect Rect { get; }
 
-    /// <summary>How many texels the record holds.</summary>
-    public int RecordedTexels => after.Count;
+    /// <summary>How many texels the stroke touched.</summary>
+    public int RecordedTexels { get; }
 
-    /// <summary>Puts the stroke's result back.</summary>
+    /// <summary>Puts the stroke back.</summary>
     /// <returns>What it touched.</returns>
     public PaintRect Redo() {
-        foreach (var (texel, value) in after) {
-            image[texel] = value;
-        }
+        image.Restore(after);
 
         return Rect;
     }
