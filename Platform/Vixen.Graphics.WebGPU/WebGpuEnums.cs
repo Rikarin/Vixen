@@ -172,6 +172,9 @@ public enum WgpuTextureFormat : uint {
     /// <summary>BC6H, three HDR channels, unsigned.</summary>
     Bc6HRgbUfloat = 54,
 
+    /// <summary>BC6H, signed.</summary>
+    Bc6HRgbFloat = 55,
+
     /// <summary>BC7, colour and alpha.</summary>
     Bc7RgbaUnorm = 56,
 

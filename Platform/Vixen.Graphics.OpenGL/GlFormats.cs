@@ -51,6 +51,7 @@ static class GlFormats {
             : throw Unsupported(format, profile, "GLES has no core GL_BGRA transfer format"),
 
         PixelFormat.Rg16Float => new(0x822F, GlConstants.RedGreen, GlConstants.HalfFloat),
+        PixelFormat.Rg16UNorm => new(0x822C, GlConstants.RedGreen, GlConstants.UnsignedShort),
         PixelFormat.R32Float => new(0x822E, GlConstants.Red, GlConstants.Float),
         PixelFormat.R32UInt => new(0x8236, GlConstants.RedInteger, GlConstants.UnsignedInt),
         PixelFormat.Rgb10A2UNorm => new(0x8059, GlConstants.Rgba, GlConstants.UnsignedInt2101010Rev),
@@ -82,6 +83,7 @@ static class GlFormats {
         PixelFormat.Bc4RUNorm => Compressed(0x8DBB, profile, DesktopOnly),
         PixelFormat.Bc5RgUNorm => Compressed(0x8DBD, profile, DesktopOnly),
         PixelFormat.Bc6HRgbUFloat => Compressed(0x8E8F, profile, DesktopOnly),
+        PixelFormat.Bc6HRgbSFloat => Compressed(0x8E8E, profile, DesktopOnly),
         PixelFormat.Bc7RgbaUNorm => Compressed(0x8E8C, profile, DesktopOnly),
         PixelFormat.Bc7RgbaUNormSrgb => Compressed(0x8E8D, profile, DesktopOnly),
 

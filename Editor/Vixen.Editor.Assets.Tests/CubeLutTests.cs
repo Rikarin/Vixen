@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core;
+using Vixen.Core.Imaging;
 using Vixen.Core.IO;
 using Vixen.Core.Yaml.Meta;
 using Vixen.Editor.Assets.Textures;

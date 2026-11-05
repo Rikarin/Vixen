@@ -164,8 +164,8 @@ public sealed class TextureImporter : AssetImporter<TextureImportSettings> {
     ///     <para>
     ///         <b>Three things the eight-bit path does are refused rather than approximated,</b> and
     ///         each is reported so it is a line in the import log rather than a surprise in a frame:
-    ///         the mip chain and the size limit both run through <see cref="MipChain" />, which reads
-    ///         eight-bit channels and has no float filter yet; and the sRGB flag does not apply,
+    ///         the mip chain and the size limit both want a reduction this path has not been moved
+    ///         onto, though <see cref="MipChain" /> reduces float now; and the sRGB flag does not apply,
     ///         because Radiance is linear by definition and no float format has a transfer function
     ///         for the hardware to undo.
     ///     </para>
@@ -183,9 +183,9 @@ public sealed class TextureImporter : AssetImporter<TextureImportSettings> {
         if (settings.GenerateMips) {
             context.Report(
                 ImportSeverity.Warning,
-                "A high-range texture ships with one level. The mip filter averages eight-bit channels and "
-                + "has no float form yet, and a chain built by narrowing to bytes first would throw away the "
-                + "range this format exists to carry."
+                "A high-range texture ships with one level. This importer's chain runs through its eight-bit "
+                + "path, and a chain built by narrowing to bytes first would throw away the range this format "
+                + "exists to carry."
             );
         }
 
@@ -193,8 +193,8 @@ public sealed class TextureImporter : AssetImporter<TextureImportSettings> {
             context.Report(
                 ImportSeverity.Warning,
                 $"{decoded.Width}×{decoded.Height} is over the {settings.MaxSize} limit and ships at full size "
-                + "anyway. Reducing runs through the same eight-bit mip filter a chain does; resize the source "
-                + "until that filter has a float form."
+                + "anyway. Reducing runs through the same eight-bit path a chain does; resize the source "
+                + "until this importer's high-range path can reduce."
             );
         }
 

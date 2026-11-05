@@ -16,9 +16,9 @@ namespace Vixen.Graphics.WebGPU.Tests;
 public class WebGpuConversionTests {
     [Fact]
     public void EveryEngineFormatEitherMapsOrIsNamedAsMissing() {
-        // The two that have no WebGPU equivalent, and the reason is the same for both: the
+        // The three that have no WebGPU equivalent, and the reason is the same for each: the
         // specification has 16-bit integer and half-float formats and no 16-bit normalised ones.
-        PixelFormat[] absent = [PixelFormat.R16UNorm, PixelFormat.Rgba16UNorm];
+        PixelFormat[] absent = [PixelFormat.R16UNorm, PixelFormat.Rg16UNorm, PixelFormat.Rgba16UNorm];
 
         foreach (var format in System.Enum.GetValues<PixelFormat>()) {
             if (format == PixelFormat.Undefined) {

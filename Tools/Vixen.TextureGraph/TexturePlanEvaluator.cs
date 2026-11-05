@@ -200,6 +200,41 @@ public sealed class TextureBake : IDisposable {
         return pictures;
     }
 
+    /// <summary>Reads one image back as what it is, for something that will write it out.</summary>
+    /// <param name="image">Its index in <see cref="TexturePlan.Images" />.</param>
+    /// <returns>Its bytes, with the format and extent that say what they mean.</returns>
+    /// <exception cref="ArgumentException">An image this bake does not hold, as for <see cref="Read(int)" />.</exception>
+    /// <exception cref="ObjectDisposedException">The bake has been disposed.</exception>
+    /// <exception cref="InvalidOperationException">The device already has a frame open.</exception>
+    /// <remarks>
+    ///     ⚠ <b>What a float export reads.</b> <see cref="Read(int)" /> rounds to eight bits, which is
+    ///     right for a thumbnail and throws away everything a height field was computed in sixteen or
+    ///     thirty-two bits to keep. A plan's images are one of the seven <see cref="TextureFormat" />s,
+    ///     so what comes back is eight-bit norm, half or single float. Sixteen-bit norm exists in
+    ///     <c>Vixen.Core.Imaging</c> and never here: no kernel can write it.
+    /// </remarks>
+    public TextureRawImage ReadRaw(int image) => ReadRaw([image])[0];
+
+    /// <summary>Reads several images back as what they are, in one submission.</summary>
+    /// <param name="images">Their indices in <see cref="TexturePlan.Images" />. May repeat.</param>
+    /// <returns>Each one's bytes, format and extent, in the order asked for.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="images" /> is null.</exception>
+    /// <exception cref="ArgumentException">An image this bake does not hold, as for <see cref="Read(int)" />.</exception>
+    /// <exception cref="ObjectDisposedException">The bake has been disposed.</exception>
+    /// <exception cref="InvalidOperationException">The device already has a frame open.</exception>
+    public IReadOnlyList<TextureRawImage> ReadRaw(IReadOnlyList<int> images) {
+        var raw = ReadTexels(images);
+        var read = new TextureRawImage[raw.Count];
+
+        for (var index = 0; index < read.Length; index++) {
+            var size = Plan.SizeOf(images[index]);
+
+            read[index] = new(size.X, size.Y, TextureFormats.Pixel(Plan.Images[images[index]].Format), raw[index]);
+        }
+
+        return read;
+    }
+
     /// <summary>Reads one image back exactly as it is on the device.</summary>
     /// <param name="image">Its index in <see cref="TexturePlan.Images" />.</param>
     /// <returns>The texels, tightly packed, top row first.</returns>

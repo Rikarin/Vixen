@@ -92,6 +92,9 @@ public enum PixelFormat : ushort {
     /// <see cref="Rgba16Float" />.</remarks>
     Rg11B10Float = 29,
 
+    /// <summary>Two 16-bit channels, <c>[0, 1]</c>.</summary>
+    Rg16UNorm = 30,
+
     // ── 64-bit ──────────────────────────────────────────────────────────────────────────────
 
     /// <summary>Four 16-bit channels as half floats.</summary>
@@ -161,6 +164,9 @@ public enum PixelFormat : ushort {
     /// <summary>BC7, sRGB-encoded.</summary>
     Bc7RgbaUNormSrgb = 88,
 
+    /// <summary>BC6H with a sign — three HDR channels that may go negative, 1 byte per pixel.</summary>
+    Bc6HRgbSFloat = 89,
+
     /// <summary>ETC2 — colour with one bit of alpha, 0.5 bytes per pixel. Mobile.</summary>
     Etc2Rgb8A1UNorm = 100,
 
@@ -201,7 +207,7 @@ public static class PixelFormats {
         PixelFormat.Rgba8UNorm or PixelFormat.Rgba8UNormSrgb or PixelFormat.Bgra8UNorm
             or PixelFormat.Bgra8UNormSrgb or PixelFormat.Rgba8SNorm or PixelFormat.Rg16Float
             or PixelFormat.R32Float or PixelFormat.R32UInt or PixelFormat.Rgb10A2UNorm
-            or PixelFormat.Rg11B10Float or PixelFormat.Depth32Float => 4,
+            or PixelFormat.Rg11B10Float or PixelFormat.Depth32Float or PixelFormat.Rg16UNorm => 4,
 
         // Five bytes of data in an eight-byte slot on every real implementation, and it is the
         // allocation size that matters here rather than the useful bits.
@@ -217,7 +223,8 @@ public static class PixelFormats {
 
         // 4×4 blocks at a byte per pixel.
         PixelFormat.Bc3RgbaUNorm or PixelFormat.Bc3RgbaUNormSrgb or PixelFormat.Bc5RgUNorm
-            or PixelFormat.Bc6HRgbUFloat or PixelFormat.Bc7RgbaUNorm or PixelFormat.Bc7RgbaUNormSrgb
+            or PixelFormat.Bc6HRgbUFloat or PixelFormat.Bc6HRgbSFloat or PixelFormat.Bc7RgbaUNorm
+            or PixelFormat.Bc7RgbaUNormSrgb
             or PixelFormat.Etc2Rgba8UNorm or PixelFormat.Astc4X4UNorm or PixelFormat.Astc4X4UNormSrgb
             or PixelFormat.Astc8X8UNorm or PixelFormat.Astc8X8UNormSrgb => 16,
 

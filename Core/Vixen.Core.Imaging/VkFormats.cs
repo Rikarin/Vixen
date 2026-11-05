@@ -20,7 +20,7 @@ namespace Vixen.Core.Imaging;
 ///         a header — is hundreds of chances to transcribe one wrongly.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Three of these twenty-four numbers were wrong, and nothing in this repository could
+///         ⚠ <b>Three of the first twenty-four numbers here were wrong, and nothing in this repository could
 ///         have found them.</b> BC6H's unsigned block was 144, which is
 ///         <c>VK_FORMAT_BC6H_SFLOAT_BLOCK</c> — so files carrying the unsigned payload
 ///         <see cref="BlockCompression.Bc6HBlock" /> writes told every reader to decode it as signed.
@@ -40,8 +40,14 @@ public static class VkFormats {
         (PixelFormat.Rgba8UNormSrgb, 43),          // VK_FORMAT_R8G8B8A8_SRGB
         (PixelFormat.Bgra8UNorm, 44),              // VK_FORMAT_B8G8R8A8_UNORM
         (PixelFormat.Bgra8UNormSrgb, 50),          // VK_FORMAT_B8G8R8A8_SRGB
+        (PixelFormat.R16UNorm, 70),                // VK_FORMAT_R16_UNORM
+        (PixelFormat.R16Float, 76),                // VK_FORMAT_R16_SFLOAT
+        (PixelFormat.Rg16UNorm, 77),               // VK_FORMAT_R16G16_UNORM
+        (PixelFormat.Rg16Float, 83),               // VK_FORMAT_R16G16_SFLOAT
+        (PixelFormat.Rgba16UNorm, 91),             // VK_FORMAT_R16G16B16A16_UNORM
         (PixelFormat.Rgba16Float, 97),             // VK_FORMAT_R16G16B16A16_SFLOAT
         (PixelFormat.R32Float, 100),               // VK_FORMAT_R32_SFLOAT
+        (PixelFormat.Rg32Float, 103),              // VK_FORMAT_R32G32_SFLOAT
         (PixelFormat.Rgba32Float, 109),            // VK_FORMAT_R32G32B32A32_SFLOAT
         (PixelFormat.Bc1RgbaUNorm, 133),           // VK_FORMAT_BC1_RGBA_UNORM_BLOCK
         (PixelFormat.Bc1RgbaUNormSrgb, 134),       // VK_FORMAT_BC1_RGBA_SRGB_BLOCK
@@ -50,6 +56,7 @@ public static class VkFormats {
         (PixelFormat.Bc4RUNorm, 139),              // VK_FORMAT_BC4_UNORM_BLOCK
         (PixelFormat.Bc5RgUNorm, 141),             // VK_FORMAT_BC5_UNORM_BLOCK
         (PixelFormat.Bc6HRgbUFloat, 143),          // VK_FORMAT_BC6H_UFLOAT_BLOCK
+        (PixelFormat.Bc6HRgbSFloat, 144),          // VK_FORMAT_BC6H_SFLOAT_BLOCK
         (PixelFormat.Bc7RgbaUNorm, 145),           // VK_FORMAT_BC7_UNORM_BLOCK
         (PixelFormat.Bc7RgbaUNormSrgb, 146),       // VK_FORMAT_BC7_SRGB_BLOCK
         (PixelFormat.Etc2Rgb8A1UNorm, 149),        // VK_FORMAT_ETC2_R8G8B8A1_UNORM_BLOCK

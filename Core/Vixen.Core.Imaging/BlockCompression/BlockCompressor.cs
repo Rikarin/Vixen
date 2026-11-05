@@ -24,42 +24,67 @@ namespace Vixen.Core.Imaging.BlockCompression;
 ///         that a build which has that encoder can ship them.
 ///     </para>
 ///     <para>
-///         <b>What quality to expect.</b> BC1, BC3, BC4 and BC5 here are complete encoders: they fit
-///         the principal axis of the block's own colours and refine the endpoints by least squares,
-///         which is what a production BCn encoder does, and the formats have no modes left to choose
-///         between. BC7 and BC6H each write one mode of eight and fourteen — see
-///         <see cref="Bc7Block" /> and <see cref="Bc6HBlock" /> — which is a real quality ceiling on
-///         blocks with an edge running through them, and is stated where each one is written.
+///         <b>What quality to expect.</b> BC1, BC3, BC4 and BC5 fit the principal axis of the block's
+///         own colours and refine the endpoints by least squares, and those formats have no modes
+///         left to choose between. BC7 and BC6H search every mode, and how hard is the caller's choice
+///         of <see cref="BlockQuality" />; the README has what each level costs and buys, measured.
+///     </para>
+///     <para>
+///         <b>Parallel, and the same bytes either way.</b> A whole texture is cut into runs of blocks
+///         that go to the thread pool, and every block is a pure function of its own sixteen texels,
+///         so nothing about the result depends on the number of threads or on who finished first.
+///         That is what lets a content-addressed cache key an encoded texture by its inputs.
 ///     </para>
 /// </remarks>
 public static class BlockCompressor {
     /// <summary>The half-float bit pattern for one.</summary>
     const ushort OneAsHalf = 0x3C00;
 
+    /// <summary>How many blocks one piece of work is.</summary>
+    /// <remarks>
+    ///     Long enough that the pool's overhead is nothing beside it and short enough that a
+    ///     cancellation lands within a fraction of a second at the slowest level.
+    /// </remarks>
+    const int BlocksPerRun = 64;
+
     /// <summary>Whether this can produce that format.</summary>
     /// <param name="format">The format.</param>
-    /// <returns>Whether <see cref="Encode" /> accepts it as a target.</returns>
+    /// <returns>Whether <see cref="Encode(TextureData, PixelFormat)" /> accepts it as a target.</returns>
     public static bool CanEncode(PixelFormat format) =>
         format.ToLinear() is PixelFormat.Bc1RgbaUNorm or PixelFormat.Bc3RgbaUNorm
             or PixelFormat.Bc4RUNorm or PixelFormat.Bc5RgUNorm or PixelFormat.Bc7RgbaUNorm
-            or PixelFormat.Bc6HRgbUFloat;
+            or PixelFormat.Bc6HRgbUFloat or PixelFormat.Bc6HRgbSFloat;
 
     /// <summary>Whether the format holds high dynamic range, and so is encoded from float rather than bytes.</summary>
     /// <param name="format">The format.</param>
-    /// <returns>Whether it is <see cref="PixelFormat.Bc6HRgbUFloat" />.</returns>
-    public static bool IsHighDynamicRange(PixelFormat format) => format == PixelFormat.Bc6HRgbUFloat;
+    /// <returns>Whether it is one of the two BC6H formats.</returns>
+    public static bool IsHighDynamicRange(PixelFormat format) =>
+        format is PixelFormat.Bc6HRgbUFloat or PixelFormat.Bc6HRgbSFloat;
 
-    /// <summary>Compresses every level of a texture.</summary>
-    /// <param name="source">
-    ///     The texture. Eight-bit uncompressed for every format but BC6H, which takes
-    ///     <see cref="PixelFormat.Rgba16Float" /> or <see cref="PixelFormat.Rgba32Float" />.
-    /// </param>
+    /// <summary>Compresses every level of a texture, at <see cref="BlockQuality.Balanced" />.</summary>
+    /// <param name="source">The texture. See <see cref="Encode(TextureData, PixelFormat, BlockEncodeOptions)" />.</param>
     /// <param name="target">What to compress it to.</param>
     /// <returns>A new texture, in <paramref name="target" />.</returns>
     /// <exception cref="NotSupportedException">The source or the target format is not one of these.</exception>
     /// <exception cref="ArgumentException">The source is sRGB and the target is not, or the other way round.</exception>
-    public static TextureData Encode(TextureData source, PixelFormat target) {
+    public static TextureData Encode(TextureData source, PixelFormat target) => Encode(source, target, new());
+
+    /// <summary>Compresses every level of a texture, on as many threads as the options allow.</summary>
+    /// <param name="source">
+    ///     The texture. BC1, BC3, BC4, BC5 and BC7 read eight-bit channels, and round sixteen-bit
+    ///     and float ones down to them, clamping float to zero to one. BC6H reads half or single
+    ///     precision float or sixteen-bit unsigned norm. A one- or two-channel source leaves the
+    ///     missing channels at zero and alpha opaque.
+    /// </param>
+    /// <param name="target">What to compress it to.</param>
+    /// <param name="options">How hard to try, on how many threads, and how to report and stop.</param>
+    /// <returns>A new texture, in <paramref name="target" />.</returns>
+    /// <exception cref="NotSupportedException">The source or the target format is not one of these.</exception>
+    /// <exception cref="ArgumentException">The source is sRGB and the target is not, or the other way round.</exception>
+    /// <exception cref="OperationCanceledException">The options' token was cancelled.</exception>
+    public static TextureData Encode(TextureData source, PixelFormat target, BlockEncodeOptions options) {
         ArgumentNullException.ThrowIfNull(source);
+        ArgumentNullException.ThrowIfNull(options);
 
         if (!CanEncode(target)) {
             throw new NotSupportedException(
@@ -68,11 +93,12 @@ public static class BlockCompressor {
             );
         }
 
-        if (source.Format.IsSrgb() != target.IsSrgb()) {
+        if (!(target.IsSrgb() && options.SourceIsSrgbEncoded) && source.Format.IsSrgb() != target.IsSrgb()) {
             throw new ArgumentException(
                 $"A {source.Format} source cannot be encoded as {target}: one is sRGB and the other is not, and "
                 + "the hardware would apply — or fail to apply — a transfer function nobody asked for. Name "
-                + $"{(source.Format.IsSrgb() ? target.ToSrgb() : target.ToLinear())} instead.",
+                + $"{(source.Format.IsSrgb() ? target.ToSrgb() : target.ToLinear())} instead, or say "
+                + "SourceIsSrgbEncoded if these values are encoded in a format that cannot say so.",
                 nameof(target)
             );
         }
@@ -87,43 +113,133 @@ public static class BlockCompressor {
             source.FaceCount
         );
 
-        Span<byte> rgba = stackalloc byte[Bc1Block.Texels * 4];
-        Span<ushort> rgb = stackalloc ushort[Bc6HBlock.Texels * 3];
-        var blockBytes = target.BlockSize();
+        var runs = RunsOf(source);
+        var total = 0L;
 
-        for (var level = 0; level < source.LevelCount; level++) {
-            var extent = ExtentOf(source, level);
-            var sourceStride = (int)source.Format.LevelSize(extent.Width, extent.Height);
-            var targetStride = (int)target.LevelSize(extent.Width, extent.Height);
+        foreach (var run in runs) {
+            total += run.Blocks;
+        }
+
+        var report = new ProgressReport(options.Progress, total);
+        var token = options.CancellationToken;
+
+        token.ThrowIfCancellationRequested();
+
+        if (runs.Length <= 1 || options.MaxDegreeOfParallelism == 1) {
+            foreach (var run in runs) {
+                token.ThrowIfCancellationRequested();
+                EncodeRun(source, destination, target, options.Quality, run);
+                report.Add(run.Blocks);
+            }
+
+            return destination;
+        }
+
+        // The token stops the loop between runs, and a run is a fraction of a second at the slowest
+        // level. Nothing here can see what any other run produced, which is the whole of why the
+        // thread count cannot reach the bytes.
+        Parallel.For(
+            0,
+            runs.Length,
+            new ParallelOptions {
+                CancellationToken = token,
+                MaxDegreeOfParallelism = options.MaxDegreeOfParallelism == 0 ? -1 : options.MaxDegreeOfParallelism
+            },
+            index => {
+                EncodeRun(source, destination, target, options.Quality, runs[index]);
+                report.Add(runs[index].Blocks);
+            }
+        );
+
+        return destination;
+    }
+
+    /// <summary>A stretch of one row of blocks, the unit the thread pool is handed.</summary>
+    /// <param name="Level">Which mip level.</param>
+    /// <param name="Image">Which image of that level: slice, layer and face run together.</param>
+    /// <param name="Row">Which row of blocks.</param>
+    /// <param name="Column">The first block.</param>
+    /// <param name="Blocks">How many blocks.</param>
+    readonly record struct Run(int Level, int Image, int Row, int Column, int Blocks);
+
+    static Run[] RunsOf(TextureData texture) {
+        var count = 0;
+
+        for (var level = 0; level < texture.LevelCount; level++) {
+            var extent = ExtentOf(texture, level);
+
+            count += extent.Images * extent.Rows * (((extent.Columns - 1) / BlocksPerRun) + 1);
+        }
+
+        var runs = new Run[count];
+        var filled = 0;
+
+        for (var level = 0; level < texture.LevelCount; level++) {
+            var extent = ExtentOf(texture, level);
 
             for (var image = 0; image < extent.Images; image++) {
-                var from = source.Level(level).Slice(image * sourceStride, sourceStride);
-                var to = destination.LevelSpan(level).Slice(image * targetStride, targetStride);
-
                 for (var row = 0; row < extent.Rows; row++) {
-                    for (var column = 0; column < extent.Columns; column++) {
-                        var block = to.Slice(((row * extent.Columns) + column) * blockBytes, blockBytes);
-
-                        if (IsHighDynamicRange(target)) {
-                            GatherHdr(from, source.Format, extent, column * 4, row * 4, rgb);
-                            Bc6HBlock.Encode(rgb, block);
-                            continue;
-                        }
-
-                        Gather(from, source.Format, extent, column * 4, row * 4, rgba);
-                        EncodeBlock(target, rgba, block);
+                    for (var column = 0; column < extent.Columns; column += BlocksPerRun) {
+                        runs[filled++] = new(level, image, row, column, Math.Min(BlocksPerRun, extent.Columns - column));
                     }
                 }
             }
         }
 
-        return destination;
+        return runs;
+    }
+
+    static void EncodeRun(TextureData source, TextureData destination, PixelFormat target, BlockQuality quality, Run run) {
+        Span<byte> rgba = stackalloc byte[Bc1Block.Texels * 4];
+        Span<ushort> rgb = stackalloc ushort[Bc6HBlock.Texels * 3];
+
+        var extent = ExtentOf(source, run.Level);
+        var blockBytes = target.BlockSize();
+        var sourceStride = (int)source.Format.LevelSize(extent.Width, extent.Height);
+        var targetStride = (int)target.LevelSize(extent.Width, extent.Height);
+        var from = source.Level(run.Level).Slice(run.Image * sourceStride, sourceStride);
+        var to = destination.LevelSpan(run.Level).Slice(run.Image * targetStride, targetStride);
+        var signed = target == PixelFormat.Bc6HRgbSFloat;
+
+        for (var column = run.Column; column < run.Column + run.Blocks; column++) {
+            var block = to.Slice(((run.Row * extent.Columns) + column) * blockBytes, blockBytes);
+
+            if (IsHighDynamicRange(target)) {
+                GatherHdr(from, source.Format, extent, column * 4, run.Row * 4, signed, rgb);
+                Bc6HBlock.Encode(rgb, block, quality, signed);
+                continue;
+            }
+
+            Gather(from, source.Format, extent, column * 4, run.Row * 4, rgba);
+            EncodeBlock(target, rgba, block, quality);
+        }
+    }
+
+    /// <summary>Totals finished blocks and reports them, one at a time and in order.</summary>
+    /// <remarks>
+    ///     The lock only exists when somebody is listening: without it, two threads could report 50%
+    ///     and 49% the wrong way round, which a host's progress bar would show as going backwards.
+    /// </remarks>
+    sealed class ProgressReport(IProgress<BlockEncodeProgress>? progress, long total) {
+        readonly Lock gate = new();
+        long done;
+
+        public void Add(int blocks) {
+            if (progress is null) {
+                return;
+            }
+
+            lock (gate) {
+                done += blocks;
+                progress.Report(new(done, total));
+            }
+        }
     }
 
     /// <summary>Decompresses every level of a texture, for inspection.</summary>
     /// <param name="source">The texture, in a block-compressed format.</param>
     /// <returns>
-    ///     A new texture: <see cref="PixelFormat.Rgba16Float" /> for BC6H, and
+    ///     A new texture: <see cref="PixelFormat.Rgba16Float" /> for either BC6H, and
     ///     <see cref="PixelFormat.Rgba8UNorm" /> or its sRGB form for everything else.
     /// </returns>
     /// <exception cref="NotSupportedException">The format is not one of these.</exception>
@@ -131,6 +247,7 @@ public static class BlockCompressor {
         ArgumentNullException.ThrowIfNull(source);
 
         var highDynamicRange = IsHighDynamicRange(source.Format);
+        var signed = source.Format == PixelFormat.Bc6HRgbSFloat;
 
         var target = highDynamicRange
             ? PixelFormat.Rgba16Float
@@ -164,7 +281,7 @@ public static class BlockCompressor {
                         var block = from.Slice(((row * extent.Columns) + column) * blockBytes, blockBytes);
 
                         if (highDynamicRange) {
-                            Bc6HBlock.Decode(block, rgb);
+                            Bc6HBlock.Decode(block, rgb, signed);
                             ScatterHdr(rgb, extent, column * 4, row * 4, to);
                             continue;
                         }
@@ -179,12 +296,21 @@ public static class BlockCompressor {
         return destination;
     }
 
-    /// <summary>Compresses one 4×4 block of eight-bit colour.</summary>
+    /// <summary>Compresses one 4×4 block of eight-bit colour, at <see cref="BlockQuality.Balanced" />.</summary>
     /// <param name="target">The format to write.</param>
     /// <param name="rgba">Sixty-four bytes: sixteen texels of RGBA, row-major.</param>
     /// <param name="block">The block's bytes to fill.</param>
     /// <exception cref="NotSupportedException">The format is not one of these, or is BC6H.</exception>
-    public static void EncodeBlock(PixelFormat target, ReadOnlySpan<byte> rgba, Span<byte> block) {
+    public static void EncodeBlock(PixelFormat target, ReadOnlySpan<byte> rgba, Span<byte> block) =>
+        EncodeBlock(target, rgba, block, BlockQuality.Balanced);
+
+    /// <summary>Compresses one 4×4 block of eight-bit colour.</summary>
+    /// <param name="target">The format to write.</param>
+    /// <param name="rgba">Sixty-four bytes: sixteen texels of RGBA, row-major.</param>
+    /// <param name="block">The block's bytes to fill.</param>
+    /// <param name="quality">How hard to search, where the format has a search.</param>
+    /// <exception cref="NotSupportedException">The format is not one of these, or is BC6H.</exception>
+    public static void EncodeBlock(PixelFormat target, ReadOnlySpan<byte> rgba, Span<byte> block, BlockQuality quality) {
         Span<byte> channel = stackalloc byte[Bc4Block.Texels];
 
         switch (target.ToLinear()) {
@@ -211,10 +337,10 @@ public static class BlockCompressor {
                 return;
 
             case PixelFormat.Bc7RgbaUNorm:
-                Bc7Block.Encode(rgba, block);
+                Bc7Block.Encode(rgba, block, quality);
                 return;
 
-            case PixelFormat.Bc6HRgbUFloat:
+            case PixelFormat.Bc6HRgbUFloat or PixelFormat.Bc6HRgbSFloat:
                 throw new NotSupportedException(
                     "BC6H holds high dynamic range and cannot be encoded from eight-bit colour; every block "
                     + "would be crushed into the first hundredth of its range. Use EncodeHdrBlock."
@@ -225,10 +351,18 @@ public static class BlockCompressor {
         }
     }
 
-    /// <summary>Compresses one 4×4 block of high dynamic range colour, as BC6H.</summary>
+    /// <summary>Compresses one 4×4 block of high dynamic range colour, as unsigned BC6H.</summary>
     /// <param name="rgb">Forty-eight half-float bit patterns: sixteen texels of RGB, row-major.</param>
     /// <param name="block">Sixteen bytes to fill.</param>
     public static void EncodeHdrBlock(ReadOnlySpan<ushort> rgb, Span<byte> block) => Bc6HBlock.Encode(rgb, block);
+
+    /// <summary>Compresses one 4×4 block of high dynamic range colour.</summary>
+    /// <param name="rgb">Forty-eight half-float bit patterns: sixteen texels of RGB, row-major.</param>
+    /// <param name="block">Sixteen bytes to fill.</param>
+    /// <param name="quality">How hard to search.</param>
+    /// <param name="signed">Whether to write the signed format. Unsigned clamps negatives to zero.</param>
+    public static void EncodeHdrBlock(ReadOnlySpan<ushort> rgb, Span<byte> block, BlockQuality quality, bool signed) =>
+        Bc6HBlock.Encode(rgb, block, quality, signed);
 
     /// <summary>Decompresses one block.</summary>
     /// <param name="source">The format the block is in.</param>
@@ -266,7 +400,7 @@ public static class BlockCompressor {
                 Bc7Block.Decode(block, rgba);
                 return;
 
-            case PixelFormat.Bc6HRgbUFloat:
+            case PixelFormat.Bc6HRgbUFloat or PixelFormat.Bc6HRgbSFloat:
                 throw new NotSupportedException(
                     "BC6H decodes to half-float, not to eight-bit colour. Use DecodeHdrBlock."
                 );
@@ -276,10 +410,17 @@ public static class BlockCompressor {
         }
     }
 
-    /// <summary>Decompresses one BC6H block.</summary>
+    /// <summary>Decompresses one unsigned BC6H block.</summary>
     /// <param name="block">Its sixteen bytes.</param>
     /// <param name="rgb">Forty-eight half-float bit patterns to fill.</param>
     public static void DecodeHdrBlock(ReadOnlySpan<byte> block, Span<ushort> rgb) => Bc6HBlock.Decode(block, rgb);
+
+    /// <summary>Decompresses one BC6H block of either signedness.</summary>
+    /// <param name="block">Its sixteen bytes.</param>
+    /// <param name="rgb">Forty-eight half-float bit patterns to fill.</param>
+    /// <param name="signed">Whether it is the signed format.</param>
+    public static void DecodeHdrBlock(ReadOnlySpan<byte> block, Span<ushort> rgb, bool signed) =>
+        Bc6HBlock.Decode(block, rgb, signed);
 
     /// <summary>
     ///     One mip level's 2D shape: how big each image is, how many blocks that is, and how many
@@ -357,6 +498,7 @@ public static class BlockCompressor {
         ImageExtent extent,
         int originX,
         int originY,
+        bool signed,
         Span<ushort> rgb
     ) {
         for (var y = 0; y < 4; y++) {
@@ -364,7 +506,7 @@ public static class BlockCompressor {
 
             for (var x = 0; x < 4; x++) {
                 var sourceX = Math.Min(originX + x, extent.Width - 1);
-                ReadHdrTexel(image, format, (sourceY * extent.Width) + sourceX, rgb[(((y * 4) + x) * 3)..]);
+                ReadHdrTexel(image, format, (sourceY * extent.Width) + sourceX, signed, rgb[(((y * 4) + x) * 3)..]);
             }
         }
     }
@@ -426,64 +568,102 @@ public static class BlockCompressor {
                 rgba[2] = image[texel * 4];
                 rgba[3] = image[(texel * 4) + 3];
                 return;
+        }
 
-            default:
-                throw new NotSupportedException(
-                    $"{format} cannot be block-compressed from. The encoders read eight-bit unsigned channels; "
-                    + "convert to Rgba8UNorm first."
-                );
+        var channels = WideChannelsOf(format);
+
+        if (channels == 0) {
+            throw new NotSupportedException(
+                $"{format} cannot be block-compressed from. The encoders read eight- and sixteen-bit unsigned "
+                + "channels and half or single precision float; convert to Rgba8UNorm first."
+            );
+        }
+
+        var width = format.BlockSize() / channels;
+
+        for (var channel = 0; channel < 4; channel++) {
+            rgba[channel] = channel >= channels
+                ? channel == 3 ? (byte)255 : (byte)0
+                : ByteOf(image, format, (texel * format.BlockSize()) + (channel * width));
         }
     }
 
-    static void ReadHdrTexel(ReadOnlySpan<byte> image, PixelFormat format, int texel, Span<ushort> rgb) {
+    /// <summary>How many channels a sixteen- or thirty-two-bit source has. Zero if it is not one.</summary>
+    static int WideChannelsOf(PixelFormat format) =>
+        format switch {
+            PixelFormat.R16UNorm or PixelFormat.R16Float or PixelFormat.R32Float => 1,
+            PixelFormat.Rg16UNorm or PixelFormat.Rg16Float or PixelFormat.Rg32Float => 2,
+            PixelFormat.Rgba16UNorm or PixelFormat.Rgba16Float or PixelFormat.Rgba32Float => 4,
+            _ => 0
+        };
+
+    /// <summary>
+    ///     One sixteen- or thirty-two-bit channel rounded to the nearest eight-bit value, which is
+    ///     what every format here but BC6H stores. Float is clamped: these formats end at one.
+    /// </summary>
+    static byte ByteOf(ReadOnlySpan<byte> image, PixelFormat format, int at) {
         switch (format) {
-            case PixelFormat.Rgba16Float:
-                for (var channel = 0; channel < 3; channel++) {
-                    rgb[channel] = ClampToEncodable(
-                        BitConverter.UInt16BitsToHalf(
-                            BinaryPrimitives.ReadUInt16LittleEndian(image[((texel * 8) + (channel * 2))..])
-                        )
-                    );
-                }
+            case PixelFormat.R16UNorm or PixelFormat.Rg16UNorm or PixelFormat.Rgba16UNorm:
+                return (byte)(((BinaryPrimitives.ReadUInt16LittleEndian(image[at..]) * 255) + 32767) / 65535);
 
-                return;
-
-            case PixelFormat.Rgba32Float:
-                for (var channel = 0; channel < 3; channel++) {
-                    rgb[channel] = ClampToEncodable(
-                        (Half)BinaryPrimitives.ReadSingleLittleEndian(image[((texel * 16) + (channel * 4))..])
-                    );
-                }
-
-                return;
+            case PixelFormat.R16Float or PixelFormat.Rg16Float or PixelFormat.Rgba16Float:
+                return ByteOfFloat((float)BinaryPrimitives.ReadHalfLittleEndian(image[at..]));
 
             default:
-                throw new NotSupportedException(
-                    $"{format} cannot be encoded as BC6H. It reads half or single precision colour; convert to "
-                    + "Rgba16Float first."
-                );
+                return ByteOfFloat(BinaryPrimitives.ReadSingleLittleEndian(image[at..]));
+        }
+    }
+
+    /// <remarks><see cref="Math.Clamp(float, float, float)" /> lets a NaN through, and a cast of NaN differs between CPUs.</remarks>
+    static byte ByteOfFloat(float value) => float.IsNaN(value) ? (byte)0 : (byte)((Math.Clamp(value, 0f, 1f) * 255f) + 0.5f);
+
+    static void ReadHdrTexel(ReadOnlySpan<byte> image, PixelFormat format, int texel, bool signed, Span<ushort> rgb) {
+        var channels = WideChannelsOf(format);
+
+        if (channels == 0) {
+            throw new NotSupportedException(
+                $"{format} cannot be encoded as BC6H. It reads half or single precision colour or sixteen-bit "
+                + "norm; convert to Rgba16Float first."
+            );
+        }
+
+        var width = format.BlockSize() / channels;
+
+        for (var channel = 0; channel < 3; channel++) {
+            if (channel >= channels) {
+                rgb[channel] = 0;
+                continue;
+            }
+
+            var at = (texel * format.BlockSize()) + (channel * width);
+
+            var value = format switch {
+                PixelFormat.R16UNorm or PixelFormat.Rg16UNorm or PixelFormat.Rgba16UNorm =>
+                    (Half)(BinaryPrimitives.ReadUInt16LittleEndian(image[at..]) / 65535f),
+                PixelFormat.R16Float or PixelFormat.Rg16Float or PixelFormat.Rgba16Float =>
+                    BinaryPrimitives.ReadHalfLittleEndian(image[at..]),
+                _ => (Half)BinaryPrimitives.ReadSingleLittleEndian(image[at..])
+            };
+
+            rgb[channel] = ClampToEncodable(value, signed);
         }
     }
 
     /// <summary>
     ///     Half's bit pattern is what BC6H's arithmetic runs on, and it is only monotonic in the
-    ///     value for non-negative finite numbers. Unsigned BC6H has no way to say "negative" or
-    ///     "not a number", so both are clamped here rather than reinterpreted as an enormous
-    ///     positive number further down.
+    ///     value for non-negative finite numbers. Unsigned BC6H has no way to say "negative", and
+    ///     neither form has a way to say "not a number" or "infinite", so all of it is clamped here
+    ///     rather than reinterpreted as an enormous positive number further down.
     /// </summary>
-    static ushort ClampToEncodable(Half value) {
+    static ushort ClampToEncodable(Half value, bool signed) {
         if (Half.IsNaN(value)) {
             return 0;
         }
 
         var bits = BitConverter.HalfToUInt16Bits(value);
+        var magnitude = Math.Min(bits & 0x7FFF, Bc6HBlock.LargestHalf);
 
-        // The sign bit is bit fifteen; anything with it set is negative, and zero is the nearest
-        // thing to it BC6H can hold.
-        if ((bits & 0x8000) != 0) {
-            return 0;
-        }
-
-        return Math.Min(bits, (ushort)Bc6HBlock.EndpointValue(Bc6HBlock.LargestEndpoint));
+        // The sign bit is bit fifteen; zero is the nearest thing unsigned BC6H has to a negative.
+        return (bits & 0x8000) == 0 ? (ushort)magnitude : signed ? (ushort)(magnitude | 0x8000) : (ushort)0;
     }
 }

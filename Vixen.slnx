@@ -1156,6 +1156,7 @@
     <Project Path="Benchmarks/Vixen.Benchmarks.Ui/Vixen.Benchmarks.Ui.csproj" />
     <Project Path="Benchmarks/Vixen.Benchmarks.Navigation/Vixen.Benchmarks.Navigation.csproj" />
     <Project Path="Benchmarks/Vixen.Benchmarks.Vfx/Vixen.Benchmarks.Vfx.csproj" />
+    <Project Path="Benchmarks/Vixen.Benchmarks.Imaging/Vixen.Benchmarks.Imaging.csproj" />
   </Folder>
 
   <!--

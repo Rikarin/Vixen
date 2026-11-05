@@ -845,6 +845,7 @@ Vixen.Graphics.WebGPU.WgpuTextureFormat.Bc3RgbaUnorm = 48 -> Vixen.Graphics.WebG
 Vixen.Graphics.WebGPU.WgpuTextureFormat.Bc3RgbaUnormSrgb = 49 -> Vixen.Graphics.WebGPU.WgpuTextureFormat
 Vixen.Graphics.WebGPU.WgpuTextureFormat.Bc4RUnorm = 50 -> Vixen.Graphics.WebGPU.WgpuTextureFormat
 Vixen.Graphics.WebGPU.WgpuTextureFormat.Bc5RgUnorm = 52 -> Vixen.Graphics.WebGPU.WgpuTextureFormat
+Vixen.Graphics.WebGPU.WgpuTextureFormat.Bc6HRgbFloat = 55 -> Vixen.Graphics.WebGPU.WgpuTextureFormat
 Vixen.Graphics.WebGPU.WgpuTextureFormat.Bc6HRgbUfloat = 54 -> Vixen.Graphics.WebGPU.WgpuTextureFormat
 Vixen.Graphics.WebGPU.WgpuTextureFormat.Bc7RgbaUnorm = 56 -> Vixen.Graphics.WebGPU.WgpuTextureFormat
 Vixen.Graphics.WebGPU.WgpuTextureFormat.Bc7RgbaUnormSrgb = 57 -> Vixen.Graphics.WebGPU.WgpuTextureFormat

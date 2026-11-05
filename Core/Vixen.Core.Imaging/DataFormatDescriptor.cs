@@ -173,8 +173,8 @@ public static class DataFormatDescriptor {
     ///     <para>
     ///         ⚠ <b>BC6H's <c>sampleLower</c> is where unsigned and signed differ in the
     ///         descriptor.</b> Both carry the <c>FLOAT</c> qualifier and an upper of <c>+1.0f</c>;
-    ///         only the signed form adds <c>SIGNED</c> and a lower of <c>-1.0f</c>. This engine
-    ///         writes the unsigned form, and <see cref="VkFormats" /> used to name the signed one.
+    ///         only the signed form adds <c>SIGNED</c> and a lower of <c>-1.0f</c>. Both are written
+    ///         now, and <see cref="VkFormats" /> once named the signed one for the unsigned payload.
     ///     </para>
     /// </remarks>
     static Sample[] CompressedSamplesOf(PixelFormat format) {
@@ -193,6 +193,7 @@ public static class DataFormatDescriptor {
                 new(64, 63, 1, 0, uint.MaxValue)
             ],
             PixelFormat.Bc6HRgbUFloat => [new(0, whole, Float, 0, PlusOne)],
+            PixelFormat.Bc6HRgbSFloat => [new(0, whole, Float | Signed, MinusOne, PlusOne)],
             PixelFormat.Etc2Rgb8A1UNorm => [
                 new(0, 63, 2, 0, uint.MaxValue),
                 new(0, 63, Alpha, 0, uint.MaxValue)
@@ -215,8 +216,8 @@ public static class DataFormatDescriptor {
 
     static int ChannelCountOf(PixelFormat format) =>
         format switch {
-            PixelFormat.R8UNorm or PixelFormat.R32Float => 1,
-            PixelFormat.Rg8UNorm => 2,
+            PixelFormat.R8UNorm or PixelFormat.R32Float or PixelFormat.R16UNorm or PixelFormat.R16Float => 1,
+            PixelFormat.Rg8UNorm or PixelFormat.Rg16UNorm or PixelFormat.Rg16Float or PixelFormat.Rg32Float => 2,
             _ => 4
         };
 
@@ -239,7 +240,7 @@ public static class DataFormatDescriptor {
             PixelFormat.Bc3RgbaUNorm or PixelFormat.Bc3RgbaUNormSrgb => 130,
             PixelFormat.Bc4RUNorm => 131,
             PixelFormat.Bc5RgUNorm => 132,
-            PixelFormat.Bc6HRgbUFloat => 133,
+            PixelFormat.Bc6HRgbUFloat or PixelFormat.Bc6HRgbSFloat => 133,
             PixelFormat.Bc7RgbaUNorm or PixelFormat.Bc7RgbaUNormSrgb => 134,
             PixelFormat.Etc2Rgb8A1UNorm or PixelFormat.Etc2Rgba8UNorm => 161,
             _ => 162   // ASTC

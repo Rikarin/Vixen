@@ -170,6 +170,8 @@ public sealed class LayerStackEvaluator : IDisposable {
     /// <remarks>
     ///     ⚠ <b>What a stroke's repair is checked against, so it must not be able to see one.</b> It
     ///     runs every op of the whole plan and reads no cache, which is what an export owes as well.
+    ///     An export reads the result with <see cref="TextureBake.ReadRaw(int)" /> and an image from
+    ///     <see cref="Outputs" />, which keeps the bits a bitmap would round away.
     /// </remarks>
     /// <exception cref="InvalidOperationException">Nothing has been prepared.</exception>
     public TextureBake EvaluateClean() {

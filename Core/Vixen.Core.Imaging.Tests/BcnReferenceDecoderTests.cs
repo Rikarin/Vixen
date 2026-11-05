@@ -26,13 +26,10 @@ namespace Vixen.Core.Imaging.Tests;
 ///         malformed header would pass the first and fail the second.
 ///     </para>
 ///     <para>
-///         ⚠ <b>BC7 and BC6H are checked over one mode each, because that is all Vixen speaks.</b>
-///         <see cref="Bc7Block" /> writes and reads mode 6 of eight and <see cref="Bc6HBlock" />
-///         mode 11 of fourteen; a block in any other mode throws rather than decoding, so the corpus
-///         forces the mode bits. That is a real limit on what this suite proves and it is the limit
-///         of the code, not of the oracle: bcdec reads all fourteen. The seven BC7 modes and
-///         thirteen BC6H modes Vixen does not write remain unverified in both directions, and will
-///         stay that way until there is an encoder that emits them.
+///         <b>BC7 and BC6H are arbitrary here, modes included</b>, now that Vixen reads all of them;
+///         the corpus only avoids BC7's reserved mode. <see cref="GpuBcnDecoderTests" /> is the
+///         stricter check of those two, since it forces every mode and partition rather than
+///         taking what random bytes happen to name, and it needs no download.
 ///     </para>
 /// </remarks>
 public sealed class BcnReferenceDecoderTests {
@@ -219,10 +216,9 @@ public sealed class BcnReferenceDecoderTests {
     }
 
     /// <summary>
-    ///     Deterministic blocks, and for BC7 and BC6H the mode bits are forced to the one mode Vixen
-    ///     reads. Everything above the mode field is noise, which is a legal block whatever it says:
-    ///     a mode-6 BC7 block is seven mode bits, fifty-six endpoint bits, two parity bits and
-    ///     sixty-three index bits, and no combination of those is invalid.
+    ///     Deterministic noise, which is a legal block whatever it says. The one exception is a BC7
+    ///     block whose first byte is zero, which names no mode, and decoders are free to differ on
+    ///     it: this GPU returns opaque black where Vixen returns zero.
     /// </summary>
     static byte[] ArbitraryBlocks(string format, int blockBytes) {
         var blocks = new byte[Blocks * blockBytes];
@@ -233,16 +229,8 @@ public sealed class BcnReferenceDecoderTests {
         for (var index = 0; index < Blocks; index++) {
             var at = index * blockBytes;
 
-            switch (format) {
-                // Mode 6 is six zeros then a one, least significant bit first.
-                case "bc7":
-                    blocks[at] = (byte)((blocks[at] & 0x80) | 0x40);
-                    break;
-
-                // Mode 11's five mode bits are 0b00011, least significant bit first.
-                case "bc6h":
-                    blocks[at] = (byte)((blocks[at] & 0xE0) | 0x03);
-                    break;
+            if (format == "bc7" && blocks[at] == 0) {
+                blocks[at] = 1;
             }
         }
 

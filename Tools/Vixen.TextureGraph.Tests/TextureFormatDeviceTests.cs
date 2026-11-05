@@ -4,6 +4,8 @@
 using System.Globalization;
 using System.Runtime.InteropServices;
 using Vixen.Core.Imaging;
+using Vixen.Core.Imaging.BlockCompression;
+using Vixen.Graphics;
 using Vixen.NodeGraph;
 using Vixen.TextureGraph;
 using Xunit;
@@ -139,6 +141,57 @@ public class TextureFormatDeviceTests(ITestOutputHelper output) {
 
         Assert.True(compared > 60, $"Only {compared} images were compared.");
         Assert.Empty(moved);
+    }
+
+    /// <summary>
+    ///     What a float export reads. The bytes are the device's: they come with the format and the
+    ///     extent that say what they mean, they carry detail an eight-bit read cannot, and they go
+    ///     straight into the block compressor and a mip chain.
+    /// </summary>
+    [Theory]
+    [InlineData(16)]
+    [InlineData(32)]
+    public void A_raw_read_is_the_image_in_its_own_format(int depth) {
+        using var device = TextureKernelHarness.Open();
+        using var evaluator = new TexturePlanEvaluator(device);
+
+        var registry = Registry();
+        NodeGraphModel graph = new();
+
+        graph.Add("Source/Noise");
+
+        var compiler = Compiler(registry, 101, 67, depth, graph);
+        var plan = compiler.Compile(graph).Value;
+
+        using var uploads = new TextureUploads(device);
+
+        Assert.Empty(TextureGraphExternals.Upload(uploads, plan, compiler.Externals));
+
+        using var bake = evaluator.Evaluate(plan, uploads.Externals);
+
+        var image = plan.Outputs.First(output => !plan.Images[output].External);
+        var raw = bake.ReadRaw(image);
+
+        Assert.Equal((101, 67), (raw.Width, raw.Height));
+        Assert.Equal(TextureFormats.Pixel(plan.Images[image].Format), raw.Format);
+        Assert.Equal(bake.ReadTexels(image), raw.Texels);
+        Assert.Equal(raw.Width * raw.Height * raw.Format.BlockSize(), raw.Texels.Length);
+
+        // More than eight bits' worth: a value no byte could have held is a value Read would round.
+        var lanes = Lanes(bake, image);
+
+        Assert.Contains(lanes, lane => MathF.Abs((lane * 255f) - MathF.Round(lane * 255f)) > 0.01f);
+
+        var texture = raw.ToTexture(levelCount: 0);
+
+        MipChain.Generate(texture);
+
+        Assert.Equal(7, texture.LevelCount);
+        Assert.True(raw.Texels.AsSpan().SequenceEqual(texture.Level(0)));
+        Assert.Equal(PixelFormat.Bc7RgbaUNorm, BlockCompressor.Encode(texture, PixelFormat.Bc7RgbaUNorm, new() { Quality = BlockQuality.Fast }).Format);
+        Assert.Equal(PixelFormat.Bc6HRgbUFloat, BlockCompressor.Encode(texture, PixelFormat.Bc6HRgbUFloat, new() { Quality = BlockQuality.Fast }).Format);
+
+        output.WriteLine($"{TextureKernelHarness.Adapter(device)}: read {raw.Format} at {raw.Width}x{raw.Height}");
     }
 
     [Theory]

@@ -181,6 +181,51 @@ public static class PngCodec {
         return output.ToArray();
     }
 
+    /// <summary>Encodes eight-bit grey, RGB or RGBA samples, so a one-channel map is one channel in the file.</summary>
+    /// <param name="width">Width in pixels.</param>
+    /// <param name="height">Height in pixels.</param>
+    /// <param name="channels">One for grey, three for RGB, four for RGBA.</param>
+    /// <param name="samples">Interleaved samples, row-major, top row first.</param>
+    /// <returns>The file's bytes.</returns>
+    /// <exception cref="ArgumentException">The channel count is not one of those, or the samples do not fill the image.</exception>
+    /// <remarks>
+    ///     <see cref="Decode16" /> reads these back. <see cref="Decode" /> does not: it is the
+    ///     eight-bit RGBA reader the golden-image suites use, and it refuses anything else.
+    /// </remarks>
+    public static byte[] Encode8(int width, int height, int channels, ReadOnlySpan<byte> samples) {
+        var colourType = channels switch {
+            1 => 0,
+            3 => 2,
+            4 => 6,
+            _ => throw new ArgumentException($"{channels} channels: one, three or four are written.", nameof(channels))
+        };
+
+        if (width <= 0 || height <= 0 || samples.Length != width * height * channels) {
+            throw new ArgumentException("The samples do not fill the image.", nameof(samples));
+        }
+
+        var stride = width * channels;
+        var raw = new byte[(height * stride) + height];
+
+        for (var y = 0; y < height; y++) {
+            samples.Slice(y * stride, stride).CopyTo(raw.AsSpan((y * (stride + 1)) + 1));
+        }
+
+        using var output = new MemoryStream();
+        output.Write(Signature);
+
+        var header = new byte[13];
+        BinaryPrimitives.WriteInt32BigEndian(header, width);
+        BinaryPrimitives.WriteInt32BigEndian(header.AsSpan(4), height);
+        header[8] = 8;
+        header[9] = (byte)colourType;
+
+        WriteChunk(output, "IHDR", header);
+        WriteChunk(output, "IDAT", Deflate(raw));
+        WriteChunk(output, "IEND", []);
+        return output.ToArray();
+    }
+
     /// <summary>Decodes what <see cref="Encode16" /> and <see cref="Encode" /> write, keeping its depth.</summary>
     /// <param name="data">The file.</param>
     /// <returns>The picture as 16-bit samples: an 8-bit file's levels scaled to fill the range.</returns>

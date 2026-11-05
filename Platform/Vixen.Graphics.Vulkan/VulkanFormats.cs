@@ -49,6 +49,7 @@ static class VulkanFormats {
         // Vulkan names a packed format from its most significant bits down.
         PixelFormat.Rgb10A2UNorm => VkFormat.A2B10G10R10UnormPack32,
         PixelFormat.Rg11B10Float => VkFormat.B10G11R11UfloatPack32,
+        PixelFormat.Rg16UNorm => VkFormat.R16G16Unorm,
 
         PixelFormat.Rgba16Float => VkFormat.R16G16B16A16Sfloat,
         PixelFormat.Rg32Float => VkFormat.R32G32Sfloat,
@@ -69,6 +70,7 @@ static class VulkanFormats {
         PixelFormat.Bc4RUNorm => VkFormat.BC4UnormBlock,
         PixelFormat.Bc5RgUNorm => VkFormat.BC5UnormBlock,
         PixelFormat.Bc6HRgbUFloat => VkFormat.BC6HUfloatBlock,
+        PixelFormat.Bc6HRgbSFloat => VkFormat.BC6HSfloatBlock,
         PixelFormat.Bc7RgbaUNorm => VkFormat.BC7UnormBlock,
         PixelFormat.Bc7RgbaUNormSrgb => VkFormat.BC7SrgbBlock,
 
@@ -113,6 +115,7 @@ static class VulkanFormats {
 
         VkFormat.A2B10G10R10UnormPack32 => PixelFormat.Rgb10A2UNorm,
         VkFormat.B10G11R11UfloatPack32 => PixelFormat.Rg11B10Float,
+        VkFormat.R16G16Unorm => PixelFormat.Rg16UNorm,
 
         VkFormat.R16G16B16A16Sfloat => PixelFormat.Rgba16Float,
         VkFormat.R32G32Sfloat => PixelFormat.Rg32Float,
@@ -133,6 +136,7 @@ static class VulkanFormats {
         VkFormat.BC4UnormBlock => PixelFormat.Bc4RUNorm,
         VkFormat.BC5UnormBlock => PixelFormat.Bc5RgUNorm,
         VkFormat.BC6HUfloatBlock => PixelFormat.Bc6HRgbUFloat,
+        VkFormat.BC6HSfloatBlock => PixelFormat.Bc6HRgbSFloat,
         VkFormat.BC7UnormBlock => PixelFormat.Bc7RgbaUNorm,
         VkFormat.BC7SrgbBlock => PixelFormat.Bc7RgbaUNormSrgb,
 

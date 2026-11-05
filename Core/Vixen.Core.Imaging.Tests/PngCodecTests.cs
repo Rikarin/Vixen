@@ -208,4 +208,26 @@ public sealed class PngCodecTests {
         System.Buffers.Binary.BinaryPrimitives.WriteUInt32BigEndian(checksum, crc.GetCurrentHashAsUInt32());
         output.Write(checksum);
     }
+
+    /// <summary>A one-channel map is one channel in the file, and reads back as what went in.</summary>
+    [Theory]
+    [InlineData(1)]
+    [InlineData(3)]
+    [InlineData(4)]
+    public void EightBitSamplesRoundTripAtTheirOwnChannelCount(int channels) {
+        var samples = new byte[5 * 3 * channels];
+
+        new Random(channels).NextBytes(samples);
+
+        var (width, height, read, wide) = PngCodec.Decode16(PngCodec.Encode8(5, 3, channels, samples));
+
+        Assert.Equal((5, 3, channels), (width, height, read));
+        Assert.Equal(samples.Select(sample => (ushort)(sample * 257)), wide);
+    }
+
+    [Fact]
+    public void EightBitSamplesThatDoNotFillTheImageAreRefused() {
+        Assert.Throws<ArgumentException>(() => PngCodec.Encode8(4, 4, 1, new byte[15]));
+        Assert.Throws<ArgumentException>(() => PngCodec.Encode8(4, 4, 2, new byte[32]));
+    }
 }

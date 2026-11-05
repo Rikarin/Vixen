@@ -333,4 +333,194 @@ public sealed class MipChainTests {
 
         Assert.Contains("no alpha channel", failure.Message, StringComparison.Ordinal);
     }
+
+    /// <summary>The eight-bit answers, in sixteen bits: half black and half white is the same light.</summary>
+    [Fact]
+    public void SixteenBitsAverageInLinearLightWhenTheyAreColour() {
+        var texture = new TextureData(PixelFormat.Rgba16UNorm, 2, 2);
+        var pixels = texture.LevelSpan(0);
+
+        for (var texel = 0; texel < 4; texel++) {
+            var value = texel < 2 ? (ushort)0 : (ushort)65535;
+
+            for (var channel = 0; channel < 4; channel++) {
+                BitConverter.TryWriteBytes(pixels[(((texel * 4) + channel) * 2)..], value);
+            }
+        }
+
+        MipChain.Generate(texture, MipOptions.Colour);
+
+        var level = texture.Level(1);
+
+        // 0.5 in linear light encodes as 0.7354, which is the 188 of the eight-bit test at 65535
+        // full scale. Alpha is not colour, so it is the plain mean.
+        Assert.InRange(BitConverter.ToUInt16(level), 48190, 48200);
+        Assert.Equal(32768, BitConverter.ToUInt16(level[6..]));
+    }
+
+    /// <summary>Rounded, not truncated, at sixteen bits: the same argument one byte further down.</summary>
+    [Fact]
+    public void SixteenBitsRoundToTheNearestValue() {
+        var texture = new TextureData(PixelFormat.R16UNorm, 2, 1);
+
+        BitConverter.TryWriteBytes(texture.LevelSpan(0), (ushort)1000);
+        BitConverter.TryWriteBytes(texture.LevelSpan(0)[2..], (ushort)1001);
+
+        MipChain.Generate(texture);
+
+        Assert.Equal(1001, BitConverter.ToUInt16(texture.Level(1)));
+    }
+
+    /// <summary>Radiance is not clamped: a float chain averages what is there, past one included.</summary>
+    [Theory]
+    [InlineData(PixelFormat.Rgba16Float)]
+    [InlineData(PixelFormat.Rgba32Float)]
+    public void FloatChainsKeepValuesAboveOne(PixelFormat format) {
+        var texture = new TextureData(format, 2, 1);
+        var width = format.BlockSize() / 4;
+
+        void Write(int texel, float value) {
+            var at = texture.LevelSpan(0)[(texel * 4 * width)..];
+
+            if (width == 2) {
+                BitConverter.TryWriteBytes(at, (Half)value);
+            } else {
+                BitConverter.TryWriteBytes(at, value);
+            }
+        }
+
+        Write(0, 1000f);
+        Write(1, 0f);
+
+        MipChain.Generate(texture);
+
+        var mean = width == 2 ? (float)BitConverter.ToHalf(texture.Level(1)) : BitConverter.ToSingle(texture.Level(1));
+
+        Assert.Equal(500f, mean);
+    }
+
+    [Fact]
+    public void AlphaWeightingWorksOnFloat() {
+        var texture = new TextureData(PixelFormat.Rgba32Float, 2, 1);
+        var pixels = texture.LevelSpan(0);
+
+        BitConverter.TryWriteBytes(pixels, 0.8f);
+        BitConverter.TryWriteBytes(pixels[12..], 1f);
+        BitConverter.TryWriteBytes(pixels[16..], 0.2f);
+        BitConverter.TryWriteBytes(pixels[28..], 0f);
+
+        MipChain.Generate(texture, new() { AlphaWeighted = true });
+
+        Assert.Equal(0.8f, BitConverter.ToSingle(texture.Level(1)));
+        Assert.Equal(0.5f, BitConverter.ToSingle(texture.Level(1)[12..]));
+    }
+
+    /// <summary>
+    ///     Two-channel normals in sixteen bits, as a PNG-16 tangent map would arrive: z reconstructed,
+    ///     averaged and dropped, and the result still a unit vector.
+    /// </summary>
+    [Fact]
+    public void Rg16NormalsComeBackUnitLength() {
+        var texture = new TextureData(PixelFormat.Rg16UNorm, 2, 2);
+        var pixels = texture.LevelSpan(0);
+        ReadOnlySpan<float> leanX = [0.6f, -0.6f, 0.3f, 0.1f];
+
+        for (var texel = 0; texel < 4; texel++) {
+            BitConverter.TryWriteBytes(pixels[(texel * 4)..], (ushort)((leanX[texel] + 1f) * 0.5f * 65535f));
+            BitConverter.TryWriteBytes(pixels[((texel * 4) + 2)..], (ushort)32768);
+        }
+
+        MipChain.Generate(texture, MipOptions.NormalMap);
+
+        var x = (BitConverter.ToUInt16(texture.Level(1)) / 65535f * 2f) - 1f;
+        var y = (BitConverter.ToUInt16(texture.Level(1)[2..]) / 65535f * 2f) - 1f;
+
+        Assert.True((x * x) + (y * y) <= 1f, "a reconstructed z needs the pair to be inside the unit circle");
+        Assert.InRange(x, 0.05f, 0.15f);
+    }
+
+    /// <summary>
+    ///     The two paths have one set of rules: a sixteen-bit copy of an eight-bit image reduces to
+    ///     the same picture under every option, within the rounding of the narrower format.
+    /// </summary>
+    [Theory]
+    [InlineData(false, false, false)]
+    [InlineData(true, false, false)]
+    [InlineData(true, true, false)]
+    [InlineData(false, true, false)]
+    [InlineData(false, false, true)]
+    public void SixteenBitChainsAgreeWithEightBitOnes(bool srgb, bool alpha, bool normals) {
+        var options = new MipOptions { Srgb = srgb, AlphaWeighted = alpha, RenormaliseNormals = normals };
+        var narrow = new TextureData(PixelFormat.Rgba8UNorm, 64, 64);
+        var wide = new TextureData(PixelFormat.Rgba16UNorm, 64, 64);
+
+        // Directions want to be directions: random bytes are not unit vectors, and four that nearly
+        // cancel magnify whatever rounding is left when they are normalised.
+        if (normals) {
+            ReferenceImages.NormalMap(64).Pixels.CopyTo(narrow.LevelSpan(0));
+        } else {
+            new Random(64).NextBytes(narrow.LevelSpan(0));
+        }
+
+        var bytes = narrow.Level(0);
+
+        for (var at = 0; at < bytes.Length; at++) {
+            BitConverter.TryWriteBytes(wide.LevelSpan(0)[(at * 2)..], (ushort)(bytes[at] * 257));
+        }
+
+        MipChain.Generate(narrow, options);
+        MipChain.Generate(wide, options);
+
+        for (var level = 1; level < narrow.LevelCount; level++) {
+            var eight = narrow.Level(level);
+            var sixteen = wide.Level(level);
+
+            for (var at = 0; at < eight.Length; at++) {
+                var rounded = BitConverter.ToUInt16(sixteen[(at * 2)..]) / 257.0;
+
+                // Each step of the narrower chain rounds a value the next step averages, so the
+                // two drift apart by at most a level per step down.
+                Assert.True(Math.Abs(rounded - eight[at]) <= level, $"level {level} byte {at}: {rounded:F2} against {eight[at]}");
+            }
+        }
+    }
+
+    /// <summary>
+    ///     ⚠ A fully transparent footprint in an sRGB cut-out used to come out white. The fallback
+    ///     added raw bytes where the sum was about to be encoded from linear light, and any byte
+    ///     above one clamps to white on the way out.
+    /// </summary>
+    [Fact]
+    public void AWhollyTransparentFootprintKeepsItsColourInAnSrgbCutout() {
+        var texture = new TextureData(PixelFormat.Rgba8UNormSrgb, 2, 2);
+        var pixels = texture.LevelSpan(0);
+
+        for (var texel = 0; texel < 4; texel++) {
+            pixels[texel * 4] = 40;
+        }
+
+        MipChain.Generate(texture, MipOptions.CutoutColour);
+
+        Assert.InRange(texture.Level(1)[0], 39, 41);
+    }
+
+    /// <summary>
+    ///     ⚠ Every image of a level is reduced. A layer or a face past the first used to be left
+    ///     zero, with nothing to say so.
+    /// </summary>
+    [Theory]
+    [InlineData(PixelFormat.Rgba8UNorm, 3, 1)]
+    [InlineData(PixelFormat.Rgba16UNorm, 1, 6)]
+    public void EveryLayerAndFaceGetsItsChain(PixelFormat format, int layers, int faces) {
+        var texture = new TextureData(format, 4, 4, layerCount: layers, faceCount: faces);
+
+        texture.LevelSpan(0).Fill(0x7F);
+        MipChain.Generate(texture);
+
+        Assert.All(texture.Level(texture.LevelCount - 1).ToArray(), value => Assert.Equal(0x7F, value));
+    }
+
+    [Fact]
+    public void AVolumeWithAChainIsRefusedRatherThanHalfFilled() =>
+        Assert.Throws<NotSupportedException>(() => MipChain.Generate(new TextureData(PixelFormat.Rgba8UNorm, 4, 4, depth: 4)));
 }

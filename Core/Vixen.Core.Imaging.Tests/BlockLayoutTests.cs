@@ -188,18 +188,58 @@ public sealed class BlockLayoutTests {
     }
 
     /// <summary>
-    ///     A block in any of BC7's other seven modes says so. Nothing in the engine decodes BC7 at
-    ///     run time, so a decoder that quietly read a partitioned block as an unpartitioned one
-    ///     would only ever mislead whoever was looking at a preview.
+    ///     A first byte of zero names no mode. Nothing writes one, and the only thing a decoder can
+    ///     usefully do is say nothing: zero in every channel, rather than throwing on a preview.
     /// </summary>
     [Fact]
-    public void ABc7BlockInAModeThisDoesNotWriteIsRefused() {
+    public void ABc7BlockThatNamesNoModeDecodesToNothing() {
         var block = new byte[16];
-        block[0] = 0x01;    // mode 0: a one in the first bit.
+        block[1] = 0xFF;
 
-        var failure = Assert.Throws<NotSupportedException>(() => Bc7Block.Decode(block, new byte[64]));
+        var rgba = new byte[64];
+        rgba.AsSpan().Fill(0xAA);
 
-        Assert.Contains("mode 0", failure.Message, StringComparison.Ordinal);
+        Bc7Block.Decode(block, rgba);
+
+        Assert.All(rgba, value => Assert.Equal(0, value));
+    }
+
+    /// <summary>
+    ///     Mode 5 laid out by hand, because it is where the two index sets and the rotation meet:
+    ///     seven-bit colour, eight-bit alpha with no parity, two two-bit index sets. Rotation 1 swaps
+    ///     red and alpha after interpolation, so the alpha line turns up in red.
+    /// </summary>
+    [Fact]
+    public void ABc7Mode5BlockRotatesItsAlphaLineIntoRed() {
+        var writer = new byte[16];
+        var bits = new BlockBitWriter(writer);
+
+        bits.Write(1u << 5, 6);     // mode 5
+        bits.Write(1, 2);           // rotation: swap red and alpha
+        bits.Write(0, 7);           // R0
+        bits.Write(127, 7);         // R1
+        bits.Write(127, 7);         // G0
+        bits.Write(127, 7);         // G1
+        bits.Write(0, 7);           // B0
+        bits.Write(0, 7);           // B1
+        bits.Write(10, 8);          // A0
+        bits.Write(250, 8);         // A1
+
+        for (var texel = 0; texel < 16; texel++) {
+            bits.Write(0, texel == 0 ? 1 : 2);
+        }
+
+        for (var texel = 0; texel < 16; texel++) {
+            bits.Write(texel == 1 ? 3u : 0u, texel == 0 ? 1 : 2);
+        }
+
+        var rgba = new byte[64];
+
+        Bc7Block.Decode(writer, rgba);
+
+        // Colour index 0 everywhere: red's endpoint is 0, and it lands in alpha.
+        Assert.Equal([10, 255, 0, 0], rgba[..4]);
+        Assert.Equal([250, 255, 0, 0], rgba[4..8]);
     }
 
     /// <summary>
@@ -236,48 +276,126 @@ public sealed class BlockLayoutTests {
     [InlineData(1022, 65440, 31697)]
     [InlineData(1023, 65535, 31743)]
     public void Bc6HWidensAndScalesItsEndpointsInTwoStatedSteps(int endpoint, int widened, int half) {
-        Assert.Equal(widened, Bc6HBlock.Unquantise(endpoint));
-        Assert.Equal(half, Bc6HBlock.Finish(widened));
+        Assert.Equal(widened, Bc6HBlock.Unquantise(endpoint, 10, signed: false));
+        Assert.Equal(half, Bc6HBlock.Finish(widened, signed: false));
     }
 
     /// <summary>
-    ///     Unsigned BC6H cannot express infinity, and it is the format that arranges this rather
-    ///     than the encoder avoiding a value: the largest endpoint pair finishes at 0x7BFF, the
-    ///     largest finite half, and interpolating between two of those cannot exceed either.
+    ///     Unsigned BC6H cannot express infinity, and it is the format that arranges this rather than
+    ///     the encoder avoiding a value: the largest endpoint at every mode's precision finishes at
+    ///     0x7BFF, the largest finite half, and interpolating between two of those cannot exceed it.
     /// </summary>
     [Fact]
-    public void NoPairOfEndpointsCanReachInfinity() {
-        Assert.Equal(0x7BFF, Bc6HBlock.EndpointValue(Bc6HBlock.LargestEndpoint));
+    public void NoUnsignedEndpointOfAnyPrecisionCanReachInfinity() {
+        foreach (var mode in Bc6HBlock.Layouts) {
+            var largest = (1 << mode.EndpointBits) - 1;
 
-        Span<int> largest = [Bc6HBlock.LargestEndpoint, Bc6HBlock.LargestEndpoint, Bc6HBlock.LargestEndpoint];
-        Span<ushort> palette = stackalloc ushort[48];
-
-        Bc6HBlock.Palette(largest, largest, palette);
-
-        foreach (var value in palette) {
-            Assert.True(value < 0x7C00, $"{value:X4} is at or past positive infinity.");
+            Assert.Equal(0x7BFF, Bc6HBlock.Finish(Bc6HBlock.Unquantise(largest, mode.EndpointBits, false), false));
         }
     }
 
+    /// <summary>
+    ///     ⚠ The signed format's one hole: mode 14's lowest code has no special case, so it finishes
+    ///     one past the largest finite half and the block decodes to negative infinity. The GPU
+    ///     agrees, in <see cref="GpuBcnDecoderTests" />. What matters is that the encoder never takes
+    ///     that code, whatever it is asked for.
+    /// </summary>
     [Fact]
-    public void ABc6HBlockInAModeThisDoesNotWriteIsRefused() {
+    public void TheOneSignedCodeThatReachesInfinityIsNeverChosen() {
+        Assert.Equal(-0x7C00, Bc6HBlock.Finish(Bc6HBlock.Unquantise(-32768, 16, true), true));
+
+        foreach (var mode in Bc6HBlock.Layouts) {
+            var chosen = Bc6HBlock.Quantise(float.NegativeInfinity, mode.EndpointBits, true);
+
+            Assert.True(Bc6HBlock.Finish(Bc6HBlock.Unquantise(chosen, mode.EndpointBits, true), true) >= -0x7BFF);
+        }
+
+        var rgb = new ushort[48];
+        rgb.AsSpan().Fill(0x8000 | 0x7BFF);
+
         var block = new byte[16];
-        block[0] = 0b00010;    // Mode 3: two subsets, transformed endpoints.
+        var decoded = new ushort[48];
 
-        var failure = Assert.Throws<NotSupportedException>(() => Bc6HBlock.Decode(block, new ushort[48]));
+        foreach (var quality in Enum.GetValues<BlockQuality>()) {
+            Bc6HBlock.Encode(rgb, block, quality, signed: true);
+            Bc6HBlock.Decode(block, decoded, signed: true);
 
-        Assert.Contains("mode 11", failure.Message, StringComparison.Ordinal);
+            Assert.All(decoded, value => Assert.True((value & 0x7FFF) <= 0x7BFF, $"{value:X4} is not finite"));
+        }
     }
 
     /// <summary>
-    ///     BC7's weight table is symmetric about its middle, which is what makes swapping the two
+    ///     The four reserved mode values decode to black, which is what the specification says and
+    ///     what the GPU does: <see cref="GpuBcnDecoderTests" /> compares them.
+    /// </summary>
+    [Fact]
+    public void ABc6HBlockInAReservedModeIsBlack() {
+        var block = new byte[16];
+        block.AsSpan().Fill(0xFF);
+        block[0] = 0b10011;
+
+        var rgb = new ushort[48];
+        rgb.AsSpan().Fill(0xAAAA);
+
+        Bc6HBlock.Decode(block, rgb);
+
+        Assert.All(rgb, value => Assert.Equal(0, value));
+    }
+
+    /// <summary>
+    ///     Every header is the size the format says and names each field bit once. The GPU proves
+    ///     these layouts are the right ones; this is what makes a typo in one of them fail with a
+    ///     sentence rather than with a block of wrong texels.
+    /// </summary>
+    [Fact]
+    public void EveryBc6HHeaderCoversItsFieldsExactlyOnce() {
+        foreach (var mode in Bc6HBlock.Layouts) {
+            Assert.Equal(mode.Subsets == 2 ? 82 : 65, mode.ModeBitCount + mode.Bits.Length);
+            Assert.Equal(mode.Bits.Length, mode.Bits.Distinct().Count());
+
+            for (var channel = 0; channel < 3; channel++) {
+                Assert.Equal(mode.EndpointBits, mode.Bits.Count(bit => bit.Field == channel));
+
+                for (var endpoint = 1; endpoint < mode.Subsets * 2; endpoint++) {
+                    var stored = mode.Transformed ? mode.DeltaBits(channel) : mode.EndpointBits;
+
+                    Assert.Equal(stored, mode.Bits.Count(bit => bit.Field == (endpoint * 3) + channel));
+                }
+            }
+
+            Assert.Equal(mode.Subsets == 2 ? 5 : 0, mode.Bits.Count(bit => bit.Field == Bc6HBlock.PartitionField));
+        }
+    }
+
+    /// <summary>The BPTC tables are shaped the way the format needs: the checks a reader can do.</summary>
+    [Fact]
+    public void EveryPartitionPatternHasAnAnchorInEachOfItsSubsets() {
+        for (var partition = 0; partition < 64; partition++) {
+            var two = BptcTables.TwoSubsets.Slice(partition * 16, 16);
+            var three = BptcTables.ThreeSubsets.Slice(partition * 16, 16);
+
+            Assert.Equal(0, two[0]);
+            Assert.Equal(0, three[0]);
+            Assert.Equal(1, two[BptcTables.TwoSubsetAnchors[partition]]);
+            Assert.Equal(1, three[BptcTables.ThreeSubsetAnchors1[partition]]);
+            Assert.Equal(2, three[BptcTables.ThreeSubsetAnchors2[partition]]);
+        }
+    }
+
+    /// <summary>
+    ///     The weight tables are symmetric about their middles, which is what makes swapping the two
     ///     endpoints and inverting every index describe the identical palette — and that is the only
     ///     reason an encoder is free to satisfy the anchor rule after the fact.
     /// </summary>
-    [Fact]
-    public void TheFourBitWeightTableIsSymmetric() {
-        for (var index = 0; index < 16; index++) {
-            Assert.Equal(64 - Bc7Block.Weights[index], Bc7Block.Weights[15 - index]);
+    [Theory]
+    [InlineData(2)]
+    [InlineData(3)]
+    [InlineData(4)]
+    public void TheWeightTablesAreSymmetric(int bits) {
+        var weights = BptcTables.WeightsOf(bits);
+
+        for (var index = 0; index < weights.Length; index++) {
+            Assert.Equal(64 - weights[index], weights[weights.Length - 1 - index]);
         }
     }
 }

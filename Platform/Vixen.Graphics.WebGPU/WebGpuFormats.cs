@@ -45,6 +45,9 @@ public static class WebGpuFormats {
         PixelFormat.Bgra8UNormSrgb => WgpuTextureFormat.Bgra8UnormSrgb,
         PixelFormat.Rgba8SNorm => WgpuTextureFormat.Rgba8Snorm,
         PixelFormat.Rg16Float => WgpuTextureFormat.Rg16Float,
+
+        // Rg16UNorm, for the same reason as R16UNorm.
+        PixelFormat.Rg16UNorm => WgpuTextureFormat.Undefined,
         PixelFormat.R32Float => WgpuTextureFormat.R32Float,
         PixelFormat.R32UInt => WgpuTextureFormat.R32Uint,
         PixelFormat.Rgb10A2UNorm => WgpuTextureFormat.Rgb10A2Unorm,
@@ -77,6 +80,7 @@ public static class WebGpuFormats {
         PixelFormat.Bc4RUNorm => WgpuTextureFormat.Bc4RUnorm,
         PixelFormat.Bc5RgUNorm => WgpuTextureFormat.Bc5RgUnorm,
         PixelFormat.Bc6HRgbUFloat => WgpuTextureFormat.Bc6HRgbUfloat,
+        PixelFormat.Bc6HRgbSFloat => WgpuTextureFormat.Bc6HRgbFloat,
         PixelFormat.Bc7RgbaUNorm => WgpuTextureFormat.Bc7RgbaUnorm,
         PixelFormat.Bc7RgbaUNormSrgb => WgpuTextureFormat.Bc7RgbaUnormSrgb,
 
@@ -137,6 +141,7 @@ public static class WebGpuFormats {
         WgpuTextureFormat.Bc4RUnorm => PixelFormat.Bc4RUNorm,
         WgpuTextureFormat.Bc5RgUnorm => PixelFormat.Bc5RgUNorm,
         WgpuTextureFormat.Bc6HRgbUfloat => PixelFormat.Bc6HRgbUFloat,
+        WgpuTextureFormat.Bc6HRgbFloat => PixelFormat.Bc6HRgbSFloat,
         WgpuTextureFormat.Bc7RgbaUnorm => PixelFormat.Bc7RgbaUNorm,
         WgpuTextureFormat.Bc7RgbaUnormSrgb => PixelFormat.Bc7RgbaUNormSrgb,
 
