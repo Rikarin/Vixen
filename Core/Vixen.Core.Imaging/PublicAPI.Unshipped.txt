@@ -11,6 +11,33 @@ Vixen.Core.Imaging.Bitmap.Pixels.init -> byte[]
 Vixen.Core.Imaging.Bitmap.Width.get -> int
 Vixen.Core.Imaging.Bitmap.Width.init -> int
 Vixen.Core.Imaging.BlockCompression.BlockCompressor -> static class
+Vixen.Core.Imaging.BlockCompression.BlockEncodeOptions -> sealed record
+Vixen.Core.Imaging.BlockCompression.BlockEncodeOptions : System.IEquatable<Vixen.Core.Imaging.BlockCompression.BlockEncodeOptions>
+Vixen.Core.Imaging.BlockCompression.BlockEncodeOptions.BlockEncodeOptions() -> void
+Vixen.Core.Imaging.BlockCompression.BlockEncodeOptions.CancellationToken.get -> System.Threading.CancellationToken
+Vixen.Core.Imaging.BlockCompression.BlockEncodeOptions.CancellationToken.init -> System.Threading.CancellationToken
+Vixen.Core.Imaging.BlockCompression.BlockEncodeOptions.MaxDegreeOfParallelism.get -> int
+Vixen.Core.Imaging.BlockCompression.BlockEncodeOptions.MaxDegreeOfParallelism.init -> int
+Vixen.Core.Imaging.BlockCompression.BlockEncodeOptions.Progress.get -> System.IProgress<Vixen.Core.Imaging.BlockCompression.BlockEncodeProgress>?
+Vixen.Core.Imaging.BlockCompression.BlockEncodeOptions.Progress.init -> System.IProgress<Vixen.Core.Imaging.BlockCompression.BlockEncodeProgress>?
+Vixen.Core.Imaging.BlockCompression.BlockEncodeOptions.Quality.get -> Vixen.Core.Imaging.BlockCompression.BlockQuality
+Vixen.Core.Imaging.BlockCompression.BlockEncodeOptions.Quality.init -> Vixen.Core.Imaging.BlockCompression.BlockQuality
+Vixen.Core.Imaging.BlockCompression.BlockEncodeOptions.SourceIsSrgbEncoded.get -> bool
+Vixen.Core.Imaging.BlockCompression.BlockEncodeOptions.SourceIsSrgbEncoded.init -> bool
+Vixen.Core.Imaging.BlockCompression.BlockEncodeProgress -> readonly struct
+Vixen.Core.Imaging.BlockCompression.BlockEncodeProgress : System.IEquatable<Vixen.Core.Imaging.BlockCompression.BlockEncodeProgress>
+Vixen.Core.Imaging.BlockCompression.BlockEncodeProgress.BlockEncodeProgress() -> void
+Vixen.Core.Imaging.BlockCompression.BlockEncodeProgress.BlockEncodeProgress(long BlocksDone, long BlocksTotal) -> void
+Vixen.Core.Imaging.BlockCompression.BlockEncodeProgress.BlocksDone.get -> long
+Vixen.Core.Imaging.BlockCompression.BlockEncodeProgress.BlocksDone.init -> long
+Vixen.Core.Imaging.BlockCompression.BlockEncodeProgress.BlocksTotal.get -> long
+Vixen.Core.Imaging.BlockCompression.BlockEncodeProgress.BlocksTotal.init -> long
+Vixen.Core.Imaging.BlockCompression.BlockEncodeProgress.Fraction.get -> double
+Vixen.Core.Imaging.BlockCompression.BlockQuality -> enum : int
+Vixen.Core.Imaging.BlockCompression.BlockQuality.Balanced = 1 -> Vixen.Core.Imaging.BlockCompression.BlockQuality
+Vixen.Core.Imaging.BlockCompression.BlockQuality.Best = 2 -> Vixen.Core.Imaging.BlockCompression.BlockQuality
+Vixen.Core.Imaging.BlockCompression.BlockQuality.BlockQuality() -> void
+Vixen.Core.Imaging.BlockCompression.BlockQuality.Fast = 0 -> Vixen.Core.Imaging.BlockCompression.BlockQuality
 Vixen.Core.Imaging.BrdfLut -> static class
 Vixen.Core.Imaging.CubeFace -> enum : int
 Vixen.Core.Imaging.CubeFace.CubeFace() -> void
@@ -32,6 +59,10 @@ Vixen.Core.Imaging.CubeImage.SolidAngleOf(int x, int y) -> float
 Vixen.Core.Imaging.CubeMap -> static class
 Vixen.Core.Imaging.CubeMapping -> static class
 Vixen.Core.Imaging.DataFormatDescriptor -> static class
+Vixen.Core.Imaging.DdsCodec -> static class
+Vixen.Core.Imaging.DdsException -> sealed class
+Vixen.Core.Imaging.DdsException : System.Exception
+Vixen.Core.Imaging.DdsException.DdsException(string message) -> void
 Vixen.Core.Imaging.EnvironmentBaker -> static class
 Vixen.Core.Imaging.EnvironmentPrefilter -> static class
 Vixen.Core.Imaging.ExrCodec -> static class
@@ -162,9 +193,13 @@ static Vixen.Core.Imaging.BlockCompression.BlockCompressor.CanEncode(Vixen.Graph
 static Vixen.Core.Imaging.BlockCompression.BlockCompressor.Decode(Vixen.Core.Imaging.TextureData source) -> Vixen.Core.Imaging.TextureData
 static Vixen.Core.Imaging.BlockCompression.BlockCompressor.DecodeBlock(Vixen.Graphics.PixelFormat source, System.ReadOnlySpan<byte> block, System.Span<byte> rgba) -> void
 static Vixen.Core.Imaging.BlockCompression.BlockCompressor.DecodeHdrBlock(System.ReadOnlySpan<byte> block, System.Span<ushort> rgb) -> void
+static Vixen.Core.Imaging.BlockCompression.BlockCompressor.DecodeHdrBlock(System.ReadOnlySpan<byte> block, System.Span<ushort> rgb, bool signed) -> void
 static Vixen.Core.Imaging.BlockCompression.BlockCompressor.Encode(Vixen.Core.Imaging.TextureData source, Vixen.Graphics.PixelFormat target) -> Vixen.Core.Imaging.TextureData
+static Vixen.Core.Imaging.BlockCompression.BlockCompressor.Encode(Vixen.Core.Imaging.TextureData source, Vixen.Graphics.PixelFormat target, Vixen.Core.Imaging.BlockCompression.BlockEncodeOptions options) -> Vixen.Core.Imaging.TextureData
 static Vixen.Core.Imaging.BlockCompression.BlockCompressor.EncodeBlock(Vixen.Graphics.PixelFormat target, System.ReadOnlySpan<byte> rgba, System.Span<byte> block) -> void
+static Vixen.Core.Imaging.BlockCompression.BlockCompressor.EncodeBlock(Vixen.Graphics.PixelFormat target, System.ReadOnlySpan<byte> rgba, System.Span<byte> block, Vixen.Core.Imaging.BlockCompression.BlockQuality quality) -> void
 static Vixen.Core.Imaging.BlockCompression.BlockCompressor.EncodeHdrBlock(System.ReadOnlySpan<ushort> rgb, System.Span<byte> block) -> void
+static Vixen.Core.Imaging.BlockCompression.BlockCompressor.EncodeHdrBlock(System.ReadOnlySpan<ushort> rgb, System.Span<byte> block, Vixen.Core.Imaging.BlockCompression.BlockQuality quality, bool signed) -> void
 static Vixen.Core.Imaging.BlockCompression.BlockCompressor.IsHighDynamicRange(Vixen.Graphics.PixelFormat format) -> bool
 static Vixen.Core.Imaging.BrdfLut.Generate(int size = 128, int samples = 1024) -> Vixen.Core.Imaging.TextureData
 static Vixen.Core.Imaging.BrdfLut.Integrate(float cosine, float roughness, int samples) -> (float Scale, float Bias)
@@ -184,6 +219,10 @@ static Vixen.Core.Imaging.CubeMapping.Direction(Vixen.Core.Imaging.CubeFace face
 static Vixen.Core.Imaging.CubeMapping.Locate(Vixen.Core.Mathematics.Vector3 direction) -> (Vixen.Core.Imaging.CubeFace Face, float U, float V)
 static Vixen.Core.Imaging.CubeMapping.SolidAngle(float u, float v, float size) -> float
 static Vixen.Core.Imaging.DataFormatDescriptor.Build(Vixen.Graphics.PixelFormat format) -> byte[]
+static Vixen.Core.Imaging.DdsCodec.CanWrite(Vixen.Graphics.PixelFormat format) -> bool
+static Vixen.Core.Imaging.DdsCodec.Read(System.ReadOnlySpan<byte> file) -> Vixen.Core.Imaging.TextureData
+static Vixen.Core.Imaging.DdsCodec.Supported.get -> System.Collections.Generic.IEnumerable<Vixen.Graphics.PixelFormat>
+static Vixen.Core.Imaging.DdsCodec.Write(Vixen.Core.Imaging.TextureData texture) -> byte[]
 static Vixen.Core.Imaging.EnvironmentBaker.Prefilter(Vixen.Core.Imaging.CubeImage source, int mipCount, int samples = 64) -> Vixen.Core.Imaging.CubeImage[]
 static Vixen.Core.Imaging.EnvironmentBaker.RoughnessOf(int mip, int mipCount) -> float
 static Vixen.Core.Imaging.EnvironmentPrefilter.RoughnessOf(int level, int levelCount) -> float
@@ -214,6 +253,7 @@ static Vixen.Core.Imaging.PngCodec.Decode(System.ReadOnlySpan<byte> data) -> Vix
 static Vixen.Core.Imaging.PngCodec.Decode16(System.ReadOnlySpan<byte> data) -> (int Width, int Height, int Channels, ushort[] Samples)
 static Vixen.Core.Imaging.PngCodec.Encode(in Vixen.Core.Imaging.Bitmap image) -> byte[]
 static Vixen.Core.Imaging.PngCodec.Encode16(int width, int height, int channels, System.ReadOnlySpan<ushort> samples) -> byte[]
+static Vixen.Core.Imaging.PngCodec.Encode8(int width, int height, int channels, System.ReadOnlySpan<byte> samples) -> byte[]
 static Vixen.Core.Imaging.PngCodec.Load(string path) -> Vixen.Core.Imaging.Bitmap
 static Vixen.Core.Imaging.PngCodec.Save(string path, in Vixen.Core.Imaging.Bitmap image) -> void
 static Vixen.Core.Imaging.SphericalHarmonicsL1.Evaluate(Vixen.Core.Mathematics.Vector3 direction, System.Span<float> basis) -> void

@@ -261,6 +261,8 @@ Vixen.Graphics.ComputePipelineDescription.Compute.get -> Vixen.Graphics.ShaderHa
 Vixen.Graphics.ComputePipelineDescription.Compute.init -> Vixen.Graphics.ShaderHandle
 Vixen.Graphics.ComputePipelineDescription.ComputePipelineDescription() -> void
 Vixen.Graphics.ComputePipelineDescription.ComputePipelineDescription(Vixen.Graphics.ShaderHandle Compute, Vixen.Graphics.PipelineLayoutHandle Layout, string Name = "", bool DispatchBase = false) -> void
+Vixen.Graphics.ComputePipelineDescription.DispatchBase.get -> bool
+Vixen.Graphics.ComputePipelineDescription.DispatchBase.init -> bool
 Vixen.Graphics.ComputePipelineDescription.Layout.get -> Vixen.Graphics.PipelineLayoutHandle
 Vixen.Graphics.ComputePipelineDescription.Layout.init -> Vixen.Graphics.PipelineLayoutHandle
 Vixen.Graphics.ComputePipelineDescription.Name.get -> string
@@ -635,6 +637,7 @@ Vixen.Graphics.ICommandList.CopyBufferToTexture(Vixen.Graphics.BufferHandle sour
 Vixen.Graphics.ICommandList.CopyTexture(in Vixen.Graphics.TextureRegion source, in Vixen.Graphics.TextureRegion destination, Vixen.Core.Mathematics.Int3 size) -> void
 Vixen.Graphics.ICommandList.CopyTextureToBuffer(in Vixen.Graphics.TextureRegion source, Vixen.Core.Mathematics.Int3 size, Vixen.Graphics.BufferHandle destination, long destinationOffset) -> void
 Vixen.Graphics.ICommandList.Dispatch(int groupsX, int groupsY = 1, int groupsZ = 1) -> void
+Vixen.Graphics.ICommandList.DispatchBase(int baseX, int baseY, int groupsX, int groupsY) -> void
 Vixen.Graphics.ICommandList.DispatchIndirect(Vixen.Graphics.BufferHandle arguments, long offset = 0) -> void
 Vixen.Graphics.ICommandList.Draw(int vertexCount, int instanceCount = 1, int firstVertex = 0, int firstInstance = 0) -> void
 Vixen.Graphics.ICommandList.DrawIndexed(int indexCount, int instanceCount = 1, int firstIndex = 0, int vertexOffset = 0, int firstInstance = 0) -> void
@@ -708,6 +711,7 @@ Vixen.Graphics.IGraphicsDevice.GetAccelerationStructureSizes(in Vixen.Graphics.A
 Vixen.Graphics.IGraphicsDevice.GraphicsQueue.get -> Vixen.Graphics.ICommandSubmitter
 Vixen.Graphics.IGraphicsDevice.IsFrameOpen.get -> bool
 Vixen.Graphics.IGraphicsDevice.Read(Vixen.Graphics.BufferHandle buffer, long offset, System.Span<byte> destination) -> void
+Vixen.Graphics.IGraphicsDevice.SupportsDispatchBase.get -> bool
 Vixen.Graphics.IGraphicsDevice.TransferQueue.get -> Vixen.Graphics.ICommandSubmitter
 Vixen.Graphics.IGraphicsDevice.TryResolveQueries(Vixen.Graphics.QueryPoolHandle pool, int first, System.Span<ulong> results) -> bool
 Vixen.Graphics.IGraphicsDevice.UpdateDescriptorSet(Vixen.Graphics.DescriptorSetHandle descriptors, System.ReadOnlySpan<Vixen.Graphics.DescriptorWrite> writes) -> void
@@ -797,8 +801,8 @@ Vixen.Graphics.PixelFormat.R8SNorm = 2 -> Vixen.Graphics.PixelFormat
 Vixen.Graphics.PixelFormat.R8UInt = 3 -> Vixen.Graphics.PixelFormat
 Vixen.Graphics.PixelFormat.R8UNorm = 1 -> Vixen.Graphics.PixelFormat
 Vixen.Graphics.PixelFormat.Rg11B10Float = 29 -> Vixen.Graphics.PixelFormat
-Vixen.Graphics.PixelFormat.Rg16UNorm = 30 -> Vixen.Graphics.PixelFormat
 Vixen.Graphics.PixelFormat.Rg16Float = 25 -> Vixen.Graphics.PixelFormat
+Vixen.Graphics.PixelFormat.Rg16UNorm = 30 -> Vixen.Graphics.PixelFormat
 Vixen.Graphics.PixelFormat.Rg32Float = 41 -> Vixen.Graphics.PixelFormat
 Vixen.Graphics.PixelFormat.Rg8SNorm = 11 -> Vixen.Graphics.PixelFormat
 Vixen.Graphics.PixelFormat.Rg8UNorm = 10 -> Vixen.Graphics.PixelFormat
@@ -1219,7 +1223,3 @@ static Vixen.Graphics.ShaderHandle.Null.get -> Vixen.Graphics.ShaderHandle
 static Vixen.Graphics.TextureHandle.Null.get -> Vixen.Graphics.TextureHandle
 static Vixen.Graphics.TextureViewHandle.Null.get -> Vixen.Graphics.TextureViewHandle
 static Vixen.Graphics.TimelinePoint.None.get -> Vixen.Graphics.TimelinePoint
-Vixen.Graphics.ComputePipelineDescription.DispatchBase.get -> bool
-Vixen.Graphics.ComputePipelineDescription.DispatchBase.init -> bool
-Vixen.Graphics.ICommandList.DispatchBase(int baseX, int baseY, int groupsX, int groupsY) -> void
-Vixen.Graphics.IGraphicsDevice.SupportsDispatchBase.get -> bool

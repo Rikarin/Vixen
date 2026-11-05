@@ -8,7 +8,7 @@ api: [T:Vixen.Editor.Assets.Textures.TextureImporter, T:Vixen.Editor.Assets.Text
 tags: [assets, textures, importers, ktx2, dds]
 since: 0.2
 status: preview
-related: [assets/content-in-a-game]
+related: [assets/content-in-a-game, assets/exporting-textures]
 ---
 
 ## What it is

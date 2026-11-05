@@ -37,7 +37,7 @@ statement, in `MipOptions`, and which format it ends up in is the caller's too.
 
 ## Using it
 
-```csharp
+```csharp no-compile="a fragment; the pixels, the progress bar and the token are the caller's"
 var texture = new TextureData(PixelFormat.Rgba16UNorm, width, height);
 pixels.CopyTo(texture.LevelSpan(0));
 MipChain.Generate(texture, MipOptions.Colour);
@@ -67,7 +67,7 @@ asked for. `MipOptions.Colour` says the same thing to the chain.
 A texture graph's output reaches this through `TextureBake.ReadRaw`, which keeps the format the
 image was computed in:
 
-```csharp
+```csharp no-compile="a fragment; the evaluator, the plan and the uploads are the caller's"
 using var bake = evaluator.Evaluate(plan, uploads.Externals);
 
 var raw = bake.ReadRaw(output);        // R16Float, Rgba32Float, whatever the plan made

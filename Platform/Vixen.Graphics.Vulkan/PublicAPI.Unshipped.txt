@@ -42,6 +42,7 @@ Vixen.Graphics.Vulkan.VulkanDevice.ImportImage(nint image, in Vixen.Graphics.Tex
 Vixen.Graphics.Vulkan.VulkanDevice.IsFrameOpen.get -> bool
 Vixen.Graphics.Vulkan.VulkanDevice.NativeHandles.get -> Vixen.Graphics.Vulkan.VulkanNativeHandles
 Vixen.Graphics.Vulkan.VulkanDevice.Read(Vixen.Graphics.BufferHandle buffer, long offset, System.Span<byte> destination) -> void
+Vixen.Graphics.Vulkan.VulkanDevice.SupportsDispatchBase.get -> bool
 Vixen.Graphics.Vulkan.VulkanDevice.TransferQueue.get -> Vixen.Graphics.ICommandSubmitter
 Vixen.Graphics.Vulkan.VulkanDevice.TryResolveQueries(Vixen.Graphics.QueryPoolHandle pool, int first, System.Span<ulong> results) -> bool
 Vixen.Graphics.Vulkan.VulkanDevice.UpdateDescriptorSet(Vixen.Graphics.DescriptorSetHandle descriptors, System.ReadOnlySpan<Vixen.Graphics.DescriptorWrite> writes) -> void
@@ -120,4 +121,3 @@ static Vixen.Graphics.Vulkan.VulkanDiagnostics.WarningCount.get -> int
 static Vixen.Graphics.Vulkan.VulkanInstance.Create() -> Vixen.Graphics.Vulkan.VulkanInstance
 static Vixen.Graphics.Vulkan.VulkanInstance.Create(Vixen.Graphics.Vulkan.VulkanInstanceOptions options) -> Vixen.Graphics.Vulkan.VulkanInstance
 static Vixen.Graphics.Vulkan.VulkanInstance.TryCreate(Vixen.Graphics.Vulkan.VulkanInstanceOptions options, out Vixen.Graphics.Vulkan.VulkanInstance? instance, out string? reason) -> bool
-Vixen.Graphics.Vulkan.VulkanDevice.SupportsDispatchBase.get -> bool

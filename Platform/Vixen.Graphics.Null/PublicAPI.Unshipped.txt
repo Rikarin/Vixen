@@ -58,6 +58,7 @@ Vixen.Graphics.Null.NullDevice.NullDevice(Vixen.Graphics.Null.NullDeviceOptions 
 Vixen.Graphics.Null.NullDevice.Read(Vixen.Graphics.BufferHandle buffer, long offset, System.Span<byte> destination) -> void
 Vixen.Graphics.Null.NullDevice.RecordedWrites.get -> System.Collections.Generic.IReadOnlyList<Vixen.Graphics.DescriptorWrite>?
 Vixen.Graphics.Null.NullDevice.Recorder.get -> Vixen.Graphics.Null.CommandRecorder?
+Vixen.Graphics.Null.NullDevice.SupportsDispatchBase.get -> bool
 Vixen.Graphics.Null.NullDevice.TransferQueue.get -> Vixen.Graphics.ICommandSubmitter
 Vixen.Graphics.Null.NullDevice.TryResolveQueries(Vixen.Graphics.QueryPoolHandle pool, int first, System.Span<ulong> results) -> bool
 Vixen.Graphics.Null.NullDevice.UpdateDescriptorSet(Vixen.Graphics.DescriptorSetHandle descriptors, System.ReadOnlySpan<Vixen.Graphics.DescriptorWrite> writes) -> void
@@ -130,4 +131,3 @@ override Vixen.Graphics.Null.CommandRecorder.ToString() -> string
 override Vixen.Graphics.Null.RecordedCommand.ToString() -> string
 static Vixen.Graphics.Null.NullDevice.Everything.get -> Vixen.Graphics.GraphicsDeviceFeatures
 static Vixen.Graphics.Null.NullDevice.TryCreate(Vixen.Graphics.Null.NullDeviceOptions options, out Vixen.Graphics.Null.NullDevice? device, out string? reason) -> bool
-Vixen.Graphics.Null.NullDevice.SupportsDispatchBase.get -> bool
