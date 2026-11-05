@@ -11,7 +11,8 @@ namespace Vixen.Geometry.Remeshing;
 /// <param name="Shading">Its corner normals, which frame the result.</param>
 /// <param name="Rays">The averaged direction at each corner, which the rays follow.</param>
 /// <param name="Cage">Its corners on the cage, or null.</param>
-/// <param name="Frame">The tangent frame its chart implies.</param>
+/// <param name="Tangents">Its corners' MikkTSpace tangents, with the bitangent's sign in <c>W</c>.</param>
+/// <param name="Normal">The flat normal, for a corner normal that said nothing.</param>
 /// <param name="Part">Which part it belongs to, or <c>-1</c>.</param>
 sealed record ChartTriangle(
     Vector2[] Scaled,
@@ -19,7 +20,8 @@ sealed record ChartTriangle(
     Vector3[] Shading,
     Vector3[] Rays,
     Vector3[]? Cage,
-    (Vector3 Tangent, Vector3 Bitangent, Vector3 Normal) Frame,
+    Vector4[] Tangents,
+    Vector3 Normal,
     int Part
 );
 
@@ -187,10 +189,19 @@ sealed class BakeCharts {
         }
     }
 
+    /// <summary>A target's faces as triangles, each with the tangents a renderer will rebuild for it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The basis is computed over the triangles the atlas is rasterised from</b>, so that a quad
+    ///     here is split where it is split in the file a renderer reads, and one vector per corner is
+    ///     interpolated exactly as a vertex shader's output would be. See <see cref="MikkTSpace" />.
+    /// </remarks>
     static ChartTriangle[] Triangles(EditMesh target, BakeSettings settings, Vector3[] shading, Vector3[] averaged) {
         var cage = settings.Cage;
         var parts = settings.Parts?.Target;
         var made = new List<ChartTriangle>(target.FaceCount * 2);
+        var corners = new List<Vector3>(target.FaceCount * 6);
+        var normals = new List<Vector3>(target.FaceCount * 6);
+        var coordinates = new List<Vector2>(target.FaceCount * 6);
 
         for (var face = 0; face < target.FaceCount; face++) {
             var entry = target.Faces[face];
@@ -200,30 +211,40 @@ sealed class BakeCharts {
             for (var corner = 1; corner + 1 < loop.Length; corner++) {
                 Span<int> slots = [entry.Start, entry.Start + corner, entry.Start + corner + 1];
 
-                var uv = new Vector2[3];
                 var scaled = new Vector2[3];
                 var points = new Vector3[3];
                 var shaded = new Vector3[3];
                 var rays = new Vector3[3];
                 var outer = cage is null ? null : new Vector3[3];
+                var tangents = new Vector4[3];
 
                 for (var at = 0; at < 3; at++) {
                     var slot = slots[at];
                     var position = loop[slot - entry.Start];
 
-                    uv[at] = target.TexCoords[slot];
-                    scaled[at] = uv[at] * settings.Resolution;
+                    scaled[at] = target.TexCoords[slot] * settings.Resolution;
                     points[at] = target.Positions[position];
                     shaded[at] = shading[slot];
                     rays[at] = averaged[slot];
+                    corners.Add(points[at]);
+                    normals.Add(shading[slot]);
+                    coordinates.Add(target.TexCoords[slot]);
 
                     if (outer is not null) {
                         outer[at] = cage!.Positions[around[slot - entry.Start]];
                     }
                 }
 
-                made.Add(new(scaled, points, shaded, rays, outer, TexelBake.Frame(uv, points), parts?[face] ?? -1));
+                var flat = ScaleSafe.Unit(Vector3.Cross(points[1] - points[0], points[2] - points[0]));
+
+                made.Add(new(scaled, points, shaded, rays, outer, tangents, flat, parts?[face] ?? -1));
             }
+        }
+
+        var solved = MikkTSpace.Generate([.. corners], [.. normals], [.. coordinates]);
+
+        for (var triangle = 0; triangle < made.Count; triangle++) {
+            solved.AsSpan(triangle * 3, 3).CopyTo(made[triangle].Tangents);
         }
 
         return [.. made];

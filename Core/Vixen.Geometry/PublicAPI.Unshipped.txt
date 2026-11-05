@@ -207,6 +207,7 @@ Vixen.Geometry.MeshShapes -> static class
 Vixen.Geometry.MeshSimplifier -> static class
 Vixen.Geometry.MeshSurfaces -> static class
 Vixen.Geometry.MeshTopology -> static class
+Vixen.Geometry.MikkTSpace -> static class
 Vixen.Geometry.ModelData -> sealed record
 Vixen.Geometry.ModelData : System.IEquatable<Vixen.Geometry.ModelData>
 Vixen.Geometry.ModelData.Animations.get -> string[]
@@ -395,6 +396,7 @@ static Vixen.Geometry.MeshTopology.EdgeLoop(Vixen.Geometry.EditMesh mesh, int ed
 static Vixen.Geometry.MeshTopology.EdgeRing(Vixen.Geometry.EditMesh mesh, int edge, System.Collections.Generic.List<int> into) -> void
 static Vixen.Geometry.MeshTopology.Group(Vixen.Geometry.EditMesh mesh, int group, System.Collections.Generic.List<int> into) -> void
 static Vixen.Geometry.MeshTopology.Shell(Vixen.Geometry.EditMesh mesh, int face, System.Collections.Generic.List<int> into) -> void
+static Vixen.Geometry.MikkTSpace.Generate(Vixen.Core.Mathematics.Vector3[] positions, Vixen.Core.Mathematics.Vector3[] normals, Vixen.Core.Mathematics.Vector2[] texCoords) -> Vixen.Core.Mathematics.Vector4[]
 static Vixen.Geometry.MorphTargetData.Encode(string name, System.ReadOnlySpan<int> indices, System.ReadOnlySpan<Vixen.Core.Mathematics.Vector3> positions, System.ReadOnlySpan<Vixen.Core.Mathematics.Vector3> normals) -> Vixen.Geometry.MorphTargetData
 static Vixen.Geometry.MorphTargetData.Sparsify(string name, System.ReadOnlySpan<Vixen.Core.Mathematics.Vector3> positions, System.ReadOnlySpan<Vixen.Core.Mathematics.Vector3> normals, float threshold) -> Vixen.Geometry.MorphTargetData
 static Vixen.Geometry.ShapeParameters.Default(Vixen.Geometry.ShapeKind kind) -> Vixen.Geometry.ShapeParameters

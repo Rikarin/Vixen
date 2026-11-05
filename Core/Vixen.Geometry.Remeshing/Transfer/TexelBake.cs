@@ -270,19 +270,21 @@ sealed class TexelBake(
         var along = ScaleSafe.Unit(Blend(triangle.Shading, weights));
 
         if (along.LengthSquared() <= 0f) {
-            along = triangle.Frame.Normal;
+            along = triangle.Normal;
         }
+
+        var basis = Basis.At(triangle, weights, along);
 
         var sample = Cast(triangle, weights, point, Direction(triangle, weights, along, place), along);
 
         sum.Struck += sample.Struck ? 1 : 0;
         sum.Normal += settings.Space == BakeSpace.Object
             ? sample.Normal
-            : ToTangent(sample.Normal, along, triangle.Frame);
+            : basis.Measure(sample.Normal);
         sum.Height += sample.Distance;
 
         if (settings.Maps != MeshMaps.None) {
-            Measure(index, at, sample, along, triangle, ids, ref sum);
+            Measure(index, at, sample, basis, ids, ref sum);
         }
     }
 
@@ -409,7 +411,7 @@ sealed class TexelBake(
     ///     cage — which is the failure mode that makes a baked AO map look like a smoothed version of
     ///     the thing it was supposed to capture.
     /// </remarks>
-    void Measure(int index, int at, SourceSample sample, Vector3 along, ChartTriangle triangle, int[]? ids, ref Sum sum) {
+    void Measure(int index, int at, SourceSample sample, in Basis basis, int[]? ids, ref Sum sum) {
         if (buffers.Position is not null) {
             sum.Position += Normalised(surface.Bounds, sample.Point);
         }
@@ -443,7 +445,7 @@ sealed class TexelBake(
         var unoccluded = Occlude(index, at, sample.Point, sample.Normal, ref sum);
 
         if (buffers.Bent is not null) {
-            sum.Bent += settings.Space == BakeSpace.Object ? unoccluded : ToTangent(unoccluded, along, triangle.Frame);
+            sum.Bent += settings.Space == BakeSpace.Object ? unoccluded : basis.Measure(unoccluded);
         }
     }
 
@@ -527,57 +529,6 @@ sealed class TexelBake(
         );
     }
 
-    /// <summary>The tangent frame a chart triangle implies, from its texture-coordinate gradient.</summary>
-    /// <param name="uv">Its atlas coordinates.</param>
-    /// <param name="points">Its corners.</param>
-    /// <returns>The frame.</returns>
-    /// <remarks>
-    ///     <para>
-    ///         Lengyel's construction: the two texture-space edge vectors are inverted against the
-    ///         two world edge vectors, which gives the directions <c>u</c> and <c>v</c> increase in.
-    ///         Gram–Schmidt against the interpolated normal makes it orthonormal, and the sign of the
-    ///         bitangent against the cross product carries the handedness — a mirrored chart has the
-    ///         other one, and getting it wrong inverts every mirrored surface in the bake.
-    ///     </para>
-    ///     <para>
-    ///         ⚠ <b>The determinant is an <i>area</i> in texture space, so the guard on it has to be
-    ///         relative.</b> It is <c>du₁ × du₂</c>, which carries the coordinates' units squared;
-    ///         an absolute epsilon on it is a claim about how large a chart is, and a chart occupying
-    ///         a hundredth of a 4K atlas has determinants around <c>1e-8</c>. Compared against the
-    ///         product of the two edges' own lengths instead, which makes the ratio a squared sine
-    ///         and the comparison dimensionless — the same shape as
-    ///         <c>TriangleTree</c>'s Möller–Trumbore guard.
-    ///     </para>
-    /// </remarks>
-    public static (Vector3 Tangent, Vector3 Bitangent, Vector3 Normal) Frame(Vector2[] uv, Vector3[] points) {
-        var e1 = points[1] - points[0];
-        var e2 = points[2] - points[0];
-        var normal = ScaleSafe.Unit(Vector3.Cross(ScaleSafe.Unit(e1), ScaleSafe.Unit(e2)));
-
-        var d1 = uv[1] - uv[0];
-        var d2 = uv[2] - uv[0];
-        var determinant = (d1.X * d2.Y) - (d2.X * d1.Y);
-        var span = d1.LengthSquared() * d2.LengthSquared();
-
-        if (determinant * determinant <= MathUtil.ZeroTolerance * MathUtil.ZeroTolerance * span) {
-            return (Fallback(normal), Vector3.Cross(normal, Fallback(normal)), normal);
-        }
-
-        var inverse = 1f / determinant;
-        var tangent = ((e1 * d2.Y) - (e2 * d1.Y)) * inverse;
-        var bitangent = ((e2 * d1.X) - (e1 * d2.X)) * inverse;
-
-        var straight = ScaleSafe.Unit(tangent - (normal * Vector3.Dot(normal, tangent)));
-
-        if (straight.LengthSquared() <= 0f) {
-            straight = Fallback(normal);
-        }
-
-        var crossed = Vector3.Cross(normal, straight);
-
-        return (straight, Vector3.Dot(crossed, bitangent) < 0f ? -crossed : crossed, normal);
-    }
-
     /// <summary>Any unit vector perpendicular to another, for a chart whose gradient said nothing.</summary>
     static Vector3 Fallback(Vector3 normal) {
         var axis = MathF.Abs(normal.X) < 0.9f ? Vector3.UnitX : Vector3.UnitY;
@@ -586,33 +537,59 @@ sealed class TexelBake(
         return perpendicular.LengthSquared() > 0f ? perpendicular : Vector3.UnitX;
     }
 
-    /// <summary>A source normal expressed in the output's tangent frame at this texel.</summary>
-    /// <remarks>
-    ///     The frame is rebuilt against the <i>interpolated</i> normal rather than the triangle's
-    ///     flat one, so a smooth surface's baked map is smooth across a triangle boundary instead of
-    ///     stepping at every edge of the cage.
-    /// </remarks>
-    static Vector3 ToTangent(Vector3 normal, Vector3 along, (Vector3 Tangent, Vector3 Bitangent, Vector3 Normal) frame) {
-        var tangent = ScaleSafe.Unit(frame.Tangent - (along * Vector3.Dot(along, frame.Tangent)));
-
-        if (tangent.LengthSquared() <= 0f) {
-            tangent = Fallback(along);
-        }
-
-        var bitangent = Vector3.Cross(along, tangent);
-
-        if (Vector3.Dot(bitangent, frame.Bitangent) < 0f) {
-            bitangent = -bitangent;
-        }
-
-        return new(Vector3.Dot(normal, tangent), Vector3.Dot(normal, bitangent), Vector3.Dot(normal, along));
-    }
-
     /// <summary>A direction, or the sum itself when the samples cancelled and left nothing.</summary>
     static Vector3 Unit(Vector3 value) {
         var unit = ScaleSafe.Unit(value);
 
         return unit.LengthSquared() > 0f ? unit : value;
+    }
+
+    /// <summary>The tangent frame at one point of a triangle, as a renderer's pixel shader builds it.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b><see cref="Measure" /> is the exact inverse of what a renderer does, and that is the
+    ///         whole contract.</b> A shader interpolates the corners' tangent and normal, leaves them
+    ///         unnormalised, makes <c>b = sign × cross(n, t)</c> per pixel, and takes
+    ///         <c>normalize(x·t + y·b + z·n)</c>. That frame is not orthonormal, so projecting onto its
+    ///         axes is not its inverse; these are the three rows of the true inverse, as the original
+    ///         <c>mikktspace.h</c> sets them out. Normalising first gives a map that is right at every
+    ///         corner and off by a little across every curved triangle.
+    ///     </para>
+    ///     <para>
+    ///         A triangle with no texture area has no tangent to interpolate. It gets any frame about
+    ///         the normal, because it covers no texels a renderer can tell apart.
+    ///     </para>
+    /// </remarks>
+    readonly record struct Basis(Vector3 Row0, Vector3 Row1, Vector3 Row2) {
+        public static Basis At(ChartTriangle triangle, Vector3 weights, Vector3 along) {
+            var corners = triangle.Tangents;
+            var n = Blend(triangle.Shading, weights);
+            var w = (corners[0] * weights.X) + (corners[1] * weights.Y) + (corners[2] * weights.Z);
+            var t = new Vector3(w.X, w.Y, w.Z);
+
+            if (n.LengthSquared() <= 0f) {
+                n = along;
+            }
+
+            var b = Vector3.Cross(n, t) * (w.W < 0f ? -1f : 1f);
+            var row2 = Vector3.Cross(t, b);
+
+            if (row2.LengthSquared() <= MathUtil.ZeroTolerance * MathUtil.ZeroTolerance) {
+                t = Fallback(along);
+                b = Vector3.Cross(along, t);
+
+                return new(t, b, along);
+            }
+
+            var row0 = Vector3.Cross(b, n);
+            var side = Vector3.Dot(t, row0) < 0f ? -1f : 1f;
+
+            return new(row0 * side, Vector3.Cross(n, t) * side, row2 * side);
+        }
+
+        /// <summary>A direction on the source, as the numbers that put it back through the frame.</summary>
+        public Vector3 Measure(Vector3 direction) =>
+            Unit(new(Vector3.Dot(direction, Row0), Vector3.Dot(direction, Row1), Vector3.Dot(direction, Row2)));
     }
 
     /// <summary>What one probe found: where on the source, which triangle, and how far away.</summary>

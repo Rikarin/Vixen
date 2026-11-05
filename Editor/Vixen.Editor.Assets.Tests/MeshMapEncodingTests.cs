@@ -98,17 +98,16 @@ public sealed class MeshMapEncodingTests {
         Assert.Equal(made.Count, made.Select(image => image.Usage).Distinct().Count());
     }
 
-    /// <summary>The first row of the file is the top of the atlas, not the bottom.</summary>
+    /// <summary>The first row of the file is the one at <c>v = 0</c>.</summary>
     /// <remarks>
-    ///     ⚠ <b>The closed-form oracle for a flip.</b> A <c>BakedMaps</c> array is row-major from the
-    ///     bottom left because that is where a texture coordinate's origin is; a PNG's first row is
-    ///     the top one. So a map whose bottom row is black and whose top row is white must decode to
-    ///     a picture whose <i>first</i> row is white — and a map copied straight across is correct,
-    ///     plausible and upside down, which is invisible on every symmetric test shape there is.
+    ///     ⚠ <b>The closed-form oracle for a flip, and it used to pin the flip.</b> <c>ModelReader</c>
+    ///     delivers <c>v</c> running down the image, as a renderer samples it, so row zero of a
+    ///     <c>BakedMaps</c> array is the top of the picture. A map turned over is correct, plausible and
+    ///     upside down, which is invisible on every symmetric test shape there is.
     /// </remarks>
     [Fact]
-    public void The_first_row_of_the_file_is_the_top_of_the_atlas() {
-        var occlusion = new[] { 0f, 0f, 1f, 1f };
+    public void The_first_row_of_the_file_is_the_first_row_of_the_atlas() {
+        var occlusion = new[] { 1f, 1f, 0f, 0f };
         var maps = Measured(2) with { AmbientOcclusion = occlusion };
         var image = Single(MeshMapBake.Encode(maps), MeshMapUsage.AmbientOcclusion);
         var decoded = PngCodec.Decode(image.Png);
@@ -138,13 +137,13 @@ public sealed class MeshMapEncodingTests {
 
         Assert.Equal(range, image.Scale);
 
-        // Bottom-left is the array's first entry, so it is the picture's last row.
-        Assert.Equal(0, decoded.Pixels[decoded.Offset(0, 1)]);
-        Assert.Equal(128, decoded.Pixels[decoded.Offset(1, 1)]);
-        Assert.Equal(byte.MaxValue, decoded.Pixels[decoded.Offset(0, 0)]);
+        // The array's first row is the picture's.
+        Assert.Equal(0, decoded.Pixels[decoded.Offset(0, 0)]);
+        Assert.Equal(128, decoded.Pixels[decoded.Offset(1, 0)]);
+        Assert.Equal(byte.MaxValue, decoded.Pixels[decoded.Offset(0, 1)]);
 
         // And it decodes back to what was measured, which is the only reason the scale is written.
-        var quarter = ((decoded.Pixels[decoded.Offset(1, 0)] / 255f * 2f) - 1f) * image.Scale;
+        var quarter = ((decoded.Pixels[decoded.Offset(1, 1)] / 255f * 2f) - 1f) * image.Scale;
 
         Assert.Equal(range / 2f, quarter, 0.002f);
     }
@@ -173,11 +172,10 @@ public sealed class MeshMapEncodingTests {
         var image = Single(MeshMapBake.Encode(maps), MeshMapUsage.Id);
         var decoded = PngCodec.Decode(image.Png);
 
-        // The array runs from the bottom left, so ids 0 and 1 are the picture's second row.
-        Assert.Equal(Quantized(MapBaker.IdColour(-1)), Pixel(decoded, 0, 1));
-        Assert.Equal(Quantized(MapBaker.IdColour(0)), Pixel(decoded, 1, 1));
-        Assert.Equal(Quantized(MapBaker.IdColour(1)), Pixel(decoded, 0, 0));
-        Assert.Equal(Quantized(MapBaker.IdColour(7)), Pixel(decoded, 1, 0));
+        Assert.Equal(Quantized(MapBaker.IdColour(-1)), Pixel(decoded, 0, 0));
+        Assert.Equal(Quantized(MapBaker.IdColour(0)), Pixel(decoded, 1, 0));
+        Assert.Equal(Quantized(MapBaker.IdColour(1)), Pixel(decoded, 0, 1));
+        Assert.Equal(Quantized(MapBaker.IdColour(7)), Pixel(decoded, 1, 1));
     }
 
     /// <summary>Nothing a bake writes is compressed and nothing gets a mip chain.</summary>

@@ -188,7 +188,7 @@ public sealed record BakeSettings {
 
 /// <summary>One value per atlas texel, read nearest.</summary>
 /// <param name="Resolution">The edge length, which need not be the bake's.</param>
-/// <param name="Values">Row-major from the bottom-left, as <see cref="BakedMaps" /> is, in <c>[0, 1]</c>.</param>
+/// <param name="Values">Row-major from <c>v = 0</c>, the image's top, as <see cref="BakedMaps" /> is, in <c>[0, 1]</c>.</param>
 public sealed record BakeMask(int Resolution, IReadOnlyList<float> Values) {
     /// <summary>The value at an atlas coordinate.</summary>
     /// <param name="uv">The coordinate; anything outside the atlas reads its edge.</param>
@@ -295,7 +295,7 @@ public sealed record BakedMaps {
     /// <summary>The edge length, in texels. Both maps are this square.</summary>
     public required int Resolution { get; init; }
 
-    /// <summary>One normal per texel, row-major from the bottom-left, in <see cref="Space" />.</summary>
+    /// <summary>One normal per texel, row-major from <c>v = 0</c>, which is the image's top row, in <see cref="Space" />.</summary>
     public required IReadOnlyList<Vector3> Normals { get; init; }
 
     /// <summary>One signed distance per texel, in the model's own units.</summary>

@@ -132,12 +132,8 @@ public static class MeshMapPlanes {
     static float[] Scalars(int size, IReadOnlyList<float> values) {
         var samples = new float[size * size];
 
-        for (var y = 0; y < size; y++) {
-            var from = (size - 1 - y) * size;
-
-            for (var x = 0; x < size; x++) {
-                samples[(y * size) + x] = values[from + x];
-            }
+        for (var at = 0; at < samples.Length; at++) {
+            samples[at] = values[at];
         }
 
         return samples;
@@ -146,17 +142,12 @@ public static class MeshMapPlanes {
     static float[] Vectors(int size, IReadOnlyList<Vector3> values) {
         var samples = new float[size * size * 3];
 
-        for (var y = 0; y < size; y++) {
-            var from = (size - 1 - y) * size;
+        for (var at = 0; at < values.Count; at++) {
+            var value = values[at];
 
-            for (var x = 0; x < size; x++) {
-                var value = values[from + x];
-                var at = ((y * size) + x) * 3;
-
-                samples[at] = value.X;
-                samples[at + 1] = value.Y;
-                samples[at + 2] = value.Z;
-            }
+            samples[at * 3] = value.X;
+            samples[(at * 3) + 1] = value.Y;
+            samples[(at * 3) + 2] = value.Z;
         }
 
         return samples;

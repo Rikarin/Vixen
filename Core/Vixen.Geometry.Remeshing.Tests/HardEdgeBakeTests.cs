@@ -425,8 +425,8 @@ public sealed class HardEdgeBakeTests {
     public void Planes_hold_measurements_and_say_how_to_store_them() {
         var maps = new BakedMaps {
             Resolution = 2,
-            Normals = [Vector3.UnitZ, Vector3.UnitZ, -Vector3.UnitX, Vector3.UnitZ],
-            Displacement = [0f, 0f, 2f, -4f],
+            Normals = [-Vector3.UnitX, Vector3.UnitZ, Vector3.UnitZ, Vector3.UnitZ],
+            Displacement = [2f, -4f, 0f, 0f],
             Coverage = [true, true, true, true],
             Space = BakeSpace.Tangent,
             Covered = 4,
@@ -439,7 +439,7 @@ public sealed class HardEdgeBakeTests {
         var normal = planes.Single(plane => plane.Kind == MeshMapKind.Normal);
         var height = planes.Single(plane => plane.Kind == MeshMapKind.Displacement);
 
-        // The third value of the array is the bottom-left row's successor: the top row, when flipped.
+        // The rows are the atlas's: row zero is v = 0, and a picture's first row is the top of the image.
         Assert.Equal(-1f, normal.Samples[0]);
         Assert.Equal(0f, normal.Unit(0));
         Assert.Equal(2f, height.Samples[0]);
