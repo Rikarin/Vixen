@@ -1667,7 +1667,6 @@ public static class LayerStackGraph {
             }
         }
 
-        /// <summary>The one image port of a type in one direction, or null when it has none or many.</summary>
         /// <summary>The image output a material writes one channel through, by that channel's usage.</summary>
         static PortDefinition? ByUsage(NodeTypeDefinition type, string usage) {
             foreach (var port in type.Ports) {
@@ -1702,6 +1701,7 @@ public static class LayerStackGraph {
             return false;
         }
 
+        /// <summary>The one image port of a type in one direction, or null when it has none or many.</summary>
         static PortDefinition? OnlyImage(NodeTypeDefinition type, PortDirection direction) {
             PortDefinition? found = null;
 
