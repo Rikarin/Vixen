@@ -953,17 +953,28 @@ public static class LayerStackGraph {
                         return null;
                     }
 
-                    if (OnlyImage(type, PortDirection.Output) is not { } output) {
-                        problems.Add(LayerStackProblem.Refusal(
-                            layer.Id,
-                            $"The graph '{path}' does not have exactly one image output, so which of its results "
-                            + "this layer fills with is not something this file can decide."
-                        ));
+                    // One image out fills every channel the layer writes. A material has one per
+                    // channel, named by its usage, and a channel it has no map for is one it leaves.
+                    var output = OnlyImage(type, PortDirection.Output) ?? ByUsage(type, channel.Usage);
+
+                    if (output is null) {
+                        if (!HasImageOutput(type)) {
+                            problems.Add(LayerStackProblem.Refusal(
+                                layer.Id,
+                                $"The graph '{path}' has no image output, so there is nothing for this layer to fill with."
+                            ));
+                        }
 
                         return null;
                     }
 
                     var node = Add(path);
+
+                    foreach (var (port, value) in layer.Settings) {
+                        if (HasInput(type, port)) {
+                            node.SetValue(port, value);
+                        }
+                    }
 
                     return new(node.Id, output.Name);
                 }
@@ -1657,6 +1668,40 @@ public static class LayerStackGraph {
         }
 
         /// <summary>The one image port of a type in one direction, or null when it has none or many.</summary>
+        /// <summary>The image output a material writes one channel through, by that channel's usage.</summary>
+        static PortDefinition? ByUsage(NodeTypeDefinition type, string usage) {
+            foreach (var port in type.Ports) {
+                if (port is { Direction: PortDirection.Output, Kind: PortKind.Image }
+                    && string.Equals(port.Name, usage, StringComparison.Ordinal)) {
+                    return port;
+                }
+            }
+
+            return null;
+        }
+
+        static bool HasImageOutput(NodeTypeDefinition type) {
+            foreach (var port in type.Ports) {
+                if (port is { Direction: PortDirection.Output, Kind: PortKind.Image }) {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        static bool HasInput(NodeTypeDefinition type, string name) {
+            foreach (var port in type.Ports) {
+                if (port.Direction == PortDirection.Input
+                    && port.Kind != PortKind.Image
+                    && string.Equals(port.Name, name, StringComparison.Ordinal)) {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         static PortDefinition? OnlyImage(NodeTypeDefinition type, PortDirection direction) {
             PortDefinition? found = null;
 
