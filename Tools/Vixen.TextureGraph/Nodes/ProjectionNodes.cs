@@ -66,7 +66,19 @@ sealed partial class TriplanarNode : TextureNode {
     [Input(Minimum = 0f)]
     public Scalar Sharpness = 4f;
 
-    /// <summary>Which projection: all three planes blended, or one alone.</summary>
+    /// <summary>How far the projected picture turns, in radians.</summary>
+    [Input(SoftMinimum = -MathF.PI, SoftMaximum = MathF.PI)]
+    public Scalar Rotation = 0f;
+
+    /// <summary>How far the projected picture moves along its first axis, in repeats.</summary>
+    [Input(Name = "Offset X", SoftMinimum = -1f, SoftMaximum = 1f)]
+    public Scalar OffsetX = 0f;
+
+    /// <summary>How far the projected picture moves along its second axis, in repeats.</summary>
+    [Input(Name = "Offset Y", SoftMinimum = -1f, SoftMaximum = 1f)]
+    public Scalar OffsetY = 0f;
+
+    /// <summary>Which projection: all three planes blended, one alone, a sphere or a cylinder.</summary>
     /// <remarks>
     ///     ⚠ <b>The accepted values are here and nowhere else</b> — the <c>#964</c> rule. A picker,
     ///     the refusal <c>TextureSettings.Enum</c> writes and the inspector's dropdown all read this
@@ -75,8 +87,9 @@ sealed partial class TriplanarNode : TextureNode {
     /// </remarks>
     [Setting(
         Name = Setting,
-        Summary = "Triplanar blends the three planes by the world normal; X, Y and Z each take one alone.",
-        Accepted = ["Triplanar", "X", "Y", "Z"]
+        Summary = "Triplanar blends the three planes by the world normal; X, Y and Z each take one alone; "
+            + "Spherical and the cylinders wrap the picture around the middle of the bounds.",
+        Accepted = ["Triplanar", "X", "Y", "Z", "Spherical", "CylinderX", "CylinderY", "CylinderZ"]
     )]
     public string Axis = "Triplanar";
 
@@ -109,7 +122,10 @@ sealed partial class TriplanarNode : TextureNode {
                 normal,
                 emitter.Number(nameof(Scale)),
                 emitter.Number(nameof(Sharpness)),
-                TextureSettings.Enum(emitter, Setting, TextureProjectionAxis.Triplanar)
+                TextureSettings.Enum(emitter, Setting, TextureProjectionAxis.Triplanar),
+                emitter.Number(nameof(Rotation)),
+                emitter.Number("Offset X"),
+                emitter.Number("Offset Y")
             )
         );
     }

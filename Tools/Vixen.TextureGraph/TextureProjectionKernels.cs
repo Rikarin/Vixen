@@ -24,7 +24,19 @@ enum TextureProjectionAxis {
     Y = 2,
 
     /// <summary>The plane facing z alone, sampled by <c>(x, y)</c>.</summary>
-    Z = 3
+    Z = 3,
+
+    /// <summary>Around a sphere at the middle of the bounds, with its poles on y.</summary>
+    Spherical = 4,
+
+    /// <summary>Around a cylinder along x.</summary>
+    CylinderX = 5,
+
+    /// <summary>Around a cylinder along y.</summary>
+    CylinderY = 6,
+
+    /// <summary>Around a cylinder along z.</summary>
+    CylinderZ = 7
 }
 
 /// <summary>Doc 48 § D10's projection kernel, by the name a <see cref="TextureOp" /> gives.</summary>
@@ -62,6 +74,9 @@ internal static class TextureProjections {
     /// <param name="scale">How many times the picture repeats across the position range.</param>
     /// <param name="sharpness">The exponent the blend weights are raised to. Ignored by a planar axis.</param>
     /// <param name="axis">Which projection.</param>
+    /// <param name="rotation">How far the projected coordinate turns, in radians.</param>
+    /// <param name="offsetX">How far it moves along its first axis, in repeats.</param>
+    /// <param name="offsetY">How far it moves along its second axis, in repeats.</param>
     /// <returns>The op.</returns>
     /// <remarks>
     ///     ⚠ <b><paramref name="scale" /> is not a <see cref="TextureParameterUnit.TexelsAtBase" />,
@@ -78,7 +93,10 @@ internal static class TextureProjections {
         int world,
         float scale = 1f,
         float sharpness = 4f,
-        TextureProjectionAxis axis = TextureProjectionAxis.Triplanar
+        TextureProjectionAxis axis = TextureProjectionAxis.Triplanar,
+        float rotation = 0f,
+        float offsetX = 0f,
+        float offsetY = 0f
     ) =>
         new() {
             Kernel = TextureProjectionKernels.Triplanar,
@@ -87,7 +105,10 @@ internal static class TextureProjections {
             Parameters = [
                 new("scale", scale),
                 new("sharpness", sharpness),
-                new("axis", (float)axis)
+                new("axis", (float)axis),
+                new("rotation", rotation),
+                new("offsetX", offsetX),
+                new("offsetY", offsetY)
             ]
         };
 

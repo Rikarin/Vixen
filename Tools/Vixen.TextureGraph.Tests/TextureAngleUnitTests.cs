@@ -56,7 +56,10 @@ public class TextureAngleUnitTests {
         ("Gradient",
             "Its `angle` is radians and is subtracted from atan2's own output, which is radians too. The "
             + "InvTwoPi that follows converts the *result* into the 0..1 ramp coordinate a gradient is read "
-            + "at — it is the sweep's output being normalised, not the parameter being decoded.")
+            + "at — it is the sweep's output being normalised, not the parameter being decoded."),
+        ("Triplanar",
+            "Its `rotation` is radians and goes straight to cos and sin. The constants turn atan2's and "
+            + "acos's own results into a coordinate on the picture, which is an output being normalised.")
     ];
 
     /// <summary>Angle parameters that must be found, or the parse below has stopped working.</summary>

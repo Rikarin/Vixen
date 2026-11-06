@@ -54,7 +54,37 @@ public enum LayerProjection {
     ///     authored: a valid planar projection along the wrong axis, which on anything box-shaped is
     ///     the same picture rotated and reads as a bug in the fill rather than as a missing member.
     /// </summary>
-    Planar = 2
+    Planar = 2,
+
+    /// <summary>Wrapped around a sphere at the middle of the mesh's bounds.</summary>
+    Spherical = 3,
+
+    /// <summary>Wrapped around a cylinder along <see cref="LayerAsset.PlanarAxis" />.</summary>
+    Cylindrical = 4
+}
+
+/// <summary>Where a fill sits on the surface, in whichever projection it uses.</summary>
+/// <remarks>
+///     ⚠ <b>Its own record, not entries in <see cref="LayerAsset.Settings" />, because a graph fill
+///     hands its settings to the graph.</b> A graph with its own <c>Scale</c> parameter would otherwise
+///     have one number doing two jobs. A <see cref="LayerProjection.Uv" /> fill reads everything here
+///     but <see cref="Sharpness" />; a planar, spherical or cylindrical one reads the same.
+/// </remarks>
+public sealed record LayerPlacement {
+    /// <summary>How many times the picture repeats. Above zero.</summary>
+    public float Scale { get; init; } = 1f;
+
+    /// <summary>How far the picture turns, in radians.</summary>
+    public float Rotation { get; init; }
+
+    /// <summary>How far the picture moves along its first axis, in repeats.</summary>
+    public float OffsetX { get; init; }
+
+    /// <summary>How far the picture moves along its second axis, in repeats.</summary>
+    public float OffsetY { get; init; }
+
+    /// <summary>How hard the seam between a triplanar's planes is.</summary>
+    public float Sharpness { get; init; } = 4f;
 }
 
 /// <summary>Which world axis a <see cref="LayerProjection.Planar" /> layer projects along.</summary>
@@ -506,6 +536,9 @@ public sealed record LayerAsset {
     ///     on <see cref="LayerAxis" /> instead.
     /// </remarks>
     public LayerAxis PlanarAxis { get; init; } = LayerAxis.Y;
+
+    /// <summary>Where a fill sits on the surface.</summary>
+    public LayerPlacement Placement { get; init; } = new();
 
     /// <summary>
     ///     Which of the set's channels this layer writes, by usage. Empty means every one of them.

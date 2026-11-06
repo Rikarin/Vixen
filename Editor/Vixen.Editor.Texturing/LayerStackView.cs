@@ -1594,7 +1594,7 @@ sealed class LayerStackView : IDisposable {
             Set(
                 document,
                 path,
-                current => wanted == LayerProjection.Planar
+                current => wanted is LayerProjection.Planar or LayerProjection.Cylindrical
                     ? current with { Projection = wanted }
                     : current with { Projection = wanted, PlanarAxis = LayerAxis.Y },
                 "Set Projection"

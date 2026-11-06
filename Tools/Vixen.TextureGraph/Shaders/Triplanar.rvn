@@ -39,6 +39,19 @@ package Vixen.TextureGraph.Shaders
 // plane facing x, y and z alone. One kernel because the sampling, the wrap and the scale are the
 // same question three times and a second file would be the same arithmetic twice.
 //
+// ## Wrapped projections
+//
+// `axis` 4 is a sphere around the middle of the bounds, and 5, 6 and 7 a cylinder around x, y and z
+// through it. Both take the picture by angle, so one repeat goes once round. They live here for the
+// same reason planar does: the sampling, the wrap and the scale are the same question. ⚠ A scale that
+// is not whole leaves a seam where the angle wraps, as any tiling picture would at a fractional repeat.
+//
+// ## Rotation and offset
+//
+// `rotation` is in radians and turns the projected coordinate, and `offset` moves it, in repeats. ⚠
+// They are here and not on the picture before the kernel, because a picture rotated in its own square
+// stops tiling: every edge of that square would then be a seam on the mesh.
+//
 // ## The three planes
 //
 // The plane facing **x** is sampled by `(z, y)`, the one facing **y** by `(x, z)`, and the one
@@ -62,8 +75,18 @@ shader Triplanar {
     /// The exponent the blend weights are raised to. Higher is a harder seam between planes.
     var sharpness: float = 4f
 
-    /// Which projection: 0 blends the three planes, 1, 2 and 3 take x, y and z alone.
+    /// Which projection: 0 blends the three planes, 1, 2 and 3 take x, y and z alone, 4 is a sphere
+    /// and 5, 6 and 7 are cylinders around x, y and z.
     var axis: int = 0
+
+    /// How far the projected coordinate turns, in radians.
+    var rotation: float = 0f
+
+    /// How far the projected coordinate moves along its first axis, in repeats.
+    var offsetX: float = 0f
+
+    /// How far the projected coordinate moves along its second axis, in repeats.
+    var offsetY: float = 0f
 
     [Format("rgba16f")] var target: RWTexture2D<float4>
 
@@ -96,6 +119,20 @@ shader Triplanar {
         return lerp(top, bottom, float4(ty, ty, ty, ty))
     }
 
+    /// The source at a projected coordinate, after the rotation and the offset.
+    func Placed(u: float, v: float): float4 {
+        val c = cos(rotation)
+        val s = sin(rotation)
+
+        return At(u * c - v * s + offsetX, u * s + v * c + offsetY)
+    }
+
+    /// One turn around a pair of axes as 0..1. ⚠ `atan2(0, 0)` is 0 on every target this compiles for,
+    /// so a texel on the axis itself is a number and not a NaN.
+    func Turn(y: float, x: float): float {
+        return atan2(y, x) / 6.2831855f + 0.5f
+    }
+
     /// One texel of a map that may be a different size from the image being written.
     func Read(map: Texture2D, coord: int2, size: int2): float4 {
         val extent = map.GetDimensions(0)
@@ -124,9 +161,38 @@ shader Triplanar {
         // as one that did not, and `normalize` of a cancelled normal is where a NaN would come from.
         val n = float3(encoded.x * 2f - 1f, encoded.y * 2f - 1f, encoded.z * 2f - 1f)
 
-        val onX = At(p.z, p.y)
-        val onY = At(p.x, p.z)
-        val onZ = At(p.x, p.y)
+        val d = float3(place.x - 0.5f, place.y - 0.5f, place.z - 0.5f)
+
+        if (axis == 4) {
+            val reach = sqrt(d.x * d.x + d.y * d.y + d.z * d.z)
+            val height = reach > 0.000001f ? clamp(d.y / reach, -1f, 1f) : 0f
+
+            target.Store(coord, Placed(Turn(d.z, d.x) * scale, acos(height) / 3.1415927f * scale))
+
+            return
+        }
+
+        if (axis == 5) {
+            target.Store(coord, Placed(Turn(d.y, d.z) * scale, p.x))
+
+            return
+        }
+
+        if (axis == 6) {
+            target.Store(coord, Placed(Turn(d.z, d.x) * scale, p.y))
+
+            return
+        }
+
+        if (axis == 7) {
+            target.Store(coord, Placed(Turn(d.y, d.x) * scale, p.z))
+
+            return
+        }
+
+        val onX = Placed(p.z, p.y)
+        val onY = Placed(p.x, p.z)
+        val onZ = Placed(p.x, p.y)
 
         if (axis == 1) {
             target.Store(coord, onX)

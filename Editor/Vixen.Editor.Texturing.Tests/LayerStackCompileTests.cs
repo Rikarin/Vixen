@@ -741,6 +741,73 @@ public class LayerStackCompileTests {
         Assert.Equal(expected, op.Find("axis")!.Value.Value);
     }
 
+    [Theory]
+    [InlineData(LayerProjection.Spherical, LayerAxis.Y, 4f)]
+    [InlineData(LayerProjection.Cylindrical, LayerAxis.X, 5f)]
+    [InlineData(LayerProjection.Cylindrical, LayerAxis.Y, 6f)]
+    [InlineData(LayerProjection.Cylindrical, LayerAxis.Z, 7f)]
+    internal void A_wrapped_layer_reaches_the_kernel_with_its_placement(
+        LayerProjection projection,
+        LayerAxis axis,
+        float expected
+    ) {
+        var stack = One(new() {
+            Id = "l",
+            Kind = LayerKind.Fill,
+            Fill = LayerFillSource.Texture,
+            Textures = { ["baseColor"] = "Assets/Rust.png" },
+            Projection = projection,
+            PlanarAxis = axis,
+            Placement = new() { Scale = 3f, Rotation = 0.5f, OffsetX = 0.25f, OffsetY = 0.75f }
+        });
+
+        var compilation = LayerStackCompiler.Compile(stack, stack.Sets[0]);
+
+        Assert.Empty(compilation.Problems);
+        Assert.NotNull(compilation.Plan);
+
+        var op = Assert.Single(compilation.Plan.Ops, candidate => candidate.Kernel == "Triplanar");
+
+        Assert.Equal(expected, op.Find("axis")!.Value.Value);
+        Assert.Equal(3f, op.Find("scale")!.Value.Value);
+        Assert.Equal(0.5f, op.Find("rotation")!.Value.Value);
+        Assert.Equal(0.25f, op.Find("offsetX")!.Value.Value);
+        Assert.Equal(0.75f, op.Find("offsetY")!.Value.Value);
+    }
+
+    [Fact]
+    public void A_uv_layer_is_placed_only_when_it_says_so() {
+        LayerAsset layer = new() {
+            Id = "l",
+            Kind = LayerKind.Fill,
+            Fill = LayerFillSource.Texture,
+            Textures = { ["baseColor"] = "Assets/Rust.png" }
+        };
+        var bare = One(layer);
+        var placed = One(layer with { Placement = new() { Scale = 2f } });
+
+        var without = LayerStackCompiler.Compile(bare, bare.Sets[0]).Plan!.Ops.Length;
+        var with = LayerStackCompiler.Compile(placed, placed.Sets[0]);
+
+        Assert.Empty(with.Problems);
+        Assert.Equal(without + 1, with.Plan!.Ops.Length);
+    }
+
+    [Fact]
+    public void A_placement_on_a_constant_is_warned_about() {
+        var stack = One(new() {
+            Id = "l",
+            Kind = LayerKind.Fill,
+            Fill = LayerFillSource.Constant,
+            Values = { ["baseColor"] = [1f, 0f, 0f, 1f] },
+            Placement = new() { Rotation = 1f }
+        });
+
+        var problem = Assert.Single(LayerStackCompiler.Compile(stack, stack.Sets[0]).Problems);
+
+        Assert.Contains("placement", problem.Message, StringComparison.Ordinal);
+    }
+
     /// <summary>⚠ An axis set where it cannot mean anything is warned about, not ignored.</summary>
     /// <remarks>
     ///     <para>

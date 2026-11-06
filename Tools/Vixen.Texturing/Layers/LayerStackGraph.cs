@@ -789,17 +789,19 @@ public static class LayerStackGraph {
             // ⚠ Before the early return, because a UV layer is one of the two places an axis means
             // nothing — and Y is not checked here because it is the default: "the author chose y"
             // and "the author said nothing" are one state, which is why `LayerAxis`' zero is X.
-            if (layer.Projection != LayerProjection.Planar && layer.PlanarAxis != LayerAxis.Y) {
+            if (layer.Projection is not (LayerProjection.Planar or LayerProjection.Cylindrical)
+                && layer.PlanarAxis != LayerAxis.Y) {
                 problems.Add(LayerStackProblem.Warning(
                     layer.Id,
                     $"Axis '{layer.PlanarAxis}' is set on a {layer.Projection} projection and does nothing there. "
-                    + "An axis chooses the single plane a Planar projection uses; Triplanar blends all three by "
-                    + "the world normal, and Uv is the mesh's own atlas."
+                    + "An axis chooses the single plane a Planar projection uses or the line a Cylindrical one "
+                    + "wraps around; Triplanar blends all three planes by the world normal, a sphere has no "
+                    + "axis to choose, and Uv is the mesh's own atlas."
                 ));
             }
 
             if (layer.Projection == LayerProjection.Uv) {
-                return content;
+                return Placed(layer, content);
             }
 
             if (layer.Kind != LayerKind.Fill) {
@@ -836,7 +838,12 @@ public static class LayerStackGraph {
             // rather than a mapping — a fourth axis is a word in each file and no table. #1032.
             node.SetText(
                 "Axis",
-                layer.Projection == LayerProjection.Triplanar ? "Triplanar" : layer.PlanarAxis.ToString()
+                layer.Projection switch {
+                    LayerProjection.Triplanar => "Triplanar",
+                    LayerProjection.Spherical => "Spherical",
+                    LayerProjection.Cylindrical => $"Cylinder{layer.PlanarAxis}",
+                    _ => layer.PlanarAxis.ToString()
+                }
             );
 
             graph.Connect(content, new(node.Id, "Input"));
@@ -849,6 +856,19 @@ public static class LayerStackGraph {
             // its picture repeats across the mesh would be usable at exactly one mesh size. The home
             // those numbers deserve is #1032's other half: `LayerAsset.Settings`' own doc comment
             // says "the filter's numbers", which is now narrower than what reads it.
+            var placement = layer.Placement;
+            node.SetValue("Scale", placement.Scale);
+            node.SetValue("Sharpness", placement.Sharpness);
+            node.SetValue("Rotation", placement.Rotation);
+            node.SetValue("Offset X", placement.OffsetX);
+            node.SetValue("Offset Y", placement.OffsetY);
+
+            // ⚠ A graph's numbers are the graph's: `Fill` hands them to its ports, and a graph with
+            // its own Scale must not move the projection as well.
+            if (layer.Fill == LayerFillSource.Graph) {
+                return new(node.Id, "Out");
+            }
+
             foreach (var (port, value) in layer.Settings) {
                 if (!string.Equals(port, "Scale", StringComparison.Ordinal)
                     && !string.Equals(port, "Sharpness", StringComparison.Ordinal)) {
@@ -863,6 +883,50 @@ public static class LayerStackGraph {
 
                 node.SetValue(port, value);
             }
+
+            return new(node.Id, "Out");
+        }
+
+        /// <summary>A UV fill's own scale, rotation and offset, through <c>Space/Transform 2D</c>.</summary>
+        /// <remarks>
+        ///     Nothing at all when it has none, so that a stack without placement compiles to the plan
+        ///     it always did. ⚠ <see cref="LayerPlacement.Scale" /> is a repeat count and the node's is a
+        ///     size, so the two are reciprocal. Rotation here does not break tiling as it would before
+        ///     a projection: the node reads its source wrapped, and its result is not tiled again.
+        /// </remarks>
+        PortRef Placed(LayerAsset layer, PortRef content) {
+            var placement = layer.Placement;
+            if (placement with { Sharpness = 4f } == new LayerPlacement()) {
+                return content;
+            }
+
+            if (layer.Kind != LayerKind.Fill || layer.Fill == LayerFillSource.Constant) {
+                problems.Add(LayerStackProblem.Warning(
+                    layer.Id,
+                    "A placement is set here and does nothing: it moves a texture or a graph on the surface, "
+                    + "and this layer is neither."
+                ));
+
+                return content;
+            }
+
+            if (placement.Scale <= 0f) {
+                problems.Add(LayerStackProblem.Refusal(
+                    layer.Id,
+                    $"A scale of {placement.Scale} has nothing to repeat. A placement's scale is above zero."
+                ));
+
+                return content;
+            }
+
+            var node = Add("Space/Transform 2D");
+
+            node.SetValue("Rotation", placement.Rotation);
+            node.SetValue("Scale X", 1f / placement.Scale);
+            node.SetValue("Scale Y", 1f / placement.Scale);
+            node.SetValue("Offset X", placement.OffsetX);
+            node.SetValue("Offset Y", placement.OffsetY);
+            graph.Connect(content, new(node.Id, "Input"));
 
             return new(node.Id, "Out");
         }

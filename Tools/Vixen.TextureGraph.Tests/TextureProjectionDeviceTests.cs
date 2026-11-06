@@ -285,6 +285,36 @@ public class TextureProjectionDeviceTests(ITestOutputHelper output) {
         );
     }
 
+    [Fact]
+    public void An_offset_of_a_whole_repeat_changes_nothing_and_half_of_one_does() {
+        using var device = TextureKernelHarness.Open();
+
+        var source = TextureKernelHarness.Unique(Side);
+        var facing = Facing(0f, 0f, 1f);
+        var plain = Project(device, source, Sweeping(), facing, TextureProjectionAxis.Z);
+        var whole = Project(device, source, Sweeping(), facing, TextureProjectionAxis.Z, offsetX: 1f);
+        var half = Project(device, source, Sweeping(), facing, TextureProjectionAxis.Z, offsetX: 0.5f);
+
+        Assert.Equal(TextureKernelHarness.At(plain, 5, 8, 0), TextureKernelHarness.At(whole, 5, 8, 0));
+        Assert.NotEqual(TextureKernelHarness.At(plain, 5, 8, 0), TextureKernelHarness.At(half, 5, 8, 0));
+    }
+
+    [Fact]
+    public void Round_a_cylinder_and_up_a_sphere_the_picture_moves() {
+        using var device = TextureKernelHarness.Open();
+
+        var source = TextureKernelHarness.Unique(Side);
+        var facing = Facing(0f, 0f, 1f);
+        var right = Project(device, source, At(1f, 0.25f, 0.5f), facing, TextureProjectionAxis.CylinderY);
+        var left = Project(device, source, At(0f, 0.25f, 0.5f), facing, TextureProjectionAxis.CylinderY);
+        var pole = Project(device, source, At(0.5f, 1f, 0.5f), facing, TextureProjectionAxis.Spherical);
+        var waist = Project(device, source, At(1f, 0.5f, 0.5f), facing, TextureProjectionAxis.Spherical);
+
+        // Half a turn apart, so half a picture apart along the first axis.
+        Assert.NotEqual(TextureKernelHarness.At(right, 5, 5, 0), TextureKernelHarness.At(left, 5, 5, 0));
+        Assert.NotEqual(TextureKernelHarness.At(pole, 5, 5, 0), TextureKernelHarness.At(waist, 5, 5, 0));
+    }
+
     static Bitmap Project(
         VulkanDevice device,
         byte[] source,
@@ -292,7 +322,10 @@ public class TextureProjectionDeviceTests(ITestOutputHelper output) {
         byte[] world,
         TextureProjectionAxis axis,
         float scale = 1f,
-        float sharpness = 4f
+        float sharpness = 4f,
+        float rotation = 0f,
+        float offsetX = 0f,
+        float offsetY = 0f
     ) {
         var (first, firstStaging) = TextureKernelHarness.Upload(device, source, Side, Side);
         var (second, secondStaging) = TextureKernelHarness.Upload(device, position, Side, Side);
@@ -308,7 +341,7 @@ public class TextureProjectionDeviceTests(ITestOutputHelper output) {
                     new(TextureFormat.Rgba8, External: true),
                     new(TextureFormat.Rgba8)
                 ],
-                Ops = [TextureProjections.Triplanar(3, 0, 1, 2, scale, sharpness, axis)],
+                Ops = [TextureProjections.Triplanar(3, 0, 1, 2, scale, sharpness, axis, rotation, offsetX, offsetY)],
                 Outputs = [3]
             };
 

@@ -172,6 +172,10 @@ public static class LayerStackYaml {
             mapping.Set("axis", Text(layer.PlanarAxis.ToString()));
         }
 
+        if (layer.Placement != new LayerPlacement()) {
+            mapping.Set("placement", Write(layer.Placement));
+        }
+
         if (layer.Channels.Count > 0) {
             YamlSequence channels = new() { Style = YamlCollectionStyle.Flow };
 
@@ -266,6 +270,42 @@ public static class LayerStackYaml {
         }
 
         return mapping;
+    }
+
+    static YamlMapping Write(LayerPlacement placement) {
+        LayerPlacement bare = new();
+        YamlMapping mapping = [];
+
+        foreach (var (key, value, fallback) in new[] {
+            ("scale", placement.Scale, bare.Scale),
+            ("rotation", placement.Rotation, bare.Rotation),
+            ("offsetX", placement.OffsetX, bare.OffsetX),
+            ("offsetY", placement.OffsetY, bare.OffsetY),
+            ("sharpness", placement.Sharpness, bare.Sharpness)
+        }) {
+            if (value != fallback) {
+                mapping.Set(key, Number(value));
+            }
+        }
+
+        return mapping;
+    }
+
+    static LayerPlacement Placement(YamlMapping mapping, string path) {
+        if (!mapping.TryGet("placement", out var node)) {
+            return new();
+        }
+
+        LayerPlacement bare = new();
+        var entries = Mapping(node, $"{path}.placement");
+
+        return new() {
+            Scale = Single(entries, "scale", bare.Scale, $"{path}.placement"),
+            Rotation = Single(entries, "rotation", bare.Rotation, $"{path}.placement"),
+            OffsetX = Single(entries, "offsetX", bare.OffsetX, $"{path}.placement"),
+            OffsetY = Single(entries, "offsetY", bare.OffsetY, $"{path}.placement"),
+            Sharpness = Single(entries, "sharpness", bare.Sharpness, $"{path}.placement")
+        };
     }
 
     static YamlMapping Write(MaskAsset mask) {
@@ -464,6 +504,7 @@ public static class LayerStackYaml {
             Blend = Choice(mapping, "blend", LayerBlendMode.Copy, path),
             Projection = Choice(mapping, "projection", LayerProjection.Uv, path),
             PlanarAxis = Choice(mapping, "axis", LayerAxis.Y, path),
+            Placement = Placement(mapping, path),
             Channels = channels,
             Fill = Choice(mapping, "fill", LayerFillSource.Constant, path),
             Values = Colours(mapping, "values", path),

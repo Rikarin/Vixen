@@ -152,6 +152,16 @@ public class LayerStackShapeTests {
 
         Assert.DoesNotContain("axis:", bare, StringComparison.Ordinal);
         Assert.Equal(LayerAxis.Y, LayerStackYaml.Read(bare).Sets[0].Layers[0].PlanarAxis);
+        Assert.DoesNotContain("placement", bare, StringComparison.Ordinal);
+
+        var moved = stack with {
+            Sets = [stack.Sets[0] with { Layers = [layer with { Placement = new() { Rotation = 1.5f, OffsetY = 0.25f } }] }]
+        };
+
+        Assert.Equal(
+            new LayerPlacement { Rotation = 1.5f, OffsetY = 0.25f },
+            LayerStackYaml.Read(LayerStackYaml.Write(moved)).Sets[0].Layers[0].Placement
+        );
     }
 
     /// <summary>An anchor survives the round trip as the id it names.</summary>

@@ -235,6 +235,9 @@ public class SmartMaterialTests {
         var mutable = typeof(LayerAsset)
             .GetProperties()
             .Where(property => !property.PropertyType.IsValueType && property.PropertyType != typeof(string))
+
+            // Nothing but init members, so sharing one cannot carry an edit across.
+            .Where(property => property.PropertyType != typeof(LayerPlacement))
             .ToArray();
 
         Assert.True(mutable.Length >= 6, $"only {mutable.Length} reference members: the walk has lost its subject.");
