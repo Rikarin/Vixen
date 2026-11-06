@@ -2946,6 +2946,7 @@ T:Vixen.Texturing.Layers.LayerMaskSource sweep-pending
 T:Vixen.Texturing.Layers.LayerNote sweep-pending
 T:Vixen.Texturing.Layers.LayerPaint sweep-pending
 T:Vixen.Texturing.Layers.LayerPath sweep-pending
+T:Vixen.Texturing.Layers.LayerPlacement sweep-pending
 T:Vixen.Texturing.Layers.LayerProjection sweep-pending
 T:Vixen.Texturing.Layers.LayerSlot sweep-pending
 T:Vixen.Texturing.Layers.LayerStackAsset sweep-pending

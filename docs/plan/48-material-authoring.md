@@ -1261,6 +1261,10 @@ renumbers a file people merge. ⚠ Its default is deliberately **not** the enum'
 makes "the author chose y" and "the author said nothing" one state, so an axis set where it means
 nothing could not be warned about.
 
+`LayerProjection` also has `Spherical` and `Cylindrical`, which go through the same kernel. `LayerAsset.Placement` holds a fill's
+scale, rotation and offset. Rotation is applied in the kernel to the projected coordinate, because a picture rotated in its own
+square stops tiling; a UV fill takes the same numbers through `Space/Transform 2D`.
+
 ⚠ **And the same batch closed the other half of § D10's fourth filter kind.** A filter layer naming a
 published compound could not set that compound's *settings* — `LayerAsset` had the numbers dictionary
 and not the strings one, so a compound whose behaviour is chosen by a string took its default,
