@@ -88,6 +88,12 @@ public sealed record MeshData {
     public Vector2[] TexCoords { get; set; } = [];
 
     /// <summary>One colour per vertex, linear, or empty. Read only when an import asks for it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Not written.</b> Members are positional, and a chunk from when this type last carried colours has
+    ///     exactly as many members as a serialized <see cref="Colours" /> would make, so it would pass the
+    ///     member-count guard and be misread. A bake reads a model directly and needs none of this in a chunk.
+    /// </remarks>
+    [DataMemberIgnore]
     public Vector4[] Colours { get; set; } = [];
 
     /// <summary>Three indices per triangle.</summary>
