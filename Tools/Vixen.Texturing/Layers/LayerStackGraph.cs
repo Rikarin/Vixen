@@ -1040,6 +1040,21 @@ public static class LayerStackGraph {
                         }
                     }
 
+                    // A compound's knobs are settings, as on a filter, and one the graph has since
+                    // dropped says so rather than leaving a number that moves nothing.
+                    foreach (var (setting, value) in layer.Texts) {
+                        if (type.Setting(setting) is null) {
+                            problems.Add(LayerStackProblem.Warning(
+                                layer.Id,
+                                $"'{setting}' is not a setting '{path}' declares, so it is dropped."
+                            ));
+
+                            continue;
+                        }
+
+                        node.SetText(setting, value);
+                    }
+
                     return new(node.Id, output.Name);
                 }
 
