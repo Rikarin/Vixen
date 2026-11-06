@@ -383,6 +383,11 @@ static Vixen.Geometry.Remeshing.BakeParts.Key(string name) -> string
 static Vixen.Geometry.Remeshing.MapBaker.Bake(Vixen.Geometry.EditMesh source, Vixen.Geometry.EditMesh target, Vixen.Geometry.Remeshing.BakeSettings settings) -> Vixen.Geometry.Remeshing.BakedMaps
 static Vixen.Geometry.Remeshing.MapBaker.Bake(Vixen.Geometry.EditMesh source, Vixen.Geometry.EditMesh target, Vixen.Geometry.Remeshing.BakeSettings settings, System.Action<float>? progress, System.Threading.CancellationToken cancellationToken) -> Vixen.Geometry.Remeshing.BakedMaps
 static Vixen.Geometry.Remeshing.MapBaker.IdColour(int id) -> Vixen.Core.Mathematics.Vector3
+static Vixen.Geometry.Remeshing.MapBaker.PackedColour(int id) -> Vixen.Core.Mathematics.Vector3
+Vixen.Geometry.Remeshing.BakeSettings.GroupsAreColours.get -> bool
+Vixen.Geometry.Remeshing.BakeSettings.GroupsAreColours.init -> void
+Vixen.Geometry.Remeshing.BakedMaps.IdsAreColours.get -> bool
+Vixen.Geometry.Remeshing.BakedMaps.IdsAreColours.init -> void
 static Vixen.Geometry.Remeshing.MeshMapPlanes.Of(Vixen.Geometry.Remeshing.BakedMaps maps) -> System.Collections.Generic.IReadOnlyList<Vixen.Geometry.Remeshing.MeshMapPlane>
 static Vixen.Geometry.Remeshing.RemeshDump.Capture(Vixen.Geometry.EditMesh source, Vixen.Geometry.Remeshing.RemeshSettings settings, Vixen.Core.Threading.JobScheduler? scheduler = null) -> Vixen.Geometry.Remeshing.RemeshDump
 static Vixen.Geometry.Remeshing.Remesher.Remesh(Vixen.Geometry.EditMesh source, Vixen.Geometry.Remeshing.RemeshSettings settings, out Vixen.Geometry.Remeshing.RemeshReport report, Vixen.Core.Threading.JobScheduler? scheduler = null) -> Vixen.Geometry.EditMesh

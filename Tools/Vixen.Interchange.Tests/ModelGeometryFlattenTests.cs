@@ -52,4 +52,41 @@ public sealed class ModelGeometryFlattenTests {
         Assert.Equal(MeshGroupSource.Assigned, flat.Mesh.GroupSource);
         Assert.Equal(3, flat.Mesh.Faces[0].Group);
     }
+
+    static ReadModel Coloured(params Vector4[] colours) {
+        var model = Model();
+        model.Meshes[0].Colours = colours;
+        return model;
+    }
+
+    [Fact]
+    public void Vertex_colours_are_the_groups_when_a_file_has_them() {
+        Vector4 red = new(1f, 0f, 0f, 1f);
+        Vector4 blue = new(0f, 0f, 1f, 1f);
+
+        var flat = ModelGeometry.Flatten(Coloured(red, red, red, blue, blue, blue));
+
+        Assert.True(flat.ColouredGroups);
+        Assert.Equal(0xFF0000, flat.Mesh.Faces[0].Group);
+        Assert.Equal(0x0000FF, flat.Mesh.Faces[1].Group);
+    }
+
+    [Fact]
+    public void A_face_across_a_painted_border_takes_a_colour_nobody_mixed() {
+        Vector4 red = new(1f, 0f, 0f, 1f);
+        Vector4 blue = new(0f, 0f, 1f, 1f);
+
+        var flat = ModelGeometry.Flatten(Coloured(red, blue, blue, red, red, blue));
+
+        Assert.Equal(0x0000FF, flat.Mesh.Faces[0].Group);
+        Assert.Equal(0xFF0000, flat.Mesh.Faces[1].Group);
+    }
+
+    [Fact]
+    public void A_colour_reads_as_the_artist_saw_it() =>
+        Assert.Equal(0xBCBCBC, ModelGeometry.PackedColour(new(0.5f, 0.5f, 0.5f, 1f)));
+
+    [Fact]
+    public void With_no_colours_the_groups_stay_materials() =>
+        Assert.False(ModelGeometry.Flatten(Model()).ColouredGroups);
 }

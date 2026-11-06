@@ -80,6 +80,9 @@ public sealed record BakeSettings {
     /// <summary>The atlas's edge length in texels. Required, because a gutter is counted in them.</summary>
     public required int Resolution { get; init; }
 
+    /// <summary>Whether the source's face groups are colours packed as RGB, which an id map shows as they are.</summary>
+    public bool GroupsAreColours { get; init; }
+
     /// <summary>How many texels of dilation surround each chart.</summary>
     /// <remarks>
     ///     ⚠ <b>A bake that stops at the chart boundary bleeds background at low mips.</b> Four is
@@ -398,6 +401,9 @@ public sealed record BakedMaps {
     /// </remarks>
     public IReadOnlyList<int>? Ids { get; init; }
 
+    /// <summary>Whether <see cref="Ids" /> are colours packed as RGB rather than labels.</summary>
+    public bool IdsAreColours { get; init; }
+
     /// <summary>The largest absolute curvature, which is what a caller quantizes with.</summary>
     public float CurvatureRange { get; init; }
 
@@ -681,6 +687,12 @@ public static class MapBaker {
         return labels;
     }
 
+    /// <summary>The colour an id packed as RGB stands for, in <c>[0, 1]³</c>, black for <c>-1</c>.</summary>
+    /// <param name="id">A packed colour, or <c>-1</c> for a texel with no source.</param>
+    /// <returns>The colour.</returns>
+    public static Vector3 PackedColour(int id) =>
+        id < 0 ? Vector3.Zero : new Vector3((id >> 16) & 0xFF, (id >> 8) & 0xFF, id & 0xFF) / 255f;
+
     /// <summary>A distinct colour for an id, for the caller that has to write pixels rather than ints.</summary>
     /// <param name="id">A face group, or <c>-1</c> for a texel with no source.</param>
     /// <returns>A colour in <c>[0, 1]³</c>, black for <c>-1</c>.</returns>
@@ -944,6 +956,7 @@ public static class MapBaker {
             Position = buffers.Position,
             WorldNormal = buffers.WorldNormal,
             Ids = buffers.Ids,
+            IdsAreColours = settings.GroupsAreColours,
             CurvatureRange = buffers.CurvatureRange,
             Warnings = warnings
         };

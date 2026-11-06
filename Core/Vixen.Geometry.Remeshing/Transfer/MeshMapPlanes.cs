@@ -120,7 +120,7 @@ public static class MeshMapPlanes {
             var colours = new Vector3[ids.Count];
 
             for (var index = 0; index < colours.Length; index++) {
-                colours[index] = MapBaker.IdColour(ids[index]);
+                colours[index] = maps.IdsAreColours ? MapBaker.PackedColour(ids[index]) : MapBaker.IdColour(ids[index]);
             }
 
             planes.Add(new(MeshMapKind.Id, size, 3, Vectors(size, colours), 0f, false));

@@ -670,4 +670,42 @@ public sealed class ModelReaderTests {
     }
 
     static string F(float value) => value.ToString("0.0###", System.Globalization.CultureInfo.InvariantCulture);
+
+    /// <summary>A triangle in red, as a file with a colour attribute has it.</summary>
+    const string ColouredTriangle = """
+        {
+          "asset": { "version": "2.0" },
+          "scenes": [{ "nodes": [0] }],
+          "nodes": [{ "mesh": 0 }],
+          "meshes": [{ "primitives": [{ "attributes": { "POSITION": 0, "COLOR_0": 1 } }] }],
+          "accessors": [
+            { "bufferView": 0, "componentType": 5126, "count": 3, "type": "VEC3", "min": [0, 0, 0], "max": [1, 1, 0] },
+            { "bufferView": 1, "componentType": 5126, "count": 3, "type": "VEC4" }
+          ],
+          "bufferViews": [
+            { "buffer": 0, "byteLength": 36 },
+            { "buffer": 0, "byteOffset": 36, "byteLength": 48 }
+          ],
+          "buffers": [{ "byteLength": 84, "uri": "data:application/octet-stream;base64,AAAAAAAAAAAAAAAAAACAPwAAAAAAAAAAAAAAAAAAgD8AAAAAAACAPwAAAAAAAAAAAACAPwAAgD8AAAAAAAAAAAAAgD8AAIA/AAAAAAAAAAAAAIA/" }]
+        }
+        """;
+
+    [Fact]
+    public void VertexColoursAreReadWhenAskedFor() {
+        var read = ModelReader.Read(
+            Encoding.UTF8.GetBytes(ColouredTriangle),
+            ".gltf",
+            "coloured",
+            new ModelReadOptions { ImportVertexColours = true }
+        );
+
+        Assert.Equal(new Vector4(1f, 0f, 0f, 1f), read.Meshes[0].Colours[0]);
+    }
+
+    [Fact]
+    public void VertexColoursCostNothingUnlessAskedFor() {
+        var read = ModelReader.Read(Encoding.UTF8.GetBytes(ColouredTriangle), ".gltf", "coloured", new ModelReadOptions());
+
+        Assert.Empty(read.Meshes[0].Colours);
+    }
 }

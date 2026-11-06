@@ -10,7 +10,12 @@ namespace Vixen.Interchange;
 /// <summary>A file's parts laid end to end in one mesh.</summary>
 /// <param name="Mesh">The mesh, in world space, with the file's normals and coordinates on its corners.</param>
 /// <param name="Parts">Each part's name and how many faces it contributed, in order.</param>
-public sealed record FlatModel(EditMesh Mesh, IReadOnlyList<(string Name, int Faces)> Parts);
+/// <param name="ColouredGroups">Whether its face groups are packed colours, read from vertex colours.</param>
+public sealed record FlatModel(
+    EditMesh Mesh,
+    IReadOnlyList<(string Name, int Faces)> Parts,
+    bool ColouredGroups = false
+);
 
 /// <summary>The copy between a model file's geometry and the mesh kernel that remeshes and unwraps it.</summary>
 /// <remarks>
@@ -39,6 +44,8 @@ public sealed record FlatModel(EditMesh Mesh, IReadOnlyList<(string Name, int Fa
 ///     </para>
 /// </remarks>
 public static class ModelGeometry {
+    const int White = 0xFFFFFF;
+
     /// <summary>Reads a model file's mesh into the kernel.</summary>
     /// <param name="mesh">The geometry, as the reader produced it.</param>
     /// <param name="weld">How near two positions may be and still be one, as a fraction of the bounds.</param>
@@ -144,6 +151,11 @@ public static class ModelGeometry {
     ///     <para>
     ///         The groups are the file's materials and are marked as assigned, so an id map shows them.
     ///     </para>
+    ///     <para>
+    ///         With vertex colours in the file, the groups are those colours instead, packed by
+    ///         <see cref="PackedColour" />, which is what lets an id map show the colours an artist painted.
+    ///         One colour to a face: an id is a label, and <see cref="FaceColour" /> never blends one.
+    ///     </para>
     /// </remarks>
     public static FlatModel Flatten(ReadModel model) {
         ArgumentNullException.ThrowIfNull(model);
@@ -163,6 +175,7 @@ public static class ModelGeometry {
         var parts = new List<(string Name, int Faces)>();
         var anyCoordinates = false;
         var anyNormals = false;
+        var anyColours = model.Meshes.Any(static mesh => mesh.Colours.Length == mesh.Positions.Length && mesh.Colours.Length > 0);
         Span<int> loop = stackalloc int[3];
 
         foreach (var part in model.Model.Parts) {
@@ -200,7 +213,7 @@ public static class ModelGeometry {
                     continue;
                 }
 
-                built.AddFace(loop, part.Material);
+                built.AddFace(loop, anyColours ? FaceColour(mesh, a, b, c) : part.Material);
                 made++;
 
                 normals.Add(hasNormals ? turned[a] : default);
@@ -229,7 +242,36 @@ public static class ModelGeometry {
             built.SetTexCoords(System.Runtime.InteropServices.CollectionsMarshal.AsSpan(coordinates));
         }
 
-        return new(built, parts);
+        return new(built, parts, anyColours);
+    }
+
+    /// <summary>A colour as one int, each lane sRGB-encoded in eight bits, so that it reads as the artist saw it.</summary>
+    /// <param name="colour">The colour, linear, as a file stores it.</param>
+    /// <returns>Red in the high byte, blue in the low.</returns>
+    public static int PackedColour(Vector4 colour) {
+        static int Lane(float linear) {
+            var value = Math.Clamp(linear, 0f, 1f);
+            var encoded = value <= 0.0031308f ? value * 12.92f : (1.055f * MathF.Pow(value, 1f / 2.4f)) - 0.055f;
+
+            return (int) MathF.Round(encoded * 255f);
+        }
+
+        return (Lane(colour.X) << 16) | (Lane(colour.Y) << 8) | Lane(colour.Z);
+    }
+
+    /// <summary>The colour a face is labelled with: the one two corners agree on, or else its first corner's.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Picked rather than averaged.</b> An average along a painted border is a colour nobody chose, and
+    ///     a selection by colour would then miss the face. A part with no colours is white, as a viewport shows it.
+    /// </remarks>
+    static int FaceColour(MeshData mesh, int a, int b, int c) {
+        if (mesh.Colours.Length != mesh.Positions.Length) {
+            return White;
+        }
+
+        var (first, second, third) = (PackedColour(mesh.Colours[a]), PackedColour(mesh.Colours[b]), PackedColour(mesh.Colours[c]));
+
+        return second == third ? second : first;
     }
 
     /// <summary>An unwrap's placements applied to its islands, as one coordinate per corner.</summary>

@@ -24,6 +24,9 @@ public interface IModelReadOptions {
     /// <summary>Whether to read blend shapes.</summary>
     bool ImportBlendShapes { get; }
 
+    /// <summary>Whether to keep the first vertex colour set, which only a bake's id map reads.</summary>
+    bool ImportVertexColours { get; }
+
     /// <summary>The smallest displacement a blend shape keeps for a vertex.</summary>
     float BlendShapeThreshold { get; }
 }

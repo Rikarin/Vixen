@@ -87,6 +87,9 @@ public sealed record MeshData {
     /// <summary>One texture coordinate per vertex, or empty.</summary>
     public Vector2[] TexCoords { get; set; } = [];
 
+    /// <summary>One colour per vertex, linear, or empty. Read only when an import asks for it.</summary>
+    public Vector4[] Colours { get; set; } = [];
+
     /// <summary>Three indices per triangle.</summary>
     public int[] Indices { get; set; } = [];
 

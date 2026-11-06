@@ -562,12 +562,16 @@ public static class ModelReader {
             uvs[index] = new(coordinate.X, coordinate.Y);
         }
 
-        // ⚠ Assimp's second coordinate set and its colour channel are deliberately not read.
+        // ⚠ Assimp's second coordinate set is deliberately not read, and its colours only on request.
         // MeshData carried both for a while and nothing ever drew either — SurfaceGeometry.Pack
-        // dropped them on the way to the only vertex layout the engine has — and its own remarks
-        // record why they come back with the change that draws them rather than ahead of it. Reading
-        // them here is ten lines; carrying them is bytes in every mesh chunk and a signature that
-        // reads as support.
+        // dropped them on the way to the only vertex layout the engine has. Colours came back for the
+        // one thing that reads them, a bake's id map, which is why they cost nothing unless asked for.
+        var colours = settings.ImportVertexColours && mesh->MColors[0] is not null ? new Vector4[count] : [];
+
+        for (var index = 0; index < colours.Length; index++) {
+            var colour = mesh->MColors[0][index];
+            colours[index] = new(colour.X, colour.Y, colour.Z, colour.W);
+        }
 
         // Tangents need the bitangent to recover the handedness, and Assimp produces both together
         // or neither. The sign is cross(normal, tangent) · bitangent, which is ±1 for an orthonormal
@@ -612,6 +616,7 @@ public static class ModelReader {
             Normals = normals,
             Tangents = tangents,
             TexCoords = uvs,
+            Colours = colours,
             Indices = [.. indices],
             BoneIndices = boneIndices,
             BoneWeights = boneWeights,
