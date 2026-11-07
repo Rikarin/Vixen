@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Buffers.Binary;
+using System.Runtime.InteropServices;
 using Vixen.Core.Imaging;
 
 namespace Vixen.TextureGraph;
@@ -21,6 +23,42 @@ namespace Vixen.TextureGraph;
 ///     </para>
 /// </remarks>
 internal static class TexturePixels {
+    /// <summary>Reads raw texels into an eight-bit RGBA picture, using every core on the commonest format.</summary>
+    /// <param name="raw">The bytes, tightly packed, top row first.</param>
+    /// <param name="width">Its width in texels.</param>
+    /// <param name="height">Its height in texels.</param>
+    /// <param name="format">What the bytes are.</param>
+    /// <returns>The picture.</returns>
+    /// <remarks>
+    ///     ⚠ <b>A whole 4K map is what makes this matter.</b> One thread turning 67 million halves into
+    ///     bytes took 0.9 s a map, and a viewport putting on a stack's four maps stalled the first
+    ///     stroke by that much each. A half has only 65536 values, so <see cref="HalfBytes" /> holds
+    ///     every answer <see cref="Byte" /> gives, and a read of one is all that is left.
+    /// </remarks>
+    public static Bitmap ToBitmap(byte[] raw, int width, int height, TextureFormat format) {
+        if (format != TextureFormat.Rgba16Float) {
+            return ToBitmap(raw.AsSpan(), width, height, format);
+        }
+
+        var pixels = new byte[width * height * 4];
+        var table = HalfBytes.Table;
+        Parallel.For(
+            0,
+            height,
+            row => {
+                var halves = MemoryMarshal.Cast<byte, ushort>(raw.AsSpan(row * width * 8, width * 8));
+                var into = pixels.AsSpan(row * width * 4, width * 4);
+                for (var index = 0; index < into.Length; index++) {
+                    into[index] = table[BitConverter.IsLittleEndian
+                        ? halves[index]
+                        : BinaryPrimitives.ReverseEndianness(halves[index])];
+                }
+            }
+        );
+
+        return new(width, height, pixels);
+    }
+
     /// <summary>Reads raw texels into an eight-bit RGBA picture.</summary>
     /// <param name="raw">The bytes, tightly packed, top row first.</param>
     /// <param name="width">Its width in texels.</param>
@@ -98,6 +136,20 @@ internal static class TexturePixels {
         pixels[at + 1] = value;
         pixels[at + 2] = value;
         pixels[at + 3] = 255;
+    }
+
+    /// <summary>What <see cref="Byte" /> makes of each half, by its bits.</summary>
+    static class HalfBytes {
+        public static readonly byte[] Table = Build();
+
+        static byte[] Build() {
+            var table = new byte[1 << 16];
+            for (var bits = 0; bits < table.Length; bits++) {
+                table[bits] = Byte((float)BitConverter.UInt16BitsToHalf((ushort)bits));
+            }
+
+            return table;
+        }
     }
 
     static float Half(ReadOnlySpan<byte> source) => (float)BitConverter.ToHalf(source);
