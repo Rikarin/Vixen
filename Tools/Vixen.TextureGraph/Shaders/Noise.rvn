@@ -138,14 +138,22 @@ shader Noise {
         return ((value % period) + period) % period
     }
 
-    /// The hash of one cell, under the seed and the tiling period.
+    /// The hash of one cell, under the seed, the octave and the tiling period.
+    ///
+    /// ⚠ **The octave is in the hash, and it was not.** Each octave reads the same integers at a
+    /// higher frequency, so at a lacunarity of two the second octave's top-left quarter was the first
+    /// octave shrunk: they correlated at 1.000, the image held copies of itself toward the corner, and
+    /// the value at `uv = 0` was the same at any octave count. Added to the seed so that the first
+    /// octave, and so a single-octave noise and every Worley, is the picture it always was.
     ///
     /// ⚠ A block body rather than a `=>` broken over two lines. A newline ends a statement in Raven,
     /// so the continuation would have been a second statement and the first would have had no
     /// expression at all — which `RVN1001` does catch here, and does not catch when the continuation
     /// begins with an operator.
-    func CellHash(x: int, y: int, period: int): uint {
-        return Random.Combine(Random.Combine(uint(Fold(x, period, wrapX)), uint(Fold(y, period, wrapY))), Seeded())
+    func CellHash(x: int, y: int, octave: int, period: int): uint {
+        val cell = Random.Combine(uint(Fold(x, period, wrapX)), uint(Fold(y, period, wrapY)))
+
+        return Random.Combine(cell, Seeded() + Random.Hash(uint(octave)))
     }
 
     /// How many cells one unit of `uv` crosses along an axis: the period where it wraps.
@@ -158,40 +166,40 @@ shader Noise {
     }
 
     /// Smoothed value noise: a hash per lattice corner, bilinear under a smoothstep.
-    func ValueAt(position: float2, period: int): float {
+    func ValueAt(position: float2, octave: int, period: int): float {
         val cell = floor(position)
         val local = position - cell
         val weights = local * local * (3f - 2f * local)
         val x = int(cell.x)
         val y = int(cell.y)
 
-        val c00 = Random.ToFloat01(CellHash(x, y, period))
-        val c10 = Random.ToFloat01(CellHash(x + 1, y, period))
-        val c01 = Random.ToFloat01(CellHash(x, y + 1, period))
-        val c11 = Random.ToFloat01(CellHash(x + 1, y + 1, period))
+        val c00 = Random.ToFloat01(CellHash(x, y, octave, period))
+        val c10 = Random.ToFloat01(CellHash(x + 1, y, octave, period))
+        val c01 = Random.ToFloat01(CellHash(x, y + 1, octave, period))
+        val c11 = Random.ToFloat01(CellHash(x + 1, y + 1, octave, period))
 
         return lerp(lerp(c00, c10, weights.x), lerp(c01, c11, weights.x), weights.y)
     }
 
     /// One corner's gradient dotted with the offset to it.
-    func GradientDot(x: int, y: int, period: int, delta: float2): float {
-        val angle = Random.ToFloat01(CellHash(x, y, period)) * TwoPi
+    func GradientDot(x: int, y: int, octave: int, period: int, delta: float2): float {
+        val angle = Random.ToFloat01(CellHash(x, y, octave, period)) * TwoPi
 
         return delta.x * cos(angle) + delta.y * sin(angle)
     }
 
     /// Gradient (Perlin) noise, remapped from ±√2/2 onto 0..1.
-    func GradientAt(position: float2, period: int): float {
+    func GradientAt(position: float2, octave: int, period: int): float {
         val cell = floor(position)
         val local = position - cell
         val fade = local * local * local * (local * (local * 6f - 15f) + 10f)
         val x = int(cell.x)
         val y = int(cell.y)
 
-        val g00 = GradientDot(x, y, period, local)
-        val g10 = GradientDot(x + 1, y, period, local - float2(1f, 0f))
-        val g01 = GradientDot(x, y + 1, period, local - float2(0f, 1f))
-        val g11 = GradientDot(x + 1, y + 1, period, local - float2(1f, 1f))
+        val g00 = GradientDot(x, y, octave, period, local)
+        val g10 = GradientDot(x + 1, y, octave, period, local - float2(1f, 0f))
+        val g01 = GradientDot(x, y + 1, octave, period, local - float2(0f, 1f))
+        val g11 = GradientDot(x + 1, y + 1, octave, period, local - float2(1f, 1f))
 
         val under = lerp(g00, g10, fade.x)
         val over = lerp(g01, g11, fade.x)
@@ -200,23 +208,23 @@ shader Noise {
     }
 
     /// One uncorrelated value per cell — value noise without the interpolation.
-    func WhiteAt(position: float2, period: int): float {
+    func WhiteAt(position: float2, octave: int, period: int): float {
         val cell = floor(position)
 
-        return Random.ToFloat01(CellHash(int(cell.x), int(cell.y), period))
+        return Random.ToFloat01(CellHash(int(cell.x), int(cell.y), octave, period))
     }
 
     /// Whichever basis a fractal octave is made of.
-    func Octave(position: float2, period: int): float {
+    func Octave(position: float2, octave: int, period: int): float {
         if (basis == 1) {
-            return GradientAt(position, period)
+            return GradientAt(position, octave, period)
         }
 
         if (basis == 3) {
-            return WhiteAt(position, period)
+            return WhiteAt(position, octave, period)
         }
 
-        return ValueAt(position, period)
+        return ValueAt(position, octave, period)
     }
 
     /// Octaves at multiplying frequency and multiplying amplitude, normalised back to 0..1.
@@ -239,7 +247,7 @@ shader Noise {
             val period = int(round(max(scale, 1f) * frequency))
             val stride = float2(Stride(frequency, period, wrapX), Stride(frequency, period, wrapY))
 
-            total = total + Octave(uv * stride, period) * amplitude
+            total = total + Octave(uv * stride, octave, period) * amplitude
             normalisation = normalisation + amplitude
             frequency = frequency * max(lacunarity, 1f)
             amplitude = amplitude * max(gain, 0f)
@@ -307,7 +315,7 @@ shader Noise {
             for (column in -1 .. 1) {
                 val x = int(origin.x) + column
                 val y = int(origin.y) + row
-                val hash = CellHash(x, y, period)
+                val hash = CellHash(x, y, 0, period)
                 val jitter = float2(Random.ToFloat01(hash), Random.ToFloat01(Random.Hash(hash ^ 0x68BC21EBu)))
                 val point = float2(origin.x + float(column), origin.y + float(row)) + jitter
                 val reach = Reach(point - position)
