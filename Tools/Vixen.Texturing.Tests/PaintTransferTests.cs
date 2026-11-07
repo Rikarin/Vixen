@@ -17,6 +17,45 @@ public class PaintTransferTests {
     static PaintProjection Plane(params Vector2[] layout) => PaintProjection.Over(Square, layout, [0, 1, 2, 0, 2, 3]);
 
     [Fact]
+    public void A_layout_is_the_same_in_any_triangle_order_from_any_corner() {
+        Vector2[] layout = [new(0f, 0f), new(0.5f, 0f), new(0.5f, 0.5f), new(0f, 0.5f)];
+        var from = PaintProjection.Over(Square, layout, [0, 1, 2, 0, 2, 3]);
+
+        Assert.True(PaintTransfer.SameLayout(from, PaintProjection.Over(Square, layout, [2, 3, 0, 1, 2, 0])));
+    }
+
+    [Fact]
+    public void A_sculpted_mesh_on_the_same_islands_has_the_same_layout() {
+        Vector2[] layout = [new(0f, 0f), new(0.5f, 0f), new(0.5f, 0.5f), new(0f, 0.5f)];
+        Vector3[] sculpted = [new(0f, 0f, 0.2f), new(1f, 0f, 0f), new(1.1f, 1f, 0f), new(0f, 1f, 0.4f)];
+
+        Assert.True(PaintTransfer.SameLayout(Plane(layout), PaintProjection.Over(sculpted, layout, [0, 1, 2, 0, 2, 3])));
+    }
+
+    [Fact]
+    public void A_moved_island_is_another_layout() {
+        var from = Plane(new(0f, 0f), new(0.5f, 0f), new(0.5f, 0.5f), new(0f, 0.5f));
+        var to = Plane(new(0.5f, 0.5f), new(1f, 0.5f), new(1f, 1f), new(0.5f, 1f));
+
+        Assert.False(PaintTransfer.SameLayout(from, to));
+    }
+
+    [Fact]
+    public void A_flipped_island_is_another_layout() {
+        var from = Plane(new(0f, 0f), new(1f, 0f), new(1f, 1f), new(0f, 1f));
+        var to = Plane(new(1f, 0f), new(0f, 0f), new(0f, 1f), new(1f, 1f));
+
+        Assert.False(PaintTransfer.SameLayout(from, to));
+    }
+
+    [Fact]
+    public void Another_triangle_count_is_another_layout() {
+        Vector2[] layout = [new(0f, 0f), new(0.5f, 0f), new(0.5f, 0.5f), new(0f, 0.5f)];
+
+        Assert.False(PaintTransfer.SameLayout(Plane(layout), PaintProjection.Over(Square, layout, [0, 1, 2])));
+    }
+
+    [Fact]
     public void A_repacked_island_carries_its_paint_with_it() {
         var from = Plane(new(0f, 0f), new(0.5f, 0f), new(0.5f, 0.5f), new(0f, 0.5f));
         var to = Plane(new(0.5f, 0.5f), new(1f, 0.5f), new(1f, 1f), new(0.5f, 1f));

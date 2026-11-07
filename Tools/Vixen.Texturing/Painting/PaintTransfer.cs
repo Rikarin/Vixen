@@ -28,6 +28,46 @@ public static class PaintTransfer {
 
     const float Unmapped = float.NaN;
 
+    /// <summary>Whether two meshes lay the atlas out the same way, so that paint on one already fits the other.</summary>
+    /// <param name="from">The old mesh.</param>
+    /// <param name="to">The new mesh.</param>
+    /// <returns>Whether their triangles cover the atlas alike, in any order and from any corner.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Only the layout is compared, on purpose.</b> A texel belongs to its place in the atlas, so a sculpted
+    ///     mesh with the same islands keeps its paint by doing nothing. <see cref="Move" /> would resample it, and
+    ///     every resample loses a little sharpness. The comparison is exact: a layout that moved by rounding reads as
+    ///     changed, which costs a transfer and never paint.
+    /// </remarks>
+    public static bool SameLayout(PaintProjection from, PaintProjection to) {
+        ArgumentNullException.ThrowIfNull(from);
+        ArgumentNullException.ThrowIfNull(to);
+
+        if (from.Triangles != to.Triangles) {
+            return false;
+        }
+
+        return Layout(from).SequenceEqual(Layout(to));
+    }
+
+    /// <summary>A mesh's atlas triangles in one order, each from its lowest corner, so that order means nothing.</summary>
+    static List<(float, float, float, float, float, float)> Layout(PaintProjection mesh) {
+        List<(float, float, float, float, float, float)> layout = new(mesh.Triangles);
+        for (var triangle = 0; triangle < mesh.Triangles; triangle++) {
+            mesh.Atlas(triangle, out var a, out var b, out var c);
+            var turned = Lower(c, a) ? (c, a, b) : Lower(b, a) ? (b, c, a) : (a, b, c);
+            if (Lower(turned.Item3, turned.Item1)) {
+                turned = (turned.Item3, turned.Item1, turned.Item2);
+            }
+
+            layout.Add((turned.Item1.X, turned.Item1.Y, turned.Item2.X, turned.Item2.Y, turned.Item3.X, turned.Item3.Y));
+        }
+
+        layout.Sort();
+        return layout;
+    }
+
+    static bool Lower(Vector2 a, Vector2 b) => a.X < b.X || (a.X == b.X && a.Y < b.Y);
+
     /// <summary>Lays a canvas out on another mesh.</summary>
     /// <param name="canvas">The paint, on the old layout.</param>
     /// <param name="from">The old mesh.</param>
