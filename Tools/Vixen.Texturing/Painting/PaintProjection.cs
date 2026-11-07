@@ -636,6 +636,14 @@ public sealed class PaintProjection {
         return new([.. positions], [.. coordinates], [.. indices]);
     }
 
+    /// <summary>A triangle's corners in the atlas.</summary>
+    internal void Atlas(int triangle, out Vector2 a, out Vector2 b, out Vector2 c) {
+        var slot = triangle * 3;
+        a = coordinates[indices[slot]];
+        b = coordinates[indices[slot + 1]];
+        c = coordinates[indices[slot + 2]];
+    }
+
     void Corners(int triangle, out Vector3 a, out Vector3 b, out Vector3 c) {
         var slot = triangle * 3;
 
