@@ -124,6 +124,18 @@ public enum LayerAxis {
     Z = 2
 }
 
+/// <summary>How a set's painted height becomes the normal its surface is lit with.</summary>
+public enum LayerHeightNormal {
+    /// <summary>The height's slope read a texel either side, so a hard brush edge is a hard crease.</summary>
+    Sharp = 0,
+
+    /// <summary>
+    ///     The height blurred a little first, so eight-bit paint's steps and a hard edge's single-texel cliff read as
+    ///     slopes. The default, because a painted height is eight bits and its steps otherwise show as contour lines.
+    /// </summary>
+    Smooth = 1
+}
+
 /// <summary>Where a fill layer's pixels come from.</summary>
 public enum LayerFillSource {
     /// <summary>One colour per channel, from <see cref="LayerAsset.Values" />.</summary>
@@ -760,6 +772,14 @@ public sealed record TextureSetAsset {
 
     /// <summary>The maps this set produces, in the order a bake writes them.</summary>
     public List<ChannelAsset> Channels { get; init; } = [];
+
+    /// <summary>How a <c>height</c> channel becomes the set's <c>normal</c> output, which it does whenever it has one.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Height reaches shading only through the normal.</b> A set with a height channel writes a
+    ///     <c>normal</c> output whether or not it declares a normal channel: the height's slope, combined over the
+    ///     normal channel when there is one. Without that, painted height changed the files and never the surface.
+    /// </remarks>
+    public LayerHeightNormal HeightNormal { get; init; } = LayerHeightNormal.Smooth;
 
     /// <summary>The layers, <b>bottom first</b>.</summary>
     /// <remarks>

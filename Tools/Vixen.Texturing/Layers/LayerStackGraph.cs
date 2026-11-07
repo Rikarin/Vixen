@@ -178,6 +178,24 @@ public static class LayerStackGraph {
     /// </remarks>
     public const int MaxGroupDepth = 16;
 
+    /// <summary>The channel a set's height is painted in, which also writes its normal.</summary>
+    public const string HeightUsage = "height";
+
+    /// <summary>The usage of the normal output a height writes, and of the channel it is combined over.</summary>
+    public const string NormalUsage = "normal";
+
+    /// <summary>How far a whole height stands, as a share of the atlas's side: a height of 1 is a sixty-fourth.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The slope <c>Height to Normal</c> measures is per unit of UV, so this is what turns a painted 0 to 1
+    ///     into a surface.</b> At 1 a soft brush's rise over a few dozen texels is a near-vertical wall; at a
+    ///     sixty-fourth, half a height over a sixty-fourth of the atlas leans the normal by about 27°, which reads as
+    ///     a bump and not as a cliff. A per-set height scale is the texture set settings' work.
+    /// </remarks>
+    public const float ReliefIntensity = 1f / 64f;
+
+    /// <summary>How far <see cref="LayerHeightNormal.Smooth" /> blurs the height, in texels at the base resolution.</summary>
+    public const float SmoothRadius = 1f;
+
     /// <summary>The stack of one texture set, as a graph.</summary>
     /// <param name="stack">The document.</param>
     /// <param name="set">Which of its sets.</param>
@@ -446,11 +464,20 @@ public static class LayerStackGraph {
 
             Duplicates();
 
+            Dictionary<string, PortRef> ends = new(StringComparer.Ordinal);
+
             for (var index = 0; index < set.Channels.Count; index++) {
                 row = index;
                 column = 0f;
 
-                Channel(set.Channels[index]);
+                ends[set.Channels[index].Usage] = Channel(set.Channels[index]);
+            }
+
+            if (Relieved) {
+                row = set.Channels.Count;
+                column = 0f;
+
+                Relief(ends[HeightUsage], ends.TryGetValue(NormalUsage, out var normal) ? normal : null);
             }
 
             Anchors();
@@ -504,7 +531,8 @@ public static class LayerStackGraph {
         }
 
         /// <summary>One channel's chain: a base colour, every layer over it, and an output.</summary>
-        void Channel(ChannelAsset channel) {
+        /// <returns>The chain's end, which a normal channel under a height hands to <see cref="Relief" /> instead.</returns>
+        PortRef Channel(ChannelAsset channel) {
             usage = channel.Usage;
 
             var start = Add("Source/Uniform");
@@ -515,12 +543,81 @@ public static class LayerStackGraph {
 
             cursor = Stack(set.Layers, channel, cursor, 0);
 
+            if (Relieved && channel.Usage == NormalUsage) {
+                return cursor;
+            }
+
             var output = Add("Output/Output");
 
             output.SetText("Usage", channel.Usage);
             graph.Connect(cursor, new(output.Id, "Input"));
 
             notes.Add(new(output.Id, $"Channel '{channel.Usage}' of texture set '{set.Name}'."));
+
+            return cursor;
+        }
+
+        /// <summary>Whether the set's height reaches its normal, which it does for a picture and not for coverage.</summary>
+        bool Relieved => !Weighing && set.Channels.Exists(static channel => channel.Usage == HeightUsage);
+
+        /// <summary>The set's <c>normal</c> output: the height's slope, over the normal channel when there is one.</summary>
+        /// <param name="height">The end of the height channel's chain.</param>
+        /// <param name="normal">The end of the normal channel's chain, or null for a set with none.</param>
+        /// <remarks>
+        ///     <para>
+        ///         ⚠ <b>Grey first, because <c>Height to Normal</c> refuses colour</b>, and a channel's chain is four
+        ///         lanes however grey its paint is. A painted height is the same in each lane, so the weights do not
+        ///         matter for paint and give a plain luminance for anything else.
+        ///     </para>
+        ///     <para>
+        ///         ⚠ <b>Combined by reorientation and not replaced</b>, so a normal channel filled with a baked normal
+        ///         keeps its detail and the paint's bumps lean with it. Whether a bake reaches the normal channel by
+        ///         itself is a separate question this does not answer.
+        ///     </para>
+        /// </remarks>
+        void Relief(PortRef height, PortRef? normal) {
+            usage = NormalUsage;
+
+            var grey = Add("Colour/Grayscale");
+
+            graph.Connect(height, new(grey.Id, "Input"));
+
+            PortRef cursor = new(grey.Id, "Out");
+
+            if (set.HeightNormal == LayerHeightNormal.Smooth) {
+                var blur = Add("Filters/Blur");
+
+                blur.SetValue("Radius", SmoothRadius);
+                graph.Connect(cursor, new(blur.Id, "Input"));
+                cursor = new(blur.Id, "Out");
+            }
+
+            var slope = Add("Surface/Height to Normal");
+
+            slope.SetValue("Intensity", ReliefIntensity);
+            graph.Connect(cursor, new(slope.Id, "Height"));
+            cursor = new(slope.Id, "Out");
+
+            if (normal is { } beneath) {
+                var combine = Add("Surface/Normal Combine");
+
+                graph.Connect(beneath, new(combine.Id, "Base"));
+                graph.Connect(cursor, new(combine.Id, "Detail"));
+                cursor = new(combine.Id, "Out");
+            }
+
+            var output = Add("Output/Output");
+
+            output.SetText("Usage", NormalUsage);
+            graph.Connect(cursor, new(output.Id, "Input"));
+
+            notes.Add(
+                new(
+                    output.Id,
+                    $"Normal of texture set '{set.Name}': its height's slope ({set.HeightNormal})"
+                    + (normal is null ? "." : ", combined over its normal channel.")
+                )
+            );
         }
 
         /// <summary>Every layer of one list composited over a cursor, bottom first.</summary>

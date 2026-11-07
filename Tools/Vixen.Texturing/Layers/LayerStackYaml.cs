@@ -124,6 +124,10 @@ public static class LayerStackYaml {
 
         mapping.Set("channels", channels);
 
+        if (set.HeightNormal != LayerHeightNormal.Smooth) {
+            mapping.Set("heightNormal", Text(set.HeightNormal.ToString()));
+        }
+
         YamlSequence layers = new();
 
         foreach (var layer in set.Layers) {
@@ -474,6 +478,7 @@ public static class LayerStackYaml {
             Name = String(mapping, "name", path),
             Mesh = String(mapping, "mesh", path),
             Channels = channels,
+            HeightNormal = Choice(mapping, "heightNormal", LayerHeightNormal.Smooth, path),
             Layers = layers
         };
     }

@@ -63,7 +63,8 @@ public class LayerStackExplodeTests {
             + "insertion or a reorder to be visible; the stack in LayerStackDifferential has shrunk"
         );
 
-        Assert.Equal(3, direct.Plan.Outputs.Length);
+        // Three channels, and the normal the height channel writes.
+        Assert.Equal(4, direct.Plan.Outputs.Length);
     }
 
     /// <summary>⚠ The differential's mask reaches the compiler rather than folding into an opacity.</summary>

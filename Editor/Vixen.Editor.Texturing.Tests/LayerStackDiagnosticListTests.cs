@@ -72,7 +72,14 @@ public class LayerStackDiagnosticListTests {
     [Fact]
     public void A_channels_own_two_nodes_belong_to_no_layer() {
         var compilation = Compiled("only");
-        var channels = LayerStackDocument.Starter("Hull").Sets[0].Channels.Count;
+        var set = LayerStackDocument.Starter("Hull").Sets[0];
+        var channels = set.Channels.Count;
+
+        // ⚠ A height channel adds the set's own relief stage: grey, a blur when smooth, the slope, a combine over a
+        // normal channel, and an Output, less the Output that normal channel no longer has. None is a layer's.
+        var relief = set.Channels.Exists(static channel => channel.Usage == LayerStackGraph.HeightUsage)
+            ? set.HeightNormal == LayerHeightNormal.Smooth ? 4 : 3
+            : 0;
         var nodes = 0;
 
         foreach (var node in compilation.Graph.Nodes) {
@@ -88,7 +95,7 @@ public class LayerStackDiagnosticListTests {
         }
 
         Assert.True(channels > 1, "One channel, so the per-channel arithmetic below proves nothing.");
-        Assert.Equal(channels * 2, nodes - compilation.Layers.Count);
+        Assert.Equal((channels * 2) + relief, nodes - compilation.Layers.Count);
     }
 
     /// <summary>
