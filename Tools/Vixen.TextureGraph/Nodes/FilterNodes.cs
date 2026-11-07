@@ -275,13 +275,14 @@ sealed partial class LevelsNode : TextureNode {
 
     /// <summary>How much ordered noise to add, in units of one 8-bit step.</summary>
     /// <remarks>
-    ///     ⚠ <b>One by default, where the kernel's own default is zero.</b> A levels curve that lifts
-    ///     a narrow range fills an 8-bit output with visible bands and a bake is a file, so the
-    ///     banding is permanent; one step costs nothing and is invisible. The kernel defaults to zero
-    ///     because a kernel is also what a hand-built plan calls, and this is the authoring default.
+    ///     ⚠ <b>Zero by default, and it was one.</b> That was written for a graph ending in an 8-bit
+    ///     file, and a graph computes in 16 or 32-bit float. Noise of one step between neighbouring
+    ///     texels is a slope, so a default Levels over flat grey reached <c>Surface/Height to
+    ///     Normal</c> as a surface tilted by up to 51° at 1024, and doubled at 2048. Dithering
+    ///     belongs where the eight bits are, which is the encode.
     /// </remarks>
     [Input(SoftMinimum = 0f)]
-    public Scalar Dither = 1f;
+    public Scalar Dither = 0f;
 
     /// <summary>The remapped image.</summary>
     [Output(Name = "Out")]

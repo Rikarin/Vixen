@@ -63,7 +63,7 @@ public class TextureAnalysisKernelTests {
             .Where(member => member.Set == DescriptorSetSlot.PerMaterial)
             .Select(member => Unqualified(member.Name, data.ShaderName))
             // `seed` is the one member the evaluator fills itself, from `TexturePlan.SeedFor`.
-            .Where(name => !string.Equals(name, "seed", StringComparison.Ordinal))
+            .Where(name => !TexturePlan.Supplies(name))
             .OrderBy(name => name, StringComparer.Ordinal)
             .ToArray();
 

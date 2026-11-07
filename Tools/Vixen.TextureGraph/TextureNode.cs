@@ -7,6 +7,19 @@ using Vixen.NodeGraph;
 
 namespace Vixen.TextureGraph;
 
+/// <summary>Says that a node cannot tile, and why.</summary>
+/// <param name="reason">The sentence an author would need.</param>
+/// <remarks>
+///     <c>TextureTilingConformanceDeviceTests</c> takes every registered node through a seam check
+///     and reads this: a node without it must tile, and a node with it must not, so a mark cannot
+///     outlive the reason it gives.
+/// </remarks>
+[AttributeUsage(AttributeTargets.Class, Inherited = false)]
+sealed class DoesNotTileAttribute(string reason) : Attribute {
+    /// <summary>Why it cannot.</summary>
+    public string Reason { get; } = reason;
+}
+
 /// <summary>How many channels one image edge carries: doc 48 § Part 4's <em>format</em>.</summary>
 /// <remarks>
 ///     <para>
@@ -179,6 +192,22 @@ sealed class TextureEmitter {
             port,
             0,
             () => compiler.Read(node, port, binding, Resolved, Level, strict: false)
+        );
+
+    /// <summary>The image arriving at one input, promoted to a stated shape rather than the node's own.</summary>
+    /// <param name="port">The port's name.</param>
+    /// <param name="channels">What it has to be.</param>
+    /// <returns>Its index in the plan's image table, or −1 when nothing usable arrives.</returns>
+    /// <remarks>
+    ///     For a node whose kernel reads an input the same way whatever else is wired. Without this a
+    ///     grey input is <c>(r, 0, 0, 1)</c> beside another grey and <c>(r, r, r, 1)</c> beside a colour.
+    /// </remarks>
+    public int Read(string port, TextureChannels channels) =>
+        compiler.Emission.Call(
+            TextureEmission.Kind.Read,
+            port,
+            (int)channels,
+            () => compiler.Read(node, port, binding, channels, Level, strict: false)
         );
 
     /// <summary>The image arriving at one input, which has to be a single channel.</summary>

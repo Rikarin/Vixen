@@ -7,7 +7,6 @@ nodes:
     y: 0
     values:
       Scale: [6]
-      Tiling: [1]
     texts: { Basis: Worley }
   - id: 2
     type: Colour/Invert
@@ -30,7 +29,6 @@ nodes:
     values:
       Scale: [20]
       Octaves: [2]
-      Tiling: [1]
     texts: { Basis: Worley }
   - id: 7
     type: Colour/Grayscale

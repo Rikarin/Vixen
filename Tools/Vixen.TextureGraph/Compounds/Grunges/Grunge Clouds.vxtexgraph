@@ -9,7 +9,6 @@ nodes:
       Scale: [4]
       Octaves: [6]
       Lacunarity: [2.1]
-      Tiling: [1]
     texts:
       Basis: Gradient
       '=Gain': 0.3f + roll * 0.35f

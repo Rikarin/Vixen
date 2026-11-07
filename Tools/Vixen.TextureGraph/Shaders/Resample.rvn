@@ -3,6 +3,8 @@
 
 package Vixen.TextureGraph.Shaders
 
+import Vixen.Shaders.Core
+
 // Doc 48 § 4.3's `Resample`: the same picture at the resolution the plan asked for.
 //
 // **The target's size is the scale**, so the node has no scale parameter — an op writes an image and
@@ -27,6 +29,13 @@ shader Resample {
     /// 0 point · 1 bilinear · 2 box.
     var filter: int = 2
 
+    /// Non-zero when a read past the left or right edge comes back on the other side. The plan's, as
+    /// `seed` is: see `Math.Address`.
+    var wrapX: int = 0
+
+    /// The same for the top and bottom edges.
+    var wrapY: int = 0
+
     [Format("rgba16f")] var target: RWTexture2D<float4>
 
     /// The most sub-samples per axis a box may take, whatever the ratio is.
@@ -39,7 +48,7 @@ shader Resample {
     func Fetch(x: int, y: int): float4 {
         val extent = source.GetDimensions(0)
 
-        return source.Load(int3(clamp(x, 0, extent.x - 1), clamp(y, 0, extent.y - 1), 0))
+        return source.Load(int3(Math.Address(x, extent.x, wrapX), Math.Address(y, extent.y, wrapY), 0))
     }
 
     func Bilinear(px: float, py: float): float4 {

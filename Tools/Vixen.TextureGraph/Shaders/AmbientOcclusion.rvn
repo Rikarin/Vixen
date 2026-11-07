@@ -3,6 +3,8 @@
 
 package Vixen.TextureGraph.Shaders
 
+import Vixen.Shaders.Core
+
 // Doc 48 § 4.6's `Ambient Occlusion from Height`: a horizon search over a height field.
 //
 // ⚠ **The cheap one, and a generator should prefer § D12's mesh bake.** That one casts rays against
@@ -42,6 +44,13 @@ shader AmbientOcclusion {
     /// How tall a height of one is, as a fraction of the image's width.
     var height: float = 0.1f
 
+    /// Non-zero when a read past the left or right edge comes back on the other side. The plan's, as
+    /// `seed` is: see `Math.Address`.
+    var wrapX: int = 0
+
+    /// The same for the top and bottom edges.
+    var wrapY: int = 0
+
     [Format("rgba16f")] var target: RWTexture2D<float4>
 
     /// The most directions a plan can ask for.
@@ -57,11 +66,11 @@ shader AmbientOcclusion {
 
     const val TwoPi: float = 6.2831853f
 
-    /// One tap's height, clamped to the source's own edge.
+    /// One tap's height, addressed against the source's own extent.
     func Height(x: float, y: float): float {
         val extent = source.GetDimensions(0)
 
-        return source.Load(int3(clamp(int(x), 0, extent.x - 1), clamp(int(y), 0, extent.y - 1), 0)).x
+        return source.Load(int3(Math.Address(int(floor(x)), extent.x, wrapX), Math.Address(int(floor(y)), extent.y, wrapY), 0)).x
     }
 
     [ComputeShader(8, 8, 1)]

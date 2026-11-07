@@ -91,9 +91,6 @@ public class TextureNodeLibraryTests {
         [("Blur", "stepY")] = "As stepX.",
         [("BlurHq", "stepX")] = "As Blur's: the vertical pass of the separable pair.",
         [("BlurHq", "stepY")] = "As stepX.",
-        [("Levels", "dither")] = "One 8-bit step by default where the kernel defaults to none. A levels curve that "
-            + "lifts a narrow range bands an 8-bit output, and a bake is a file, so the banding is permanent. The "
-            + "kernel defaults to zero because a hand-built plan calls it too; this is the authoring default.",
         [("JumpFlood", "first")] = "Not a default: set per pass by Analysis/Distance's chain, so that the seeding "
             + "dispatch reads the mask and every one after it reads the previous record.",
         [("JumpFlood", "step")] = "Halved per pass by the chain. Its whole point is that it is not constant.",
@@ -868,7 +865,7 @@ public class TextureNodeLibraryTests {
                 var name = match.Groups["name"].Value;
 
                 // The one member the evaluator fills itself, from TexturePlan.SeedFor.
-                if (name is "seed") {
+                if (TexturePlan.Supplies(name)) {
                     continue;
                 }
 
@@ -882,7 +879,7 @@ public class TextureNodeLibraryTests {
             var compiled = data.Parameters
                 .Where(member => member.Set == DescriptorSetSlot.PerMaterial)
                 .Select(member => Unqualified(member.Name, data.ShaderName))
-                .Where(name => !string.Equals(name, "seed", StringComparison.Ordinal))
+                .Where(name => !TexturePlan.Supplies(name))
                 .Order(StringComparer.Ordinal)
                 .ToArray();
 

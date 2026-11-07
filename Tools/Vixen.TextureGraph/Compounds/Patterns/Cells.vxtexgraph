@@ -5,8 +5,7 @@ nodes:
     type: Source/Noise
     x: -1280
     y: 0
-    values:
-      Tiling: [1]
+    values: {}
     texts:
       Basis: Worley
       Metric: $Metric

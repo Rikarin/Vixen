@@ -51,7 +51,6 @@ nodes:
     values:
       Scale: [18]
       Octaves: [3]
-      Tiling: [1]
     texts: { Basis: Value }
   - id: 8
     type: Colour/Levels
@@ -99,7 +98,7 @@ interface:
     kind: Image
     default: []
     summary: What has settled out of the air — on the up-facing surfaces and in the sheltered ones.
-settings: { baseWidth: '1024', baseHeight: '1024', seed: '1' }
+settings: { baseWidth: '1024', baseHeight: '1024', seed: '1', doesNotTile: 'Reads a mesh map, and an atlas has islands at its edges rather than a far side.' }
 parameters:
   - name: facing
     default: '0.5'

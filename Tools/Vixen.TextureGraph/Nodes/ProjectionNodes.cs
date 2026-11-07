@@ -37,6 +37,7 @@ namespace Vixen.TextureGraph.Nodes;
 ///         reached for a map directly would be a second path to the same external table.
 ///     </para>
 /// </remarks>
+[DoesNotTile("Its picture is a projection through mesh positions, so its edges are wherever the atlas put them.")]
 [Node(
     "Space/Triplanar",
     Preview = true,

@@ -152,6 +152,7 @@ static class TextureMeshMaps {
 ///         every shipped one does exactly that.
 ///     </para>
 /// </remarks>
+[DoesNotTile("A mesh map is an atlas, and an atlas has islands at its edges rather than a far side.")]
 [Node(
     "Source/Mesh Map",
     Preview = true,

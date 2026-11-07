@@ -3,6 +3,8 @@
 
 package Vixen.TextureGraph.Shaders
 
+import Vixen.Shaders.Core
+
 // Doc 48 § 4.4's `Slope Blur` — **the one everybody gets subtly wrong**.
 //
 // ## ⚠ It is iterative, and a single pass is a different node
@@ -81,17 +83,24 @@ shader SlopeBlur {
     /// 0 blend · 1 min · 2 max.
     var mode: int = 0
 
+    /// Non-zero when a read past the left or right edge comes back on the other side. The plan's, as
+    /// `seed` is: see `Math.Address`.
+    var wrapX: int = 0
+
+    /// The same for the top and bottom edges.
+    var wrapY: int = 0
+
     [Format("rgba16f")] var target: RWTexture2D<float4>
 
     /// The most steps a plan can ask for. A ceiling rather than a runtime bound — `Blur`'s reason:
     /// a sample count arriving as a NaN is a loop no invocation leaves.
     const val MaxSamples: int = 32
 
-    /// One texel of the source, clamped to the **source's** edge — never the target's.
+    /// One texel of the source, addressed against the **source's** extent — never the target's.
     func Tap(x: int, y: int): float4 {
         val size = source.GetDimensions(0)
 
-        return source.Load(int3(clamp(x, 0, size.x - 1), clamp(y, 0, size.y - 1), 0))
+        return source.Load(int3(Math.Address(x, size.x, wrapX), Math.Address(y, size.y, wrapY), 0))
     }
 
     /// The source at a position in **target texels**, bilinearly.
@@ -112,11 +121,11 @@ shader SlopeBlur {
         return lerp(top, bottom, float4(ty, ty, ty, ty))
     }
 
-    /// One texel of the slope field, clamped to its own edge.
+    /// One texel of the slope field, addressed against its own extent.
     func Field(x: int, y: int): float {
         val extent = slope.GetDimensions(0)
 
-        return slope.Load(int3(clamp(x, 0, extent.x - 1), clamp(y, 0, extent.y - 1), 0)).x
+        return slope.Load(int3(Math.Address(x, extent.x, wrapX), Math.Address(y, extent.y, wrapY), 0)).x
     }
 
     /// The slope field's height at a position in **target texels**, bilinearly.

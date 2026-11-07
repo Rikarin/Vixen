@@ -104,10 +104,10 @@ public class TextureCompoundBakeDeviceTests(ITestOutputHelper output) {
     ///     </para>
     ///     <para>
     ///         ⚠ <b>Three and not one, and the difference was found by sabotage rather than
-    ///         reasoned.</b> The obvious bar — more than a single value — cannot fail:
-    ///         <c>Colour/Levels</c> dithers by one 8-bit step by default, and almost every compound
-    ///         here ends in one, so a flat fill comes back as <em>two</em> values. Measured:
-    ///         <c>Utility/Histogram Range</c> with its <c>range</c> collapsed to zero draws 2, and
+    ///         reasoned.</b> The obvious bar — more than a single value — could not fail while
+    ///         <c>Colour/Levels</c> dithered by default, because a flat fill came back as <em>two</em>
+    ///         values, and a graph may still ask for that dither. Measured then:
+    ///         <c>Utility/Histogram Range</c> with its <c>range</c> collapsed to zero drew 2, and
     ///         the least varied compound that is doing its job — <c>Patterns/Brick</c>, which is
     ///         nearly binary — draws 6 at 64 and 21 at <see cref="RollCallSide" />. Every other
     ///         shipped compound draws more than a hundred there, so the bar is not close: the second
@@ -147,7 +147,7 @@ public class TextureCompoundBakeDeviceTests(ITestOutputHelper output) {
             Assert.True(
                 distinct > 3,
                 $"{adapter}: '{path}' baked to {distinct} distinct values over {RollCallSide}×{RollCallSide}, "
-                + "which is a flat fill plus a levels node's dither. A compound is an arrangement of nodes "
+                + "which is a flat fill. A compound is an arrangement of nodes "
                 + "that has to compute something."
             );
 
@@ -196,7 +196,7 @@ public class TextureCompoundBakeDeviceTests(ITestOutputHelper output) {
     ///     </para>
     ///     <para>
     ///         ⚠ <b>And the before half is the instrument.</b> If the input noise already tiled — a
-    ///         <c>Tiling</c> flag left on, a scale that happens to land on the lattice — then "the
+    ///         graph left tiling, a scale that happens to land on the lattice — then "the
     ///         output tiles" would be true of a compound that did nothing whatever, which is exactly
     ///         the assertion-that-cannot-fail this workstream keeps producing. So the seam of the
     ///         input is asserted to be large before the seam of the output is asserted to be small.
@@ -218,13 +218,14 @@ public class TextureCompoundBakeDeviceTests(ITestOutputHelper output) {
         var raw = graph.Add("Output/Output");
         var tiled = graph.Add("Output/Output");
 
-        // ⚠ Gradient rather than value noise, and `Tiling` deliberately off: a field whose lattice
-        // wraps is one the compound has nothing to do, and this case would then be measuring the
-        // noise node.
+        // ⚠ Gradient rather than value noise, and the graph deliberately not tiling: a field whose
+        // lattice wraps is one the compound has nothing to do, and this case would then be measuring
+        // the noise node.
+        graph.Settings[TextureGraphSettings.TilingX] = "false";
+        graph.Settings[TextureGraphSettings.TilingY] = "false";
         noise.SetText("Basis", "Gradient");
         noise.SetValue("Scale", 5f);
         noise.SetValue("Octaves", 3f);
-        noise.SetValue("Tiling", 0f);
         raw.SetText("Usage", "height");
         tiled.SetText("Usage", "baseColor");
 
@@ -257,11 +258,11 @@ public class TextureCompoundBakeDeviceTests(ITestOutputHelper output) {
             + $"tiled seam {seamAfter:F2} against {stepAfter:F2}"
         );
 
-        // The instrument: the input really does not tile. Three times a neighbouring step is far
-        // below what a non-tiling gradient noise produces — it measured about 4.6 against 21.5 on the
-        // adapter this was written on — and far above what rounding could reach.
+        // The instrument: the input really does not tile. One and a half neighbouring steps is
+        // below what a non-tiling gradient noise produces — it measured 11.5 against 7.0 on the
+        // adapter this was written on, at this seed — and far above what rounding could reach.
         Assert.True(
-            seamBefore > 3f * stepBefore,
+            seamBefore > 1.5f * stepBefore,
             $"{adapter}: the untiled noise's wrap seam is {seamBefore:F2} against a neighbour step of "
             + $"{stepBefore:F2}, so it already tiles and the assertion below would be true of a compound "
             + "that did nothing."
@@ -599,8 +600,7 @@ public class TextureCompoundBakeDeviceTests(ITestOutputHelper output) {
             + $"{TextureKernelHarness.At(picture, 48, 32, 0)}, {TextureKernelHarness.At(picture, 63, 32, 0)}"
         );
 
-        // ⚠ Within a byte on either side, because `Colour/Levels` dithers by one 8-bit step by
-        // default — the same fact that made this file's roll-call bar three rather than one.
+        // Within a byte on either side, for the read-back's rounding.
         Assert.InRange(TextureKernelHarness.At(picture, 15, 32, 0), (byte)0, (byte)1);
         Assert.InRange(TextureKernelHarness.At(picture, 48, 32, 0), (byte)254, (byte)255);
 

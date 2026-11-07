@@ -47,6 +47,19 @@ public static class TextureGraphSettings {
     /// <summary>The key the bit depth is stored under: <c>16</c> or <c>32</c>.</summary>
     public const string BitDepth = "bitDepth";
 
+    /// <summary>The key that says whether the graph tiles across: <c>true</c> or <c>false</c>.</summary>
+    public const string TilingX = "tilingX";
+
+    /// <summary>The key that says whether the graph tiles down.</summary>
+    public const string TilingY = "tilingY";
+
+    /// <summary>The key a shipped compound writes why it cannot tile under.</summary>
+    /// <remarks>
+    ///     Read by nothing but <c>TextureTilingConformanceDeviceTests</c>, which holds every compound
+    ///     to tiling unless it says this. <c>[DoesNotTile]</c> is the same statement on a node class.
+    /// </remarks>
+    public const string DoesNotTile = "doesNotTile";
+
     /// <summary>What a graph computes in when it does not say.</summary>
     public const int DefaultBitDepth = 16;
 
@@ -131,6 +144,48 @@ public static class TextureGraphSettings {
                     + $"compiled at {DefaultBitDepth} instead.";
 
                 return DefaultBitDepth;
+        }
+    }
+
+    /// <summary>Reads whether a graph declares that it tiles along one axis.</summary>
+    /// <param name="graph">The graph.</param>
+    /// <param name="key"><see cref="TilingX" /> or <see cref="TilingY" />.</param>
+    /// <param name="problem">What was wrong with what it declared, or null.</param>
+    /// <returns>What it declared, or null when it declared nothing usable.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Null is a decision the compiler makes, not a false.</b> A graph that says nothing
+    ///         tiles, which is what a material is for, unless it reads a mesh map: an atlas has islands
+    ///         at its edges rather than a far side, so that graph clamps. Asking the author to remember
+    ///         either one is how a default Noise came to have its tiling off.
+    ///     </para>
+    ///     <para>
+    ///         A layer stack declares <c>false</c> on both, because every image in one is an atlas
+    ///         whether or not a mesh map appears in it.
+    ///     </para>
+    /// </remarks>
+    public static bool? TilingOf(NodeGraphModel graph, string key, out string? problem) {
+        ArgumentNullException.ThrowIfNull(graph);
+
+        problem = null;
+
+        var text = graph.SettingOf(key);
+
+        switch (text) {
+            case "":
+                return null;
+
+            case "true":
+                return true;
+
+            case "false":
+                return false;
+
+            default:
+                problem = $"This graph declares {key} as '{text}', which is neither true nor false. It was "
+                    + "compiled as though it said nothing.";
+
+                return null;
         }
     }
 

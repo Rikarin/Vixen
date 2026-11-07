@@ -3,6 +3,8 @@
 
 package Vixen.TextureGraph.Shaders
 
+import Vixen.Shaders.Core
+
 // An imported image, resampled to the resolution of the op that writes it, and decoded on the way in.
 // Doc 48 § 4.1's second source, and the plan's only absolute size (§ D8: "only a Bitmap input is
 // absolute").
@@ -54,6 +56,13 @@ shader Bitmap {
     /// 0 nearest · 1 bilinear.
     var filter: int = 1
 
+    /// Non-zero when a read past the left or right edge comes back on the other side. The plan's, as
+    /// `seed` is: see `Math.Address`.
+    var wrapX: int = 0
+
+    /// The same for the top and bottom edges.
+    var wrapY: int = 0
+
     [Format("rgba16f")] var target: RWTexture2D<float4>
 
     /// One channel of the sRGB EOTF, exactly as IEC 61966-2-1 writes it.
@@ -68,10 +77,10 @@ shader Bitmap {
         return pow((value + 0.055f) / 1.055f, 2.4f)
     }
 
-    /// One texel of the source, clamped to its edge and already in linear light.
+    /// One texel of the source, addressed against its extent and already in linear light.
     func Tap(x: int, y: int): float4 {
         val size = source.GetDimensions(0)
-        val texel = source.Load(int3(clamp(x, 0, size.x - 1), clamp(y, 0, size.y - 1), 0))
+        val texel = source.Load(int3(Math.Address(x, size.x, wrapX), Math.Address(y, size.y, wrapY), 0))
 
         if (srgb == 0) {
             return texel

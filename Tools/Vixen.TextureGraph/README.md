@@ -342,6 +342,20 @@ output texel's centre. `Rescale` derives the filter from the two level offsets
 ([#865](https://github.com/Rikarin/Vixen/issues/865)); the setting's default is `Auto` rather than a
 filter name, because no one name is right in both directions.
 
+**⚠ A read past the edge is a mode, and the plan holds it.** `TexturePlan.WrapX` and `WrapY` are
+handed to every kernel that declares `wrapX` and `wrapY` the way `seed` is, so no node has to remember
+them and a change compiles no kernel; `Math.Address` is the one place that wraps or clamps. A graph
+says `tilingX` and `tilingY` in its settings. Saying nothing tiles, unless it reads a mesh map, because
+an atlas has islands at its edges rather than a far side; a layer stack declares both false.
+`Source/Noise` had a `Tiling` port and it is gone: the plan says, per axis, so a new Noise cannot be
+left with it off. ⚠ `Blur.rvn` argued for a clamp on the grounds that tileability belongs to the
+generators, and every filter inherited that: the clamp is what lost it, and all eight grunges with it.
+`TextureTilingConformanceDeviceTests` takes every registered node and every shipped compound through a
+seam and, where it has an image input, through rolling that input. One that cannot tile says why:
+`[DoesNotTile]` on a node, `doesNotTile` in a compound's settings, and a mark on something that tiles
+is as red as a seam on something unmarked. ⚠ A wrapping neighbour read gives up partial re-evaluation,
+because `Grown` clips a rectangle to the near side of the image.
+
 **⚠ `Auto Levels` is more than the two dispatches § 4.2 names.** It is the first op whose output
 depends on *every texel of its input*, so it is one `MinMaxReduce` dispatch per level down to a 1×1
 image and then the map — three at 64², five at 4K.
@@ -559,19 +573,18 @@ a size off the image's level and the plan's base resolution; nothing allocates a
 `TextureUploads.SizeOf` is what remembers the real one, and a device test asserts the two disagree so
 that the trap is written down rather than discovered.
 
-**`Text` is built and lives here; `Svg Path` is refused, and the measurement that refused it was
-wrong.**
+**Neither `Text` nor `Svg Path` is built, and the measurement that refused the second was wrong.**
 
-`TextureText.Rasterize` shapes a string with `TextShaper`, reads each glyph through
-`FontFace.GetOutline` and fills it with `GlyphRasterizer` — the **`Outlines` path, not
-`GlyphAtlas`**, because an atlas caches small rasterisations behind a distance field so a *label*
-scales smoothly, while a texture graph fills one outline once at whatever size a 4K bake asks for.
-The result goes through `AddCoverage`, and `TextureTextDeviceTests` closes the whole path on an
-adapter in eight bits, texel for texel.
+⚠ **This section used to say `Text` was built and describe a `TextureText.Rasterize`, and nothing by
+that name is in the tree.** What exists is the door, `AddCoverage`. What `Text` would be: shape a
+string with `TextShaper`, read each glyph through `FontFace.GetOutline` and fill it with
+`GlyphRasterizer` — the **`Outlines` path, not `GlyphAtlas`**, because an atlas caches small
+rasterisations behind a distance field so a *label* scales smoothly, while a texture graph fills one
+outline once at whatever size a 4K bake asks for.
 
-⚠ **It takes a `FontFace` and never a path**, and as of 2026-09-09 that is the decided shape rather
-than an open question: the face is **resolved by the host at fill time**, the way `Source/Bitmap`'s
-asset is, and not baked into the plan at compile time. Doc 48 § 4.1 carries the whole argument. The
+⚠ **It would take a `FontFace` and never a path**, and as of 2026-09-09 that is the decided shape
+rather than an open question: the face is **resolved by the host at fill time**, the way
+`Source/Bitmap`'s asset is, and not baked into the plan at compile time. Doc 48 § 4.1 carries the whole argument. The
 measurement that settles it is one neither #687 nor this file had — **a table is 256×1 and a line of
 text is the picture**: `TextureGraphPreview.Evaluate` compiles at the document's base width on every
 edit, so a compile-time bake would rasterise a full-size glyph run per keystroke.

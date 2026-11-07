@@ -21,7 +21,7 @@ namespace Vixen.TextureGraph.Nodes;
 ///         <b>It reads <see cref="Node.Binding" /> rather than asking the emitter</b>, because
 ///         <c>NodeGraphCompiler</c> assigns the binding to the instance before it visits it and
 ///         <see cref="NodeBinding.IsConnected" /> is exactly the question. Calling
-///         <see cref="TextureEmitter.Read" /> on an unwired port is not an alternative: it reports
+///         <see cref="TextureEmitter.Read(string)" /> on an unwired port is not an alternative: it reports
 ///         <c>TG0002</c> against the port and returns −1, which is right for a port the node needs
 ///         and wrong for one it is willing to do without.
 ///     </para>

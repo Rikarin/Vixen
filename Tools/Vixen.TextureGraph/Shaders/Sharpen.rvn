@@ -3,6 +3,8 @@
 
 package Vixen.TextureGraph.Shaders
 
+import Vixen.Shaders.Core
+
 // Doc 48 § 4.4's `Sharpen`, as an **unsharp mask**: the image plus a multiple of what a blur of it
 // throws away.
 //
@@ -43,17 +45,24 @@ shader Sharpen {
     /// The half-width of the box that is subtracted, in texels of the image being written.
     var radius: float = 1f
 
+    /// Non-zero when a read past the left or right edge comes back on the other side. The plan's, as
+    /// `seed` is: see `Math.Address`.
+    var wrapX: int = 0
+
+    /// The same for the top and bottom edges.
+    var wrapY: int = 0
+
     [Format("rgba16f")] var target: RWTexture2D<float4>
 
     /// The widest box this kernel will build. The cost is the square of it, and a sharpen wants a
     /// small one: past a few texels an unsharp mask is a local-contrast filter and not a sharpen.
     const val MaxRadius: int = 8
 
-    /// One texel, clamped to the source's edge — never the target's, and never wrapped.
+    /// One texel, addressed against the source's extent — never the target's.
     func Tap(x: int, y: int): float4 {
         val size = source.GetDimensions(0)
 
-        return source.Load(int3(clamp(x, 0, size.x - 1), clamp(y, 0, size.y - 1), 0))
+        return source.Load(int3(Math.Address(x, size.x, wrapX), Math.Address(y, size.y, wrapY), 0))
     }
 
     /// The weight of one axis offset under a fractional radius — 1 inside, the fraction on the rim.

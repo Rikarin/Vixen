@@ -139,6 +139,10 @@ public class TextureGraphDeviceTests(ITestOutputHelper output) {
             BaseWidth = Side,
             BaseHeight = Side,
             Seed = 41823,
+
+            // What a graph that says nothing compiles to.
+            WrapX = true,
+            WrapY = true,
             Images = [
                 new(TextureFormat.R16Float),
                 new(TextureFormat.R16Float),
@@ -156,8 +160,7 @@ public class TextureGraphDeviceTests(ITestOutputHelper output) {
                         new("scale", 6f),
                         new("octaves", 3f),
                         new("lacunarity", 2f),
-                        new("gain", 0.5f),
-                        new("tiling", 0f)
+                        new("gain", 0.5f)
                     ]
                 },
                 new() {
@@ -193,7 +196,7 @@ public class TextureGraphDeviceTests(ITestOutputHelper output) {
                         new("gamma", 0.7f),
                         new("outputBlack", 0f),
                         new("outputWhite", 1f),
-                        new("dither", 1f)
+                        new("dither", 0f)
                     ]
                 }
             ],

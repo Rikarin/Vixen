@@ -83,7 +83,12 @@ sealed partial class NoiseNode : TextureNode {
     public string Metric = "Euclidean";
 
     /// <summary>How many cells across the image at the first octave.</summary>
-    [Input(Minimum = 0f)]
+    /// <remarks>
+    ///     ⚠ Whole cells along an axis that tiles, because a lattice can only wrap at a whole number:
+    ///     5.5 draws 6, so the slider moves in steps there. The summary is what says so, since every
+    ///     fractional scale in a shipped compound would otherwise be a warning on every compile.
+    /// </remarks>
+    [Input(Minimum = 0f, Summary = "Cells across the image. Rounded to a whole number along an axis that tiles.")]
     public Scalar Scale = 8f;
 
     /// <summary>How many are summed. Ignored by <c>Worley</c>.</summary>
@@ -97,10 +102,6 @@ sealed partial class NoiseNode : TextureNode {
     /// <summary>The amplitude multiplier between octaves.</summary>
     [Input(Minimum = 0f, SoftMaximum = 1f)]
     public Scalar Gain = 0.5f;
-
-    /// <summary>Whether the lattice wraps, so the picture tiles.</summary>
-    [Input]
-    public Bool Tiling = false;
 
     /// <summary>The field.</summary>
     [Output(Name = "Out")]
@@ -125,7 +126,6 @@ sealed partial class NoiseNode : TextureNode {
                 emitter.Integer(nameof(Octaves)),
                 emitter.Number(nameof(Lacunarity)),
                 emitter.Number(nameof(Gain)),
-                emitter.Flag(nameof(Tiling)),
                 TextureSettings.Enum(emitter, nameof(Metric), TextureCellMetric.Euclidean)
             )
         );
@@ -291,8 +291,8 @@ enum TextureColourSpace {
 ///         and must not read an asset database, so what the compiler carries is the reference —
 ///         <c>TextureGraphCompiler.Externals</c> — and a host that has a database resolves it and
 ///         uploads it. <a href="https://github.com/Rikarin/Vixen/issues/732">#732</a> is the gap this
-///         closes; ⚠ what it does <em>not</em> close is that no host in this tree walks that list for
-///         an asset yet, so a graph containing a Bitmap compiles and does not bake.
+///         closes. <c>TextureProjectImages</c> is what walks that list here, for the CLI and the
+///         editor, and a host outside this tree walks it the same way.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>No minification filter, which is the kernel's property and worth knowing before
@@ -399,6 +399,7 @@ sealed partial class BitmapNode : TextureNode {
 ///         <c>(x + 0.5) / width</c>, which is the closed form <c>Gradient.rvn</c>'s remarks name.
 ///     </para>
 /// </remarks>
+[DoesNotTile("A sweep ends on a different value from the one it starts on, which is what a sweep is.")]
 [Node("Source/Gradient", Preview = true, Summary = "A linear, radial, angular or reflected sweep along a ramp.")]
 sealed partial class GradientNode : TextureNode {
     /// <summary>Which sweep: <c>Linear</c>, <c>Radial</c>, <c>Angular</c> or <c>Reflected</c>.</summary>

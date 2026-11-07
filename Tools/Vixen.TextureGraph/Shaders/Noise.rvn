@@ -6,7 +6,7 @@ package Vixen.TextureGraph.Shaders
 import Vixen.Shaders.Core
 
 // Doc 48 § 4.1's noise: one kernel with four bases — value · gradient · worley · white — under
-// octaves, lacunarity, gain, tiling and a seed. Worley also answers with F1, F2 and a cell index,
+// octaves, lacunarity, gain and a seed, wrapping wherever the plan does. Worley also answers with F1, F2 and a cell index,
 // "which is what a splatter wants and what saves a flood fill downstream", and with a **distance
 // metric**, which is what a cell's shape is (#1101).
 //
@@ -33,16 +33,16 @@ import Vixen.Shaders.Core
 // ⚠ **`ComputeColor.ValueNoise` and `ComputeColor.FractalNoise` are still not called**, and that is
 // a choice rather than a leftover: they are very nearly `ValueAt` and `Fractal` and *very nearly* is
 // the problem. Neither takes a period, so neither can tile, which is what this kernel's `tiling`
-// exists for.
+// needs.
 //
 // ⚠ **That decision was taken on 2026-09-08 and the answer is no** (#1077). The blast radius is one
 // node each — `ProceduralNodes.NoiseNode` and `FractalNoiseNode` are the only production callers of
 // `ComputeColor.ValueNoise` and `FractalNoise` in the tree — so the refusal is not about cost. It is
-// that a wrapping lattice is exact only when the scale and the lacunarity are whole numbers of
-// cells, and the paragraph below says this kernel *rounds* them rather than refusing, because a bake
-// is offline and a seam is worse than a rounded frequency. A material sampling per fragment has no
-// such licence, so a period on the library's pair would be a parameter that is silently wrong at
-// every non-integer scale in the one place it would be exposed.
+// that a wrapping lattice needs a whole number of cells, and the paragraph below says this kernel
+// *rounds* to one rather than refusing, because a bake is offline and a seam is worse than a rounded
+// frequency. A material sampling per fragment has no such licence, so a period on the library's pair
+// would be a parameter that is silently wrong at every non-integer scale in the one place it would
+// be exposed.
 //
 // ## The seed
 //
@@ -52,11 +52,10 @@ import Vixen.Shaders.Core
 //
 // ## Tiling, and what it needs of the other parameters
 //
-// ⚠ **A tiling noise is a lattice with an integer period, so tiling is exact only when `scale` is a
-// whole number of cells and `lacunarity` is a whole number too.** With `scale = 5.5` there is no
-// integer period the lattice can wrap at and the seam reappears; the kernel rounds rather than
-// refuses, because a bake is not the place to throw. The node in M4 is where a non-integer scale
-// under tiling is worth a diagnostic.
+// A tiling noise is a lattice with a whole number of cells, so along an axis that wraps every
+// octave's frequency is **rounded** to one, and that rounding is what keeps it tiling at any `scale`
+// and any `lacunarity`: `scale = 5.5` draws 6 cells rather than a seam. An axis that does not wrap
+// keeps the exact frequency, so only a wrapping axis has a `Scale` that moves in steps.
 //
 // ## Resolution
 //
@@ -83,14 +82,18 @@ shader Noise {
     /// How many octaves are summed. Ignored by worley — see `Worley`.
     var octaves: int = 1
 
-    /// The frequency multiplier between octaves. 2 is the usual choice and the only one that tiles.
+    /// The frequency multiplier between octaves. 2 is the usual choice.
     var lacunarity: float = 2f
 
     /// The amplitude multiplier between octaves. 0.5 is the usual choice.
     var gain: float = 0.5f
 
-    /// Non-zero to wrap the lattice, so the image is seamless when repeated.
-    var tiling: int = 0
+    /// Non-zero when the lattice wraps across the image, so the picture is seamless repeated. The
+    /// plan's, as `seed` is: see `Math.Address`.
+    var wrapX: int = 0
+
+    /// The same down the image.
+    var wrapY: int = 0
 
     /// The op's own seed, already mixed. See `TexturePlan.SeedFor`.
     var seed: float = 0f
@@ -120,8 +123,8 @@ shader Noise {
     func Seeded(): uint => uint(int(max(seed, 0f)))
 
     /// One lattice coordinate, wrapped when the noise tiles.
-    func Fold(value: int, period: int): int {
-        if (tiling == 0) {
+    func Fold(value: int, period: int, wrap: int): int {
+        if (wrap == 0) {
             return value
         }
 
@@ -135,51 +138,68 @@ shader Noise {
         return ((value % period) + period) % period
     }
 
-    /// The hash of one cell, under the seed and the tiling period.
+    /// The hash of one cell, under the seed, the octave and the tiling period.
+    ///
+    /// ⚠ **The octave is in the hash, and it was not.** Each octave reads the same integers at a
+    /// higher frequency, so at a lacunarity of two the second octave's top-left quarter was the first
+    /// octave shrunk: they correlated at 1.000, the image held copies of itself toward the corner, and
+    /// the value at `uv = 0` was the same at any octave count. Added to the seed so that the first
+    /// octave, and so a single-octave noise and every Worley, is the picture it always was.
     ///
     /// ⚠ A block body rather than a `=>` broken over two lines. A newline ends a statement in Raven,
     /// so the continuation would have been a second statement and the first would have had no
     /// expression at all — which `RVN1001` does catch here, and does not catch when the continuation
     /// begins with an operator.
-    func CellHash(x: int, y: int, period: int): uint {
-        return Random.Combine(Random.Combine(uint(Fold(x, period)), uint(Fold(y, period))), Seeded())
+    func CellHash(x: int, y: int, octave: int, period: int): uint {
+        val cell = Random.Combine(uint(Fold(x, period, wrapX)), uint(Fold(y, period, wrapY)))
+
+        return Random.Combine(cell, Seeded() + Random.Hash(uint(octave)))
+    }
+
+    /// How many cells one unit of `uv` crosses along an axis: the period where it wraps.
+    func Stride(frequency: float, period: int, wrap: int): float {
+        if (wrap == 0) {
+            return max(scale, 0.00001f) * frequency
+        }
+
+        return float(max(period, 1))
     }
 
     /// Smoothed value noise: a hash per lattice corner, bilinear under a smoothstep.
-    func ValueAt(position: float2, period: int): float {
+    func ValueAt(position: float2, octave: int, period: int): float {
         val cell = floor(position)
         val local = position - cell
         val weights = local * local * (3f - 2f * local)
         val x = int(cell.x)
         val y = int(cell.y)
 
-        val c00 = Random.ToFloat01(CellHash(x, y, period))
-        val c10 = Random.ToFloat01(CellHash(x + 1, y, period))
-        val c01 = Random.ToFloat01(CellHash(x, y + 1, period))
-        val c11 = Random.ToFloat01(CellHash(x + 1, y + 1, period))
+        val c00 = Random.ToFloat01(CellHash(x, y, octave, period))
+        val c10 = Random.ToFloat01(CellHash(x + 1, y, octave, period))
+        val c01 = Random.ToFloat01(CellHash(x, y + 1, octave, period))
+        val c11 = Random.ToFloat01(CellHash(x + 1, y + 1, octave, period))
 
         return lerp(lerp(c00, c10, weights.x), lerp(c01, c11, weights.x), weights.y)
     }
 
     /// One corner's gradient dotted with the offset to it.
-    func GradientDot(x: int, y: int, period: int, delta: float2): float {
-        val angle = Random.ToFloat01(CellHash(x, y, period)) * TwoPi
+    func GradientDot(x: int, y: int, octave: int, period: int, delta: float2): float {
+        val angle = Random.ToFloat01(CellHash(x, y, octave, period)) * TwoPi
 
         return delta.x * cos(angle) + delta.y * sin(angle)
     }
 
     /// Gradient (Perlin) noise, remapped from ±√2/2 onto 0..1.
-    func GradientAt(position: float2, period: int): float {
+    func GradientAt(position: float2, octave: int, period: int): float {
         val cell = floor(position)
         val local = position - cell
         val fade = local * local * local * (local * (local * 6f - 15f) + 10f)
         val x = int(cell.x)
         val y = int(cell.y)
 
-        val g00 = GradientDot(x, y, period, local)
-        val g10 = GradientDot(x + 1, y, period, local - float2(1f, 0f))
-        val g01 = GradientDot(x, y + 1, period, local - float2(0f, 1f))
-        val g11 = GradientDot(x + 1, y + 1, period, local - float2(1f, 1f))
+        val g00 = GradientDot(x, y, octave, period, local)
+        val g10 = GradientDot(x + 1, y, octave, period, local - float2(1f, 0f))
+        val g01 = GradientDot(x, y + 1, octave, period, local - float2(0f, 1f))
+        val g11 = GradientDot(x + 1, y + 1, octave, period, local - float2(1f, 1f))
 
         val under = lerp(g00, g10, fade.x)
         val over = lerp(g01, g11, fade.x)
@@ -188,23 +208,23 @@ shader Noise {
     }
 
     /// One uncorrelated value per cell — value noise without the interpolation.
-    func WhiteAt(position: float2, period: int): float {
+    func WhiteAt(position: float2, octave: int, period: int): float {
         val cell = floor(position)
 
-        return Random.ToFloat01(CellHash(int(cell.x), int(cell.y), period))
+        return Random.ToFloat01(CellHash(int(cell.x), int(cell.y), octave, period))
     }
 
     /// Whichever basis a fractal octave is made of.
-    func Octave(position: float2, period: int): float {
+    func Octave(position: float2, octave: int, period: int): float {
         if (basis == 1) {
-            return GradientAt(position, period)
+            return GradientAt(position, octave, period)
         }
 
         if (basis == 3) {
-            return WhiteAt(position, period)
+            return WhiteAt(position, octave, period)
         }
 
-        return ValueAt(position, period)
+        return ValueAt(position, octave, period)
     }
 
     /// Octaves at multiplying frequency and multiplying amplitude, normalised back to 0..1.
@@ -225,9 +245,9 @@ shader Noise {
             }
 
             val period = int(round(max(scale, 1f) * frequency))
-            val stride = tiling == 0 ? max(scale, 0.00001f) * frequency : float(max(period, 1))
+            val stride = float2(Stride(frequency, period, wrapX), Stride(frequency, period, wrapY))
 
-            total = total + Octave(uv * stride, period) * amplitude
+            total = total + Octave(uv * stride, octave, period) * amplitude
             normalisation = normalisation + amplitude
             frequency = frequency * max(lacunarity, 1f)
             amplitude = amplitude * max(gain, 0f)
@@ -284,8 +304,7 @@ shader Noise {
     /// worley sums two ops with a `Blend`, where the thing being summed is visible.
     func Worley(uv: float2): float3 {
         val period = int(round(max(scale, 1f)))
-        val stride = tiling == 0 ? max(scale, 0.00001f) : float(max(period, 1))
-        val position = uv * stride
+        val position = uv * float2(Stride(1f, period, wrapX), Stride(1f, period, wrapY))
         val origin = floor(position)
 
         var f1 = WorleyFar
@@ -296,7 +315,7 @@ shader Noise {
             for (column in -1 .. 1) {
                 val x = int(origin.x) + column
                 val y = int(origin.y) + row
-                val hash = CellHash(x, y, period)
+                val hash = CellHash(x, y, 0, period)
                 val jitter = float2(Random.ToFloat01(hash), Random.ToFloat01(Random.Hash(hash ^ 0x68BC21EBu)))
                 val point = float2(origin.x + float(column), origin.y + float(row)) + jitter
                 val reach = Reach(point - position)

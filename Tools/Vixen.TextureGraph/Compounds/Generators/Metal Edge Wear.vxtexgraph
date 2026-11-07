@@ -22,7 +22,6 @@ nodes:
     values:
       Scale: [22]
       Octaves: [3]
-      Tiling: [1]
     texts: { Basis: Gradient }
   - id: 4
     type: Colour/Levels
@@ -89,7 +88,7 @@ interface:
     kind: Image
     default: []
     summary: Where the paint has been rubbed off a convex edge and the metal shows through.
-settings: { baseWidth: '1024', baseHeight: '1024', seed: '1' }
+settings: { baseWidth: '1024', baseHeight: '1024', seed: '1', doesNotTile: 'Reads a mesh map, and an atlas has islands at its edges rather than a far side.' }
 parameters:
   - name: amount
     default: '0.5'

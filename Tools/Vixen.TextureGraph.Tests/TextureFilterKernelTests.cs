@@ -190,6 +190,7 @@ public class TextureFilterKernelTests {
         var declared = data.Parameters
             .Where(member => member.Set == DescriptorSetSlot.PerMaterial)
             .Select(member => member.Name.Split('.')[^1])
+            .Where(name => !TexturePlan.Supplies(name))
             .OrderBy(name => name, StringComparer.Ordinal)
             .ToArray();
 

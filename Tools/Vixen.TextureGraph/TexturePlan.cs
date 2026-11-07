@@ -471,6 +471,33 @@ public sealed class TexturePlan {
     /// </remarks>
     public uint Seed { get; init; }
 
+    /// <summary>Whether a kernel's uniform of this name is the plan's to supply rather than the op's to carry.</summary>
+    /// <param name="name">The uniform's name in the <c>.rvn</c>.</param>
+    /// <returns><see langword="true" /> for <c>seed</c>, <c>wrapX</c> and <c>wrapY</c>.</returns>
+    internal static bool Supplies(string name) => name is "seed" or "wrapX" or "wrapY";
+
+    /// <summary>Whether a read past the left or right edge of an image comes back on the other side.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The address of every kernel that reads a neighbour, and it is the plan's because the
+    ///         right answer is a property of what the images are.</b> In a tiling image the texel past
+    ///         the right edge is the left edge, so a clamp there stops the output tiling: a row
+    ///         <c>1 0 1 0</c> through a radius of one is 0.667 at <c>x = 0</c> clamped and 0.333
+    ///         wrapped. In a mesh atlas the far edge is unrelated, and a wrap pulls another island's
+    ///         paint into this one. So neither can replace the other.
+    ///     </para>
+    ///     <para>
+    ///         The evaluator hands it to a kernel declaring <c>wrapX</c> the way it hands one
+    ///         <c>seed</c>, so no node has to remember it and a change compiles no kernel. False is
+    ///         what a plan built by hand gets; <see cref="TextureGraphSettings.TilingOf" /> is what a
+    ///         graph gets.
+    ///     </para>
+    /// </remarks>
+    public bool WrapX { get; init; }
+
+    /// <summary>Whether a read past the top or bottom edge comes back on the other side.</summary>
+    public bool WrapY { get; init; }
+
     /// <summary>The kernels this plan brought with it, by the name its ops give them.</summary>
     /// <remarks>
     ///     <para>
@@ -567,6 +594,8 @@ public sealed class TexturePlan {
             Ops = ops,
             Outputs = Outputs,
             Seed = seed,
+            WrapX = WrapX,
+            WrapY = WrapY,
             Kernels = Kernels
         };
 

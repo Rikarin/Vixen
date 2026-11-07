@@ -3,6 +3,8 @@
 
 package Vixen.TextureGraph.Shaders
 
+import Vixen.Shaders.Core
+
 // One ping-ponged step of the jump flood doc 48 § 4.5's `Distance` is built on, and the reason that
 // node is three kernels rather than one.
 //
@@ -36,6 +38,10 @@ package Vixen.TextureGraph.Shaders
 // measured from the wrong origin, which is shorter than the truth and therefore wins. The result is
 // a distance field that is too small in a band around the border, which reads as a shape slightly
 // the wrong size.
+//
+// **Along an axis that wraps a tap goes round instead, and the same argument makes that exact.** The
+// record is an *offset*, never a coordinate, so the tap on the far side contributes its offset plus
+// the step that reached it, unwrapped: the distance across the seam, which is the toroidal one.
 
 shader JumpFlood {
     /// The mask on the first dispatch, the previous step's record on every one after it.
@@ -61,6 +67,13 @@ shader JumpFlood {
     /// be checked on the CPU, where it can be refused.
     var maxDistance: float = 0.25f
 
+    /// Non-zero when a tap past the left or right edge comes back on the other side. The plan's, as
+    /// `seed` is: see `Math.Address`.
+    var wrapX: int = 0
+
+    /// The same for the top and bottom edges.
+    var wrapY: int = 0
+
     [Format("rgba16f")] var target: RWTexture2D<float4>
 
     /// The offset that means "no seed of this class is within reach".
@@ -74,11 +87,11 @@ shader JumpFlood {
     func Record(x: int, y: int): float4 {
         val extent = source.GetDimensions(0)
 
-        if (x < 0 || y < 0 || x >= extent.x || y >= extent.y) {
+        if ((wrapX == 0 && (x < 0 || x >= extent.x)) || (wrapY == 0 && (y < 0 || y >= extent.y))) {
             return float4(Unset, Unset, Unset, Unset)
         }
 
-        val texel = source.Load(int3(x, y, 0))
+        val texel = source.Load(int3(Math.Address(x, extent.x, wrapX), Math.Address(y, extent.y, wrapY), 0))
 
         if (first == 0) {
             return texel

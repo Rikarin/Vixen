@@ -112,6 +112,14 @@ shader Mix {
     /// widening this way.
     func Lift(colour: float3, over: float4): float4 => float4(colour.x, colour.y, colour.z, over.w)
 
+    /// The largest a quotient may be, so that dividing by the floor below cannot overflow a half.
+    ///
+    /// ⚠ **Divide, colour dodge and colour burn used to stop at white, and a graph computes in float:**
+    /// a height of 4 over 2 came back as 1. A number past one is an ordinary number here, so the only
+    /// ceiling left is the one an `rgba16f` image needs, where an infinity survives every later op.
+    /// A power of two, so that it is stored exactly.
+    const val Far: float = 32768f
+
     /// The mode applied to two texels.
     ///
     /// ⚠ **"alpha left alone" is what this line used to say and it was never true.** Every mode
@@ -128,6 +136,7 @@ shader Mix {
     func Combine(a: float4, b: float4): float4 {
         val one = float4(1f, 1f, 1f, 1f)
         val epsilon = float4(0.0001f, 0.0001f, 0.0001f, 0.0001f)
+        val far = float4(Far, Far, Far, Far)
 
         if (mode == 1) {
             return a * b
@@ -158,11 +167,11 @@ shader Mix {
         }
 
         if (mode == 8) {
-            // The backdrop divided by the layer over it, capped at white. ⚠ The `max` is a floor on
+            // The backdrop divided by the layer over it. ⚠ The `max` is a floor on
             // the *divisor*, not a `saturate` afterwards: a foreground of zero is a division by zero,
             // which is an infinity in one target and a NaN in the other, and a NaN stored into an
             // `rgba16f` intermediate survives every later op unchanged.
-            return min(a / max(b, epsilon), one)
+            return min(a / max(b, epsilon), far)
         }
 
         if (mode == 9) {
@@ -190,11 +199,11 @@ shader Mix {
         }
 
         if (mode == 13) {
-            return min(a / max(one - b, epsilon), one)
+            return min(a / max(one - b, epsilon), far)
         }
 
         if (mode == 14) {
-            return one - min((one - a) / max(b, epsilon), one)
+            return one - min((one - a) / max(b, epsilon), far)
         }
 
         if (mode == 15) {

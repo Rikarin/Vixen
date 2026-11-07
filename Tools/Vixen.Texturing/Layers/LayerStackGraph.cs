@@ -6,6 +6,7 @@ using System.Globalization;
 using System.Numerics;
 using Vixen.Core;
 using Vixen.NodeGraph;
+using Vixen.TextureGraph;
 using Vixen.Texturing.Painting;
 
 namespace Vixen.Texturing.Layers;
@@ -360,8 +361,14 @@ public static class LayerStackGraph {
         /// <summary>Each layer's composite result, per channel, for an anchor to read.</summary>
         readonly Dictionary<(string Channel, string Layer), PortRef> results = [];
 
+        // ⚠ Both false, because every image in a stack is an atlas: the far edge is another island
+        // whether or not a mesh map appears in the graph.
         readonly NodeGraphModel graph = new() {
-            Name = set.Name.Length > 0 ? $"{stack.Name} · {set.Name}" : stack.Name
+            Name = set.Name.Length > 0 ? $"{stack.Name} · {set.Name}" : stack.Name,
+            Settings = {
+                [TextureGraphSettings.TilingX] = "false",
+                [TextureGraphSettings.TilingY] = "false"
+            }
         };
 
         float column;

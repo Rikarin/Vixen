@@ -8,7 +8,6 @@ nodes:
     values:
       Scale: [16]
       Octaves: [3]
-      Tiling: [1]
     texts: { Basis: Value }
   - id: 2
     type: Source/Noise
@@ -16,7 +15,6 @@ nodes:
     y: 300
     values:
       Scale: [2]
-      Tiling: [1]
     texts: { Basis: Gradient }
   - id: 3
     type: Filters/Slope Blur

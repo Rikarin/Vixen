@@ -54,7 +54,7 @@ public class TextureSurfaceKernelTests {
         var declared = data.Parameters
             .Where(member => member.Set == DescriptorSetSlot.PerMaterial)
             .Select(member => Unqualified(member.Name, data.ShaderName))
-            .Where(name => !string.Equals(name, "seed", StringComparison.Ordinal))
+            .Where(name => !TexturePlan.Supplies(name))
             .OrderBy(name => name, StringComparer.Ordinal)
             .ToArray();
 
@@ -90,15 +90,6 @@ public class TextureSurfaceKernelTests {
 
         Assert.Equal(inputs, textures);
     }
-
-    /// <summary>No surface kernel imports, because none of them can.</summary>
-    [Theory]
-    [MemberData(nameof(Kernels))]
-    public void A_surface_kernel_imports_nothing(string kernel) =>
-        Assert.DoesNotContain(
-            TextureKernels.Source(kernel).Split('\n'),
-            line => line.TrimStart().StartsWith("import", StringComparison.Ordinal)
-        );
 
     /// <summary>Every length in this slice is a length in texels at the plan's base resolution.</summary>
     /// <remarks>

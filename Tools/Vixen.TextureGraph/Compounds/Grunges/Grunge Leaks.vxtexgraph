@@ -8,7 +8,6 @@ nodes:
     values:
       Scale: [10]
       Octaves: [3]
-      Tiling: [1]
     texts: { Basis: Gradient }
   - id: 2
     type: Space/Transform 2D
@@ -19,14 +18,13 @@ nodes:
     texts:
       Tiling: Wrap
       Filter: Bilinear
-      '=Scale Y': 0.08f + length * 0.5f
+      '=Scale Y': 1f / float(int(1f / (0.08f + length * 0.5f) + 0.5f))
   - id: 3
     type: Source/Noise
     x: -1280
     y: 300
     values:
       Scale: [4]
-      Tiling: [1]
     texts: { Basis: Value }
   - id: 4
     type: Filters/Slope Blur

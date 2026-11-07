@@ -7,7 +7,6 @@ nodes:
     y: 0
     values:
       Scale: [14]
-      Tiling: [1]
     texts: { Basis: Worley }
   - id: 2
     type: Colour/Levels
@@ -24,7 +23,6 @@ nodes:
     values:
       Scale: [7]
       Octaves: [3]
-      Tiling: [1]
     texts: { Basis: Gradient }
   - id: 4
     type: Filters/Slope Blur

@@ -107,6 +107,10 @@ sealed partial class DirectionalBlurNode : TextureNode {
 ///     from the bug doc 48 § D8 is about. ⚠ And <c>Samples</c> of 1 is a copy at any amount, which is
 ///     a node that looks like it never ran.
 /// </remarks>
+[DoesNotTile(
+    "Its taps run along rays from one centre, so they point opposite ways at the two sides of the image, "
+    + "and a ray field that is continuous across the wrap would have to vanish at the edge."
+)]
 [Node("Filters/Radial Blur", Preview = true, Summary = "A smear along the ray from a centre.")]
 sealed partial class RadialBlurNode : TextureNode {
     /// <summary>What to smear.</summary>

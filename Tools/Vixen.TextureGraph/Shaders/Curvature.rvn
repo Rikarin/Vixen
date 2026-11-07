@@ -3,6 +3,8 @@
 
 package Vixen.TextureGraph.Shaders
 
+import Vixen.Shaders.Core
+
 // Doc 48 § 4.6's `Curvature from Normal`: the divergence of a tangent-space normal field, centred on
 // a half.
 //
@@ -40,15 +42,22 @@ shader Curvature {
     /// What the divergence is multiplied by before it is centred on a half.
     var intensity: float = 0.25f
 
+    /// Non-zero when a read past the left or right edge comes back on the other side. The plan's, as
+    /// `seed` is: see `Math.Address`.
+    var wrapX: int = 0
+
+    /// The same for the top and bottom edges.
+    var wrapY: int = 0
+
     [Format("rgba16f")] var target: RWTexture2D<float4>
 
     /// The furthest the difference may reach, whatever the radius says. `Blur.rvn`'s argument.
     const val MaxRadius: int = 256
 
-    /// One tap's decoded normal, clamped to the source's own edge.
+    /// One tap's decoded normal, addressed against the source's own extent.
     func Decoded(x: int, y: int): float2 {
         val extent = source.GetDimensions(0)
-        val texel = source.Load(int3(clamp(x, 0, extent.x - 1), clamp(y, 0, extent.y - 1), 0))
+        val texel = source.Load(int3(Math.Address(x, extent.x, wrapX), Math.Address(y, extent.y, wrapY), 0))
 
         return float2(texel.x * 2f - 1f, texel.y * 2f - 1f)
     }

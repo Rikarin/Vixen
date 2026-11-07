@@ -198,6 +198,14 @@ refused with *"Two different node types claim the path"*. `Placement/Tile Sample
 
 ⚠ **A name knob repeats the accepted list the inner setting already declares, in a different file, and
 one of the four had already drifted** ([#1095](https://github.com/Rikarin/Vixen/issues/1095)).
+⚠ **A grunge stretches by a whole number of repeats or not at all.** `Space/Transform 2D` under `Wrap`
+keeps a picture tiling only when the scale is one over a whole number and the turn is a quarter, so
+`Grunge Leaks` and `Grunge Fibres` round theirs, and `Grunge Scratches`, whose `angle` is any number,
+smears with `Filters/Directional Blur` instead, because a smear that wraps tiles at every angle. Its
+`Space/Transform 2D` could not, and the seam check could not see that under the picture's own contrast.
+`Grunge Fibres` also lost a `Space/Mirror` over its slope field: a mirrored slope changes sign across
+the line, which a walk reads as a crease at the wrap.
+
 `Utility/Safe Transform` offered `[Wrap, Clamp, Mirror]` where `TextureTiling` declares
 `Clamp, Wrap, Mirror` — the same three in a different order, so the picker disagreed with the
 declaration in the one direction an author cannot see, silently, from the batch that landed the knob.
