@@ -147,11 +147,12 @@ internal static class TextureAnalysis {
     /// <summary>The largest integer a half-float stores exactly, and the ceiling both chains have.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Doc 48 § D5 admits no 32-bit float format, and these are the two nodes in the
-    ///         catalogue that want one.</b> A jump flood's record is an offset in texels and a flood
-    ///         fill's is a pair of texel coordinates; a half is exact on the integers only up to 2048,
-    ///         and past that a coordinate quantises to even texels — which merges the identities of
-    ///         two islands two texels apart and shortens a distance field by up to a texel.
+    ///         ⚠ <b>This said no 32-bit float format exists. One does: <c>bitDepth: 32</c>, and these
+    ///         records follow it, but the ceiling has not moved.</b> A jump flood's record is an offset
+    ///         in texels and a flood fill's is a pair of texel coordinates; a half is exact on the
+    ///         integers only up to 2048, and past that a coordinate quantises to even texels — which
+    ///         merges the identities of two islands two texels apart and shortens a distance field by
+    ///         up to a texel. Lifting it is the jump-flood rework, not a format.
     ///     </para>
     ///     <para>
     ///         <b>So it is refused where the chain is built rather than clamped inside the kernel.</b>

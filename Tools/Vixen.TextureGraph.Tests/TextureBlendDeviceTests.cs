@@ -90,6 +90,53 @@ public class TextureBlendDeviceTests(ITestOutputHelper output) {
             { (int)TextureBlendMode.SignedAdd, 115, 242 }
         };
 
+    /// <summary>A quotient is a number, and a number past one is an ordinary one in a float graph.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Read as floats, because the eight-bit read every other case here takes cannot tell 2
+    ///     from 1.</b> <c>Blend</c> and <c>Mix</c> each carry the three modes, so both are held, and
+    ///     zero under a divide is the case the ceiling is for: an infinity survives every later op.
+    /// </remarks>
+    [Theory]
+    [InlineData(8, 4f, 2f, 2f)]
+    [InlineData(13, 0.5f, 0.75f, 2f)]
+    [InlineData(14, 0.2f, 0.4f, -1f)]
+    [InlineData(8, 8f, 0f, 32768f)]
+    public void A_quotient_is_not_capped_at_white(int number, float background, float foreground, float expected) {
+        using var device = TextureKernelHarness.Open();
+        using var evaluator = new TexturePlanEvaluator(device);
+
+        var mode = (TextureBlendMode)number;
+
+        foreach (var op in new[] {
+            TextureBlend.Mix(2, 0, 1, mode),
+            TextureBlend.Masked(2, 0, 1, 3, mode)
+        }) {
+            var plan = new TexturePlan {
+                BaseWidth = Side,
+                BaseHeight = Side,
+                Images = [
+                    new(TextureFormat.Rgba16Float),
+                    new(TextureFormat.Rgba16Float),
+                    new(TextureFormat.Rgba16Float),
+                    new(TextureFormat.Rgba16Float)
+                ],
+                Ops = [
+                    TextureSources.Uniform(0, background),
+                    TextureSources.Uniform(1, foreground),
+                    TextureSources.Uniform(3, 1f),
+                    op
+                ],
+                Outputs = [2]
+            };
+
+            using var bake = evaluator.Evaluate(plan);
+
+            var value = (float)BitConverter.ToHalf(bake.ReadRaw(2).Texels.AsSpan(0, 2));
+
+            Assert.Equal(expected, value, 0.01f);
+        }
+    }
+
     /// <summary>At its neutral a mode reproduces the backdrop, texel for texel and channel for channel.</summary>
     /// <remarks>
     ///     ⚠ <b>An equality over a ramp and not a tolerance over a flat fill.</b> A flat backdrop is

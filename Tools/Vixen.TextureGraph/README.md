@@ -573,19 +573,18 @@ a size off the image's level and the plan's base resolution; nothing allocates a
 `TextureUploads.SizeOf` is what remembers the real one, and a device test asserts the two disagree so
 that the trap is written down rather than discovered.
 
-**`Text` is built and lives here; `Svg Path` is refused, and the measurement that refused it was
-wrong.**
+**Neither `Text` nor `Svg Path` is built, and the measurement that refused the second was wrong.**
 
-`TextureText.Rasterize` shapes a string with `TextShaper`, reads each glyph through
-`FontFace.GetOutline` and fills it with `GlyphRasterizer` — the **`Outlines` path, not
-`GlyphAtlas`**, because an atlas caches small rasterisations behind a distance field so a *label*
-scales smoothly, while a texture graph fills one outline once at whatever size a 4K bake asks for.
-The result goes through `AddCoverage`, and `TextureTextDeviceTests` closes the whole path on an
-adapter in eight bits, texel for texel.
+⚠ **This section used to say `Text` was built and describe a `TextureText.Rasterize`, and nothing by
+that name is in the tree.** What exists is the door, `AddCoverage`. What `Text` would be: shape a
+string with `TextShaper`, read each glyph through `FontFace.GetOutline` and fill it with
+`GlyphRasterizer` — the **`Outlines` path, not `GlyphAtlas`**, because an atlas caches small
+rasterisations behind a distance field so a *label* scales smoothly, while a texture graph fills one
+outline once at whatever size a 4K bake asks for.
 
-⚠ **It takes a `FontFace` and never a path**, and as of 2026-09-09 that is the decided shape rather
-than an open question: the face is **resolved by the host at fill time**, the way `Source/Bitmap`'s
-asset is, and not baked into the plan at compile time. Doc 48 § 4.1 carries the whole argument. The
+⚠ **It would take a `FontFace` and never a path**, and as of 2026-09-09 that is the decided shape
+rather than an open question: the face is **resolved by the host at fill time**, the way
+`Source/Bitmap`'s asset is, and not baked into the plan at compile time. Doc 48 § 4.1 carries the whole argument. The
 measurement that settles it is one neither #687 nor this file had — **a table is 256×1 and a line of
 text is the picture**: `TextureGraphPreview.Evaluate` compiles at the document's base width on every
 edit, so a compile-time bake would rasterise a full-size glyph run per keystroke.
