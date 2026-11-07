@@ -192,6 +192,17 @@ public class SearchTests {
     }
 
     [Fact]
+    public void Types_a_registry_does_not_hold_rank_the_same_way() {
+        var registry = Library();
+        var held = registry.Types.ToArray();
+
+        Assert.Equal(
+            NodeSearch.Rank(registry, "Co").Select(static result => result.Type.Path),
+            NodeSearch.Rank(held, "Co").Select(static result => result.Type.Path)
+        );
+    }
+
+    [Fact]
     public void Ties_break_the_same_way_every_time() {
         var first = NodeSearch.Rank(Library(), "test");
         var second = NodeSearch.Rank(Library(), "test");

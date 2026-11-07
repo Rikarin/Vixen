@@ -112,10 +112,32 @@ public static class NodeSearch {
     ) {
         ArgumentNullException.ThrowIfNull(registry);
 
+        return Rank(registry.Types, query, filter, limit);
+    }
+
+    /// <summary>Ranks some node types against a query.</summary>
+    /// <param name="types">The node types.</param>
+    /// <param name="query">What was typed. Empty offers everything.</param>
+    /// <param name="filter">The wire that was dragged, when the search came from one.</param>
+    /// <param name="limit">How many results to return, or zero for all of them.</param>
+    /// <returns>The matches, best first.</returns>
+    /// <remarks>
+    ///     For a palette that holds more than a registry can: a graph's boundary nodes take their ports from
+    ///     that graph, so no registry has them.
+    /// </remarks>
+    /// <exception cref="ArgumentNullException"><paramref name="types" /> is null.</exception>
+    public static ImmutableArray<NodeSearchResult> Rank(
+        IEnumerable<NodeTypeDefinition> types,
+        string? query,
+        PortFilter? filter = null,
+        int limit = 0
+    ) {
+        ArgumentNullException.ThrowIfNull(types);
+
         var text = query?.Trim() ?? "";
         List<NodeSearchResult> found = [];
 
-        foreach (var definition in registry.Types) {
+        foreach (var definition in types) {
             var port = "";
 
             if (filter is { } wanted) {
