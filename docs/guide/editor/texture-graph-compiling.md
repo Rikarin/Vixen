@@ -4,7 +4,7 @@ slug: editor/texture-graph-compiling
 kind: guide
 area: Editor
 summary: The compiler that turns a node graph into a texture plan, and the four things it hands back besides the plan — the outputs by usage, the pictures a host still owes it, the parameters an author exposed, and the per-node images a preview draws.
-api: [T:Vixen.TextureGraph.TextureGraphCompiler, T:Vixen.TextureGraph.TextureGraphOutput, T:Vixen.TextureGraph.TextureGraphExternal, T:Vixen.TextureGraph.TextureGraphExternals, T:Vixen.Editor.TextureGraph.TextureProjectImages, T:Vixen.TextureGraph.TextureGraphKernel, T:Vixen.TextureGraph.TextureGraphNodeImage, T:Vixen.TextureGraph.TextureGraphParameter, T:Vixen.TextureGraph.TextureGraphParameters, T:Vixen.TextureGraph.TextureGraphParameterKind, T:Vixen.TextureGraph.TextureGraphSettings, T:Vixen.TextureGraph.TextureRamp, T:Vixen.TextureGraph.TextureGraphExpressions]
+api: [T:Vixen.TextureGraph.TextureGraphCompiler, T:Vixen.TextureGraph.TextureGraphOutput, T:Vixen.TextureGraph.TextureGraphCheck, T:Vixen.TextureGraph.TextureGraphExternal, T:Vixen.TextureGraph.TextureGraphExternals, T:Vixen.Editor.TextureGraph.TextureProjectImages, T:Vixen.TextureGraph.TextureGraphKernel, T:Vixen.TextureGraph.TextureGraphNodeImage, T:Vixen.TextureGraph.TextureGraphParameter, T:Vixen.TextureGraph.TextureGraphParameters, T:Vixen.TextureGraph.TextureGraphParameterKind, T:Vixen.TextureGraph.TextureGraphSettings, T:Vixen.TextureGraph.TextureRamp, T:Vixen.TextureGraph.TextureGraphExpressions]
 tags: [editor, texture-graph, material-authoring, node-graph, compiler]
 since: 0.1
 status: preview
@@ -27,6 +27,7 @@ because a plan is a list of images and dispatches and nothing else:
 | `Externals` — `TextureGraphExternal` | Which images the graph did not produce, and what file each one wants. |
 | `Parameters` — `TextureGraphParameter` | The knobs an author exposed, with their ranges. |
 | `NodeImages` — `TextureGraphNodeImage` | Which image each node's port wrote, so a preview can draw one node. |
+| `Checks` — `TextureGraphCheck` | One-texel images worth reading after an evaluation, each with the warning it stands for, such as a Flood Fill that ran out of iterations. |
 | `Kernels` — `TextureGraphKernel` | Which Raven source each dispatched kernel came from. |
 
 ## What it is for

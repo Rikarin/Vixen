@@ -25,12 +25,9 @@ package Vixen.TextureGraph.Shaders
 // way round; and `Distance.rvn` reads whichever the mode asks for without ever consulting the mask
 // again.
 //
-// ⚠ **An offset rather than the seed's coordinate, and that is what keeps the record exact.** The
-// only formats a plan can write are `rgba8` and the half-float pair — doc 48 § D5 rules 32-bit float
-// out — and a half is exact on the integers only up to 2048. A seed *coordinate* at 4K is therefore
-// quantised to even texels; an *offset* is bounded by the maximum distance, which is a number the
-// artist chose and `TextureAnalysis.Distance` refuses when it would exceed that ceiling. Nothing
-// here rounds silently.
+// ⚠ **The record is `rgba32f` at every size and bit depth, and the node's scratch says so.** A half
+// is exact on the integers only up to 2048, so an offset longer than that would quantise to even
+// texels, which is wrong by a texel everywhere and says nothing. Rikarin/Vixen#1529.
 //
 // ⚠ **This is the one kernel in the folder whose taps are *skipped* at the edge rather than clamped,
 // and clamping would be a defect rather than a conservatism.** Everywhere else a tap's payload is a
@@ -68,10 +65,10 @@ shader JumpFlood {
 
     /// The offset that means "no seed of this class is within reach".
     ///
-    /// A power of two, so it survives the half-float store exactly, and far enough outside any
-    /// legitimate offset that its square cannot be confused with one. `Distance.rvn` needs no
-    /// separate flag: an unset field is simply further away than the maximum.
-    const val Unset: float = 8192f
+    /// Far enough outside any legitimate offset that its square cannot be confused with one: 2^20
+    /// against `TexturePlan.MaxExtent`'s 2^16. `Distance.rvn` needs no separate flag: an unset field
+    /// is simply further away than the maximum.
+    const val Unset: float = 1048576f
 
     /// One neighbour's record, or its seeding, with no clamp — see the header.
     func Record(x: int, y: int): float4 {

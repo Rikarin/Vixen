@@ -202,44 +202,44 @@ public class TextureAnalysisKernelTests {
     }
 
     /// <summary>
-    ///     ⚠ A maximum distance past what a half-float names exactly is refused rather than quantised.
+    ///     ⚠ Neither chain has a ceiling on the image any more: both keep their records in 32 bits.
     /// </summary>
-    /// <remarks>
-    ///     <b>The finding, executably.</b> Doc 48 § D5's format list has no 32-bit float in it, and a
-    ///     jump flood's record is a position. A half is exact on the integers only to
-    ///     <see cref="TextureAnalysis.ExactExtent" />, so a field measured further than that would
-    ///     come back quantised to even texels — a distance that is wrong by up to a texel everywhere,
-    ///     with nothing anywhere saying so. The refusal names both numbers, which is what a clamp
-    ///     inside the kernel could not have done.
-    /// </remarks>
     [Fact]
-    public void A_distance_further_than_a_half_float_names_exactly_is_refused() {
-        // 4096 texels of a 4096 image, which is exactly the case a 4K bake reaches.
-        var failure = Assert.Throws<ArgumentOutOfRangeException>(
-            () => TextureAnalysis.Distance(0, 1, [.. Enumerable.Range(2, 12)], 4096, 4096, maxDistance: 1f)
-        );
-
-        Assert.Contains("2048", failure.Message, StringComparison.Ordinal);
-
-        // And the same bake with a distance inside the ceiling is fine, so the refusal is about the
-        // record and not about the resolution.
-        Assert.Equal(13, TextureAnalysis.Distance(0, 1, [.. Enumerable.Range(2, 12)], 4096, 4096, maxDistance: 0.4f).Length);
+    public void A_distance_and_a_flood_fill_have_no_ceiling_at_4096() {
+        Assert.Equal(13, TextureAnalysis.Distance(0, 1, [.. Enumerable.Range(2, 12)], 4096, 4096, maxDistance: 1f).Length);
+        Assert.Equal(3, TextureAnalysis.FloodFill(0, 1, [2, 3], 4096, 4096).Length);
     }
 
-    /// <summary>An image whose coordinates a half-float cannot name exactly is refused too.</summary>
+    /// <summary>Which lines each sweep walks, and that a diagonal flood is the same number of them.</summary>
     /// <remarks>
-    ///     ⚠ <b>The flood fill's ceiling is the image and not the distance</b>, because its record is
-    ///     a pair of absolute coordinates rather than an offset. Two islands two texels apart would be
-    ///     given the same identity, and "flood fill to random" would colour them alike — a picture
-    ///     that looks like a mask with two touching islands in it.
+    ///     ⚠ <b>The op count has to be the same, or moving <c>Diagonal</c> would recompile a plan.</b>
+    ///     It is a number, and a number reaches a uniform.
     /// </remarks>
     [Fact]
-    public void A_flood_fill_larger_than_a_half_float_names_exactly_is_refused() {
-        var failure = Assert.Throws<ArgumentOutOfRangeException>(
-            () => TextureAnalysis.FloodFill(0, 1, [2, 3], 4096, 4096)
-        );
+    public void A_flood_takes_turns_along_its_axes_and_diagonal_only_adds_turns() {
+        float[] Axes(bool diagonal) =>
+            [
+                .. TextureAnalysis.FloodFill(0, 1, [2, 3, 4, 5, 6, 7], 64, 64, diagonal: diagonal)
+                    .Where(static op => op.Kernel == TextureAnalysisKernels.FloodBounds)
+                    .Select(static op => op.Find("axis")!.Value.Value)
+            ];
 
-        Assert.Contains("2048", failure.Message, StringComparison.Ordinal);
+        Assert.Equal([0f, 1f, 0f, 1f, 0f, 1f], Axes(false));
+        Assert.Equal([0f, 1f, 2f, 3f, 0f, 1f], Axes(true));
+    }
+
+    /// <summary>The check compares a whole round of axes, or a settled sweep would prove nothing.</summary>
+    [Fact]
+    public void A_flood_check_compares_a_round_of_axes_and_reduces_to_one_texel() {
+        ImmutableArray<int> records = [2, 3, 4, 5, 6, 7];
+        ImmutableArray<int> ladder = [9, 10];
+
+        var ops = TextureAnalysis.Settled(8, records, ladder, 64, 64);
+
+        Assert.Equal(TextureAnalysisKernels.FloodResidual, ops[0].Kernel);
+        Assert.Equal([4, 7], ops[0].Inputs);
+        Assert.Equal(1 + ladder.Length, ops.Length);
+        Assert.Equal(10, ops[^1].Output);
     }
 
     /// <summary>A flood fill is one propagation dispatch per iteration of its budget, then the read.</summary>

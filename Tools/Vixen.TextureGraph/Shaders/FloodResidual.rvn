@@ -3,13 +3,13 @@
 
 package Vixen.TextureGraph.Shaders
 
-// Whether the last `FloodBounds` iteration changed anything: one in red where the two records
+// Whether the last round of `FloodBounds` sweeps changed anything: one in red where the two records
 // differ, zero where they agree.
 //
 // ⚠ **This is the whole of doc 48 § 4.5's "an iteration ceiling that reports truncation rather than
 // a while-loop on the device".** A label propagation settles after a number of iterations that
-// depends on the *shape* of the mask rather than on its size — a disc in about its diameter, a
-// spiral in its arc length — and neither the plan nor the kernel can know which. So
+// depends on the *shape* of the mask rather than on its size — a rectangle in two sweeps, a
+// serpentine in one per corner — and neither the plan nor the kernel can know which. So
 // `TextureAnalysis.FloodFill` emits a fixed budget and then this, and a `MinMaxReduce` chain over
 // its red channel reduces the answer to one texel the caller reads back: **max zero means the flood
 // converged inside the budget, and anything else means it did not.**
@@ -20,8 +20,8 @@ package Vixen.TextureGraph.Shaders
 // already exists for `Auto Levels` is exactly the instrument this needs, which is why the residual is
 // a *value* per texel rather than a flag.
 //
-// The comparison is exact and deliberately so: the records are integer texel coordinates stored in a
-// half, so two settled iterations are bit-identical or the flood is still moving. A tolerance here
+// The comparison is exact and deliberately so: the records are integer texel coordinates stored in
+// 32 bits, so two settled records are bit-identical or the flood is still moving. A tolerance here
 // would be a way to report convergence that had not happened.
 
 shader FloodResidual {

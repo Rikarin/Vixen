@@ -57,7 +57,7 @@ public class TexturePlanTilingTests {
             Images = [
                 new(TextureFormat.Rgba8, External: true),
                 new(TextureFormat.R16Float),
-                .. Enumerable.Repeat(new TextureImage(TextureFormat.Rgba16Float), scratch)
+                .. Enumerable.Repeat(new TextureImage(TextureFormat.Rgba32Float), scratch)
             ],
             Ops = TextureAnalysis.Distance(1, 0, [.. Enumerable.Range(2, scratch)], 64, 64),
             Outputs = [1]

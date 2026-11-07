@@ -405,6 +405,23 @@ sealed class TextureEmitter {
             }
         );
 
+    /// <summary>Asks whoever evaluates this plan to read one texel, and to warn if it is set.</summary>
+    /// <param name="image">A one-texel image, green above zero when the warning applies.</param>
+    /// <param name="id">A stable code.</param>
+    /// <param name="message">What is wrong, as a person would say it.</param>
+    /// <param name="port">The port it is about.</param>
+    public void Check(int image, string id, string message, string port) =>
+        compiler.Emission.Call(
+            TextureEmission.Kind.Check,
+            string.Join('\0', id, message, port),
+            image,
+            () => {
+                compiler.Check(node, image, id, message, port);
+
+                return 0;
+            }
+        );
+
     /// <summary>Says something about this node, to somebody who can select it.</summary>
     /// <param name="id">A stable code.</param>
     /// <param name="message">What is wrong, as a person would say it.</param>

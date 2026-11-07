@@ -219,8 +219,8 @@ require a 32-bit image to be filterable costs nothing here. `Storable` grew by t
 compiles at both, and `TextureFormatDeviceTests` draws the library at 16 and 32 bits and holds the two
 within what a half rounds.
 
-The two `TextureAnalysis.ExactExtent` floods still stop at 2048 whatever the depth: their scratch records
-follow the depth, and lifting the ceiling is the jump-flood rework.
+The two floods keep their scratch records in `rgba32f` whatever the depth, because a record is a texel
+coordinate rather than a picture, and a half is exact on the integers only to 2048.
 
 ⚠ **`R8` and `Rg8` can be read and cannot be written, which refutes § M1's and
 [#566](https://github.com/Rikarin/Vixen/issues/566)'s format list.** Both name the five as though a

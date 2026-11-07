@@ -504,9 +504,9 @@ sealed partial class DistanceNode : TextureNode {
 
         for (var pass = 0; pass < passes; pass++) {
             // ⚠ Four lanes and not the node's own channels: a jump flood's record is a *signed
-            // offset in texels*, not a picture, and a grey scratch would hold one lane of a
-            // coordinate pair.
-            scratch.Add(emitter.Scratch(emitter.FormatOf(TextureChannels.Colour)));
+            // offset in texels*, not a picture. And 32 bits whatever the graph's depth, because a
+            // half stops being exact on the integers at 2048.
+            scratch.Add(emitter.Scratch(TextureFormat.Rgba32Float));
         }
 
         try {
@@ -524,10 +524,8 @@ sealed partial class DistanceNode : TextureNode {
             );
         } catch (ArgumentException refusal) {
             // ⚠ Caught rather than pre-checked, so that the refusal and the reason for it stay in one
-            // place. The builder's own message names both numbers — a half-float's record is exact on
-            // the integers only to 2048 — and repeating that arithmetic here to raise the diagnostic
-            // earlier would be two ceilings that have to agree. What this adds is the node: an
-            // exception in a background bake names nothing an author can select.
+            // place. What this adds is the node: an exception in a background bake names nothing an
+            // author can select.
             emitter.Report(TextureDiagnostics.BuilderRefusedTheNumbers, refusal.Message, "Max Distance");
         }
     }

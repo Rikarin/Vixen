@@ -121,12 +121,13 @@ produces a picture that drifts one way at half the amplitude and looks entirely 
 which is the only property a single-pass approximation does not have.
 
 **§ 4.5 analysis — six for three nodes.** `JumpFlood` → `Distance`; `FloodBounds` + `FloodResidual` →
-`FloodFill`; `EdgeDetect`. The floods are log₂(n) ping-ponged dispatches with a **ceiling that reports
-truncation** rather than a `while` on the device. ⚠ **Both chains carry a coordinate in a half-float
-and are therefore refused above 2048 texels** — a half is exact on the integers only to 2048, and
-`TextureAnalysis.ExactExtent` refuses a larger image rather than quantising one
-([#690](https://github.com/Rikarin/Vixen/issues/690)). A graph at 32 bits carries the same records in
-`rgba32f`; the ceiling stays until the jump-flood rework measures one above it.
+`FloodFill`; `EdgeDetect`. `Distance` is log₂(n) ping-ponged dispatches. `FloodFill` is a budget of
+sweeps, each crossing a whole run along one line of the image, with a **ceiling that reports
+truncation** rather than a `while` on the device. ⚠ **It is not a jump flood**: a jump crosses
+background and merges islands that do not touch, which `FloodBounds.rvn`'s header works through. ⚠
+**Both chains keep their records in `rgba32f` at every size and bit depth**: a half is exact on the
+integers only to 2048, which is what used to refuse them past that
+([#1529](https://github.com/Rikarin/Vixen/issues/1529)).
 
 **§ 4.6 surface — five for six nodes.** `HeightToNormal` · `NormalCombine` · `NormalTransform` ·
 `Curvature` · `AmbientOcclusion`, and `Normal → Height` is the CPU exception above. ⚠ The **green

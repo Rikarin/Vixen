@@ -622,9 +622,9 @@ public class TextureGraphCompilerTests {
         return compilation.Value;
     }
 
-    /// <summary>A distance a half-float cannot record exactly is refused, against the node.</summary>
+    /// <summary>A distance as long as a 4K image compiles, in a record that can hold it.</summary>
     [Fact]
-    public void A_distance_past_what_a_half_float_records_is_refused_against_the_node() {
+    public void A_distance_past_what_a_half_float_records_keeps_its_record_in_32_bits() {
         NodeGraphModel graph = new();
         var noise = graph.Add("Source/Noise");
         var distance = graph.Add("Analysis/Distance");
@@ -634,15 +634,16 @@ public class TextureGraphCompilerTests {
         graph.Connect(new(noise.Id, "Out"), new(distance.Id, "Mask"));
         graph.Connect(new(distance.Id, "Out"), new(output.Id, "Input"));
 
-        // 4096 texels of field, and a jump flood's record is exact on the integers only to 2048.
-        var refusal = Assert.Single(
-            Compiler(4096, 4096).Compile(graph).Diagnostics,
-            diagnostic => diagnostic.Id == "TG0011"
-        );
+        var compilation = Compiler(4096, 4096).Compile(graph);
 
-        Assert.Equal(distance.Id, refusal.Node);
-        Assert.Equal("Max Distance", refusal.Port);
-        Assert.Contains("2048", refusal.Message, StringComparison.Ordinal);
+        Assert.Empty(compilation.Diagnostics);
+
+        var plan = compilation.Value;
+
+        Assert.All(
+            plan.Ops.Where(static op => op.Kernel == "JumpFlood"),
+            op => Assert.Equal(TextureFormat.Rgba32Float, plan.Images[op.Output].Format)
+        );
     }
 
     /// <summary>The plan a graph compiles to holds together on its own terms.</summary>
