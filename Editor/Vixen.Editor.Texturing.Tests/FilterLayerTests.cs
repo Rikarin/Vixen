@@ -133,6 +133,64 @@ public class FilterLayerTests(ITestOutputHelper output) {
         );
     }
 
+    /// <summary>
+    ///     An adjustment that measures one channel compiles as a filter layer and as a mask effect, where a colour
+    ///     arriving at it used to be refused by name. Built-in nodes and a shipped compound both.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Every node in this list was refused with <c>TG0004</c> before the stack chose a grey for
+    ///     it</b>: a filter layer or a mask effect has no wire for an author to put a Grayscale on, so
+    ///     without one these were offerable and could never compile.
+    /// </remarks>
+    [Theory]
+    [InlineData("Surface/Height to Normal")]
+    [InlineData("Analysis/Distance")]
+    [InlineData("Colour/Gradient Map")]
+    [InlineData("Surface/Bevel")]
+    public void A_node_that_measures_its_input_compiles_on_a_layer_and_on_a_mask(string node) {
+        LayerStackAsset stack = new() {
+            Name = "Measured",
+            BaseWidth = 16,
+            BaseHeight = 16,
+            Sets = [
+                new() {
+                    Name = "S",
+                    Channels = [new() { Usage = "baseColor", Default = [0.5f, 0.25f, 0.75f, 1f] }],
+                    Layers = [
+                        new() {
+                            Id = "fill",
+                            Values = { ["baseColor"] = [0.2f, 0.4f, 0.6f, 1f] },
+                            Mask = new() {
+                                Source = LayerMaskSource.Constant,
+                                Value = 0.5f,
+                                Effects = [new() { Node = node }],
+                                Layers = [new() { Source = LayerMaskSource.Constant, Value = 0.25f }]
+                            }
+                        },
+                        new() { Id = "f", Kind = LayerKind.Filter, FilterNode = node }
+                    ]
+                }
+            ]
+        };
+
+        Assert.True(TextureMeasuredInputs.Measures(LayerStackCompiler.Library(out var compounds), compounds, node));
+
+        var compilation = LayerStackCompiler.Compile(stack, stack.Sets[0]);
+
+        Assert.Empty(compilation.Problems);
+        Assert.Empty(compilation.Diagnostics);
+        Assert.NotNull(compilation.Plan);
+    }
+
+    /// <summary>A node that composites is left alone: the grey is only for the ones that would refuse a colour.</summary>
+    [Fact]
+    public void A_node_that_composites_its_input_is_not_greyed() {
+        var registry = LayerStackCompiler.Library(out var compounds);
+
+        Assert.False(TextureMeasuredInputs.Measures(registry, compounds, "Filters/Blur"));
+        Assert.False(TextureMeasuredInputs.Measures(registry, compounds, "Colour/Levels"));
+    }
+
     /// <summary>One filter layer over a red base, with at most one of its numbers set.</summary>
     static LayerStackCompilation Compile(LayerFilterKind kind, (string Port, float Value)? setting) {
         LayerAsset layer = new() { Id = "f", Kind = LayerKind.Filter, Filter = kind };

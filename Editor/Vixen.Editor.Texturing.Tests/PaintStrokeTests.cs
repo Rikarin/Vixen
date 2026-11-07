@@ -107,18 +107,23 @@ public class PaintStrokeTests {
         Assert.NotEqual(first.ToTexels(), still.ToTexels());
     }
 
-    /// <summary>Smoothing lags the path, which is what a lazy mouse is.</summary>
+    /// <summary>
+    ///     A lazy mouse trails the pointer by its length exactly: a drag to 110 with a string of 20 paints to 90 and no
+    ///     further, and one that stays within reach of where it pressed paints one stamp.
+    /// </summary>
     [Fact]
-    public void Smoothing_pulls_the_stroke_behind_the_pointer() {
-        PaintImage direct = new(128, 128);
-        PaintImage lagged = new(128, 128);
-        var coverage = PaintCoverage.Everywhere(128, 128);
+    public void A_lazy_brush_trails_the_pointer_by_its_length() {
+        PaintImage direct = new(160, 64);
+        PaintImage lagged = new(160, 64);
+        PaintImage near = new(160, 64);
+        var coverage = PaintCoverage.Everywhere(160, 64);
         var brush = Hard(4f) with { Spacing = 0.5f };
 
         PaintStroke straight = new(direct, coverage, brush, Opaque, gutter: 0);
-        PaintStroke smoothed = new(lagged, coverage, brush, Opaque, gutter: 0, smoothing: 0.8f);
+        PaintStroke lazy = new(lagged, coverage, brush, Opaque, gutter: 0, lazy: 20f);
+        PaintStroke still = new(near, coverage, brush, Opaque, gutter: 0, lazy: 20f);
 
-        foreach (var stroke in new[] { straight, smoothed }) {
+        foreach (var stroke in new[] { straight, lazy }) {
             stroke.MoveTo(new(20f, 20f));
 
             for (var step = 1; step <= 30; step++) {
@@ -126,9 +131,46 @@ public class PaintStrokeTests {
             }
         }
 
-        Assert.True(straight.StampCount > smoothed.StampCount, "Smoothing did not shorten the painted path.");
+        still.MoveTo(new(20f, 20f));
+        still.MoveTo(new(35f, 20f));
+        still.MoveTo(new(20f, 34f));
+
         Assert.Equal(0xFFu, direct.At(108, 20) >> 24);
-        Assert.Equal(0x00u, lagged.At(108, 20) >> 24);
+        Assert.Equal(0xFFu, lagged.At(90, 20) >> 24);
+        Assert.Equal(0x00u, lagged.At(100, 20) >> 24);
+        Assert.Equal(1, still.StampCount);
+    }
+
+    /// <summary>
+    ///     ⚠ The lag that this replaced was a share of the way to each pointer event, so a drag reported more often
+    ///     painted a different stroke. A string paints the same wherever the events fall along the same path.
+    /// </summary>
+    [Fact]
+    public void A_lazy_brush_paints_the_same_however_often_the_pointer_reports() {
+        PaintImage coarse = new(160, 64);
+        PaintImage fine = new(160, 64);
+        var coverage = PaintCoverage.Everywhere(160, 64);
+        var brush = Hard(4f) with { Spacing = 0.5f };
+
+        PaintStroke few = new(coarse, coverage, brush, Opaque, gutter: 0, lazy: 12f);
+        PaintStroke many = new(fine, coverage, brush, Opaque, gutter: 0, lazy: 12f);
+
+        few.MoveTo(new(20f, 20f));
+        few.MoveTo(new(140f, 20f));
+        many.MoveTo(new(20f, 20f));
+        for (var step = 1; step <= 60; step++) {
+            many.MoveTo(new(20f + (step * 2f), 20f));
+        }
+
+        Assert.Equal(coarse.ToTexels(), fine.ToTexels());
+    }
+
+    /// <summary>The string's arithmetic, which a host that draws where the brush is can call too.</summary>
+    [Fact]
+    public void A_string_holds_the_brush_until_the_pointer_pulls_it_straight() {
+        Assert.Equal(new(0f, 0f), PaintStroke.Trailed(new(0f, 0f), new(3f, 4f), 5f));
+        Assert.Equal(new(6f, 8f), PaintStroke.Trailed(new(0f, 0f), new(9f, 12f), 5f));
+        Assert.Equal(new(9f, 12f), PaintStroke.Trailed(new(0f, 0f), new(9f, 12f), 0f));
     }
 
     /// <summary>Undo restores exactly, and redo puts back exactly.</summary>

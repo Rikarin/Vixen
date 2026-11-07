@@ -150,7 +150,14 @@ sealed class PaintBrushInspector {
         Row("Flow", 0f, 1f, () => tool.Brush.Flow, tool.SetFlow, () => Percent(tool.Brush.Flow));
         Row("Opacity", 0f, 1f, () => tool.Brush.Opacity, tool.SetOpacity, () => Percent(tool.Brush.Opacity));
         Row("Spacing", 0.01f, 2f, () => tool.Brush.Spacing, tool.SetSpacing, () => Percent(tool.Brush.Spacing));
-        Row("Smoothing", 0f, 0.999f, () => tool.Smoothing, tool.SetSmoothing, () => Percent(tool.Smoothing));
+        Row(
+            "Lazy mouse",
+            0f,
+            64f,
+            () => tool.Lazy,
+            tool.SetLazy,
+            () => string.Create(CultureInfo.InvariantCulture, $"{tool.Lazy:0} px")
+        );
 
         (alphaAsset, alphaStatus) = Stamp();
 

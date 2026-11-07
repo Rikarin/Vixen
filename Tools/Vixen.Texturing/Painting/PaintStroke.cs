@@ -74,7 +74,7 @@ public sealed class PaintStroke {
     ///     </para>
     /// </remarks>
     readonly PaintTexelMap<int> distance;
-    readonly float smoothing;
+    readonly float lazy;
     readonly IPaintPlacement? placement;
     readonly PaintStampTexels placed;
     Vector2 smoothed;
@@ -90,8 +90,9 @@ public sealed class PaintStroke {
     ///     How many texels the stamp is dilated past an island's edge. Zero disables the dilation,
     ///     which is what makes the seam test able to show both halves.
     /// </param>
-    /// <param name="smoothing">
-    ///     How much the input path lags the pointer, 0…1 — doc 48 § D13's "smoothing is a filter on
+    /// <param name="lazy">
+    ///     How far the brush trails the pointer, in the units of <see cref="MoveTo" />'s positions: a lazy mouse,
+    ///     which is doc 48 § D13's "smoothing is a filter on
     ///     the input points", and the only stroke-level effect that belongs to the stroke rather than
     ///     to the surface.
     /// </param>
@@ -108,7 +109,7 @@ public sealed class PaintStroke {
         PaintBrush brush,
         uint colour,
         int gutter = 4,
-        float smoothing = 0f,
+        float lazy = 0f,
         uint seed = 0x9E3779B9u,
         PaintImageSnapshot? origin = null,
         IPaintPlacement? placement = null
@@ -142,7 +143,7 @@ public sealed class PaintStroke {
         this.seed = seed;
         this.placement = placement;
         this.origin = origin ?? image.Snapshot();
-        this.smoothing = Math.Clamp(smoothing, 0f, 0.999f);
+        this.lazy = float.IsFinite(lazy) ? Math.Max(lazy, 0f) : 0f;
 
         path = new(brush.Kernel, seed);
     }
@@ -232,7 +233,7 @@ public sealed class PaintStroke {
     public PaintRect MoveTo(Vector2 texel, List<PaintRect>? regions = null, float pressure = 1f) {
         var from = smoothed;
 
-        smoothed = started ? Vector2.Lerp(smoothed, texel, 1f - smoothing) : texel;
+        smoothed = started ? Trailed(smoothed, texel, lazy) : texel;
 
         var first = !started;
         var travel = (smoothed - from).Length();
@@ -257,6 +258,25 @@ public sealed class PaintStroke {
         Rect = Rect.Union(dirty);
 
         return dirty;
+    }
+
+    /// <summary>Where a brush on a string of this length ends up when the pointer moves to here.</summary>
+    /// <param name="brush">Where the brush is.</param>
+    /// <param name="pointer">Where the pointer went.</param>
+    /// <param name="lazy">The string's length.</param>
+    /// <returns>The brush, where it was while the pointer is within reach and pulled straight after it otherwise.</returns>
+    /// <remarks>
+    ///     ⚠ <b>A distance and not a fraction, which is what this used to be.</b> A lerp towards each pointer event
+    ///     by a fixed share lags by an amount set by how often the pointer reports: a fast mouse and a slow one, or one
+    ///     drag sent in more parts, paint different strokes, and the brush never quite reaches a pointer that stops.
+    ///     A string depends on where the pointer went and on nothing else, and the brush lands on the line the pointer
+    ///     drew rather than inside its curves.
+    /// </remarks>
+    public static Vector2 Trailed(Vector2 brush, Vector2 pointer, float lazy) {
+        var offset = pointer - brush;
+        var length = offset.Length();
+
+        return length <= lazy ? brush : brush + (offset * ((length - lazy) / length));
     }
 
     /// <summary>Puts the layer back the way it was before the stroke.</summary>

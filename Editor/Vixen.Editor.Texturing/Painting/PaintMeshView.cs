@@ -615,7 +615,7 @@ sealed class PaintMeshView {
                 AspectAngle = footprint.Angle
             },
             tool.Colour,
-            tool.Smoothing
+            tool.Lazy
         );
 
         Say($"Painting: {footprint.Radius:F1} texels from {tool.Brush.Radius:F0} px, "
