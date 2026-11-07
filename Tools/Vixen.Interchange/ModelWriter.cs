@@ -60,9 +60,18 @@ public static class ModelWriter {
     /// <param name="path">Where to write. Its extension chooses the format.</param>
     /// <param name="meshes">What to write.</param>
     /// <param name="name">What to call the scene.</param>
+    /// <param name="materials">
+    ///     What <see cref="MeshData.MaterialIndex" /> indexes, or null for a file with no materials. Only glTF and GLB
+    ///     keep them.
+    /// </param>
     /// <exception cref="ArgumentNullException">Any argument is null.</exception>
     /// <exception cref="NotSupportedException">The extension is not one of <see cref="Extensions" />.</exception>
-    public static void Write(string path, IReadOnlyList<MeshData> meshes, string name = "Mesh") {
+    public static void Write(
+        string path,
+        IReadOnlyList<MeshData> meshes,
+        string name = "Mesh",
+        IReadOnlyList<ModelWriterMaterial>? materials = null
+    ) {
         ArgumentNullException.ThrowIfNull(path);
         ArgumentNullException.ThrowIfNull(meshes);
 
@@ -73,12 +82,12 @@ public static class ModelWriter {
                 break;
 
             case ".gltf":
-                File.WriteAllText(path, Gltf(meshes, name), Utf8);
+                File.WriteAllText(path, Gltf(meshes, name, materials), Utf8);
 
                 break;
 
             case ".glb":
-                File.WriteAllBytes(path, Glb(meshes, name));
+                File.WriteAllBytes(path, Glb(meshes, name, materials));
 
                 break;
 
@@ -374,17 +383,23 @@ public static class ModelWriter {
     /// <summary>Writes meshes as a self-contained glTF 2.0 document with its buffer inlined.</summary>
     /// <param name="meshes">What to write.</param>
     /// <param name="name">What to call the scene.</param>
+    /// <param name="materials">What <see cref="MeshData.MaterialIndex" /> indexes, or null for none.</param>
     /// <returns>The file's JSON text.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="meshes" /> is null.</exception>
-    public static string Gltf(IReadOnlyList<MeshData> meshes, string name = "Mesh") {
+    public static string Gltf(
+        IReadOnlyList<MeshData> meshes,
+        string name = "Mesh",
+        IReadOnlyList<ModelWriterMaterial>? materials = null
+    ) {
         ArgumentNullException.ThrowIfNull(meshes);
 
-        return Document(meshes, name, embedded: true).Json;
+        return Document(meshes, name, embedded: true, materials ?? []).Json;
     }
 
     /// <summary>Writes meshes as a binary glTF container.</summary>
     /// <param name="meshes">What to write.</param>
     /// <param name="name">What to call the scene.</param>
+    /// <param name="materials">What <see cref="MeshData.MaterialIndex" /> indexes, or null for none.</param>
     /// <returns>The file's bytes.</returns>
     /// <remarks>
     ///     ⚠ <b>Both chunks are padded to four bytes, the JSON with spaces and the binary with
@@ -393,10 +408,14 @@ public static class ModelWriter {
     ///     is wrong this way opens in exactly one viewer and in none of the others.
     /// </remarks>
     /// <exception cref="ArgumentNullException"><paramref name="meshes" /> is null.</exception>
-    public static byte[] Glb(IReadOnlyList<MeshData> meshes, string name = "Mesh") {
+    public static byte[] Glb(
+        IReadOnlyList<MeshData> meshes,
+        string name = "Mesh",
+        IReadOnlyList<ModelWriterMaterial>? materials = null
+    ) {
         ArgumentNullException.ThrowIfNull(meshes);
 
-        var (json, buffer) = Document(meshes, name, embedded: false);
+        var (json, buffer) = Document(meshes, name, embedded: false, materials ?? []);
         var text = Utf8.GetBytes(json);
         var textPadding = (4 - text.Length % 4) % 4;
         var binaryPadding = (4 - buffer.Count % 4) % 4;
@@ -434,7 +453,12 @@ public static class ModelWriter {
     }
 
     /// <summary>The JSON and its buffer, shared by the embedded and the binary form.</summary>
-    static (string Json, List<byte> Buffer) Document(IReadOnlyList<MeshData> meshes, string name, bool embedded) {
+    static (string Json, List<byte> Buffer) Document(
+        IReadOnlyList<MeshData> meshes,
+        string name,
+        bool embedded,
+        IReadOnlyList<ModelWriterMaterial> materials
+    ) {
         List<byte> buffer = [];
         List<string> primitives = [];
         List<string> nodes = [];
@@ -456,11 +480,18 @@ public static class ModelWriter {
                 attributes.Add($"\"TEXCOORD_0\":{Coordinates(buffer, views, accessors, mesh.TexCoords)}");
             }
 
+            if (mesh.Colours.Length == mesh.Positions.Length) {
+                attributes.Add($"\"COLOR_0\":{Colours(buffer, views, accessors, mesh.Colours)}");
+            }
+
             var indices = Indices(buffer, views, accessors, mesh.Indices);
             var label = Text(mesh.Name.Length > 0 ? mesh.Name : "Mesh");
+            var material = mesh.MaterialIndex >= 0 && mesh.MaterialIndex < materials.Count
+                ? $"\"material\":{Number(mesh.MaterialIndex)},"
+                : string.Empty;
 
             primitives.Add(
-                $$"""{"primitives":[{"attributes":{{{string.Join(",", attributes)}}},"indices":{{indices}},"mode":4}],"name":{{label}}}"""
+                $$"""{"primitives":[{"attributes":{{{string.Join(",", attributes)}}},"indices":{{indices}},{{material}}"mode":4}],"name":{{label}}}"""
             );
 
             nodes.Add($$"""{"mesh":{{primitives.Count - 1}},"name":{{label}}}""");
@@ -482,7 +513,7 @@ public static class ModelWriter {
             "scene":0,
             "scenes":[{"name":{{Text(name)}},"nodes":[{{string.Join(",", Enumerable.Range(0, nodes.Count))}}]}],
             "nodes":[{{string.Join(",", nodes)}}],
-            "meshes":[{{string.Join(",", primitives)}}],
+            {{Materials(materials)}}"meshes":[{{string.Join(",", primitives)}}],
             "accessors":[{{string.Join(",", accessors)}}],
             "bufferViews":[{{string.Join(",", views)}}],
             "buffers":[{{declaration}}]}
@@ -545,6 +576,39 @@ public static class ModelWriter {
         accessors.Add($$"""{"bufferView":{{views.Count - 1}},"componentType":5126,"count":{{values.Length}},"type":"VEC2"}""");
 
         return accessors.Count - 1;
+    }
+
+    /// <summary>A COLOR_0 accessor, linear as glTF has it and as a <see cref="MeshData" /> does.</summary>
+    static int Colours(List<byte> buffer, List<string> views, List<string> accessors, Vector4[] values) {
+        var offset = Align(buffer);
+
+        foreach (var value in values) {
+            buffer.AddRange(BitConverter.GetBytes(value.X));
+            buffer.AddRange(BitConverter.GetBytes(value.Y));
+            buffer.AddRange(BitConverter.GetBytes(value.Z));
+            buffer.AddRange(BitConverter.GetBytes(value.W));
+        }
+
+        views.Add($$"""{"buffer":0,"byteOffset":{{offset}},"byteLength":{{values.Length * 16}}}""");
+        accessors.Add($$"""{"bufferView":{{views.Count - 1}},"componentType":5126,"count":{{values.Length}},"type":"VEC4"}""");
+
+        return accessors.Count - 1;
+    }
+
+    /// <summary>The <c>materials</c> member with its comma, or nothing for a file with none.</summary>
+    static string Materials(IReadOnlyList<ModelWriterMaterial> materials) {
+        if (materials.Count == 0) {
+            return string.Empty;
+        }
+
+        var written = materials.Select(static material => {
+            var colour = material.Factors.BaseColor;
+            var factors = $$"""{"baseColorFactor":[{{Number(colour.X)}},{{Number(colour.Y)}},{{Number(colour.Z)}},{{Number(colour.W)}}],"metallicFactor":{{Number(material.Factors.Metallic)}},"roughnessFactor":{{Number(material.Factors.Roughness)}}}""";
+
+            return $$"""{"name":{{Text(material.Name)}},"pbrMetallicRoughness":{{factors}}}""";
+        });
+
+        return $"\"materials\":[{string.Join(",", written)}],";
     }
 
     static int Indices(List<byte> buffer, List<string> views, List<string> accessors, int[] indices) {

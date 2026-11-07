@@ -15,7 +15,13 @@ public sealed record FlatModel(
     EditMesh Mesh,
     IReadOnlyList<(string Name, int Faces)> Parts,
     bool ColouredGroups = false
-);
+) {
+    /// <summary>Each part's material, in the order of <see cref="Parts" />.</summary>
+    public IReadOnlyList<int> Materials { get; init; } = [];
+
+    /// <summary>One linear colour per corner, or empty for a file with no vertex colours.</summary>
+    public IReadOnlyList<Vector4> Colours { get; init; } = [];
+}
 
 /// <summary>The copy between a model file's geometry and the mesh kernel that remeshes and unwraps it.</summary>
 /// <remarks>
@@ -172,7 +178,9 @@ public static class ModelGeometry {
         var positions = new Dictionary<Vector3, int>();
         var normals = new List<Vector3>();
         var coordinates = new List<Vector2>();
+        var colours = new List<Vector4>();
         var parts = new List<(string Name, int Faces)>();
+        var materials = new List<int>();
         var anyCoordinates = false;
         var anyNormals = false;
         var anyColours = model.Meshes.Any(static mesh => mesh.Colours.Length == mesh.Positions.Length && mesh.Colours.Length > 0);
@@ -184,6 +192,7 @@ public static class ModelGeometry {
             var inverse = Matrix4x4.Invert(transform, out var inverted) ? Matrix4x4.Transpose(inverted) : transform;
             var hasNormals = mesh.Normals.Length == mesh.Positions.Length;
             var hasCoordinates = mesh.TexCoords.Length == mesh.Positions.Length;
+            var hasColours = mesh.Colours.Length == mesh.Positions.Length;
             var slots = new int[mesh.Positions.Length];
             var turned = new Vector3[hasNormals ? mesh.Positions.Length : 0];
             var made = 0;
@@ -222,6 +231,12 @@ public static class ModelGeometry {
                 coordinates.Add(hasCoordinates ? mesh.TexCoords[a] : default);
                 coordinates.Add(hasCoordinates ? mesh.TexCoords[b] : default);
                 coordinates.Add(hasCoordinates ? mesh.TexCoords[c] : default);
+
+                if (anyColours) {
+                    colours.Add(hasColours ? mesh.Colours[a] : Vector4.One);
+                    colours.Add(hasColours ? mesh.Colours[b] : Vector4.One);
+                    colours.Add(hasColours ? mesh.Colours[c] : Vector4.One);
+                }
             }
 
             anyNormals |= hasNormals;
@@ -230,6 +245,7 @@ public static class ModelGeometry {
             var name = nodes[part.Node].Name;
 
             parts.Add((name.Length > 0 ? name : mesh.Name, made));
+            materials.Add(part.Material);
         }
 
         built.GroupSource = MeshGroupSource.Assigned;
@@ -242,7 +258,97 @@ public static class ModelGeometry {
             built.SetTexCoords(System.Runtime.InteropServices.CollectionsMarshal.AsSpan(coordinates));
         }
 
-        return new(built, parts, anyColours);
+        return new(built, parts, anyColours) { Materials = materials, Colours = colours };
+    }
+
+    /// <summary>A flattened file's parts again, each its own mesh, with new coordinates on every corner.</summary>
+    /// <param name="model">What <see cref="Flatten" /> returned.</param>
+    /// <param name="uvs">One coordinate per corner.</param>
+    /// <returns>One mesh per part, in world space, carrying its normals, colours, name and material.</returns>
+    /// <exception cref="ArgumentNullException">An argument is null.</exception>
+    /// <exception cref="ArgumentException"><paramref name="uvs" /> is not one coordinate per corner.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The way back that <see cref="ToMeshData" /> is not.</b> That one gives every corner its face's
+    ///         normal, which is right for a remesh, whose corners never had one of their own. A new layout changes
+    ///         nothing about a surface, so here each corner keeps what the file said about it: an unwrapped ball
+    ///         written through <see cref="ToMeshData" /> was lit as a polyhedron.
+    ///     </para>
+    ///     <para>
+    ///         Two corners are one vertex when they agree on everything, so a seam splits a vertex and a smooth
+    ///         run shares one, which keeps the file the size it would have been.
+    ///     </para>
+    /// </remarks>
+    public static MeshData[] ToParts(FlatModel model, IReadOnlyList<Vector2> uvs) {
+        ArgumentNullException.ThrowIfNull(model);
+        ArgumentNullException.ThrowIfNull(uvs);
+
+        var mesh = model.Mesh;
+
+        if (uvs.Count != mesh.CornerCount) {
+            throw new ArgumentException($"{uvs.Count} coordinates for {mesh.CornerCount} corners.", nameof(uvs));
+        }
+
+        var written = new MeshData[model.Parts.Count];
+        var face = 0;
+
+        for (var at = 0; at < written.Length; at++) {
+            var (name, faces) = model.Parts[at];
+            var vertices = new Dictionary<(Vector3, Vector3, Vector2, Vector4), int>();
+            var positions = new List<Vector3>();
+            var normals = new List<Vector3>();
+            var coordinates = new List<Vector2>();
+            var colours = new List<Vector4>();
+            var indices = new List<int>();
+
+            for (var last = face + faces; face < last; face++) {
+                var start = mesh.Faces[face].Start;
+                var corners = mesh.CornersOf(face);
+                var facing = mesh.Normal(face);
+                var indexed = new int[corners.Length];
+
+                if (!facing.IsZero) {
+                    facing = Vector3.Normalize(facing);
+                }
+
+                for (var corner = 0; corner < corners.Length; corner++) {
+                    var slot = start + corner;
+                    var normal = mesh.Normals.Length > slot && !mesh.Normals[slot].IsZero ? mesh.Normals[slot] : facing;
+                    var colour = model.Colours.Count > slot ? model.Colours[slot] : Vector4.One;
+                    var key = (mesh.Positions[corners[corner]], normal, uvs[slot], colour);
+
+                    if (!vertices.TryGetValue(key, out var vertex)) {
+                        vertex = positions.Count;
+                        vertices.Add(key, vertex);
+                        positions.Add(key.Item1);
+                        normals.Add(normal);
+                        coordinates.Add(key.Item3);
+                        colours.Add(colour);
+                    }
+
+                    indexed[corner] = vertex;
+                }
+
+                for (var corner = 1; corner + 1 < indexed.Length; corner++) {
+                    indices.Add(indexed[0]);
+                    indices.Add(indexed[corner]);
+                    indices.Add(indexed[corner + 1]);
+                }
+            }
+
+            written[at] = new() {
+                Name = name,
+                Positions = [.. positions],
+                Normals = [.. normals],
+                TexCoords = [.. coordinates],
+                Colours = model.Colours.Count > 0 ? [.. colours] : [],
+                Indices = [.. indices],
+                MaterialIndex = model.Materials.Count > at ? model.Materials[at] : 0,
+                Bounds = Bounds(positions)
+            };
+        }
+
+        return written;
     }
 
     /// <summary>A colour as one int, each lane sRGB-encoded in eight bits, so that it reads as the artist saw it.</summary>

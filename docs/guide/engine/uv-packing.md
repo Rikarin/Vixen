@@ -4,7 +4,7 @@ slug: engine/uv-packing
 kind: guide
 area: Engine
 summary: Islands in, transforms out — a standalone atlas packer whose margin is counted in texels and whose output does not move between runs.
-api: [T:Vixen.Geometry.Uv.UvUnwrap, T:Vixen.Geometry.Uv.UvIsland, T:Vixen.Geometry.Uv.UvPlacement, T:Vixen.Geometry.Uv.PackSettings, T:Vixen.Geometry.Uv.PackQuality, T:Vixen.Geometry.Uv.PackOverflow, T:Vixen.Geometry.Uv.UvReport, T:Vixen.Geometry.Uv.UvStage, T:Vixen.Geometry.Uv.UvStageTiming, T:Vixen.Geometry.Uv.UvDistortion, T:Vixen.Geometry.Uv.UvTexelDensity]
+api: [T:Vixen.Geometry.Uv.UvUnwrap, T:Vixen.Geometry.Uv.UvIsland, T:Vixen.Geometry.Uv.UvPlacement, T:Vixen.Geometry.Uv.PackSettings, T:Vixen.Geometry.Uv.PackQuality, T:Vixen.Geometry.Uv.PackOverflow, T:Vixen.Geometry.Uv.UvReport, T:Vixen.Geometry.Uv.UvStage, T:Vixen.Geometry.Uv.UvStageTiming, T:Vixen.Geometry.Uv.UvDistortion, T:Vixen.Geometry.Uv.UvTexelDensity, T:Vixen.Geometry.Uv.UvTiles, T:Vixen.Geometry.Uv.UvTile]
 tags: [geometry, uv, atlas, packing, texture, texel-density, udim]
 since: 0.1
 status: preview
@@ -102,6 +102,12 @@ lot until the sheet is full.
 uniformly and says so in `UvReport.Warnings`, `NextTile` spills into the next UDIM tile, and `Refuse`
 throws and names the shortfall. ⚠ **An island may not straddle a tile boundary**, which is a placement
 rule rather than a second packer.
+
+`UvTiles.Reached` answers the reverse question for a layout that came from somewhere else: which unit
+squares its triangles sit in, as `UvTile`s that carry their UDIM number. A triangle counts in the
+square its middle is in, so a corner a packer left a hair over an edge does not invent a second tile.
+⚠ The coordinates are as a reader hands them, with v running down the image, and the rows count up as
+UDIM's do, so the file's tile 1011 is row 1 and not row −1.
 
 ## Deterministic
 

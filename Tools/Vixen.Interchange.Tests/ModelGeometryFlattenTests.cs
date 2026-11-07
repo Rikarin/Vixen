@@ -89,4 +89,36 @@ public sealed class ModelGeometryFlattenTests {
     [Fact]
     public void With_no_colours_the_groups_stay_materials() =>
         Assert.False(ModelGeometry.Flatten(Model()).ColouredGroups);
+
+    /// <summary>
+    ///     A new layout written back keeps each corner's normal, colour, the part's name and its material. Written
+    ///     through <c>ToMeshData</c> a corner took its face's normal, and the colours, names and materials were gone.
+    /// </summary>
+    [Fact]
+    public void A_new_layout_goes_back_to_a_file_with_everything_else_the_corners_had() {
+        Vector4 red = new(1f, 0f, 0f, 1f);
+        Vector4 blue = new(0f, 0f, 1f, 1f);
+        var flat = ModelGeometry.Flatten(Coloured(red, red, red, blue, blue, blue));
+        Vector2[] uvs = [new(0f, 0f), new(0.4f, 0f), new(0f, 0.4f), new(0.6f, 0.6f), new(1f, 0.6f), new(0.6f, 1f)];
+
+        var part = Assert.Single(ModelGeometry.ToParts(flat, uvs));
+        ModelWriterMaterial[] materials = [
+            new("unused", ModelMaterialFactors.Default),
+            new("a", ModelMaterialFactors.Default),
+            new("b", ModelMaterialFactors.Default),
+            new("steel", new(new(0.5f, 0.5f, 0.5f, 1f), 1f, 0.3f))
+        ];
+        var bytes = ModelWriter.Glb([part], "bolt", materials);
+        var options = new ModelReadOptions { ImportVertexColours = true, GenerateTangents = false };
+        var read = ModelReader.Read(bytes, ".glb", "bolt", options);
+        var again = ModelGeometry.Flatten(read);
+
+        Assert.Equal("bolt_low", again.Parts[0].Name);
+        Assert.Equal("steel", read.Model.Materials[read.Model.Parts[0].Material]);
+        Assert.Equal(0.3f, read.MaterialFactors[read.Model.Parts[0].Material].Roughness, 3);
+        Assert.Equal(Vector3.UnitZ, again.Mesh.Normals[0]);
+        Assert.Equal(Vector3.UnitY, again.Mesh.Normals[3]);
+        Assert.Equal([0xFF0000, 0x0000FF], [again.Mesh.Faces[0].Group, again.Mesh.Faces[1].Group]);
+        Assert.Equal(new Vector2(0.6f, 0.6f), again.Mesh.TexCoords[3]);
+    }
 }

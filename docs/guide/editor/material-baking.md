@@ -4,7 +4,7 @@ slug: editor/material-baking
 kind: guide
 area: Editor
 summary: How a texture graph's outputs become files the engine already understands — the nine usages and the seven files they land in, the ORM packing, PNG or KTX2, the .vxmat, the GUID dance, and the provenance block that stops a painted-over map being regenerated.
-api: [T:Vixen.Editor.Assets.EditorOnlyImporter, T:Vixen.Editor.Assets.EditorOnlyImportSettings, T:Vixen.Editor.Assets.Materials.MaterialMapUsage, T:Vixen.Editor.Assets.Materials.MaterialMapTarget, T:Vixen.Editor.Assets.Materials.MaterialMapNaming, T:Vixen.Editor.Assets.Materials.MaterialMapImage, T:Vixen.Editor.Assets.Materials.MaterialBake, T:Vixen.Editor.Assets.Materials.MaterialBakeRecord, T:Vixen.Editor.Assets.Materials.MaterialProvenance, T:Vixen.Editor.Assets.Materials.MaterialBakeSet, T:Vixen.Editor.Assets.Materials.MaterialBakeParallax, T:Vixen.Editor.Assets.Materials.ProjectMaterialBaker, T:Vixen.Cli.TextureRunner]
+api: [T:Vixen.Editor.Assets.EditorOnlyImporter, T:Vixen.Editor.Assets.EditorOnlyImportSettings, T:Vixen.Editor.Assets.Materials.MaterialMapUsage, T:Vixen.Editor.Assets.Materials.MaterialMapTarget, T:Vixen.Editor.Assets.Materials.MaterialMapNaming, T:Vixen.Editor.Assets.Materials.MaterialMapImage, T:Vixen.Editor.Assets.Materials.MaterialBake, T:Vixen.Editor.Assets.Materials.MaterialBakeRecord, T:Vixen.Editor.Assets.Materials.MaterialProvenance, T:Vixen.Editor.Assets.Materials.MaterialBakeSet, T:Vixen.Editor.Assets.Materials.MaterialBakeParallax, T:Vixen.Editor.Assets.Materials.ProjectMaterialBaker, T:Vixen.Cli.TextureRunner, T:Vixen.Texturing.Layers.LayerHeightNormal]
 tags: [editor, bake, materials, textures, material-authoring, texture-graph, cli]
 since: 0.1
 status: preview
@@ -80,6 +80,13 @@ length, because three usages share one file.
 | `opacity` | `<name>_opacity` | `opacityMap` |
 | `height` | `<name>_height` | `parallaxHeightMap`, **only** where the material carries `ParallaxOcclusionFeature` |
 | `mask` | `<name>_mask` | — nothing samples it |
+
+⚠ **A texture set with a `height` channel writes a `normal` too, declared or not.** `LayerStackGraph`
+turns the height into its slope with `Height to Normal` and, when the set has a normal channel,
+combines that over it with `Normal Combine`, so painted height reaches the surface and not only the
+height file. The set's `LayerHeightNormal` says how: `Smooth`, the default, blurs the height by a
+texel first so eight-bit paint does not show its steps as contour lines, and `Sharp` does not. A
+height of 1 stands a sixty-fourth of the atlas tall (`LayerStackGraph.ReliefIntensity`).
 
 ⚠ **The R, G, B order of the packed map is `TexturedOrmFeature`'s and not a preference.** That
 feature reads occlusion from red, roughness from green and metalness from blue; a bake that packed

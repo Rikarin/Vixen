@@ -156,6 +156,39 @@ public class PaintMeshSurfaceTests {
     }
 
     /// <summary>
+    ///     A stroke on an island laid out on a second UV tile paints nothing in the atlas: the texels it would reach are
+    ///     past the edge, and none of them is clamped onto the edge of the first tile. The left island still takes its
+    ///     half of the same stamp.
+    /// </summary>
+    [Fact]
+    public void A_stamp_on_an_island_past_the_unit_square_paints_nothing_of_it() {
+        PaintMeshSurface surface = new(
+            PaintProjection.Over(
+                [
+                    new(-1f, -1f, 0f), new(0f, -1f, 0f), new(0f, 1f, 0f), new(-1f, 1f, 0f),
+                    new(0f, -1f, 0f), new(1f, -1f, 0f), new(1f, 1f, 0f), new(0f, 1f, 0f)
+                ],
+                [
+                    new(0.1f, 0.1f), new(0.35f, 0.1f), new(0.35f, 0.6f), new(0.1f, 0.6f),
+                    new(1.6f, 0.1f), new(1.85f, 0.1f), new(1.85f, 0.6f), new(1.6f, 0.6f)
+                ],
+                [0, 1, 2, 0, 2, 3, 4, 5, 6, 4, 6, 7]
+            ),
+            Side,
+            Side
+        );
+        PaintImage image = new(Side, Side);
+
+        Stroke(image, surface, surface.Through(Facing(4f, 512)), 0).MoveTo(new(256f, 256f));
+
+        Assert.Equal((int)LeftSeam, Columns(image, 89, 0, 128).Last);
+        Assert.Equal((int.MaxValue, int.MinValue), Columns(image, 89, 128, Side));
+        for (var y = 0; y < Side; y++) {
+            Assert.Equal(0u, image.At(Side - 1, y));
+        }
+    }
+
+    /// <summary>
     ///     A wall seen nearly side on, with a big triangle: what a stamp looks at must be the texels the disc falls on,
     ///     as a count of work. Scanning a ball as deep as the slope cost this three thousand a stamp and more.
     /// </summary>
