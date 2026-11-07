@@ -54,6 +54,14 @@ public readonly record struct TextureExternal(TextureHandle Texture, TextureUsag
     /// </remarks>
     public TextureResultKey Content { get; init; }
 
+    /// <summary>What the texture holds, or null for the format the plan declares.</summary>
+    /// <remarks>
+    ///     A kernel samples, and sampling returns numbers whatever is behind them, so a picture can
+    ///     be wider than the plan said. <b>Only a read-back cares</b>, and it has to size its bytes
+    ///     from the texture rather than the plan.
+    /// </remarks>
+    public TextureFormat? Format { get; init; }
+
     /// <summary>Whether the caller said how big the picture is.</summary>
     /// <remarks>
     ///     ⚠ <b>Both axes, and positive rather than non-negative.</b> A zero-sized copy is a

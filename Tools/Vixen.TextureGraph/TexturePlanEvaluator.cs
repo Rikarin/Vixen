@@ -1549,7 +1549,7 @@ public sealed partial class TexturePlanEvaluator : IDisposable {
             // MoltenVK raised nothing, because a copy larger than the image is undefined rather
             // than invalid.
             var size = SizeOf(plan, externalTextures, input);
-            var bytes = size.X * size.Y * TextureFormats.BytesPerTexel(plan.Images[input].Format);
+            var bytes = size.X * size.Y * TextureFormats.BytesPerTexel(FormatOf(plan, externalTextures, input));
             var buffer = device.CreateBuffer(
                 new(bytes, BufferUsage.CopyDestination, MemoryAccess.HostReadback, $"{op.Kernel} read-back")
             );
@@ -1576,7 +1576,7 @@ public sealed partial class TexturePlanEvaluator : IDisposable {
 
         foreach (var (image, buffer) in reads) {
             var size = SizeOf(plan, externalTextures, image);
-            var format = plan.Images[image].Format;
+            var format = FormatOf(plan, externalTextures, image);
             var raw = new byte[size.X * size.Y * TextureFormats.BytesPerTexel(format)];
 
             device.Read(buffer, 0, raw);
@@ -1658,6 +1658,14 @@ public sealed partial class TexturePlanEvaluator : IDisposable {
     /// </remarks>
     static Int2 SizeOf(TexturePlan plan, IReadOnlyDictionary<int, TextureExternal> externals, int image) =>
         plan.Images[image].External ? externals[image].Size : plan.SizeOf(image);
+
+    /// <summary>What an image's texels are, which for a picture is what was uploaded.</summary>
+    static TextureFormat FormatOf(
+        TexturePlan plan,
+        IReadOnlyDictionary<int, TextureExternal> externals,
+        int image
+    ) =>
+        plan.Images[image].External ? externals[image].Format ?? plan.Images[image].Format : plan.Images[image].Format;
 
     static int Groups(int extent) => (extent + GroupSize - 1) / GroupSize;
 
