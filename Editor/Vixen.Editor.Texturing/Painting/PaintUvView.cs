@@ -554,9 +554,9 @@ sealed class PaintUvView {
     /// <summary>Lays the placed curve as one stroke, and forgets it.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>At zero smoothing whatever the tool's slider says, for the shift-click line's
-    ///         reason</b> — <c>PaintStroke</c> lags the input points, so a path laid from sampled
-    ///         positions would be pulled off the curve by exactly the smoothing fraction, and the
+    ///         ⚠ <b>With no lazy mouse whatever the tool's slider says, for the shift-click line's
+    ///         reason</b> — <c>PaintStroke</c> trails the input points, so a path laid from sampled
+    ///         positions would stop short of its end by the lazy distance, and the
     ///         painting would miss the drawing the artist was looking at. #1084 names this half
     ///         explicitly.
     ///     </para>
@@ -737,12 +737,12 @@ sealed class PaintUvView {
             case PointerAction.Pressed when session is null && args.Button == PointerButton.Primary:
                 var line = anchor is not null && (args.Modifiers & ModifierKeys.Shift) != 0;
 
-                // ⚠ A line stroke takes no smoothing whatever the tool's slider says. Smoothing is
-                // a lag on the *input points* — `PaintStroke` lerps towards each one — so a line
-                // laid from two points would stop short of the second by exactly the smoothing
-                // fraction, which is a line that does not reach where the artist clicked and looks
+                // ⚠ A line stroke takes no lazy mouse whatever the tool's slider says. The lazy
+                // mouse trails the *input points* — `PaintStroke` keeps the brush a string's length
+                // behind each one — so a line laid from two points would stop short of the second by
+                // that length, which is a line that does not reach where the artist clicked and looks
                 // like a broken gesture rather than like a setting.
-                if (Begin(line ? 0f : tool.Smoothing) is not { } started) {
+                if (Begin(line ? 0f : tool.Lazy) is not { } started) {
                     // Nothing to paint into. The event is deliberately not handled, so the pane
                     // still pans — a pointer that did nothing at all would read as a frozen panel.
                     return;
@@ -883,12 +883,12 @@ sealed class PaintUvView {
         path.Add(at);
     }
 
-    PaintSession? Begin(float smoothing) {
+    PaintSession? Begin(float lazy) {
         if (Target?.Invoke() is not { } target) {
             return null;
         }
 
-        return PaintSession.Begin(target, tool.Brush, tool.Colour, smoothing);
+        return PaintSession.Begin(target, tool.Brush, tool.Colour, lazy);
     }
 
     void Stamp(PointerEvent args) => Stamp(ToTexels(args.X, args.Y), true);

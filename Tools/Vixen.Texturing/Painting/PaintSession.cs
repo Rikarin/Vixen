@@ -57,7 +57,7 @@ public sealed record PaintTarget(PaintImage Layer, PaintCoverage Coverage, int G
 ///         </item>
 ///     </list>
 ///     <para>
-///         Everything else is here: spacing, jitter, smoothing, the dilation and the single undo
+///         Everything else is here: spacing, jitter, the lazy mouse, the dilation and the single undo
 ///         entry. A curve or path stroke is <see cref="MoveAll(System.ReadOnlySpan{Vector2})" /> called along the
 ///         curve, which is why doc 48 § D13 says it does not touch the kernel.
 ///     </para>
@@ -76,7 +76,7 @@ public sealed class PaintSession {
 
     readonly PaintBrush brush;
     readonly uint colour;
-    readonly float smoothing;
+    readonly float lazy;
     readonly uint seed;
 
     /// <summary>What the drag found before any of its paths painted.</summary>
@@ -87,11 +87,11 @@ public sealed class PaintSession {
     /// </remarks>
     PaintImageSnapshot? origin;
 
-    PaintSession(PaintTarget target, PaintBrush brush, uint colour, float smoothing, uint seed) {
+    PaintSession(PaintTarget target, PaintBrush brush, uint colour, float lazy, uint seed) {
         this.target = target;
         this.brush = brush;
         this.colour = colour;
-        this.smoothing = smoothing;
+        this.lazy = lazy;
         this.seed = seed;
     }
 
@@ -170,19 +170,19 @@ public sealed class PaintSession {
     /// <param name="target">What is being painted.</param>
     /// <param name="brush">The brush.</param>
     /// <param name="colour">What is being painted, packed <c>0xAABBGGRR</c>.</param>
-    /// <param name="smoothing">How much the path lags the pointer, 0…1.</param>
+    /// <param name="lazy">How far the brush trails the pointer, in texels.</param>
     /// <param name="seed">What the jitter derives from.</param>
     /// <returns>The session.</returns>
     public static PaintSession Begin(
         PaintTarget target,
         PaintBrush brush,
         uint colour,
-        float smoothing = 0f,
+        float lazy = 0f,
         uint seed = 0x9E3779B9u
     ) {
         ArgumentNullException.ThrowIfNull(target);
 
-        return new(target, brush, colour, smoothing, seed);
+        return new(target, brush, colour, lazy, seed);
     }
 
     /// <summary>Pointer-move, with symmetry. Paints whatever stamps the movement earned.</summary>
@@ -210,7 +210,7 @@ public sealed class PaintSession {
                     brush,
                     colour,
                     target.Gutter,
-                    smoothing,
+                    lazy,
                     seed + ((uint)index * 0x85EBCA6Bu),
                     origin
                 ));

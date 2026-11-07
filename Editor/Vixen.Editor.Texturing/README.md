@@ -262,9 +262,9 @@ Doc 48 § D13 lists curve and path strokes beside symmetry and smoothing as stro
 carrying the leftover distance across pointer events, so a **shift-click line** is two
 `PaintSession.MoveAll` calls inside one press: one stroke, one undo entry, no pointer capture, no
 sampler. `PaintUvView` keeps the texel the last stroke ended on and draws from there, and drops that
-anchor when the atlas resizes because it is in texels of one. ⚠ **The line session takes no
-smoothing whatever the slider says**: smoothing lags the *input points*, so a two-point line stops
-short of the click by exactly the smoothing fraction — a line that misses where the artist clicked
+anchor when the atlas resizes because it is in texels of one. ⚠ **The line session takes no lazy
+mouse whatever the slider says**: the lazy mouse trails the *input points*, so a two-point line stops
+short of the click by the lazy distance — a line that misses where the artist clicked
 reads as a broken gesture rather than as a setting. A *curved* path is the half that still needs
 sampling, and the blocker is the front end rather than the sampler:
 [#1084](https://github.com/Rikarin/Vixen/issues/1084).

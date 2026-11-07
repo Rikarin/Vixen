@@ -131,13 +131,13 @@ public sealed class PaintTool {
     /// <summary>Whether <see cref="AngleDegrees" /> applies: a masked brush turned by hand.</summary>
     public bool IsAngled => IsMasked && Brush.Rotation == BrushRotation.Fixed;
 
-    /// <summary>How much the stroke's path lags the pointer, 0…1.</summary>
+    /// <summary>How far the brush trails the pointer, in texels: a lazy mouse. Zero follows it exactly.</summary>
     /// <remarks>
     ///     On the tool rather than on the brush because it is a filter on the <em>input points</em>
     ///     — doc 48 § D13 — so it belongs to how the artist is dragging and not to what the brush
     ///     deposits. <see cref="PaintSession.Begin" /> takes it separately for that reason.
     /// </remarks>
-    public float Smoothing { get; private set; }
+    public float Lazy { get; private set; }
 
     /// <summary>Whether a drag would paint.</summary>
     public bool IsPainting => Mode == PaintToolMode.Paint;
@@ -303,13 +303,13 @@ public sealed class PaintTool {
     /// <summary>How much a stamp's radius may shrink, as a fraction. Shrink only.</summary>
     public void SetSizeJitter(float fraction) => Brush = Brush with { SizeJitter = Unit(fraction) };
 
-    /// <summary>How much the path lags the pointer.</summary>
+    /// <summary>How far the brush trails the pointer, in texels.</summary>
     /// <remarks>
-    ///     Capped below one, not at it: a smoothing of exactly one is a path that never reaches the
-    ///     pointer, which is a brush that paints one stamp and then nothing however far the artist
-    ///     drags. <c>PaintStroke</c> clamps to the same number for the same reason.
+    ///     ⚠ <b>A distance, where this was a share of the way to each pointer event</b>: that lagged by however often
+    ///     the pointer reported, and a lag of one never reached the pointer at all. A string of any length still
+    ///     reaches it, so only a negative or a NaN is refused, and the top is the largest brush.
     /// </remarks>
-    public void SetSmoothing(float amount) => Smoothing = Math.Clamp(Safe(amount, 0f), 0f, 0.999f);
+    public void SetLazy(float texels) => Lazy = Math.Clamp(Safe(texels, 0f), 0f, MaximumRadius);
 
     /// <summary>The brush's angle jitter as a person reads it.</summary>
     public float AngleJitterDegrees => Brush.AngleJitter * (180f / MathF.PI);

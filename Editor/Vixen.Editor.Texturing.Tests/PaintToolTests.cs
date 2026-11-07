@@ -45,13 +45,13 @@ public class PaintToolTests {
         tool.SetSpacing(0f);
         tool.SetFlow(float.NaN);
         tool.SetOpacity(4f);
-        tool.SetSmoothing(1f);
+        tool.SetLazy(-4f);
 
         Assert.Equal(PaintTool.MinimumRadius, tool.Brush.Radius);
         Assert.True(tool.Brush.Spacing > 0f, "a spacing of zero is a stamp every zero texels.");
         Assert.False(float.IsNaN(tool.Brush.Flow), "a NaN reached the brush, and a NaN weight paints nothing.");
         Assert.Equal(1f, tool.Brush.Opacity);
-        Assert.True(tool.Smoothing < 1f, "a smoothing of one is a path that never reaches the pointer.");
+        Assert.Equal(0f, tool.Lazy);
 
         // The instrument: an ordinary value is not clamped, so the assertions above are about the
         // edges rather than about a setter that ignores what it is given.
@@ -198,7 +198,7 @@ public class PaintToolTests {
         Assert.False(float.IsNaN(tool.Brush.Opacity));
         Assert.False(float.IsNaN(tool.Brush.Falloff));
         Assert.False(float.IsNaN(tool.Brush.Spacing));
-        Assert.False(float.IsNaN(tool.Smoothing));
+        Assert.False(float.IsNaN(tool.Lazy));
         Assert.True(tool.Brush.Radius >= PaintTool.MinimumRadius);
     }
 
