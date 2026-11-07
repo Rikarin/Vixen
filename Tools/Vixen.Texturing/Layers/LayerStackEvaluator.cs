@@ -80,6 +80,12 @@ public sealed class LayerStackEvaluator : IDisposable {
     /// <summary>What crosses to the device, for a host that wants to show it.</summary>
     public PaintTileCache Tiles => tiles;
 
+    /// <summary>
+    ///     Whether a slot nobody has filled yet leaves its layer out with a warning, rather than refusing the stack.
+    ///     For a host someone is editing in, and not for a bake.
+    /// </summary>
+    public bool Draft { get; init; }
+
     /// <summary>Whether the last <see cref="Prepare" /> compiled, rather than only moving values.</summary>
     public bool Compiled { get; private set; }
 
@@ -110,7 +116,7 @@ public sealed class LayerStackEvaluator : IDisposable {
         ArgumentNullException.ThrowIfNull(set);
         ArgumentNullException.ThrowIfNull(registry);
 
-        var build = LayerStackGraph.Build(stack, set, registry);
+        var build = LayerStackGraph.Build(stack, set, registry, Draft);
 
         Problems = build.Problems;
         Layers = build.Layers;
