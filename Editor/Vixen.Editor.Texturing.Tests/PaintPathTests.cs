@@ -177,6 +177,70 @@ public class PaintPathTests {
     }
 
     /// <summary>An S through four points, scaled to a size.</summary>
+    /// <summary>
+    ///     How hard a path was pressed runs along it by distance, each point holding its own, so a stylus lifting
+    ///     between two clicks fades between them whatever the tolerance cut the curve into.
+    /// </summary>
+    [Fact]
+    public void Pressure_runs_along_the_curve_between_its_points() {
+        PaintPath path = new();
+
+        path.Add(new(0f, 0f), 1f);
+        path.Add(new(100f, 80f), 0.5f);
+        path.Add(new(200f, 0f), 0.1f);
+
+        List<Vector2> positions = [];
+        List<float> pressures = [];
+
+        path.Sample(positions, pressures);
+
+        Assert.Equal(positions.Count, pressures.Count);
+        Assert.Equal(1f, pressures[0]);
+        Assert.Equal(0.1f, pressures[^1]);
+        Assert.Equal(0.5f, pressures[positions.IndexOf(new(100f, 80f))]);
+
+        for (var index = 1; index < pressures.Count; index++) {
+            Assert.True(pressures[index] <= pressures[index - 1], "A pressure that only falls fell back up.");
+        }
+    }
+
+    /// <summary>What a stroke walks is the same with or without pressure: asking for it moves no position.</summary>
+    [Fact]
+    public void Pressure_moves_no_position() {
+        var path = Curve(400f);
+        List<Vector2> alone = [];
+        List<Vector2> beside = [];
+        List<float> pressures = [];
+
+        path.Sample(alone);
+        path.Sample(beside, pressures);
+
+        Assert.Equal(alone, beside);
+        Assert.All(pressures, static pressure => Assert.Equal(1f, pressure));
+    }
+
+    /// <summary>A point keeps its pressure through everything that edits the list it is in.</summary>
+    [Fact]
+    public void Editing_a_path_keeps_each_points_pressure() {
+        PaintPath path = new();
+
+        path.Add(new(0f, 0f), 0.2f);
+        path.Add(new(100f, 0f), 0.8f);
+        path.Insert(1, new(50f, 0f));
+        path.RemoveAt(0);
+
+        List<Vector2> positions = [];
+        List<float> pressures = [];
+
+        path.Sample(positions, pressures);
+
+        Assert.Equal(0.5f, pressures[0]);
+        Assert.Equal(0.8f, pressures[^1]);
+        Assert.True(path.Undo());
+        path.Sample(positions, pressures);
+        Assert.Equal(0.5f, Assert.Single(pressures));
+    }
+
     static PaintPath Curve(float size) {
         PaintPath path = new();
 
