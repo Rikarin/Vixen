@@ -105,10 +105,7 @@ public class TextureTilingConformanceDeviceTests(ITestOutputHelper output) {
     ///     What is owed, not impossible: these should tile and do not yet, and each entry goes red the
     ///     day it does.
     /// </summary>
-    static readonly Dictionary<string, string> Owed = new() {
-        ["Analysis/Flood Fill"] = "An island across the wrap is two islands until the bounds propagation goes "
-            + "round, which belongs with moving it to a jump flood: Rikarin/Patina#98."
-    };
+    static readonly Dictionary<string, string> Owed = [];
 
     /// <summary>Subjects that draw one value by design, so that a flat picture is not a failure.</summary>
     static readonly HashSet<string> Flat = ["Source/Uniform", "Colour/Metal Reflectance"];
@@ -136,6 +133,9 @@ public class TextureTilingConformanceDeviceTests(ITestOutputHelper output) {
     ///     rolling the input cannot be expected to roll the output.
     /// </summary>
     static readonly HashSet<string> PositionDependent = [
+        // An island is named by where it is. That it stays one island over the seam is held by
+        // TextureFloodReachDeviceTests, which a seam on a picture this contrasty could not see.
+        "Analysis/Flood Fill",
         "Placement/Splatter",
         "Placement/Tile Sampler",
         "Patterns/Tile Random",

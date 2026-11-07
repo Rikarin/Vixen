@@ -3,6 +3,8 @@
 
 package Vixen.TextureGraph.Shaders
 
+import Vixen.Shaders.Core
+
 // One sweep of the propagation doc 48 § 4.5's `Flood Fill` is, and § 4.5 is right that it is the
 // highest-risk kernel in the catalogue.
 //
@@ -46,6 +48,30 @@ package Vixen.TextureGraph.Shaders
 // and only the invocations on the edge the lines start from do any work. That is why the group size
 // stays the evaluator's: every invocation still runs, and all but one per line return at once.
 //
+// ## ⚠ Round the wrap, a box is an arc
+//
+// Along an axis the plan wraps, the image is a circle, and an island over the seam is one island. A
+// walk goes on past the edge, and `Math.Address` says which texel it has reached. Three things follow.
+//
+// **A line that closes has no first texel.** A row of a wrapping image comes back to where it began,
+// so a run can go over any start. Such a line starts after its first background texel, and one with
+// none is a single run the whole way round. On a torus a diagonal closes too, after the least common
+// multiple of the sides, and only `Divisor` of them begin at the top edge. Along one axis it does not
+// close, and it begins on the edge that does not wrap.
+//
+// **Two records of one island can only be merged where they meet.** A box is `min` to `max`, and with
+// a wrap `max` can pass the image: `minX` stays in `0 .. width - 1` and a texel left of it is on the
+// next lap. `Moved` puts a record in the frame of the walk that reached it, the walk takes its union,
+// and `Settled` brings the result back. So every texel of an island still names the same record, and
+// `TextureFloodOutput` still reads one name, size and UV off it.
+//
+// **An island round the whole axis has no ends**, so it is `0 .. width - 1`, which is the one box that
+// says so: a span that reaches the side is that box whichever way the merges went. An arc only grows
+// inside the island's shadow on the axis, so the fixed point is the same as it is on a plane.
+//
+// A clamped axis is the same code with nothing to do: a walk never leaves it, no texel is left of its
+// box, and `Moved` moves nothing.
+//
 // ## ⚠ The number of sweeps is a property of the *shape*, and it is reported rather than guessed
 //
 // A while on the device is not an option — the fixed point is a property of the whole image and a
@@ -73,6 +99,13 @@ shader FloodBounds {
     /// Which lines this sweep walks: 0 rows · 1 columns · 2 and 3 the two diagonals.
     var axis: int = 0
 
+    /// Non-zero when a run reaching the right edge goes on at the left. The plan's, as `seed` is: see
+    /// `Math.Address`.
+    var wrapX: int = 0
+
+    /// The same for the bottom edge and the top.
+    var wrapY: int = 0
+
     [Format("rgba16f")] var target: RWTexture2D<float4>
 
     /// A texel that is in no island.
@@ -94,8 +127,23 @@ shader FloodBounds {
         return float4(Background, Background, Background, Background)
     }
 
-    /// Whether a line of this sweep begins at a texel.
-    func Begins(x: int, y: int, width: int): bool {
+    /// The largest number both sides divide by, which is how many diagonals a torus has.
+    func Divisor(width: int, height: int): int {
+        var large = width
+        var small = height
+
+        while (small != 0) {
+            val rest = large % small
+
+            large = small
+            small = rest
+        }
+
+        return large
+    }
+
+    /// Whether a line of this sweep begins at a texel. Every texel is on exactly one line.
+    func Begins(x: int, y: int, width: int, height: int): bool {
         if (axis == 0) {
             return x == 0
         }
@@ -104,11 +152,107 @@ shader FloodBounds {
             return y == 0
         }
 
-        if (axis == 2) {
-            return x == 0 || y == 0
+        var near = 0
+
+        if (axis == 3) {
+            near = width - 1
         }
 
-        return x == width - 1 || y == 0
+        if (wrapX != 0 && wrapY != 0) {
+            return y == 0 && x < Divisor(width, height)
+        }
+
+        if (wrapX != 0) {
+            return y == 0
+        }
+
+        if (wrapY != 0) {
+            return x == near
+        }
+
+        return x == near || y == 0
+    }
+
+    /// Whether a line of this sweep comes back to where it began.
+    func Closes(): bool {
+        if (axis == 0) {
+            return wrapX != 0
+        }
+
+        if (axis == 1) {
+            return wrapY != 0
+        }
+
+        return wrapX != 0 && wrapY != 0
+    }
+
+    /// How many texels a line of this sweep has at most. One that leaves the image ends there.
+    func Longest(width: int, height: int): int {
+        if (axis == 0) {
+            return width
+        }
+
+        if (axis == 1) {
+            return height
+        }
+
+        if (wrapX != 0 && wrapY != 0) {
+            return width / Divisor(width, height) * height
+        }
+
+        if (wrapX != 0) {
+            return height
+        }
+
+        if (wrapY != 0) {
+            return width
+        }
+
+        return max(width, height)
+    }
+
+    /// Whether a walk is still on the image, which along a wrapping axis it always is.
+    func Inside(x: int, y: int, width: int, height: int): bool {
+        return (wrapX != 0 || (x >= 0 && x < width)) && (wrapY != 0 || (y >= 0 && y < height))
+    }
+
+    /// Where a texel sits along an axis relative to a box that starts at `low`.
+    func Lap(texel: int, low: float, extent: int): int {
+        if (float(texel) < low) {
+            return texel + extent
+        }
+
+        return texel
+    }
+
+    /// A record in the frame of the walk that reached it, at `x, y`, on the texel `texelX, texelY`.
+    func Moved(record: float4, x: int, y: int, texelX: int, texelY: int, width: int, height: int): float4 {
+        val byX = float(x - Lap(texelX, record.x, width))
+        val byY = float(y - Lap(texelY, record.y, height))
+
+        return record + float4(byX, byY, byX, byY)
+    }
+
+    /// One axis of a box in the image's frame, however far a walk went: `minimum, maximum`.
+    func Arc(low: float, high: float, extent: int): float2 {
+        val span = high - low + 1f
+        val whole = float(extent)
+
+        if (span >= whole) {
+            return float2(0f, whole - 1f)
+        }
+
+        val start = low - (whole * floor(low / whole))
+
+        return float2(start, start + span - 1f)
+    }
+
+    /// A walk's union as the record every texel of its run gets.
+    func Settled(bounds: float4, width: int, height: int): float4 {
+        val across = Arc(bounds.x, bounds.z, width)
+        val down = Arc(bounds.y, bounds.w, height)
+
+        return float4(across.x, down.x, across.y, down.y)
     }
 
     [ComputeShader(8, 8, 1)]
@@ -119,7 +263,7 @@ shader FloodBounds {
         val startX = int(id.x)
         val startY = int(id.y)
 
-        if (startX >= width || startY >= height || !Begins(startX, startY, width)) {
+        if (startX >= width || startY >= height || !Begins(startX, startY, width, height)) {
             return
         }
 
@@ -138,44 +282,78 @@ shader FloodBounds {
             stepX = -1
         }
 
-        var x = startX
-        var y = startY
+        val longest = Longest(width, height)
+        var skipped = 0
 
-        while (x >= 0 && y >= 0 && x < width && y < height) {
-            val here = Record(x, y)
+        if (Closes()) {
+            var gap = 0
+
+            while (gap < longest) {
+                val tapX = Math.Address(startX + (gap * stepX), width, wrapX)
+                val tapY = Math.Address(startY + (gap * stepY), height, wrapY)
+
+                if (Record(tapX, tapY).x < 0f) {
+                    skipped = gap
+
+                    break
+                }
+
+                gap = gap + 1
+            }
+        }
+
+        var x = startX + (skipped * stepX)
+        var y = startY + (skipped * stepY)
+        var left = longest
+
+        while (left > 0 && Inside(x, y, width, height)) {
+            val texelX = Math.Address(x, width, wrapX)
+            val texelY = Math.Address(y, height, wrapY)
+            val here = Record(texelX, texelY)
             var nextX = x + stepX
             var nextY = y + stepY
+            var length = 1
 
             if (here.x < 0f) {
-                target.Store(int2(x, y), float4(Background, Background, Background, Background))
+                target.Store(int2(texelX, texelY), float4(Background, Background, Background, Background))
             }
 
             if (here.x >= 0f) {
-                var low = float2(here.x, here.y)
-                var high = float2(here.z, here.w)
-                var length = 1
+                val moved = Moved(here, x, y, texelX, texelY, width, height)
+                var low = float2(moved.x, moved.y)
+                var high = float2(moved.z, moved.w)
 
-                while (nextX >= 0 && nextY >= 0 && nextX < width && nextY < height) {
-                    val tap = Record(nextX, nextY)
+                while (length < left && Inside(nextX, nextY, width, height)) {
+                    val tapX = Math.Address(nextX, width, wrapX)
+                    val tapY = Math.Address(nextY, height, wrapY)
+                    val tap = Record(tapX, tapY)
 
                     if (tap.x < 0f) {
                         break
                     }
 
-                    low = min(low, float2(tap.x, tap.y))
-                    high = max(high, float2(tap.z, tap.w))
+                    val reached = Moved(tap, nextX, nextY, tapX, tapY, width, height)
+
+                    low = min(low, float2(reached.x, reached.y))
+                    high = max(high, float2(reached.z, reached.w))
                     length = length + 1
                     nextX = nextX + stepX
                     nextY = nextY + stepY
                 }
 
+                val settled = Settled(float4(low.x, low.y, high.x, high.y), width, height)
+
                 for (at in 0 .. length - 1) {
-                    target.Store(int2(x + at * stepX, y + at * stepY), float4(low.x, low.y, high.x, high.y))
+                    val writtenX = Math.Address(x + (at * stepX), width, wrapX)
+                    val writtenY = Math.Address(y + (at * stepY), height, wrapY)
+
+                    target.Store(int2(writtenX, writtenY), settled)
                 }
             }
 
             x = nextX
             y = nextY
+            left = left - length
         }
     }
 }

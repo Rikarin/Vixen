@@ -18,6 +18,9 @@ namespace Tests;
 public class TextureFloodReachDeviceTests(ITestOutputHelper output) {
     const int CellsPerSide = 4;
 
+    /// <summary>How near a fraction read back has to come: the kernel divides in 32 bits on the device.</summary>
+    const float Close = 1e-5f;
+
     /// <summary>
     ///     Rikarin/Patina#98's first claim: a cell of a Checker is wider than the default budget in
     ///     texels, and the box each texel reports has to be the whole cell all the same.
@@ -133,6 +136,145 @@ public class TextureFloodReachDeviceTests(ITestOutputHelper output) {
         } finally {
             device.Destroy(staging);
             device.Destroy(texture);
+        }
+    }
+
+    /// <summary>A band over the seam is one island with its true size when the plan wraps, and two when not.</summary>
+    /// <remarks>Both modes are held, because a mesh map's graph clamps and an atlas's islands are its own.</remarks>
+    [Theory]
+    [InlineData(true, false, true)]
+    [InlineData(false, false, false)]
+    [InlineData(false, true, false)]
+    public void A_band_over_the_seam_of_a_wrapping_axis_is_one_island(bool wrapX, bool wrapY, bool oneIsland) {
+        using var device = TextureKernelHarness.Open();
+
+        const int Width = 64;
+        const int Height = 32;
+
+        // Four texels each side of the seam, past the budget's reach were it counted in texels.
+        (int, int)[] band = [.. Rectangle(60, 10, 8, 4, Width, Height)];
+
+        var boxes = Flood(device, Width, Height, band, TextureFloodOutput.BoundingBox, wrapX, wrapY);
+        var size = Flood(device, Width, Height, band, TextureFloodOutput.Size, wrapX, wrapY);
+        var uv = Flood(device, Width, Height, band, TextureFloodOutput.LocalUv, wrapX, wrapY);
+
+        if (!oneIsland) {
+            Assert.Equal(4f / Width, size.At(62, 11, 0), Close);
+            Assert.Equal(4f / Width, size.At(1, 11, 0), Close);
+            Assert.NotEqual(boxes.At(62, 11, 0), boxes.At(1, 11, 0));
+
+            return;
+        }
+
+        foreach (var (x, y) in band) {
+            Assert.Equal(60f / Width, boxes.At(x, y, 0), Close);
+            Assert.Equal(10f / Height, boxes.At(x, y, 1), Close);
+            Assert.Equal(67f / Width, boxes.At(x, y, 2), Close);
+            Assert.Equal(13f / Height, boxes.At(x, y, 3), Close);
+            Assert.Equal(8f / Width, size.At(x, y, 0), Close);
+        }
+
+        Assert.Equal(0f, uv.At(60, 11, 0), Close);
+        Assert.Equal(3f / 8f, uv.At(63, 11, 0), Close);
+        Assert.Equal(4f / 8f, uv.At(0, 11, 0), Close);
+        Assert.Equal(7f / 8f, uv.At(3, 11, 0), Close);
+    }
+
+    /// <summary>The same down the other axis, and at both at once, where a corner holds four pieces.</summary>
+    [Fact]
+    public void An_island_over_the_corner_of_a_torus_is_one_island() {
+        using var device = TextureKernelHarness.Open();
+
+        const int Width = 48;
+        const int Height = 32;
+
+        (int, int)[] patch = [.. Rectangle(44, 28, 10, 8, Width, Height)];
+
+        var boxes = Flood(device, Width, Height, patch, TextureFloodOutput.BoundingBox, true, true);
+        var uv = Flood(device, Width, Height, patch, TextureFloodOutput.LocalUv, true, true);
+
+        foreach (var (x, y) in patch) {
+            Assert.Equal(44f / Width, boxes.At(x, y, 0), Close);
+            Assert.Equal(28f / Height, boxes.At(x, y, 1), Close);
+            Assert.Equal(53f / Width, boxes.At(x, y, 2), Close);
+            Assert.Equal(35f / Height, boxes.At(x, y, 3), Close);
+        }
+
+        Assert.Equal(9f / 10f, uv.At(5, 3, 0), Close);
+        Assert.Equal(7f / 8f, uv.At(5, 3, 1), Close);
+
+        var clamped = Flood(device, Width, Height, patch, TextureFloodOutput.BoundingBox, false, false);
+
+        Assert.NotEqual(clamped.At(47, 31, 0), clamped.At(0, 0, 0));
+    }
+
+    /// <summary>A line of corners over the seam, both ways round, on sides that share a factor and on ones that do not.</summary>
+    [Theory]
+    [InlineData(32, 32, 1)]
+    [InlineData(32, 32, -1)]
+    [InlineData(24, 36, 1)]
+    [InlineData(24, 36, -1)]
+    [InlineData(17, 23, 1)]
+    public void A_diagonal_island_over_the_corner_is_one_island_only_when_corners_join(int width, int height, int run) {
+        using var device = TextureKernelHarness.Open();
+
+        (int X, int Y)[] line = [
+            .. Enumerable.Range(0, 8)
+                .Select(at => (Wrap(width - 4 + (at * run), width), Wrap(height - 4 + at, height)))
+        ];
+
+        var joined = Flood(device, width, height, line, TextureFloodOutput.Size, true, true, true);
+        var apart = Flood(device, width, height, line, TextureFloodOutput.Size, true, true);
+
+        foreach (var (x, y) in line) {
+            Assert.Equal(8f / width, joined.At(x, y, 0), Close);
+            Assert.Equal(8f / height, joined.At(x, y, 1), Close);
+            Assert.Equal(1f / width, apart.At(x, y, 0), Close);
+        }
+    }
+
+    /// <summary>A ring round the whole image has no ends, and says so with the one box that can.</summary>
+    [Fact]
+    public void A_ring_round_the_image_is_every_texel_of_the_axis() {
+        using var device = TextureKernelHarness.Open();
+
+        const int Width = 32;
+        const int Height = 16;
+
+        (int, int)[] ring = [.. Rectangle(0, 5, Width, 2, Width, Height)];
+
+        var boxes = Flood(device, Width, Height, ring, TextureFloodOutput.BoundingBox, true, false);
+
+        foreach (var (x, y) in ring) {
+            Assert.Equal(0f, boxes.At(x, y, 0), Close);
+            Assert.Equal(31f / Width, boxes.At(x, y, 2), Close);
+            Assert.Equal(5f / Height, boxes.At(x, y, 1), Close);
+            Assert.Equal(6f / Height, boxes.At(x, y, 3), Close);
+        }
+    }
+
+    /// <summary>A hook the seam closes takes more than one row, and the rounds still settle on one box.</summary>
+    [Fact]
+    public void A_shape_joined_only_over_the_seam_settles_on_one_box() {
+        using var device = TextureKernelHarness.Open();
+
+        const int Width = 32;
+        const int Height = 32;
+
+        // Two uprights, joined by one foot over the seam, with nothing in the middle of the image.
+        (int, int)[] shape = [
+            .. Rectangle(2, 4, 1, 12, Width, Height),
+            .. Rectangle(28, 10, 1, 12, Width, Height),
+            .. Rectangle(28, 12, 7, 1, Width, Height)
+        ];
+
+        var boxes = Flood(device, Width, Height, shape, TextureFloodOutput.BoundingBox, true, true);
+
+        foreach (var (x, y) in shape) {
+            Assert.Equal(28f / Width, boxes.At(x, y, 0), Close);
+            Assert.Equal(34f / Width, boxes.At(x, y, 2), Close);
+            Assert.Equal(4f / Height, boxes.At(x, y, 1), Close);
+            Assert.Equal(21f / Height, boxes.At(x, y, 3), Close);
         }
     }
 
@@ -291,6 +433,74 @@ public class TextureFloodReachDeviceTests(ITestOutputHelper output) {
         Assert.True(compilation.Succeeded, string.Join(' ', compilation.Diagnostics.Select(static d => d.Message)));
 
         return (compiler, compilation.Value, compiler.Outputs[0].Image);
+    }
+
+    static int Wrap(int value, int extent) => ((value % extent) + extent) % extent;
+
+    /// <summary>The texels of a rectangle that may go over the edges, folded back onto the image.</summary>
+    static IEnumerable<(int X, int Y)> Rectangle(int left, int top, int across, int down, int width, int height) =>
+        from y in Enumerable.Range(top, down)
+        from x in Enumerable.Range(left, across)
+        select (Wrap(x, width), Wrap(y, height));
+
+    /// <summary>One output of a flood over a mask, in a plan with this wrap.</summary>
+    static Floats Flood(
+        IGraphicsDevice device,
+        int width,
+        int height,
+        (int X, int Y)[] lit,
+        TextureFloodOutput kind,
+        bool wrapX,
+        bool wrapY,
+        bool diagonal = false
+    ) {
+        const int Budget = 16;
+
+        var (texture, staging) = TextureKernelHarness.Upload(device, Mask(width, height, lit), width, height);
+
+        try {
+            var images = ImmutableArray.CreateBuilder<TextureImage>();
+
+            images.Add(new(TextureFormat.Rgba8, External: true));
+
+            for (var pass = 0; pass < Budget + 1; pass++) {
+                images.Add(new(TextureFormat.Rgba32Float));
+            }
+
+            var read = Budget + 1;
+            var plan = new TexturePlan {
+                BaseWidth = width,
+                BaseHeight = height,
+                WrapX = wrapX,
+                WrapY = wrapY,
+                Images = images.ToImmutable(),
+                Ops = TextureAnalysis.FloodFill(
+                    read,
+                    0,
+                    [.. Enumerable.Range(1, Budget)],
+                    width,
+                    height,
+                    kind,
+                    diagonal
+                ),
+                Outputs = [read]
+            };
+
+            Assert.Empty(plan.Validate());
+
+            using var evaluator = new TexturePlanEvaluator(device);
+            using var bake = evaluator.Evaluate(plan, new Dictionary<int, TextureHandle> { [0] = texture });
+
+            return new(MemoryMarshal.Cast<byte, float>(bake.ReadRaw(read).Texels).ToArray(), width);
+        } finally {
+            device.Destroy(staging);
+            device.Destroy(texture);
+        }
+    }
+
+    /// <summary>A read-back RGBA picture as floats.</summary>
+    sealed record Floats(float[] Lanes, int Width) {
+        public float At(int x, int y, int lane) => Lanes[(((y * Width) + x) * 4) + lane];
     }
 
     /// <summary>A black image with some single white texels.</summary>

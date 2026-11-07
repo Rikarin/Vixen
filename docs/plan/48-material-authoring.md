@@ -1140,8 +1140,8 @@ So a graph may declare `bitDepth: 32` (`TextureGraphSettings.BitDepth`), which m
 writes and every scratch record to the 32-bit twin. The memory argument below stands, which is why
 sixteen stays the default. ⚠ It took no per-format kernel: `TextureKernels.Variant` rewrites one
 `[Format]`, every read is a `Load`, and the evaluator binds no samplers, so Vulkan not requiring a 32-bit
-image to be filterable costs nothing. `TextureAnalysis.ExactExtent` stays at 2048 until the jump-flood
-rework measures a flood above it, so the slice the text below names is still owed.
+image to be filterable costs nothing. The two floods keep their records in `rgba32f` at every depth, so
+they run past 2048 and nothing below refuses them.
 
 **A size need not be a power of two.** Nothing refused one: a base is any positive extent, a level is a
 floored halving, and only `TexturePlan.BakeLevelFor` asks for a power-of-two *ratio* between a graph and a

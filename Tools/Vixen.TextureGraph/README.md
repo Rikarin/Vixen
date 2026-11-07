@@ -454,14 +454,19 @@ propagation's cost depends on the *shape* of its input rather than its size, so 
 derived from the resolution — and a loop no invocation leaves is a device loss, not a slow bake.
 `FloodResidual` is what says the fixed point was not reached.
 
-**⚠ Both chains are refused above 2048 texels, and the reason is a format doc 48 ruled out.** They
-carry a *coordinate*, a half-float is exact on the integers only to 2048, and § D5 admits no 32-bit
-float format — so at 4K a seed coordinate would quantise and the flood would settle onto the wrong
-texel. `TextureAnalysis.ExactExtent` refuses rather than quantising
-([#690](https://github.com/Rikarin/Vixen/issues/690)). ⚠ A plan holding one of these chains is also
+**⚠ Both chains keep their records in `rgba32f` at every size and bit depth.** They carry a
+*coordinate*, and a half-float is exact on the integers only to 2048, so at 4K a coordinate would
+quantise and two islands two texels apart would merge
+([#1529](https://github.com/Rikarin/Vixen/issues/1529)). ⚠ A plan holding one of these chains is also
 built for **one** `BakeLevelOffset` — the dispatch count is in the op list — so it cannot be re-baked
 at another size ([#689](https://github.com/Rikarin/Vixen/issues/689)), which is the one place § D8's
 promise does not hold and the plan does not say so.
+
+**⚠ A flood fill honours the plan's wrap.** An island over the seam of a graph that tiles is one
+island, with one name, the size it really is and a UV that runs across the seam. Its box starts at the
+near end and goes past the image, which is what `FloodBounds.rvn` calls an arc. ⚠ `Id`, `Random` and
+`BoundingBox` name an island by where it is, so rolling a mask moves `Size` and `UV` and renames the
+rest: the conformance roll call asks this node about the seam and not about a roll.
 
 ## Surface — doc 48 § 4.6
 

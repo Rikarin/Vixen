@@ -24,6 +24,10 @@ import Vixen.Shaders.Core
 // running index would renumber every island whenever one appeared, and the material would shimmer
 // under an edit that touched none of it.
 //
+// ⚠ **`BoundingBox` can pass one.** On a graph that tiles, an island over the seam has a box that starts
+// at its near end and runs past the image, so that the far corner minus the near one is still its size
+// and the two can still be told apart. Round the whole axis, a box is `0` to the last texel.
+//
 // **Background is black in every mode, with an opaque alpha.** Zero is a legitimate value for a
 // random and for a UV, so a consumer that has to tell background from a dark island reads the alpha
 // of `BoundingBox`, whose channels are all zero only for a box at the origin of zero size.
@@ -55,6 +59,15 @@ shader FloodFill {
         val far = Random.Combine(uint(int(record.z)), uint(int(record.w)))
 
         return Random.ToFloat01(Random.Combine(Random.Combine(corner, far), salt))
+    }
+
+    /// How far a texel is past the start of its island's box along one axis.
+    func Past(texel: int, low: float, extent: int): float {
+        if (float(texel) < low) {
+            return float(texel + extent) - low
+        }
+
+        return float(texel) - low
     }
 
     [ComputeShader(8, 8, 1)]
@@ -94,7 +107,9 @@ shader FloodFill {
         }
 
         if (kind == 2) {
-            val local = float2((float(coord.x) - record.x) / span.x, (float(coord.y) - record.y) / span.y)
+            // ⚠ A box over the seam starts on one side of it and goes past the image, so a texel left
+            // of its start is on the next lap: `FloodBounds.rvn`.
+            val local = float2(Past(coord.x, record.x, extent.x) / span.x, Past(coord.y, record.y, extent.y) / span.y)
 
             target.Store(coord, float4(local.x, local.y, 0f, 1f))
 
