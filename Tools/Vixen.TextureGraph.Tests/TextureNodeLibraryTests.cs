@@ -66,12 +66,6 @@ public class TextureNodeLibraryTests {
     ///     </para>
     /// </remarks>
     static readonly (string Kernel, string Reason)[] Unnoded = [
-        ("FloodResidual",
-            "The truncation report: whether the last propagation iteration changed anything. ⚠ The gap it was "
-            + "blocked on is gone — #733 landed, and Colour/Auto Levels emits exactly the MinMaxReduce ladder the "
-            + "residual would reduce over — so what is missing now is the other half: an author has nowhere to "
-            + "*read* one texel of a bake. Analysis/Flood Fill would need a second output whose whole content is "
-            + "a number, and a plan output is a picture. See FloodFillNode's remarks.")
     ];
 
     /// <summary>
@@ -105,6 +99,7 @@ public class TextureNodeLibraryTests {
         [("JumpFlood", "step")] = "Halved per pass by the chain. Its whole point is that it is not constant.",
         [("FloodBounds", "first")] = "As JumpFlood's: the first iteration of Analysis/Flood Fill's propagation "
             + "reads the mask and the rest read the record.",
+        [("FloodBounds", "axis")] = "Not a default: the chain takes turns along the axes, so it changes per pass.",
         [("ChannelShuffle", "sourceG")] = "The compiler's inserted splat, not a node: doc 48 § Part 4's grey-into-"
             + "colour promotion writes the first input's red on all three colour lanes.",
         [("ChannelShuffle", "sourceB")] = "As sourceG.",
@@ -397,7 +392,8 @@ public class TextureNodeLibraryTests {
         var plan = Library();
 
         Assert.Empty(plan.Validate());
-        Assert.Equal(Usages.Length, plan.Outputs.Length);
+        // One more: the Flood Fill in the library asks for the texel that says whether it settled.
+        Assert.Equal(Usages.Length + 1, plan.Outputs.Length);
     }
 
     /// <summary>

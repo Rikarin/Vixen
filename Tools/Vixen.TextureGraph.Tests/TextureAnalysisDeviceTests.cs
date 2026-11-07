@@ -251,16 +251,16 @@ public class TextureAnalysisDeviceTests(ITestOutputHelper output) {
         var (texture, staging) = TextureKernelHarness.Upload(device, mask, Side, Side);
 
         try {
-            // 32 iterations: bounds travel one texel per dispatch along the island, and the larger
-            // rectangle's Manhattan diameter is thirty.
-            const int Budget = 32;
+            // A rectangle settles in a sweep each way, and this is more than that on purpose: more
+            // sweeps after settling must change nothing.
+            const int Budget = 8;
 
             var images = ImmutableArray.CreateBuilder<TextureImage>();
 
             images.Add(new(TextureFormat.Rgba8, External: true));
 
             for (var pass = 0; pass < Budget; pass++) {
-                images.Add(new(TextureFormat.Rgba16Float));
+                images.Add(new(TextureFormat.Rgba32Float));
             }
 
             var idImage = images.Count;
@@ -513,10 +513,10 @@ public class TextureAnalysisDeviceTests(ITestOutputHelper output) {
     ///         <b>§ 4.5 asks for "an iteration ceiling that reports truncation rather than a
     ///         while-loop on the device", and this is the instrument.</b> The residual is one where
     ///         the last two iterations disagree; a <c>MinMaxReduce</c> chain takes its maximum down to
-    ///         one texel; the caller reads that texel. ⚠ <b>A line sixty-four texels long needs
-    ///         sixty-three iterations</b> — a bound travels one texel per dispatch, so the settling
-    ///         time is the island's <em>arc length</em> and has nothing to do with its area, which is
-    ///         sixty-four texels either way. Given four it is still moving; given sixty-six it is not.
+    ///         one texel; the caller reads that texel. ⚠ <b>A serpentine across the image needs a sweep per
+    ///         corner</b>, because a sweep crosses a whole run and stops at a turn — so the settling
+    ///         time is how often the island turns and has nothing to do with its area. Given four it is
+    ///         still moving; given a hundred it is not.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>Both halves, because the instrument's failure mode is to report success.</b> A
@@ -526,15 +526,15 @@ public class TextureAnalysisDeviceTests(ITestOutputHelper output) {
     /// </remarks>
     [Theory]
     [InlineData(4, true)]
-    [InlineData(66, false)]
+    [InlineData(100, false)]
     public void A_flood_fill_reports_whether_its_budget_was_enough(int budget, bool expectedTruncation) {
         using var device = TextureKernelHarness.Open();
 
         output.WriteLine($"adapter: {TextureKernelHarness.Adapter(device)}");
 
-        // One texel tall and the whole width: bounds crawl along it a texel at a time, which is the
-        // shape § 4.5 warns about — its cost is its arc length and not its area.
-        var mask = Rectangles(Side, (0, 32, Side - 1, 32));
+        // Rows joined at alternate ends: the shape that costs most for its area, since it turns at
+        // every end of every row.
+        var mask = Rectangles(Side, Serpentine());
         var (texture, staging) = TextureKernelHarness.Upload(device, mask, Side, Side);
 
         try {
@@ -543,30 +543,31 @@ public class TextureAnalysisDeviceTests(ITestOutputHelper output) {
             images.Add(new(TextureFormat.Rgba8, External: true));
 
             for (var pass = 0; pass < budget; pass++) {
-                images.Add(new(TextureFormat.Rgba16Float));
+                images.Add(new(TextureFormat.Rgba32Float));
             }
 
             var residual = images.Count;
 
             images.Add(new(TextureFormat.Rgba8));
-            images.Add(new(TextureFormat.Rgba8, LevelOffset: 3));
-            images.Add(new(TextureFormat.Rgba8, LevelOffset: 6));
+
+            foreach (var level in TextureAdjust.ReductionLevels(Side, Side)) {
+                images.Add(new(TextureFormat.Rgba8, LevelOffset: level));
+            }
 
             ImmutableArray<int> scratch = [.. Enumerable.Range(1, budget)];
+            ImmutableArray<int> ladder = [.. Enumerable.Range(residual + 1, images.Count - residual - 1)];
 
             var ops = TextureAnalysis
                 .FloodFill(residual, 0, scratch, Side, Side)
                 .RemoveAt(budget)
-                .Add(TextureAnalysis.Residual(residual, scratch[^2], scratch[^1]))
-                .Add(Reduce(residual + 1, residual, first: true))
-                .Add(Reduce(residual + 2, residual + 1, first: false));
+                .AddRange(TextureAnalysis.Settled(residual, scratch, ladder, Side, Side));
 
             var plan = new TexturePlan {
                 BaseWidth = Side,
                 BaseHeight = Side,
                 Images = images.ToImmutable(),
                 Ops = ops,
-                Outputs = [residual + 2]
+                Outputs = [ladder[^1]]
             };
 
             Assert.Empty(plan.Validate());
@@ -575,7 +576,7 @@ public class TextureAnalysisDeviceTests(ITestOutputHelper output) {
             using var bake = evaluator.Evaluate(plan, new Dictionary<int, TextureHandle> { [0] = texture });
 
             // Green is the maximum of the reduction: one where any texel is still moving.
-            var moving = TextureKernelHarness.At(bake.Read(residual + 2), 0, 0, 1);
+            var moving = TextureKernelHarness.At(bake.Read(ladder[^1]), 0, 0, 1);
 
             output.WriteLine($"budget {budget}: residual maximum {moving}");
 
@@ -586,17 +587,22 @@ public class TextureAnalysisDeviceTests(ITestOutputHelper output) {
         }
     }
 
-    /// <summary>One level of the min/max reduction, which is <c>AutoLevels</c>' kernel and not this slice's.</summary>
-    static TextureOp Reduce(int output, int source, bool first) =>
-        new() {
-            Kernel = "MinMaxReduce",
-            Output = output,
-            Inputs = [source],
+    /// <summary>Rows across the image, joined at alternate ends so that one island turns at every end.</summary>
+    static (int X0, int Y0, int X1, int Y1)[] Serpentine() {
+        List<(int, int, int, int)> parts = [];
 
-            // A rung reads the level above the one it writes, which is the reduction — #801.
-            ReadsOtherExtents = true,
-            Parameters = [new("first", first ? 1f : 0f)]
-        };
+        for (var row = 0; row < (Side / 4) - 1; row++) {
+            var y = (row * 4) + 1;
+
+            parts.Add((1, y, Side - 2, y));
+
+            var x = row % 2 == 0 ? Side - 2 : 1;
+
+            parts.Add((x, y, x, y + 4));
+        }
+
+        return [.. parts];
+    }
 
     /// <summary>What an eight-bit read-back makes of a value in 0..1.</summary>
     static int Byte(float value) => (int)MathF.Round(value * 255f);
@@ -624,7 +630,7 @@ public class TextureAnalysisDeviceTests(ITestOutputHelper output) {
             images.Add(new(TextureFormat.Rgba8, External: true));
 
             for (var pass = 0; pass < Budget; pass++) {
-                images.Add(new(TextureFormat.Rgba16Float));
+                images.Add(new(TextureFormat.Rgba32Float));
             }
 
             var read = images.Count;
@@ -668,7 +674,7 @@ public class TextureAnalysisDeviceTests(ITestOutputHelper output) {
             images.Add(new(TextureFormat.Rgba8, External: true));
 
             for (var pass = 0; pass < dispatches; pass++) {
-                images.Add(new(TextureFormat.Rgba16Float));
+                images.Add(new(TextureFormat.Rgba32Float));
             }
 
             var result = images.Count;

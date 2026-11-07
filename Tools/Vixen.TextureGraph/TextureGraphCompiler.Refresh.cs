@@ -536,6 +536,7 @@ sealed class TextureEmission {
         Dispatch,
         Declare,
         Keep,
+        Check,
         Report
     }
 

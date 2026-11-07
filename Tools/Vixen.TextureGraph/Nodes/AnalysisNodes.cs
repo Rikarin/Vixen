@@ -53,21 +53,17 @@ sealed partial class EdgeDetectNode : TextureNode {
 /// <remarks>
 ///     <para>
 ///         ⚠ <b><c>Iterations</c> is a budget rather than a quality dial, and nothing in this
-///         compilation can know whether it was enough.</b> Bounds travel one texel per dispatch along
-///         an island, so a disc of diameter <c>d</c> settles in about <c>d</c> iterations and a
-///         spiral of the same area takes its whole arc length — the settling time is a property of
-///         the <em>shape</em> of the mask, which is a picture nobody has drawn yet at compile time. A
-///         budget too small does not fail: it produces islands whose boxes are the parts of them that
-///         had time to meet, which reads as a flood fill of a different mask.
+///         compilation can know whether it was enough.</b> One iteration is one sweep along a line of
+///         the image, which crosses a whole run at any width, so a rectangle settles in two and an
+///         island takes about as many as a walk across it has corners. That is a property of the
+///         <em>shape</em>: it does not change with the resolution, and it cannot be known before the
+///         mask is drawn.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Doc 48 § 4.5 answers that with a truncation report and this node cannot emit
-///         one.</b> The report is a <c>FloodResidual</c> over the last two records, a
-///         <c>MinMaxReduce</c> chain down to one texel, and a read of it — and a reduction needs
-///         images at descending level offsets, which is the one thing <c>TextureEmitter.Scratch</c>
-///         does not offer. Every image a node can allocate is at the plan's base level —
-///         <a href="https://github.com/Rikarin/Vixen/issues/733">#733</a>. Until that changes, the
-///         budget is the artist's and this paragraph is the warning.
+///         <b>So a budget that ran out says so.</b> The node ends in a <c>FloodResidual</c> and a
+///         <c>MinMaxReduce</c> ladder down to one texel, and a <see cref="TextureGraphCheck" /> asks
+///         the host to read it. ⚠ What it reports is the node, not which islands: truncated, they are
+///         pieces of themselves, and a piece looks like a smaller island.
 ///     </para>
 ///     <para>
 ///         <b>The output's channels follow the picture and not the mask</b>, which is
@@ -83,6 +79,13 @@ sealed partial class EdgeDetectNode : TextureNode {
 /// </remarks>
 [Node("Analysis/Flood Fill", Preview = true, Summary = "The islands of a mask, as an id, a random value, a local UV, a box or a size.")]
 sealed partial class FloodFillNode : TextureNode {
+    /// <summary>The fewest iterations one node may ask for: one round of every axis.</summary>
+    /// <remarks>
+    ///     Fewer and there is no round to compare with the one before it, so the check that says
+    ///     whether the budget was enough would have nothing to read.
+    /// </remarks>
+    public const int MinIterations = TextureAnalysis.FloodAxes;
+
     /// <summary>The most iterations one node may ask for.</summary>
     /// <remarks>
     ///     ⚠ <b>A refusal rather than a clamp, for <c>TexturePlacement</c>'s reason.</b> Every
@@ -94,6 +97,14 @@ sealed partial class FloodFillNode : TextureNode {
     /// </remarks>
     public const int MaxIterations = 256;
 
+    /// <summary>The budget a node starts with.</summary>
+    /// <remarks>
+    ///     Measured on noise cut at a threshold, the mask this node most often sees: at scale 64 and
+    ///     0.5 it takes between 32 and 64 sweeps, the same at 1024, 2048 and 4096. Only noise past
+    ///     scale 100 cut right at its own middle wanted more, and that reports it.
+    /// </remarks>
+    public const int DefaultIterations = 64;
+
     /// <summary>Which picture: <c>Id</c>, <c>Random</c>, <c>LocalUv</c>, <c>BoundingBox</c> or <c>Size</c>.</summary>
     [Setting(AcceptedFrom = typeof(TextureFloodOutput))]
     public string Kind = "Random";
@@ -102,9 +113,9 @@ sealed partial class FloodFillNode : TextureNode {
     [Input(Name = "Mask")]
     public Image Mask;
 
-    /// <summary>How many propagation iterations to run. ⚠ A budget: see the node's remarks.</summary>
-    [Input(Minimum = 1f, Maximum = MaxIterations)]
-    public Int Iterations = 32;
+    /// <summary>How many sweeps to run. ⚠ A budget: see the node's remarks.</summary>
+    [Input(Minimum = MinIterations, Maximum = MaxIterations)]
+    public Int Iterations = DefaultIterations;
 
     /// <summary>What counts as inside the mask.</summary>
     [Input(SoftMinimum = 0f, SoftMaximum = 1f)]
@@ -138,7 +149,7 @@ sealed partial class FloodFillNode : TextureNode {
 
         var iterations = emitter.Integer(nameof(Iterations));
 
-        if (iterations is < 1 or > MaxIterations) {
+        if (iterations is < MinIterations or > MaxIterations) {
             // ⚠ `SettingNotAccepted` and not the id this line used to carry. It was TG0012, which
             // `TextureGraphExpressions` already reported a refused expression under — two unrelated
             // sentences, both errors, both reachable from one graph, so a host filtering on the id
@@ -147,9 +158,9 @@ sealed partial class FloodFillNode : TextureNode {
             // the other sites have a set.
             emitter.Report(
                 TextureDiagnostics.SettingNotAccepted,
-                $"'{nameof(Iterations)}' is {iterations}, and this node runs between 1 and {MaxIterations}. Each one "
-                + "is a dispatch over the whole image and an image in the plan, and bounds travel one texel per "
-                + "iteration — so the number an island needs is about its longest dimension in texels.",
+                $"'{nameof(Iterations)}' is {iterations}, and this node runs between {MinIterations} and "
+                + $"{MaxIterations}. Each one is a dispatch over the whole image and an image in the plan, and an "
+                + "island needs about as many as a walk across it has corners.",
                 nameof(Iterations)
             );
 
@@ -160,30 +171,42 @@ sealed partial class FloodFillNode : TextureNode {
 
         for (var pass = 0; pass < iterations; pass++) {
             // ⚠ Four lanes and not the node's own channels: a bounds record is a pair of texel
-            // coordinates, not a picture, and a grey scratch would hold one lane of one corner.
-            scratch.Add(emitter.Scratch(emitter.FormatOf(TextureChannels.Colour)));
+            // coordinates, not a picture. And 32 bits whatever the graph's depth, because a half
+            // stops being exact on the integers at 2048.
+            scratch.Add(emitter.Scratch(TextureFormat.Rgba32Float));
         }
 
-        try {
-            emitter.Dispatch(
-                TextureAnalysis.FloodFill(
-                    target,
-                    mask,
-                    scratch.ToImmutable(),
-                    emitter.Width,
-                    emitter.Height,
-                    kind,
-                    emitter.Flag(nameof(Diagonal)),
-                    emitter.Number(nameof(Threshold))
-                )
-            );
-        } catch (ArgumentException refusal) {
-            // ⚠ Caught rather than pre-checked, exactly as `DistanceNode` catches its own: the
-            // builder's message names both numbers — a half-float's record is exact on the integers
-            // only to 2048, and this bake's extent — and repeating that comparison here would be two
-            // ceilings that have to agree. What the node adds is a diagnostic an author can select,
-            // rather than an exception three frames away in a background bake.
-            emitter.Report(TextureDiagnostics.BuilderRefusedTheNumbers, refusal.Message, "Mask");
+        var records = scratch.ToImmutable();
+        var (width, height) = (emitter.Width, emitter.Height);
+
+        emitter.Dispatch(
+            TextureAnalysis.FloodFill(
+                target,
+                mask,
+                records,
+                width,
+                height,
+                kind,
+                emitter.Flag(nameof(Diagonal)),
+                emitter.Number(nameof(Threshold))
+            )
+        );
+
+        var residual = emitter.Scratch(emitter.FormatOf(TextureChannels.Colour));
+        var levels = TextureAdjust.ReductionLevels(width, height);
+        var ladder = ImmutableArray.CreateBuilder<int>(levels.Length);
+
+        foreach (var rung in levels) {
+            ladder.Add(emitter.Scratch(emitter.FormatOf(TextureChannels.Colour), emitter.Level + rung));
         }
+
+        emitter.Dispatch(TextureAnalysis.Settled(residual, records, ladder.ToImmutable(), width, height));
+        emitter.Check(
+            ladder[^1],
+            TextureDiagnostics.FloodDidNotSettle,
+            $"This Flood Fill had not settled after {iterations} iterations, so some islands are still in pieces. "
+            + $"Raise {nameof(Iterations)}.",
+            nameof(Iterations)
+        );
     }
 }

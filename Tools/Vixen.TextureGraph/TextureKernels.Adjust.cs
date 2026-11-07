@@ -104,6 +104,66 @@ internal static class TextureAdjust {
     /// </remarks>
     public static int ReductionDispatches(int width, int height) => ReductionLevels(width, height).Length;
 
+    /// <summary>The reduction ladder alone: an image's minimum and maximum, down to one texel.</summary>
+    /// <param name="source">The image to reduce.</param>
+    /// <param name="scratch">
+    ///     The reduction images, exactly <see cref="ReductionDispatches" /> of them, declared at the
+    ///     offsets <see cref="ReductionLevels" /> gives and in a format that holds a pair.
+    /// </param>
+    /// <param name="width">The width of <paramref name="source" />, in texels of this bake.</param>
+    /// <param name="height">Its height.</param>
+    /// <returns>The ops, in evaluation order. The last image holds <c>(min, max)</c> in red and green.</returns>
+    /// <exception cref="ArgumentException">The scratch list is the wrong length.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Either extent is not positive.</exception>
+    public static ImmutableArray<TextureOp> Reduction(
+        int source,
+        ImmutableArray<int> scratch,
+        int width,
+        int height
+    ) {
+        var levels = ReductionLevels(width, height);
+        var dispatches = levels.Length;
+
+        if (scratch.Length != dispatches) {
+            throw new ArgumentException(
+                string.Create(
+                    CultureInfo.InvariantCulture,
+                    $"Reducing a {width}×{height} image is {dispatches} reduction dispatch(es), and this names {scratch.Length} scratch image(s)."
+                )
+                + " Each dispatch writes one, because an image in a plan is written exactly once — and a"
+                + " chain that is one short leaves the extremes of a block rather than of the image.",
+                nameof(scratch)
+            );
+        }
+
+        var ops = ImmutableArray.CreateBuilder<TextureOp>(dispatches);
+
+        for (var pass = 0; pass < dispatches; pass++) {
+            ops.Add(
+                new() {
+                    Kernel = TextureColourKernels.MinMaxReduce,
+                    Output = scratch[pass],
+                    Inputs = [pass == 0 ? source : scratch[pass - 1]],
+
+                    // Each pass reads the level above the one it writes, which is the reduction —
+                    // #801.
+                    ReadsOtherExtents = true,
+                    // ⚠ #713: the number of these is a function of the baked extent, so the list is
+                    // emitted for one bake and TexturePlan.Validate refuses it at another. The
+                    // number is this op's own output extent, which is what Validate compares.
+                    EmittedForExtent = Math.Max(Reduced(width, levels[pass]), Reduced(height, levels[pass])),
+                    // ⚠ #636: doc 48 § 4.2 names this chain as the first in the catalogue the plan
+                    // runner has to know about. A reduction evaluated a tile at a time reports that
+                    // tile's extremes.
+                    DependsOnEveryTexel = true,
+                    Parameters = [new("first", pass == 0 ? 1f : 0f)]
+                }
+            );
+        }
+
+        return ops.ToImmutable();
+    }
+
     /// <summary>Doc 48 § 4.2's <c>Auto Levels</c>: the reduction and the map, ready to append.</summary>
     /// <param name="output">The stretched image the node writes.</param>
     /// <param name="source">The image whose extremes are found and which is then stretched.</param>
@@ -131,45 +191,9 @@ internal static class TextureAdjust {
         int width,
         int height
     ) {
-        var levels = ReductionLevels(width, height);
-        var dispatches = levels.Length;
+        var ops = ImmutableArray.CreateBuilder<TextureOp>(scratch.Length + 1);
 
-        if (scratch.Length != dispatches) {
-            throw new ArgumentException(
-                string.Create(
-                    CultureInfo.InvariantCulture,
-                    $"Auto Levels over a {width}×{height} image is {dispatches} reduction dispatch(es), and this names {scratch.Length} scratch image(s)."
-                )
-                + " Each dispatch writes one, because an image in a plan is written exactly once — and a"
-                + " chain that is one short leaves the extremes of a block rather than of the image.",
-                nameof(scratch)
-            );
-        }
-
-        var ops = ImmutableArray.CreateBuilder<TextureOp>(dispatches + 1);
-
-        for (var pass = 0; pass < dispatches; pass++) {
-            ops.Add(
-                new() {
-                    Kernel = TextureColourKernels.MinMaxReduce,
-                    Output = scratch[pass],
-                    Inputs = [pass == 0 ? source : scratch[pass - 1]],
-
-                    // Each pass reads the level above the one it writes, which is the reduction —
-                    // #801.
-                    ReadsOtherExtents = true,
-                    // ⚠ #713: the number of these is a function of the baked extent, so the list is
-                    // emitted for one bake and TexturePlan.Validate refuses it at another. The
-                    // number is this op's own output extent, which is what Validate compares.
-                    EmittedForExtent = Math.Max(Reduced(width, levels[pass]), Reduced(height, levels[pass])),
-                    // ⚠ #636: doc 48 § 4.2 names this chain as the first in the catalogue the plan
-                    // runner has to know about. A reduction evaluated a tile at a time reports that
-                    // tile's extremes.
-                    DependsOnEveryTexel = true,
-                    Parameters = [new("first", pass == 0 ? 1f : 0f)]
-                }
-            );
-        }
+        ops.AddRange(Reduction(source, scratch, width, height));
 
         ops.Add(
             new() {

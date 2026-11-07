@@ -144,22 +144,8 @@ internal static class TextureAnalysisKernels {
 /// </remarks>
 [TextureKernelSurface]
 internal static class TextureAnalysis {
-    /// <summary>The largest integer a half-float stores exactly, and the ceiling both chains have.</summary>
-    /// <remarks>
-    ///     <para>
-    ///         ⚠ <b>Doc 48 § D5 admits no 32-bit float format, and these are the two nodes in the
-    ///         catalogue that want one.</b> A jump flood's record is an offset in texels and a flood
-    ///         fill's is a pair of texel coordinates; a half is exact on the integers only up to 2048,
-    ///         and past that a coordinate quantises to even texels — which merges the identities of
-    ///         two islands two texels apart and shortens a distance field by up to a texel.
-    ///     </para>
-    ///     <para>
-    ///         <b>So it is refused where the chain is built rather than clamped inside the kernel.</b>
-    ///         A kernel that clamped would be silent, and silence about a number an artist chose is
-    ///         the failure this repository has already paid for once. The refusal names both numbers.
-    ///     </para>
-    /// </remarks>
-    public const int ExactExtent = 2048;
+    /// <summary>How many directions a flood sweeps in at most: rows, columns and two diagonals.</summary>
+    public const int FloodAxes = 4;
 
     /// <summary>How many <c>JumpFlood</c> dispatches an image of this size needs.</summary>
     /// <param name="width">The width of the image the node writes, in texels of this bake.</param>
@@ -184,8 +170,8 @@ internal static class TextureAnalysis {
     /// <param name="mask">The mask it measures from.</param>
     /// <param name="scratch">
     ///     The ping-pong images, exactly <see cref="FloodDispatches" /> of them, each the size of
-    ///     <paramref name="output" /> and in a format that can hold a signed offset —
-    ///     <see cref="TextureFormat.Rgba16Float" />.
+    ///     <paramref name="output" /> and <see cref="TextureFormat.Rgba32Float" />: a signed offset in
+    ///     texels, which a half names exactly only to 2048.
     /// </param>
     /// <param name="width">The width of the image being written, in texels of this bake.</param>
     /// <param name="height">Its height.</param>
@@ -194,10 +180,7 @@ internal static class TextureAnalysis {
     /// <param name="threshold">What counts as inside the mask.</param>
     /// <returns>The ops, in evaluation order.</returns>
     /// <exception cref="ArgumentException">The scratch list is the wrong length.</exception>
-    /// <exception cref="ArgumentOutOfRangeException">
-    ///     The maximum distance is outside 0..1, or is more texels than a half-float record can hold
-    ///     exactly — see <see cref="ExactExtent" />.
-    /// </exception>
+    /// <exception cref="ArgumentOutOfRangeException">The maximum distance is outside 0..1.</exception>
     public static ImmutableArray<TextureOp> Distance(
         int output,
         int mask,
@@ -227,21 +210,6 @@ internal static class TextureAnalysis {
                 nameof(maxDistance),
                 maxDistance,
                 "The maximum distance is a fraction of the image's longer side, so it is in 0..1."
-            );
-        }
-
-        var texels = maxDistance * Math.Max(width, height);
-
-        if (texels > ExactExtent) {
-            throw new ArgumentOutOfRangeException(
-                nameof(maxDistance),
-                maxDistance,
-                string.Create(
-                    CultureInfo.InvariantCulture,
-                    $"{maxDistance} of a {width}×{height} image is {texels:0} texels, and a jump flood's record is an offset in a half-float, which is exact on the integers only to {ExactExtent}."
-                )
-                + " Past that the field quantises to even texels rather than failing, so it is refused here — "
-                + "doc 48 § D5 admits no 32-bit float format and this is one of the two nodes that wants one."
             );
         }
 
@@ -308,8 +276,9 @@ internal static class TextureAnalysis {
     /// <param name="output">The image the node writes.</param>
     /// <param name="mask">The mask whose islands are found.</param>
     /// <param name="scratch">
-    ///     The iteration images, one per iteration of the budget, each the size of
-    ///     <paramref name="output" /> and <see cref="TextureFormat.Rgba16Float" />.
+    ///     The sweep images, one per iteration of the budget, each the size of
+    ///     <paramref name="output" /> and <see cref="TextureFormat.Rgba32Float" />: a texel coordinate,
+    ///     which a half names exactly only to 2048.
     /// </param>
     /// <param name="width">The width of the image being written, in texels of this bake.</param>
     /// <param name="height">Its height.</param>
@@ -318,14 +287,20 @@ internal static class TextureAnalysis {
     /// <param name="threshold">What counts as inside the mask.</param>
     /// <returns>The ops, in evaluation order.</returns>
     /// <exception cref="ArgumentException">The scratch list is empty.</exception>
-    /// <exception cref="ArgumentOutOfRangeException">The image is larger than a half-float record can name exactly.</exception>
     /// <remarks>
-    ///     ⚠ <b>The budget is <paramref name="scratch" />'s length and nothing here can know whether
-    ///     it was enough</b> — the settling time is a property of the mask's shape. Append
-    ///     <see cref="Residual" /> over the last two scratch images and a <c>MinMaxReduce</c> chain
-    ///     over that, and read the one texel: zero means the flood converged, anything else means it
-    ///     was truncated. That is § 4.5's "reports truncation rather than a while-loop on the device",
-    ///     and it is the reason the node is four kernels.
+    ///     <para>
+    ///         <b>The sweeps take turns along the axes, and <paramref name="diagonal" /> only changes
+    ///         which turns there are.</b> It adds the two diagonals to the rows and columns without
+    ///         changing how many dispatches there are, so moving that switch is a number that reaches
+    ///         a uniform and not a change to the plan.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The budget is <paramref name="scratch" />'s length and nothing here can know
+    ///         whether it was enough</b> — the settling time is a property of the mask's shape. Follow
+    ///         it with <see cref="Settled" /> and read the one texel: zero means the flood converged,
+    ///         anything else means it was truncated. That is § 4.5's "reports truncation rather than a
+    ///         while-loop on the device", and it is the reason the node is four kernels.
+    ///     </para>
     /// </remarks>
     public static ImmutableArray<TextureOp> FloodFill(
         int output,
@@ -345,21 +320,7 @@ internal static class TextureAnalysis {
         }
 
         var extent = Math.Max(width, height);
-
-        if (extent > ExactExtent) {
-            throw new ArgumentOutOfRangeException(
-                nameof(width),
-                extent,
-                string.Create(
-                    CultureInfo.InvariantCulture,
-                    $"A flood fill's record is a pair of texel coordinates in a half-float, which is exact on the integers only to {ExactExtent}, and this image is {width}×{height}."
-                )
-                + " Past that a bounding box quantises to even texels, which gives two islands two texels apart "
-                + "the same identity — so it is refused rather than produced. Doc 48 § D5 admits no 32-bit "
-                + "float format."
-            );
-        }
-
+        var turns = diagonal ? FloodAxes : FloodAxes / 2;
         var ops = ImmutableArray.CreateBuilder<TextureOp>(scratch.Length + 1);
 
         for (var pass = 0; pass < scratch.Length; pass++) {
@@ -368,9 +329,8 @@ internal static class TextureAnalysis {
                     Kernel = TextureAnalysisKernels.FloodBounds,
                     Output = scratch[pass],
                     Inputs = [pass == 0 ? mask : scratch[pass - 1]],
-                    // ⚠ #689: the budget is chosen against the mask's size in texels, and the
-                    // half-float record's ceiling below is a property of this bake's extent too — so
-                    // this list, like the jump flood's, is emitted for one resolution.
+                    // ⚠ #689: the check that follows this chain is a ladder down from this extent,
+                    // so the list, like the jump flood's, is emitted for one resolution.
                     EmittedForExtent = extent,
                     // ⚠ #636: an island is whatever shape it is, so a label reaches a texel from
                     // arbitrarily far away. Flooded a tile at a time, one island straddling a seam
@@ -379,7 +339,7 @@ internal static class TextureAnalysis {
                     Parameters = [
                         new("first", pass == 0 ? 1f : 0f),
                         new("threshold", threshold),
-                        new("diagonal", diagonal ? 1f : 0f)
+                        new("axis", pass % turns)
                     ]
                 }
             );
@@ -389,6 +349,34 @@ internal static class TextureAnalysis {
 
         return ops.ToImmutable();
     }
+
+    /// <summary>Whether a flood settled, down to one texel: green above zero means it did not.</summary>
+    /// <param name="residual">The image to write the differences to, the size of the records.</param>
+    /// <param name="scratch">The flood's records.</param>
+    /// <param name="ladder">
+    ///     The reduction images, exactly <see cref="TextureAdjust.ReductionDispatches" /> of them.
+    /// </param>
+    /// <param name="width">The width of the records, in texels of this bake.</param>
+    /// <param name="height">Their height.</param>
+    /// <returns>The ops, in evaluation order. The last of <paramref name="ladder" /> is the answer.</returns>
+    /// <remarks>
+    ///     ⚠ <b>A whole round of axes is compared, not one sweep.</b> A sweep that changes nothing
+    ///     proves nothing about the next axis: a rectangle is unchanged by a second row sweep with
+    ///     every column still to settle. If nothing moved across all <see cref="FloodAxes" /> turns, no
+    ///     axis has anything left to do. A settled flood can therefore be reported as truncated when
+    ///     it settled within its last round, and never the other way about.
+    /// </remarks>
+    public static ImmutableArray<TextureOp> Settled(
+        int residual,
+        ImmutableArray<int> scratch,
+        ImmutableArray<int> ladder,
+        int width,
+        int height
+    ) =>
+        [
+            Residual(residual, scratch[Math.Max(0, scratch.Length - FloodAxes)], scratch[^1]),
+            .. TextureAdjust.Reduction(residual, ladder, width, height)
+        ];
 
     /// <summary>One more picture out of a settled flood record, without flooding again.</summary>
     /// <param name="output">The image to write.</param>

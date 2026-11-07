@@ -289,7 +289,7 @@ public class TextureGraphRefreshTests(ITestOutputHelper output) {
         var plan = compiler.Compile(graph).Value;
 
         // One dispatch and one scratch image per iteration, so this number is structure.
-        flood.SetValue("Iterations", 3f);
+        flood.SetValue("Iterations", 8f);
 
         Assert.Null(compiler.Refresh(graph));
 

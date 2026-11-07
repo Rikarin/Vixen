@@ -27,6 +27,33 @@ namespace Vixen.TextureGraph;
 /// </remarks>
 public readonly record struct TextureGraphOutput(string Usage, int Image, NodeId Node);
 
+/// <summary>Something only an evaluation can answer, and what to say when it answers badly.</summary>
+/// <param name="Image">A one-texel image of the plan, green above zero when something is wrong.</param>
+/// <param name="Problem">What a host shows against the node when it is.</param>
+/// <remarks>
+///     <para>
+///         ⚠ <b>A compilation can say nothing about a picture nobody has drawn.</b> Whether a flood
+///         settled is a property of the mask, so the warning has to wait for the evaluation. This
+///         carries both halves: the image is a plan output, like a map, and a host that can show a
+///         warning reads the one texel after evaluating.
+///     </para>
+///     <para>
+///         <b>A host that does not read it loses a warning and no pixels</b>, which is why this is a
+///         list a host may ignore rather than a refusal in the evaluator.
+///     </para>
+/// </remarks>
+public readonly record struct TextureGraphCheck(int Image, NodeDiagnostic Problem) {
+    /// <summary>Whether a bake failed this check.</summary>
+    /// <param name="bake">A bake of the plan this came from, with <see cref="Image" /> among its outputs.</param>
+    /// <returns><see langword="true" /> when <see cref="Problem" /> applies to this bake.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="bake" /> is null.</exception>
+    public bool Failed(TextureBake bake) {
+        ArgumentNullException.ThrowIfNull(bake);
+
+        return bake.Read(Image).Pixels[1] != 0;
+    }
+}
+
 /// <summary>Which image one node's output port wrote.</summary>
 /// <param name="Node">
 ///     The node an author can select — put back through <see cref="NodeGraphInlining" />, so a node
@@ -186,6 +213,8 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
     /// <summary>Which image each node's output port wrote, in the order they were allocated.</summary>
     readonly List<TextureGraphNodeImage> nodeImages = [];
 
+    readonly List<TextureGraphCheck> checks = [];
+
     /// <summary>The kernels the graph's own nodes wrote, by the name their op gives.</summary>
     readonly List<TextureGraphKernel> kernels = [];
 
@@ -260,6 +289,14 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
     ///     until one has run, and for a graph whose <c>Output</c> nodes all failed.
     /// </remarks>
     public ImmutableArray<TextureGraphOutput> Outputs { get; private set; } = [];
+
+    /// <summary>What the last compilation wants read back after an evaluation.</summary>
+    /// <remarks>
+    ///     Read after <see cref="NodeGraphCompiler{T}.Compile" />, as <see cref="Outputs" /> is, and
+    ///     their images are among the plan's outputs. A refresh leaves it standing: a plan it returns
+    ///     has the same images.
+    /// </remarks>
+    public ImmutableArray<TextureGraphCheck> Checks { get; private set; } = [];
 
     /// <summary>The exposed parameters a host declares, for a graph that declares none of its own.</summary>
     /// <remarks>
@@ -516,6 +553,7 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
         ops.Clear();
         channels.Clear();
         outputs.Clear();
+        checks.Clear();
         externals.Clear();
         pooled.Clear();
         imageOf.Clear();
@@ -532,6 +570,7 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
         kernels.Clear();
         ExpressionCompilations = 0;
         Outputs = [];
+        Checks = [];
         NodeImages = [];
         Kernels = [];
         Externals = [];
@@ -1098,6 +1137,8 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
             }
         }
 
+        kept.AddRange(checks.Select(static check => check.Image));
+
         var authored = ImmutableDictionary.CreateBuilder<string, string>(StringComparer.Ordinal);
 
         foreach (var kernel in kernels) {
@@ -1140,6 +1181,7 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
         }
 
         Outputs = [.. outputs];
+        Checks = [.. checks];
         NodeImages = [.. nodeImages];
         Kernels = [.. kernels];
         Externals = [.. externals];
@@ -1406,6 +1448,9 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
     ///         big the file is.
     ///     </para>
     /// </remarks>
+    internal void Check(GraphNode node, int image, string id, string message, string port) =>
+        checks.Add(new(image, new(id, message, Inlining.Resolve(node.Id), port, NodeSeverity.Warning)));
+
     internal void Keep(GraphNode node, int image, string usage) {
         if (image < 0) {
             return;

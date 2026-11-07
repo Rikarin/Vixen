@@ -209,6 +209,13 @@ static class TextureDiagnostics {
     /// </remarks>
     internal const string NameKnobNotResolved = "TG0023";
 
+    /// <summary>
+    ///     A flood fill's last sweeps were still changing something when its budget ran out, so some
+    ///     of its islands are in pieces. A warning from an evaluation rather than a compilation,
+    ///     because how many sweeps a mask takes depends on the mask.
+    /// </summary>
+    internal const string FloodDidNotSettle = "TG0024";
+
     /// <summary>Every id declared above, read off the declarations rather than listed again.</summary>
     /// <remarks>
     ///     ⚠ <b>This is what makes a collision findable at all.</b> Two members holding the same
