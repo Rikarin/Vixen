@@ -116,7 +116,7 @@ public sealed class LayerStackEvaluator : IDisposable {
         ArgumentNullException.ThrowIfNull(set);
         ArgumentNullException.ThrowIfNull(registry);
 
-        var build = LayerStackGraph.Build(stack, set, registry, Draft);
+        var build = LayerStackGraph.Build(stack, set, registry, Draft, subGraphs);
 
         Problems = build.Problems;
         Layers = build.Layers;

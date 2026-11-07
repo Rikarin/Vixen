@@ -248,12 +248,18 @@ public static class LayerStackGraph {
         LayerStackAsset stack,
         TextureSetAsset set,
         NodeTypeRegistry? registry = null,
-        bool draft = false
+        bool draft = false,
+        ISubGraphSource? subGraphs = null
     ) {
         ArgumentNullException.ThrowIfNull(stack);
         ArgumentNullException.ThrowIfNull(set);
 
-        Builder builder = new(stack, set, registry ?? LayerStackCompiler.Library(out _)) { Drafting = draft };
+        if (registry is null) {
+            registry = LayerStackCompiler.Library(out var published);
+            subGraphs ??= published;
+        }
+
+        Builder builder = new(stack, set, registry) { Drafting = draft, SubGraphs = subGraphs };
 
         return builder.Run();
     }
@@ -296,12 +302,18 @@ public static class LayerStackGraph {
     public static LayerStackBuild Weights(
         LayerStackAsset stack,
         TextureSetAsset set,
-        NodeTypeRegistry? registry = null
+        NodeTypeRegistry? registry = null,
+        ISubGraphSource? subGraphs = null
     ) {
         ArgumentNullException.ThrowIfNull(stack);
         ArgumentNullException.ThrowIfNull(set);
 
-        Builder builder = new(stack, set, registry ?? LayerStackCompiler.Library(out _)) { Weighing = true };
+        if (registry is null) {
+            registry = LayerStackCompiler.Library(out var published);
+            subGraphs ??= published;
+        }
+
+        Builder builder = new(stack, set, registry) { Weighing = true, SubGraphs = subGraphs };
 
         return builder.Run();
     }
@@ -329,9 +341,24 @@ public static class LayerStackGraph {
             LayerFilterKind.Hsl => ("Colour/HSL", ["Hue", "Saturation", "Lightness"]),
             LayerFilterKind.Blur => ("Filters/Blur", ["Radius"]),
             LayerFilterKind.Invert => ("Colour/Invert", ["Red", "Green", "Blue", "Alpha"]),
-            LayerFilterKind.Grayscale => ("Colour/Grayscale", ["Weight R", "Weight G", "Weight B"]),
+            LayerFilterKind.Grayscale => ("Colour/Grayscale", ["Weight R", "Weight G", "Weight B", "Normalise"]),
             _ => throw new ArgumentOutOfRangeException(nameof(filter), filter, "Not a filter this build knows.")
         };
+
+    /// <summary>Whether a node type can be a filter layer or a mask effect: one image in and one image out.</summary>
+    /// <param name="type">The node type or published compound.</param>
+    /// <returns>Whether <see cref="LayerAsset.FilterNode" /> and <see cref="MaskEffectAsset.Node" /> can name it.</returns>
+    /// <remarks>
+    ///     ⚠ <b>The compile's own rule, for a host that wants to offer the list.</b> <c>Published</c> and
+    ///     <c>Effect</c> refuse whatever this says no to, so a menu built from anything else offers
+    ///     refusals. A second image in is a composite, and which of its inputs the stack beneath would
+    ///     be is not something a stack file can decide.
+    /// </remarks>
+    public static bool IsAdjustment(NodeTypeDefinition type) {
+        ArgumentNullException.ThrowIfNull(type);
+
+        return Builder.Images(type, PortDirection.Input) == 1 && Builder.Images(type, PortDirection.Output) == 1;
+    }
 
     /// <summary>The walk, with the graph it is filling and the problems it is collecting.</summary>
     sealed class Builder(LayerStackAsset stack, TextureSetAsset set, NodeTypeRegistry library) {
@@ -386,6 +413,9 @@ public static class LayerStackGraph {
         ///     what an unpainted canvas already contributes: nothing, and a warning that says so.
         /// </remarks>
         public bool Drafting { get; init; }
+
+        /// <summary>Where the registry's compounds come from, which is what says whether one measures its input.</summary>
+        public ISubGraphSource? SubGraphs { get; init; }
 
         /// <summary>Says a slot is empty, which refuses unless this is a draft.</summary>
         void Unfilled(string layer, string message) =>
@@ -1351,7 +1381,7 @@ public static class LayerStackGraph {
 
             var node = Add(path);
 
-            graph.Connect(cursor, new(node.Id, input.Name));
+            graph.Connect(Greyed(path, cursor, false), new(node.Id, input.Name));
 
             foreach (var (port, value) in layer.Settings) {
                 if (string.Equals(port, input.Name, StringComparison.Ordinal)
@@ -1723,6 +1753,36 @@ public static class LayerStackGraph {
             return new(product.Id, "Out");
         }
 
+        /// <summary>What an adjustment that measures its input reads: one channel, which the stack chooses.</summary>
+        /// <param name="path">The adjustment's node type.</param>
+        /// <param name="cursor">The colour chain it would have read.</param>
+        /// <param name="mask">Whether this is a mask, which is read for its red like every other mask source.</param>
+        /// <returns>The chain, or a grey of it when the node wants one channel.</returns>
+        /// <remarks>
+        ///     ⚠ <b>The compiler's own refusal is the reason, and it says what to do.</b> A height to normal,
+        ///     a distance field or a gradient map reads one channel and refuses a colour, asking for a
+        ///     Grayscale node that says which grey is meant. In a graph an author says so; a filter layer or a
+        ///     mask effect has no wire to put it on, so it would be refused whatever its settings. A layer means
+        ///     the luminance of what is beneath it, and a mask means its red, which is what a mask is.
+        /// </remarks>
+        PortRef Greyed(string path, PortRef cursor, bool mask) {
+            if (!TextureMeasuredInputs.Measures(Library, SubGraphs, path)) {
+                return cursor;
+            }
+
+            var grey = Add("Colour/Grayscale");
+
+            if (mask) {
+                grey.SetValue("Weight R", 1f);
+                grey.SetValue("Weight G", 0f);
+                grey.SetValue("Weight B", 0f);
+            }
+
+            graph.Connect(cursor, new(grey.Id, "Input"));
+
+            return new(grey.Id, "Out");
+        }
+
         /// <summary>One adjustment over a mask, as any node with one image in and one image out.</summary>
         MaskSlot Effect(MaskSlot cursor, MaskEffectAsset effect, string layerId, ChannelAsset channel) {
             var path = effect.Node.Trim();
@@ -1773,7 +1833,7 @@ public static class LayerStackGraph {
 
             var node = Add(path);
 
-            graph.Connect(cursor.Port, new(node.Id, input.Name));
+            graph.Connect(Greyed(path, cursor.Port, true), new(node.Id, input.Name));
 
             foreach (var (port, value) in effect.Values) {
                 // ⚠ Derived from the type rather than from a list per effect, and what it is
@@ -2077,7 +2137,7 @@ public static class LayerStackGraph {
         }
 
         /// <summary>How many image ports a type has in one direction, for the message that says so.</summary>
-        static int Images(NodeTypeDefinition type, PortDirection direction) {
+        internal static int Images(NodeTypeDefinition type, PortDirection direction) {
             var count = 0;
 
             foreach (var port in type.Ports) {

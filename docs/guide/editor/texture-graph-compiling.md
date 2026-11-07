@@ -145,6 +145,16 @@ them and `Extent` and `SeedOf` reading them back with a refusal rather than an e
 `BakeLevelOffset`, and every length in the graph stays in texels at the base — which is
 [the resolution rule](texture-graph-evaluation.md) the whole plan rests on.
 
+## Inputs that measure rather than composite
+
+A distance field, a height to normal or a gradient map reads one channel, and a colour wired into it is
+refused by name: there is no grey a colour and a mask agree on, so a graph says which it means with a
+Grayscale node. `TextureMeasuredInputs.Measures` asks the compiler whether a node type, a compound
+included, is one of these, by compiling it once over a colour and caching the answer per registry.
+A layer stack is the caller: a filter layer or a mask effect has no wire for an author to put a
+Grayscale on, so `LayerStackGraph` inserts one — the luminance under a filter layer, and the red of a
+mask, which is what every mask source reads.
+
 ## Examples
 
 Compiling a graph and finding the image a usage names:

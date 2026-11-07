@@ -102,7 +102,7 @@ public static class LayerStackCompiler {
         // with it, or every compound node in the graph is a type the compiler does not know.
         registry ??= Library(out subGraphs, assets);
 
-        var build = LayerStackGraph.Build(stack, set, registry);
+        var build = LayerStackGraph.Build(stack, set, registry, subGraphs: subGraphs);
 
         return Compile(stack, build, registry, bakeLevelOffset, subGraphs);
     }
@@ -137,7 +137,7 @@ public static class LayerStackCompiler {
         ArgumentNullException.ThrowIfNull(set);
         ArgumentNullException.ThrowIfNull(library);
 
-        var build = LayerStackGraph.Build(stack, set, library.Registry);
+        var build = LayerStackGraph.Build(stack, set, library.Registry, subGraphs: library.SubGraphs);
 
         return Compile(stack, build, library.Registry, bakeLevelOffset, library.SubGraphs);
     }
