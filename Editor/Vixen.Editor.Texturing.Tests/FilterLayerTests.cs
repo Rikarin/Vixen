@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Editor.Texturing.Layers;
+using Vixen.NodeGraph;
 using Vixen.TextureGraph;
 using Vixen.Texturing.Layers;
 using Xunit;
@@ -180,6 +181,91 @@ public class FilterLayerTests(ITestOutputHelper output) {
         Assert.Empty(compilation.Problems);
         Assert.Empty(compilation.Diagnostics);
         Assert.NotNull(compilation.Plan);
+    }
+
+    /// <summary>
+    ///     A set with a height channel greys its height once for its own relief stage, and a measuring filter layer or
+    ///     mask effect in that set is greyed once more for itself, never twice over.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Two fixes meet here.</b> The relief stage puts a Grayscale before <c>Height to Normal</c> itself, and the
+    ///     stack's chosen grey puts one before any filter that measures its input. Were the relief stage built through
+    ///     the second, or the second taught to see the first, a Grayscale would read a Grayscale: harmless to the
+    ///     pixels, but a node per set that says nothing.
+    /// </remarks>
+    [Theory]
+    [InlineData(LayerHeightNormal.Smooth)]
+    [InlineData(LayerHeightNormal.Sharp)]
+    public void A_height_set_greys_its_relief_once_beside_a_measuring_filter(LayerHeightNormal method) {
+        const string node = "Surface/Height to Normal";
+        LayerStackAsset stack = new() {
+            Name = "Relief",
+            BaseWidth = 16,
+            BaseHeight = 16,
+            Sets = [
+                new() {
+                    Name = "S",
+                    HeightNormal = method,
+                    Channels = [
+                        new() { Usage = "baseColor", Default = [0.5f, 0.25f, 0.75f, 1f] },
+                        new() { Usage = "normal", Default = [0.5f, 0.5f, 1f, 1f] },
+                        new() { Usage = "height", Default = [0.5f, 0.5f, 0.5f, 1f] }
+                    ],
+                    Layers = [
+                        new() {
+                            Id = "fill",
+                            Values = { ["height"] = [0.75f, 0.75f, 0.75f, 1f] },
+                            Mask = new() {
+                                Source = LayerMaskSource.Constant,
+                                Value = 0.5f,
+                                Effects = [new() { Node = node }],
+                                Layers = [new() { Source = LayerMaskSource.Constant, Value = 0.25f }]
+                            }
+                        },
+                        new() { Id = "f", Kind = LayerKind.Filter, FilterNode = node }
+                    ]
+                }
+            ]
+        };
+
+        var compilation = LayerStackCompiler.Compile(stack, stack.Sets[0]);
+
+        Assert.Empty(compilation.Problems);
+        Assert.Empty(compilation.Diagnostics);
+        Assert.NotNull(compilation.Plan);
+
+        var graph = compilation.Graph;
+        Dictionary<NodeId, string> types = graph.Nodes.ToDictionary(static n => n.Id, static n => n.Type);
+        var slopes = 0;
+
+        foreach (var edge in graph.Edges) {
+            var from = types[edge.From.Node];
+            var to = types[edge.To.Node];
+
+            Assert.False(
+                from == "Colour/Grayscale" && to == "Colour/Grayscale",
+                "A Grayscale reads a Grayscale: the relief stage's grey and the chosen grey stacked."
+            );
+
+            if (to != node) {
+                continue;
+            }
+
+            slopes++;
+
+            // What a slope reads is a grey, or the relief stage's blur of one.
+            var source = edge.From.Node;
+
+            if (types[source] == "Filters/Blur") {
+                source = graph.Edges.Single(e => e.To.Node == source).From.Node;
+            }
+
+            Assert.Equal("Colour/Grayscale", types[source]);
+        }
+
+        // The relief stage's own slope, the filter layer's in every channel, and the mask effect's in the one channel
+        // the fill paints, which is the height.
+        Assert.Equal(1 + stack.Sets[0].Channels.Count + 1, slopes);
     }
 
     /// <summary>A node that composites is left alone: the grey is only for the ones that would refuse a colour.</summary>
