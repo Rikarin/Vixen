@@ -19,19 +19,16 @@ public readonly record struct LayerStackProblem(NodeSeverity Severity, string La
     /// <param name="layer">Which layer.</param>
     /// <param name="message">What is wrong.</param>
     /// <returns>The problem.</returns>
-    public static LayerStackProblem Refusal(string layer, string message) =>
-        new(NodeSeverity.Error, layer, message);
+    public static LayerStackProblem Refusal(string layer, string message) => new(NodeSeverity.Error, layer, message);
 
     /// <summary>A problem the compile reports and then compiles anyway.</summary>
     /// <param name="layer">Which layer.</param>
     /// <param name="message">What is wrong.</param>
     /// <returns>The problem.</returns>
-    public static LayerStackProblem Warning(string layer, string message) =>
-        new(NodeSeverity.Warning, layer, message);
+    public static LayerStackProblem Warning(string layer, string message) => new(NodeSeverity.Warning, layer, message);
 
     /// <inheritdoc />
-    public override string ToString() =>
-        Layer.Length == 0 ? Message : $"layer '{Layer}': {Message}";
+    public override string ToString() => Layer.Length == 0 ? Message : $"layer '{Layer}': {Message}";
 }
 
 /// <summary>What one node in an exploded graph came out of, so a comment can say so.</summary>
@@ -50,8 +47,12 @@ public readonly record struct LayerNote(NodeId Node, string Text);
 /// <param name="Opaque">Whether its alpha is 1 everywhere, so a compositor may read it as a number.</param>
 /// <remarks>
 ///     <para>
-///         ⚠ <b><paramref name="Opaque" /> is what stops a mask entry disappearing into the mask
-///         stack's own blends</b> — <a href="https://github.com/Rikarin/Vixen/issues/874">#874</a>.
+///         ⚠
+///         <b>
+///             <paramref name="Opaque" /> is what stops a mask entry disappearing into the mask
+///             stack's own blends
+///         </b>
+///         — <a href="https://github.com/Rikarin/Vixen/issues/874">#874</a>.
 ///         A mask is a <em>number</em>, and the stack that composites mask entries composites them
 ///         with <c>Colour/Blend</c>, which is a compositor: it reads the alpha it is handed as
 ///         coverage, so an entry whose alpha is 0 blends by nothing however bright its red is. A
@@ -60,8 +61,12 @@ public readonly record struct LayerNote(NodeId Node, string Text);
 ///         wrote — so those three are forced before they meet a blend, and this says which is which.
 ///     </para>
 ///     <para>
-///         ⚠ <b>An anchor used to arrive here as a slot with no port at all, and no longer
-///         does.</b> The deferral that keeps <c>NodeGraphModel.TryConnect</c> the only thing refusing
+///         ⚠
+///         <b>
+///             An anchor used to arrive here as a slot with no port at all, and no longer
+///             does.
+///         </b>
+///         The deferral that keeps <c>NodeGraphModel.TryConnect</c> the only thing refusing
 ///         a loop — doc 48 § D10 — now lives in <c>LayerStackGraph.Anchored</c>, which builds the
 ///         fold an anchor's coverage needs and defers only the edges into it. Every slot therefore
 ///         carries a real port, and wiring one is <c>graph.Connect</c> rather than a branch that
@@ -82,8 +87,12 @@ public sealed record LayerStackBuild(
     /// <summary>Which layer emitted each node, for the nodes a layer emitted.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>What a <c>NodeDiagnostic</c> has no room for, and without which a panel can
-    ///         neither name a layer nor dedupe by one</b> —
+    ///         ⚠
+    ///         <b>
+    ///             What a <c>NodeDiagnostic</c> has no room for, and without which a panel can
+    ///             neither name a layer nor dedupe by one
+    ///         </b>
+    ///         —
     ///         <a href="https://github.com/Rikarin/Vixen/issues/880">#880</a>. A diagnostic names a
     ///         node in the exploded graph, and for a stack nobody has exploded that is a node nobody
     ///         can see; the thing an artist can act on is the layer, and every node this builder
@@ -97,8 +106,12 @@ public sealed record LayerStackBuild(
     ///         layer without one is not a thing a sentence can name.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>An <em>inlined</em> node's diagnostic is already re-addressed before it gets
-    ///         here.</b> <c>NodeGraphCompiler.Report</c> rewrites a complaint about a node inside a
+    ///         ⚠
+    ///         <b>
+    ///             An <em>inlined</em> node's diagnostic is already re-addressed before it gets
+    ///             here.
+    ///         </b>
+    ///         <c>NodeGraphCompiler.Report</c> rewrites a complaint about a node inside a
     ///         compound onto the sub-graph node it came out of — which is a node this builder added
     ///         — so a generator's own diagnostics land on a key this map has.
     ///     </para>
@@ -131,16 +144,23 @@ public sealed record LayerStackBuild(
 ///         it means — <c>Blend.rvn</c>, reached the same way from both front ends.
 ///     </para>
 ///     <para>
-///         <b>Which is also what makes <c>LayerStackExplode</c> honest rather than a second
-///         renderer.</b> Explode writes <em>this</em> graph out, with comments and a layout;
+///         <b>
+///             Which is also what makes <c>LayerStackExplode</c> honest rather than a second
+///             renderer.
+///         </b>
+///         Explode writes <em>this</em> graph out, with comments and a layout;
 ///         compiling compiles it. Doc 48 exit criterion 6 asks for a stack and its explosion to bake
 ///         byte-identical outputs, and <c>LayerStackExplodeTests</c> compares the two compilations
 ///         op by op with the explosion taken back off a YAML round trip — which is where the
 ///         difference between the two paths actually lives.
 ///     </para>
 ///     <para>
-///         ⚠ <b>An anchor is compiled as an edge and the cycle check is
-///         <c>NodeGraphModel.TryConnect</c>'s.</b> Doc 48 § D10 says the stack compiles
+///         ⚠
+///         <b>
+///             An anchor is compiled as an edge and the cycle check is
+///             <c>NodeGraphModel.TryConnect</c>'s.
+///         </b>
+///         Doc 48 § D10 says the stack compiles
 ///         <em>through</em> the graph model rather than growing a second cycle check, so every
 ///         anchor edge is deferred to the end of the build and then offered to the model: an anchor
 ///         onto a layer at or above its own closes a loop in the graph and comes back as
@@ -170,23 +190,34 @@ public static class LayerStackGraph {
     /// <exception cref="ArgumentNullException">The stack or the set is null.</exception>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The registry is an input to <em>building</em> and not only to compiling, which it
-    ///         was not before M8.</b> A generator and a mask effect are named by node-type path, and
+    ///         ⚠
+    ///         <b>
+    ///             The registry is an input to <em>building</em> and not only to compiling, which it
+    ///             was not before M8.
+    ///         </b>
+    ///         A generator and a mask effect are named by node-type path, and
     ///         which port of one carries the image is a fact only the registry has — so a builder
     ///         without one would have to hard-code a port name per effect, which is exactly the
     ///         second list <c>LayerFilterKind</c>'s hand-written ports already are.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The default is the quiet one <a href="https://github.com/Rikarin/Vixen/issues/858">#858</a>
-    ///         was about, one call deeper, and it is left in place deliberately</b> —
+    ///         ⚠
+    ///         <b>
+    ///             The default is the quiet one <a href="https://github.com/Rikarin/Vixen/issues/858">#858</a>
+    ///             was about, one call deeper, and it is left in place deliberately
+    ///         </b>
+    ///         —
     ///         <a href="https://github.com/Rikarin/Vixen/issues/946">#946</a>. This is a static method
     ///         with no document, so there is no folder it could find on its own; a caller that has a
     ///         project passes the registry <c>LayerStackCompiler.Library(out _, assets)</c> built from
     ///         it, which is what <c>LayerStackCompiler.Compile</c> does since
     ///         <a href="https://github.com/Rikarin/Vixen/issues/924">#924</a>. Growing an
     ///         <c>assets</c> parameter here instead would be a second way to say the same thing and a
-    ///         second default for a caller to leave alone. <b>So: null is for a caller with no
-    ///         project, and it is not the library.</b>
+    ///         second default for a caller to leave alone.
+    ///         <b>
+    ///             So: null is for a caller with no
+    ///             project, and it is not the library.
+    ///         </b>
     ///     </para>
     ///     <para>
     ///         ⚠ <b>What the default costs is a <em>refusal</em>, not silence and not <c>TG0001</c>.</b>
@@ -197,8 +228,12 @@ public static class LayerStackGraph {
     ///         inline. <c>ProjectCompoundDeviceTests</c> holds both halves.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The one non-test caller of the default is <see cref="LayerStackExplode.Explode" />,
-    ///         and nothing in the editor calls that either.</b> So the fallback is unreachable in a
+    ///         ⚠
+    ///         <b>
+    ///             The one non-test caller of the default is <see cref="LayerStackExplode.Explode" />,
+    ///             and nothing in the editor calls that either.
+    ///         </b>
+    ///         So the fallback is unreachable in a
     ///         running editor today — which is a statement with a shelf life: an Explode command,
     ///         when one is wired, has to hand this a registry built from the project or an exploded
     ///         stack loses every project compound the author used.
@@ -269,8 +304,12 @@ public static class LayerStackGraph {
     /// <param name="filter">Which adjustment.</param>
     /// <returns>The node type, and the scalar ports it takes.</returns>
     /// <remarks>
-    ///     ⚠ <b>Written here rather than read off the registry, and the difference is what a wrong
-    ///     name does.</b> A registry lookup would accept every port the node declares, including its
+    ///     ⚠
+    ///     <b>
+    ///         Written here rather than read off the registry, and the difference is what a wrong
+    ///         name does.
+    ///     </b>
+    ///     A registry lookup would accept every port the node declares, including its
     ///     image input — so a stack naming <c>Input</c> in <see cref="LayerAsset.Settings" /> would
     ///     overwrite the wire that carries the layers beneath it with a constant, silently. The list
     ///     is the numbers, and only the numbers.
@@ -328,8 +367,12 @@ public static class LayerStackGraph {
 
         /// <summary>The layer whose walk is running, or empty outside every layer.</summary>
         /// <remarks>
-        ///     ⚠ <b>A scope rather than an argument threaded through nine methods, and the difference
-        ///     is what a new emitter does.</b> Every node this builder makes goes through
+        ///     ⚠
+        ///     <b>
+        ///         A scope rather than an argument threaded through nine methods, and the difference
+        ///         is what a new emitter does.
+        ///     </b>
+        ///     Every node this builder makes goes through
         ///     <see cref="Add" />; a parameter would have to be passed correctly by each of
         ///     <c>Fill</c>, <c>Paint</c>, <c>Adjustment</c>, <c>Mask</c>, <c>MaskImage</c>,
         ///     <c>MaskSource</c>, <c>Opaque</c>, <c>Anchored</c> and <c>Effect</c>, and a tenth added
@@ -349,23 +392,27 @@ public static class LayerStackGraph {
 
         public LayerStackBuild Run() {
             if (set.Channels.Count == 0) {
-                problems.Add(LayerStackProblem.Refusal(
-                    "",
-                    $"Texture set '{set.Name}' declares no channels, so there is nothing for its layers to write. "
-                    + "A set's channel list is doc 48 § D11's, and a stack with none compiles to a plan with no "
-                    + "outputs — which evaluates and produces nothing anybody can look at."
-                ));
+                problems.Add(
+                    LayerStackProblem.Refusal(
+                        "",
+                        $"Texture set '{set.Name}' declares no channels, so there is nothing for its layers to write. "
+                        + "A set's channel list is doc 48 § D11's, and a stack with none compiles to a plan with no "
+                        + "outputs — which evaluates and produces nothing anybody can look at."
+                    )
+                );
             }
 
             HashSet<string> seen = new(StringComparer.Ordinal);
 
             foreach (var channel in set.Channels) {
                 if (!seen.Add(channel.Usage)) {
-                    problems.Add(LayerStackProblem.Refusal(
-                        "",
-                        $"Texture set '{set.Name}' declares the channel '{channel.Usage}' twice. Two Output nodes "
-                        + "under one usage is two maps a bake would write to one file, last one winning."
-                    ));
+                    problems.Add(
+                        LayerStackProblem.Refusal(
+                            "",
+                            $"Texture set '{set.Name}' declares the channel '{channel.Usage}' twice. Two Output nodes "
+                            + "under one usage is two maps a bake would write to one file, last one winning."
+                        )
+                    );
                 }
             }
 
@@ -380,7 +427,7 @@ public static class LayerStackGraph {
 
             Anchors();
 
-            return new(graph, [.. problems], [.. notes]) { Layers = owners.ToImmutableDictionary() };
+            return new(graph, [..problems], [..notes]) { Layers = owners.ToImmutableDictionary() };
         }
 
         /// <summary>Refuses two layers sharing an identity, because an anchor names one of them.</summary>
@@ -405,18 +452,20 @@ public static class LayerStackGraph {
             void Walk(List<LayerAsset> layers) {
                 foreach (var layer in layers) {
                     if (ambiguous.Contains(layer.Id) && reported.Add(layer.Id)) {
-                        problems.Add(LayerStackProblem.Refusal(
-                            layer.Id,
-                            layer.Id.Length == 0
-                                ? "Two layers have no id. A layer is addressed by id — by an anchor reading its "
-                                + "result, and by every editing command in the panel — so two that share one are "
-                                + "one layer as far as both are concerned: the second's row moves the first. Give "
-                                + "each layer in the file an 'id'."
-                                : $"Two layers share the id '{layer.Id}'. An anchor names a layer by id, so a "
-                                + "duplicate makes the mask read whichever of the two the walk reached first — a "
-                                + "picture that changes when the artist reorders layers that are not the anchored "
-                                + "one."
-                        ));
+                        problems.Add(
+                            LayerStackProblem.Refusal(
+                                layer.Id,
+                                layer.Id.Length == 0
+                                    ? "Two layers have no id. A layer is addressed by id — by an anchor reading its "
+                                    + "result, and by every editing command in the panel — so two that share one are "
+                                    + "one layer as far as both are concerned: the second's row moves the first. Give "
+                                    + "each layer in the file an 'id'."
+                                    : $"Two layers share the id '{layer.Id}'. An anchor names a layer by id, so a "
+                                    + "duplicate makes the mask read whichever of the two the walk reached first — a "
+                                    + "picture that changes when the artist reorders layers that are not the anchored "
+                                    + "one."
+                            )
+                        );
                     }
 
                     Walk(layer.Children);
@@ -449,11 +498,13 @@ public static class LayerStackGraph {
         /// <summary>Every layer of one list composited over a cursor, bottom first.</summary>
         PortRef Stack(List<LayerAsset> layers, ChannelAsset channel, PortRef cursor, int depth) {
             if (depth >= MaxGroupDepth) {
-                problems.Add(LayerStackProblem.Refusal(
-                    "",
-                    $"Groups nest more than {MaxGroupDepth} deep in texture set '{set.Name}'. That is a hang "
-                    + "check rather than a design limit — a hand-edited .vxlayers can name a group inside itself."
-                ));
+                problems.Add(
+                    LayerStackProblem.Refusal(
+                        "",
+                        $"Groups nest more than {MaxGroupDepth} deep in texture set '{set.Name}'. That is a hang "
+                        + "check rather than a design limit — a hand-edited .vxlayers can name a group inside itself."
+                    )
+                );
 
                 return cursor;
             }
@@ -467,8 +518,12 @@ public static class LayerStackGraph {
 
         /// <summary>One layer composited over the cursor, with everything it emits attributed to it.</summary>
         /// <remarks>
-        ///     ⚠ <b>Saved and restored rather than assigned, because a group's children are layers
-        ///     too.</b> <see cref="Group" /> re-enters <see cref="Stack" />, so a child sets
+        ///     ⚠
+        ///     <b>
+        ///         Saved and restored rather than assigned, because a group's children are layers
+        ///         too.
+        ///     </b>
+        ///     <see cref="Group" /> re-enters <see cref="Stack" />, so a child sets
         ///     <see cref="owner" /> to its own id and has to hand the group's back — the group's own
         ///     blend node is emitted <em>after</em> its children have run. Assigning without
         ///     restoring would file every group's composite under whichever child happened to be
@@ -493,12 +548,26 @@ public static class LayerStackGraph {
             }
 
             var content = Content(layer, channel, cursor, depth);
+            var effects = layer.Kind != LayerKind.Group && layer.Children.Count > 0;
 
-            if (content is not { } foreground) {
+            if (content is null && !effects) {
                 return cursor;
             }
 
-            foreground = Project(layer, foreground);
+            var foreground = content is { } own ? Project(layer, own) : Transparent();
+
+            // ⚠ A layer's children are its effects: a small stack run over its own content, inside its
+            // mask, so that a fill or a filter added to a layer stays that layer's. A layer with no
+            // content in this channel still has theirs, over nothing.
+            if (effects) {
+                var stacked = Stack(layer.Children, channel, foreground, depth + 1);
+
+                if (content is null && stacked == foreground) {
+                    return cursor;
+                }
+
+                foreground = stacked;
+            }
 
             var opacity = Opacity(layer, channel);
             var folded = Folds(layer.Mask, opacity);
@@ -535,14 +604,16 @@ public static class LayerStackGraph {
                 results[(channel.Usage, layer.Id)] = result;
             }
 
-            notes.Add(new(
-                blend.Id,
-                $"Layer '{(layer.Name.Length > 0 ? layer.Name : layer.Id)}' · {layer.Kind} · {layer.Blend} at "
-                + $"{(layer.Opacity * 100f).ToString("0.#", CultureInfo.InvariantCulture)}%"
-                + (layer.Mask.Source == LayerMaskSource.None ? "" : $" · {layer.Mask.Source} mask")
-                + (folded is null ? "" : ", folded into the opacity")
-                + $" · channel '{channel.Usage}'."
-            ));
+            notes.Add(
+                new(
+                    blend.Id,
+                    $"Layer '{(layer.Name.Length > 0 ? layer.Name : layer.Id)}' · {layer.Kind} · {layer.Blend} at "
+                    + $"{(layer.Opacity * 100f).ToString("0.#", CultureInfo.InvariantCulture)}%"
+                    + (layer.Mask.Source == LayerMaskSource.None ? "" : $" · {layer.Mask.Source} mask")
+                    + (folded is null ? "" : ", folded into the opacity")
+                    + $" · channel '{channel.Usage}'."
+                )
+            );
 
             return result;
         }
@@ -560,7 +631,11 @@ public static class LayerStackGraph {
                 LayerKind.Filter => Weighing ? null : Adjustment(layer, cursor),
                 LayerKind.Group => Group(layer, channel, cursor, depth),
                 LayerKind.Paint => Weighing ? Covered(Paint(layer, channel)) : Paint(layer, channel),
-                _ => throw new ArgumentOutOfRangeException(nameof(layer), layer.Kind, "Not a layer kind this build knows.")
+                _ => throw new ArgumentOutOfRangeException(
+                    nameof(layer),
+                    layer.Kind,
+                    "Not a layer kind this build knows."
+                )
             };
 
         /// <summary>A fill's coverage, which is all of it: one, everywhere.</summary>
@@ -608,9 +683,12 @@ public static class LayerStackGraph {
         /// <summary>A group's children, passed through or isolated, or nothing when they add none.</summary>
         /// <remarks>
         ///     <para>
-        ///         ⚠ <b>A group passes through under <see cref="LayerBlendMode.Copy" /> and isolates
-        ///         under every other mode, which is the distinction
-        ///         <a href="https://github.com/Rikarin/Vixen/issues/807">#807</a> · 1 was missing.</b>
+        ///         ⚠
+        ///         <b>
+        ///             A group passes through under <see cref="LayerBlendMode.Copy" /> and isolates
+        ///             under every other mode, which is the distinction
+        ///             <a href="https://github.com/Rikarin/Vixen/issues/807">#807</a> · 1 was missing.
+        ///         </b>
         ///         Compositing the children onto the cursor and blending the <em>result</em> back
         ///         over that same cursor applies the group's mode to the whole canvas rather than to
         ///         what the group covered: with a canvas of ½ and a group of one fully-masked child,
@@ -619,18 +697,25 @@ public static class LayerStackGraph {
         ///         tell them apart.
         ///     </para>
         ///     <para>
-        ///         <b>So an isolated group's children start from transparency, and the alpha they
-        ///         accumulate <em>is</em> the group's coverage.</b> <c>Blend.rvn</c> computes
+        ///         <b>
+        ///             So an isolated group's children start from transparency, and the alpha they
+        ///             accumulate <em>is</em> the group's coverage.
+        ///         </b>
+        ///         <c>Blend.rvn</c> computes
         ///         <c>amount = saturate(opacity) · saturate(b.w)</c>, so a texel no child covered
         ///         arrives with alpha 0, blends by 0 and leaves the backdrop exactly as it was —
         ///         whatever the operator. That is what makes the group's own mode, opacity and mask
         ///         mean something without a coverage channel of this class's own.
         ///     </para>
         ///     <para>
-        ///         ⚠ <b>And starting a chain from transparency is the one thing in this file that
-        ///         asks anything of <c>Blend.rvn</c> beyond an opaque backdrop, which is why
-        ///         <a href="https://github.com/Rikarin/Vixen/issues/832">#832</a> · 2 landed there
-        ///         rather than here.</b> The kernel used to implement the opaque-backdrop
+        ///         ⚠
+        ///         <b>
+        ///             And starting a chain from transparency is the one thing in this file that
+        ///             asks anything of <c>Blend.rvn</c> beyond an opaque backdrop, which is why
+        ///             <a href="https://github.com/Rikarin/Vixen/issues/832">#832</a> · 2 landed there
+        ///             rather than here.
+        ///         </b>
+        ///         The kernel used to implement the opaque-backdrop
         ///         specialisation of source-over — exact for every chain that starts at a source,
         ///         and premultiplying for one that starts at nothing — so a group of partial
         ///         coverage handed back a colour already lerped towards black and its own blend then
@@ -639,8 +724,12 @@ public static class LayerStackGraph {
         ///         to un-premultiply what a correct compositor never premultiplied.
         ///     </para>
         ///     <para>
-        ///         ⚠ <b>Pass-through is kept for <c>Copy</c> rather than isolating everything, and
-        ///         the reason is a child's own operator.</b> A child set to <c>Multiply</c> inside an
+        ///         ⚠
+        ///         <b>
+        ///             Pass-through is kept for <c>Copy</c> rather than isolating everything, and
+        ///             the reason is a child's own operator.
+        ///         </b>
+        ///         A child set to <c>Multiply</c> inside an
         ///         isolated group multiplies against an empty backdrop and darkens to nothing — the
         ///         standard behaviour of an isolated group in every compositor, and exactly why
         ///         grouping layers under the default mode must not change the picture. Under
@@ -648,6 +737,14 @@ public static class LayerStackGraph {
         ///         that means "do not reinterpret my children" is the one that does not isolate.
         ///     </para>
         /// </remarks>
+        PortRef Transparent() {
+            var empty = Add("Source/Uniform");
+
+            empty.SetValue("Colour", 0f, 0f, 0f, 0f);
+
+            return new(empty.Id, "Out");
+        }
+
         PortRef? Group(LayerAsset layer, ChannelAsset channel, PortRef cursor, int depth) {
             if (layer.Blend == LayerBlendMode.Copy) {
                 var passed = Stack(layer.Children, channel, cursor, depth + 1);
@@ -681,8 +778,11 @@ public static class LayerStackGraph {
         /// <summary>M9's layer: a bitmap source reading one channel of the layer's canvas.</summary>
         /// <remarks>
         ///     <para>
-        ///         <b>Exactly <see cref="LayerFillSource.Texture" />'s node, with a reference a host
-        ///         resolves differently</b> —
+        ///         <b>
+        ///             Exactly <see cref="LayerFillSource.Texture" />'s node, with a reference a host
+        ///             resolves differently
+        ///         </b>
+        ///         —
         ///         <a href="https://github.com/Rikarin/Vixen/issues/852">#852</a>. A paint layer is a
         ///         picture; the only thing that distinguishes it from an imported one is where the
         ///         bytes come from, and that is a question for whoever fills the plan's externals.
@@ -691,16 +791,24 @@ public static class LayerStackGraph {
         ///         true of the layer kind that could most easily have broken it.
         ///     </para>
         ///     <para>
-        ///         ⚠ <b>One reference per channel, because a <c>.vxpaint</c> is one image per
-        ///         channel.</b> <c>PaintCanvas</c>' own remarks say why the file is shaped that way:
+        ///         ⚠
+        ///         <b>
+        ///             One reference per channel, because a <c>.vxpaint</c> is one image per
+        ///             channel.
+        ///         </b>
+        ///         <c>PaintCanvas</c>' own remarks say why the file is shaped that way:
         ///         a layer that paints roughness alone must not also carry a base-colour buffer it
         ///         never writes. <see cref="Content" /> is called once per channel the set writes, so
         ///         this emits the bitmap for <em>that</em> channel and the unwritten ones never
         ///         appear.
         ///     </para>
         ///     <para>
-        ///         ⚠ <b>A layer nobody has painted on is a warning and not a refusal, and the
-        ///         difference is what an artist sees.</b> A refusal takes the whole stack's plan with
+        ///         ⚠
+        ///         <b>
+        ///             A layer nobody has painted on is a warning and not a refusal, and the
+        ///             difference is what an artist sees.
+        ///         </b>
+        ///         A refusal takes the whole stack's plan with
         ///         it — <c>LayerStackCompiler.Compile</c> stops on <c>HasErrors</c> — so the moment a
         ///         panel created a paint layer, every other layer in the stack would stop previewing
         ///         until the first stroke landed. An empty canvas contributes nothing, which is
@@ -711,12 +819,14 @@ public static class LayerStackGraph {
             var path = layer.Paint.Trim();
 
             if (path.Length == 0) {
-                problems.Add(LayerStackProblem.Warning(
-                    layer.Id,
-                    "This paint layer names no .vxpaint, so it has nothing to composite. A canvas is written "
-                    + "the first time the layer is painted on; until then the layer keeps its blend mode, its "
-                    + "opacity and its channel enables and contributes nothing."
-                ));
+                problems.Add(
+                    LayerStackProblem.Warning(
+                        layer.Id,
+                        "This paint layer names no .vxpaint, so it has nothing to composite. A canvas is written "
+                        + "the first time the layer is painted on; until then the layer keeps its blend mode, its "
+                        + "opacity and its channel enables and contributes nothing."
+                    )
+                );
 
                 return null;
             }
@@ -743,23 +853,34 @@ public static class LayerStackGraph {
         /// <returns>The projected content, or <paramref name="content" /> unchanged.</returns>
         /// <remarks>
         ///     <para>
-        ///         <b>What a projection is for, because "put the picture on by world position" reads
-        ///         as a novelty until you ask what it buys.</b> A layer projected triplanar covers a
+        ///         <b>
+        ///             What a projection is for, because "put the picture on by world position" reads
+        ///             as a novelty until you ask what it buys.
+        ///         </b>
+        ///         A layer projected triplanar covers a
         ///         mesh whose UVs it was never authored for — which is the whole premise of a shipped
         ///         smart material. Without it every <c>.vxsmartmat</c> is a material for one atlas,
         ///         and § D10's member had been there since M7 with a refusal behind it.
         ///     </para>
         ///     <para>
-        ///         ⚠ <b>Two <c>Source/Mesh Map</c> nodes rather than anything this class fetches
-        ///         itself.</b> The projection needs the <c>position</c> and <c>world</c> bakes, and
+        ///         ⚠
+        ///         <b>
+        ///             Two <c>Source/Mesh Map</c> nodes rather than anything this class fetches
+        ///             itself.
+        ///         </b>
+        ///         The projection needs the <c>position</c> and <c>world</c> bakes, and
         ///         the only way a graph asks for one is by usage — the bake decides which mesh a
         ///         <c>meshmap:position</c> resolves to. So a projected layer's plan carries two more
         ///         externals, and a host that cannot supply them says so with the same sentence it
         ///         already uses for a generator's <c>curvature</c>.
         ///     </para>
         ///     <para>
-        ///         ⚠ <b>Planar goes down <see cref="LayerAsset.PlanarAxis" />, which this file used
-        ///         to choose</b> — <a href="https://github.com/Rikarin/Vixen/issues/1032">#1032</a>.
+        ///         ⚠
+        ///         <b>
+        ///             Planar goes down <see cref="LayerAsset.PlanarAxis" />, which this file used
+        ///             to choose
+        ///         </b>
+        ///         — <a href="https://github.com/Rikarin/Vixen/issues/1032">#1032</a>.
         ///         <c>LayerProjection.Planar</c> is "one planar projection along an axis" and had
         ///         nowhere to put the axis, so every planar layer ever authored went down y: the
         ///         right default and a default the <em>compiler</em> picked, which on anything
@@ -791,13 +912,15 @@ public static class LayerStackGraph {
             // and "the author said nothing" are one state, which is why `LayerAxis`' zero is X.
             if (layer.Projection is not (LayerProjection.Planar or LayerProjection.Cylindrical)
                 && layer.PlanarAxis != LayerAxis.Y) {
-                problems.Add(LayerStackProblem.Warning(
-                    layer.Id,
-                    $"Axis '{layer.PlanarAxis}' is set on a {layer.Projection} projection and does nothing there. "
-                    + "An axis chooses the single plane a Planar projection uses or the line a Cylindrical one "
-                    + "wraps around; Triplanar blends all three planes by the world normal, a sphere has no "
-                    + "axis to choose, and Uv is the mesh's own atlas."
-                ));
+                problems.Add(
+                    LayerStackProblem.Warning(
+                        layer.Id,
+                        $"Axis '{layer.PlanarAxis}' is set on a {layer.Projection} projection and does nothing there. "
+                        + "An axis chooses the single plane a Planar projection uses or the line a Cylindrical one "
+                        + "wraps around; Triplanar blends all three planes by the world normal, a sphere has no "
+                        + "axis to choose, and Uv is the mesh's own atlas."
+                    )
+                );
             }
 
             if (layer.Projection == LayerProjection.Uv) {
@@ -805,25 +928,29 @@ public static class LayerStackGraph {
             }
 
             if (layer.Kind != LayerKind.Fill) {
-                problems.Add(LayerStackProblem.Warning(
-                    layer.Id,
-                    $"Projection '{layer.Projection}' is set on a {layer.Kind} layer and does nothing there. A "
-                    + "projection decides how a fill covers a surface: a paint layer's pixels are already in the "
-                    + "atlas, a filter reads whatever is under it, and a group is its children. The layer is "
-                    + "composited through its UVs."
-                ));
+                problems.Add(
+                    LayerStackProblem.Warning(
+                        layer.Id,
+                        $"Projection '{layer.Projection}' is set on a {layer.Kind} layer and does nothing there. A "
+                        + "projection decides how a fill covers a surface: a paint layer's pixels are already in the "
+                        + "atlas, a filter reads whatever is under it, and a group is its children. The layer is "
+                        + "composited through its UVs."
+                    )
+                );
 
                 return content;
             }
 
             if (layer.Fill == LayerFillSource.Constant) {
-                problems.Add(LayerStackProblem.Warning(
-                    layer.Id,
-                    $"Projection '{layer.Projection}' is set on a constant fill and changes nothing — a constant "
-                    + "is the same colour at every world position. Give the layer a texture or a graph, or leave "
-                    + "the projection at Uv; the three dispatches a projection costs would reproduce the number "
-                    + "the layer started with."
-                ));
+                problems.Add(
+                    LayerStackProblem.Warning(
+                        layer.Id,
+                        $"Projection '{layer.Projection}' is set on a constant fill and changes nothing — a constant "
+                        + "is the same colour at every world position. Give the layer a texture or a graph, or leave "
+                        + "the projection at Uv; the three dispatches a projection costs would reproduce the number "
+                        + "the layer started with."
+                    )
+                );
 
                 return content;
             }
@@ -872,11 +999,13 @@ public static class LayerStackGraph {
             foreach (var (port, value) in layer.Settings) {
                 if (!string.Equals(port, "Scale", StringComparison.Ordinal)
                     && !string.Equals(port, "Sharpness", StringComparison.Ordinal)) {
-                    problems.Add(LayerStackProblem.Warning(
-                        layer.Id,
-                        $"'{port}' is not a number a projection takes — it takes Scale and Sharpness. The value is "
-                        + "dropped rather than written to a port that might be the image input."
-                    ));
+                    problems.Add(
+                        LayerStackProblem.Warning(
+                            layer.Id,
+                            $"'{port}' is not a number a projection takes — it takes Scale and Sharpness. The value is "
+                            + "dropped rather than written to a port that might be the image input."
+                        )
+                    );
 
                     continue;
                 }
@@ -901,20 +1030,24 @@ public static class LayerStackGraph {
             }
 
             if (layer.Kind != LayerKind.Fill || layer.Fill == LayerFillSource.Constant) {
-                problems.Add(LayerStackProblem.Warning(
-                    layer.Id,
-                    "A placement is set here and does nothing: it moves a texture or a graph on the surface, "
-                    + "and this layer is neither."
-                ));
+                problems.Add(
+                    LayerStackProblem.Warning(
+                        layer.Id,
+                        "A placement is set here and does nothing: it moves a texture or a graph on the surface, "
+                        + "and this layer is neither."
+                    )
+                );
 
                 return content;
             }
 
             if (placement.Scale <= 0f) {
-                problems.Add(LayerStackProblem.Refusal(
-                    layer.Id,
-                    $"A scale of {placement.Scale} has nothing to repeat. A placement's scale is above zero."
-                ));
+                problems.Add(
+                    LayerStackProblem.Refusal(
+                        layer.Id,
+                        $"A scale of {placement.Scale} has nothing to repeat. A placement's scale is above zero."
+                    )
+                );
 
                 return content;
             }
@@ -968,12 +1101,14 @@ public static class LayerStackGraph {
 
                 case LayerFillSource.Texture: {
                     if (!layer.Textures.TryGetValue(channel.Usage, out var asset) || asset.Trim().Length == 0) {
-                        problems.Add(LayerStackProblem.Refusal(
-                            layer.Id,
-                            $"This layer is a texture fill and names no image for channel '{channel.Usage}', which "
-                            + "it writes. Restrict the layer's channels or give it an image: a bitmap with no "
-                            + "reference is refused at compile time rather than filled with black."
-                        ));
+                        problems.Add(
+                            LayerStackProblem.Refusal(
+                                layer.Id,
+                                $"This layer is a texture fill and names no image for channel '{channel.Usage}', which "
+                                + "it writes. Restrict the layer's channels or give it an image: a bitmap with no "
+                                + "reference is refused at compile time rather than filled with black."
+                            )
+                        );
 
                         return null;
                     }
@@ -998,21 +1133,25 @@ public static class LayerStackGraph {
                     var path = layer.Graph.Trim();
 
                     if (path.Length == 0) {
-                        problems.Add(LayerStackProblem.Refusal(
-                            layer.Id,
-                            "This layer is a graph fill and names no graph. A graph fill is a published "
-                            + ".vxtexgraph, named by its path in the node menu."
-                        ));
+                        problems.Add(
+                            LayerStackProblem.Refusal(
+                                layer.Id,
+                                "This layer is a graph fill and names no graph. A graph fill is a published "
+                                + ".vxtexgraph, named by its path in the node menu."
+                            )
+                        );
 
                         return null;
                     }
 
                     if (!Library.TryGet(path, out var type)) {
-                        problems.Add(LayerStackProblem.Refusal(
-                            layer.Id,
-                            $"This layer is a graph fill naming '{path}', which is not a node type this project "
-                            + "has. A published compound is registered under its path in the library folder."
-                        ));
+                        problems.Add(
+                            LayerStackProblem.Refusal(
+                                layer.Id,
+                                $"This layer is a graph fill naming '{path}', which is not a node type this project "
+                                + "has. A published compound is registered under its path in the library folder."
+                            )
+                        );
 
                         return null;
                     }
@@ -1023,10 +1162,12 @@ public static class LayerStackGraph {
 
                     if (output is null) {
                         if (!HasImageOutput(type)) {
-                            problems.Add(LayerStackProblem.Refusal(
-                                layer.Id,
-                                $"The graph '{path}' has no image output, so there is nothing for this layer to fill with."
-                            ));
+                            problems.Add(
+                                LayerStackProblem.Refusal(
+                                    layer.Id,
+                                    $"The graph '{path}' has no image output, so there is nothing for this layer to fill with."
+                                )
+                            );
                         }
 
                         return null;
@@ -1044,10 +1185,12 @@ public static class LayerStackGraph {
                     // dropped says so rather than leaving a number that moves nothing.
                     foreach (var (setting, value) in layer.Texts) {
                         if (type.Setting(setting) is null) {
-                            problems.Add(LayerStackProblem.Warning(
-                                layer.Id,
-                                $"'{setting}' is not a setting '{path}' declares, so it is dropped."
-                            ));
+                            problems.Add(
+                                LayerStackProblem.Warning(
+                                    layer.Id,
+                                    $"'{setting}' is not a setting '{path}' declares, so it is dropped."
+                                )
+                            );
 
                             continue;
                         }
@@ -1094,12 +1237,14 @@ public static class LayerStackGraph {
                 }
 
                 if (!known) {
-                    problems.Add(LayerStackProblem.Warning(
-                        layer.Id,
-                        $"'{port}' is not a number the '{layer.Filter}' filter takes — it takes "
-                        + $"{string.Join(", ", ports)}. The value is dropped rather than written to a port that "
-                        + "might be the image input."
-                    ));
+                    problems.Add(
+                        LayerStackProblem.Warning(
+                            layer.Id,
+                            $"'{port}' is not a number the '{layer.Filter}' filter takes — it takes "
+                            + $"{string.Join(", ", ports)}. The value is dropped rather than written to a port that "
+                            + "might be the image input."
+                        )
+                    );
 
                     continue;
                 }
@@ -1121,8 +1266,12 @@ public static class LayerStackGraph {
         ///         its inputs the layer beneath would be is not something a stack file can decide.
         ///     </para>
         ///     <para>
-        ///         ⚠ <b>The ports are derived from the type rather than listed, and what that is
-        ///         protecting is the image wire.</b> <c>LayerFilterKind</c>'s path above carries a
+        ///         ⚠
+        ///         <b>
+        ///             The ports are derived from the type rather than listed, and what that is
+        ///             protecting is the image wire.
+        ///         </b>
+        ///         <c>LayerFilterKind</c>'s path above carries a
         ///         hand-written port list per filter for exactly this reason — a setting called
         ///         <c>Input</c> written to <c>Colour/Levels</c> would replace everything beneath the
         ///         layer with a constant, and the picture would be the filter over nothing at all.
@@ -1142,12 +1291,14 @@ public static class LayerStackGraph {
             var path = layer.FilterNode.Trim();
 
             if (!Library.TryGet(path, out var type)) {
-                problems.Add(LayerStackProblem.Refusal(
-                    layer.Id,
-                    $"This filter layer names '{path}', which is not a node type this project has. A published "
-                    + "compound is registered under its path in the library folder; a built-in is under its "
-                    + "category, such as 'Colour/Levels'."
-                ));
+                problems.Add(
+                    LayerStackProblem.Refusal(
+                        layer.Id,
+                        $"This filter layer names '{path}', which is not a node type this project has. A published "
+                        + "compound is registered under its path in the library folder; a built-in is under its "
+                        + "category, such as 'Colour/Levels'."
+                    )
+                );
 
                 return null;
             }
@@ -1156,15 +1307,17 @@ public static class LayerStackGraph {
             var output = OnlyImage(type, PortDirection.Output);
 
             if (input is null || output is null) {
-                problems.Add(LayerStackProblem.Refusal(
-                    layer.Id,
-                    $"'{path}' is not a single-input graph: doc 48 § D10 says a filter layer's fourth kind is a "
-                    + "graph with one image in and one image out, and this type has "
-                    + $"{Images(type, PortDirection.Input).ToString(CultureInfo.InvariantCulture)} in and "
-                    + $"{Images(type, PortDirection.Output).ToString(CultureInfo.InvariantCulture)} out. "
-                    + "A two-input node is a composite rather than an adjustment, and which of its images the "
-                    + "layers beneath would be is not something this file can decide."
-                ));
+                problems.Add(
+                    LayerStackProblem.Refusal(
+                        layer.Id,
+                        $"'{path}' is not a single-input graph: doc 48 § D10 says a filter layer's fourth kind is a "
+                        + "graph with one image in and one image out, and this type has "
+                        + $"{Images(type, PortDirection.Input).ToString(CultureInfo.InvariantCulture)} in and "
+                        + $"{Images(type, PortDirection.Output).ToString(CultureInfo.InvariantCulture)} out. "
+                        + "A two-input node is a composite rather than an adjustment, and which of its images the "
+                        + "layers beneath would be is not something this file can decide."
+                    )
+                );
 
                 return null;
             }
@@ -1177,11 +1330,13 @@ public static class LayerStackGraph {
                 if (string.Equals(port, input.Name, StringComparison.Ordinal)
                     || type.Port(port, PortDirection.Input) is not { } declared
                     || declared.Kind == PortKind.Image) {
-                    problems.Add(LayerStackProblem.Warning(
-                        layer.Id,
-                        $"'{port}' is not a number '{path}' takes, so the value is dropped rather than written "
-                        + "to a port that might be the image the filter reads."
-                    ));
+                    problems.Add(
+                        LayerStackProblem.Warning(
+                            layer.Id,
+                            $"'{port}' is not a number '{path}' takes, so the value is dropped rather than written "
+                            + "to a port that might be the image the filter reads."
+                        )
+                    );
 
                     continue;
                 }
@@ -1196,10 +1351,12 @@ public static class LayerStackGraph {
             // compiling to exactly the ops `LayerStackExplodeTests` photographs.
             foreach (var (setting, value) in layer.Texts) {
                 if (type.Setting(setting) is null) {
-                    problems.Add(LayerStackProblem.Warning(
-                        layer.Id,
-                        $"'{setting}' is not a setting '{path}' declares, so it is dropped."
-                    ));
+                    problems.Add(
+                        LayerStackProblem.Warning(
+                            layer.Id,
+                            $"'{setting}' is not a setting '{path}' declares, so it is dropped."
+                        )
+                    );
 
                     continue;
                 }
@@ -1213,17 +1370,25 @@ public static class LayerStackGraph {
         /// <summary>The mask multiplied into the foreground's coverage, or the foreground unchanged.</summary>
         /// <remarks>
         ///     <para>
-        ///         ⚠ <b>The mask is composited before it is shuffled, and the shuffle is still what
-        ///         puts it into alpha.</b> A mask stack is a chain of <c>Colour/Blend</c> nodes
+        ///         ⚠
+        ///         <b>
+        ///             The mask is composited before it is shuffled, and the shuffle is still what
+        ///             puts it into alpha.
+        ///         </b>
+        ///         A mask stack is a chain of <c>Colour/Blend</c> nodes
         ///         exactly like the layer stack it masks — the same operators, the same kernel — and
         ///         only its <em>result</em> becomes the foreground's coverage. Doc 48 § D10's "a mask
         ///         is itself a small stack" is therefore not a second compositor: it is this one,
         ///         called on a smaller list.
         ///     </para>
         ///     <para>
-        ///         ⚠ <b>Multiplied and not <em>replaced</em>, which is
-        ///         <a href="https://github.com/Rikarin/Vixen/issues/790">#790</a> and half of
-        ///         <a href="https://github.com/Rikarin/Vixen/issues/832">#832</a>.</b> A mask is
+        ///         ⚠
+        ///         <b>
+        ///             Multiplied and not <em>replaced</em>, which is
+        ///             <a href="https://github.com/Rikarin/Vixen/issues/790">#790</a> and half of
+        ///             <a href="https://github.com/Rikarin/Vixen/issues/832">#832</a>.
+        ///         </b>
+        ///         A mask is
         ///         coverage and so is the foreground's alpha, and two coverages compose by
         ///         multiplication. Replacing agrees with multiplying exactly when the foreground's
         ///         alpha is already 1 — which a constant fill's is, by construction, which is why
@@ -1311,8 +1476,12 @@ public static class LayerStackGraph {
         /// <summary>The mask's own composited image, or <see langword="null" /> for no mask at all.</summary>
         /// <remarks>
         ///     <para>
-        ///         ⚠ <b>The entries are composited by <c>Colour/Blend</c>, so every operand of one of
-        ///         those blends is forced opaque first</b> —
+        ///         ⚠
+        ///         <b>
+        ///             The entries are composited by <c>Colour/Blend</c>, so every operand of one of
+        ///             those blends is forced opaque first
+        ///         </b>
+        ///         —
         ///         <a href="https://github.com/Rikarin/Vixen/issues/874">#874</a>, which is
         ///         <see cref="Mask" />'s rule (#832) one level down. <c>Blend</c> is a compositor: it
         ///         reads the alpha it is handed as coverage rather than as a number, so a bitmap
@@ -1336,23 +1505,27 @@ public static class LayerStackGraph {
                 // The legacy single source, as the bottom entry. Its blend and opacity are the
                 // neutral ones, so a stack with only a base compiles to exactly the nodes it did
                 // before this file learned about mask stacks.
-                entries.Add(new() {
-                    Source = mask.Source,
-                    Value = mask.Value,
-                    Asset = mask.Asset,
-                    Anchor = mask.Anchor,
-                    Generator = mask.Generator,
-                    GeneratorValues = mask.GeneratorValues,
-                    GeneratorTexts = mask.GeneratorTexts,
-                    Map = mask.Map,
-                    Paint = mask.Paint
-                });
+                entries.Add(
+                    new() {
+                        Source = mask.Source,
+                        Value = mask.Value,
+                        Asset = mask.Asset,
+                        Anchor = mask.Anchor,
+                        Generator = mask.Generator,
+                        GeneratorValues = mask.GeneratorValues,
+                        GeneratorTexts = mask.GeneratorTexts,
+                        Map = mask.Map,
+                        Paint = mask.Paint
+                    }
+                );
             } else if (mask.Paint.Length > 0) {
-                problems.Add(LayerStackProblem.Warning(
-                    layer.Id,
-                    $"This layer's mask names a paint file ('{mask.Paint}') and its source is None, so the "
-                    + "painted pixels are not read. Set the mask's source to Paint to read them."
-                ));
+                problems.Add(
+                    LayerStackProblem.Warning(
+                        layer.Id,
+                        $"This layer's mask names a paint file ('{mask.Paint}') and its source is None, so the "
+                        + "painted pixels are not read. Set the mask's source to Paint to read them."
+                    )
+                );
             }
 
             foreach (var entry in mask.Layers) {
@@ -1374,13 +1547,15 @@ public static class LayerStackGraph {
 
                 if (cursor is not { } beneath) {
                     if (entry.Blend != LayerBlendMode.Copy) {
-                        problems.Add(LayerStackProblem.Warning(
-                            layer.Id,
-                            $"The bottom entry of this mask composites with '{entry.Blend}' and there is nothing "
-                            + "beneath it, so the operator does nothing. A mask stack starts from its first "
-                            + "entry rather than from a black constant, which is what keeps a plain one-source "
-                            + "mask a single node."
-                        ));
+                        problems.Add(
+                            LayerStackProblem.Warning(
+                                layer.Id,
+                                $"The bottom entry of this mask composites with '{entry.Blend}' and there is nothing "
+                                + "beneath it, so the operator does nothing. A mask stack starts from its first "
+                                + "entry rather than from a black constant, which is what keeps a plain one-source "
+                                + "mask a single node."
+                            )
+                        );
                     }
 
                     cursor = wire;
@@ -1419,8 +1594,12 @@ public static class LayerStackGraph {
         /// <param name="slot">The entry.</param>
         /// <returns>A slot a compositor may read as a number.</returns>
         /// <remarks>
-        ///     ⚠ <b>The red is splatted across the colour lanes as well, so that this is the same
-        ///     shuffle <see cref="Mask" /> ends with rather than a second convention.</b> A mask is
+        ///     ⚠
+        ///     <b>
+        ///         The red is splatted across the colour lanes as well, so that this is the same
+        ///         shuffle <see cref="Mask" /> ends with rather than a second convention.
+        ///     </b>
+        ///     A mask is
         ///     read for its red everywhere in this file; carrying green and blue through would make a
         ///     coloured bitmap entry composite differently under <c>Multiply</c> from the way the same
         ///     bitmap composites as the only entry, and nothing downstream would say so. #874.
@@ -1449,8 +1628,12 @@ public static class LayerStackGraph {
         /// <returns>The port carrying <c>red · coverage</c>.</returns>
         /// <remarks>
         ///     <para>
-        ///         ⚠ <b>An anchor is the one mask source whose alpha <em>is</em> meaningful, and
-        ///         folding it into the value is what #832 stopped doing by accident</b> —
+        ///         ⚠
+        ///         <b>
+        ///             An anchor is the one mask source whose alpha <em>is</em> meaningful, and
+        ///             folding it into the value is what #832 stopped doing by accident
+        ///         </b>
+        ///         —
         ///         <a href="https://github.com/Rikarin/Vixen/issues/874">#874</a>. An anchor resolves
         ///         to another layer's <em>evaluated result</em>, and for a layer inside an isolated
         ///         group that result's alpha is the group's coverage. Read for its red alone, an
@@ -1459,18 +1642,28 @@ public static class LayerStackGraph {
         ///         would have had".
         ///     </para>
         ///     <para>
-        ///         <b>The product rather than the coverage alone, and it is the answer that changes
-        ///         nothing for every stack that already worked.</b> Anchoring a generator or a fill —
+        ///         <b>
+        ///             The product rather than the coverage alone, and it is the answer that changes
+        ///             nothing for every stack that already worked.
+        ///         </b>
+        ///         Anchoring a generator or a fill —
         ///         opaque, coverage 1 — gives <c>red · 1</c>, which is the red it gave before; the
         ///         coverage only bites where the anchored layer does not cover, which is where the
         ///         old kernel's premultiplied result also faded. Reading the alpha alone would make
         ///         an anchor onto any ordinary layer a constant 1, which is not a mask.
         ///     </para>
         ///     <para>
-        ///         <b>Three nodes, for <see cref="Mask" />'s reason: this library has no arithmetic
-        ///         node</b>, so a product is computed in a colour lane by a <c>Multiply</c> between
-        ///         two operands that have each been made opaque first. ⚠ <b>Two deferred edges out of
-        ///         one anchor</b>, because both shuffles read the same result and a shuffle selects
+        ///         <b>
+        ///             Three nodes, for <see cref="Mask" />'s reason: this library has no arithmetic
+        ///             node
+        ///         </b>
+        ///         , so a product is computed in a colour lane by a <c>Multiply</c> between
+        ///         two operands that have each been made opaque first. ⚠
+        ///         <b>
+        ///             Two deferred edges out of
+        ///             one anchor
+        ///         </b>
+        ///         , because both shuffles read the same result and a shuffle selects
         ///         rather than multiplies; <see cref="Anchors" /> reports a refused anchor once.
         ///     </para>
         /// </remarks>
@@ -1508,22 +1701,26 @@ public static class LayerStackGraph {
             var path = effect.Node.Trim();
 
             if (path.Length == 0) {
-                problems.Add(LayerStackProblem.Refusal(
-                    layerId,
-                    "A mask effect names no node type. An effect is any single-input graph — Levels, Blur, "
-                    + "Warp, or a published compound — named by its path in the node menu."
-                ));
+                problems.Add(
+                    LayerStackProblem.Refusal(
+                        layerId,
+                        "A mask effect names no node type. An effect is any single-input graph — Levels, Blur, "
+                        + "Warp, or a published compound — named by its path in the node menu."
+                    )
+                );
 
                 return cursor;
             }
 
             if (!Library.TryGet(path, out var type)) {
-                problems.Add(LayerStackProblem.Refusal(
-                    layerId,
-                    $"A mask effect names '{path}', which is not a node type this project has. A published "
-                    + "compound is registered under its path in the library folder; a built-in is under its "
-                    + "category, such as 'Colour/Levels'."
-                ));
+                problems.Add(
+                    LayerStackProblem.Refusal(
+                        layerId,
+                        $"A mask effect names '{path}', which is not a node type this project has. A published "
+                        + "compound is registered under its path in the library folder; a built-in is under its "
+                        + "category, such as 'Colour/Levels'."
+                    )
+                );
 
                 return cursor;
             }
@@ -1532,15 +1729,17 @@ public static class LayerStackGraph {
             var output = OnlyImage(type, PortDirection.Output);
 
             if (input is null || output is null) {
-                problems.Add(LayerStackProblem.Refusal(
-                    layerId,
-                    $"'{path}' is not a single-input graph: doc 48 § 4.10 says a mask effect has one image in "
-                    + "and one image out, and this type has "
-                    + $"{Images(type, PortDirection.Input).ToString(CultureInfo.InvariantCulture)} in and "
-                    + $"{Images(type, PortDirection.Output).ToString(CultureInfo.InvariantCulture)} out. "
-                    + "A two-input node is a composite rather than an effect, and which of its images the mask "
-                    + "would be is not something this file can decide."
-                ));
+                problems.Add(
+                    LayerStackProblem.Refusal(
+                        layerId,
+                        $"'{path}' is not a single-input graph: doc 48 § 4.10 says a mask effect has one image in "
+                        + "and one image out, and this type has "
+                        + $"{Images(type, PortDirection.Input).ToString(CultureInfo.InvariantCulture)} in and "
+                        + $"{Images(type, PortDirection.Output).ToString(CultureInfo.InvariantCulture)} out. "
+                        + "A two-input node is a composite rather than an effect, and which of its images the mask "
+                        + "would be is not something this file can decide."
+                    )
+                );
 
                 return cursor;
             }
@@ -1557,11 +1756,13 @@ public static class LayerStackGraph {
                 if (string.Equals(port, input.Name, StringComparison.Ordinal)
                     || type.Port(port, PortDirection.Input) is not { } declared
                     || declared.Kind == PortKind.Image) {
-                    problems.Add(LayerStackProblem.Warning(
-                        layerId,
-                        $"'{port}' is not a number '{path}' takes, so the value is dropped rather than written "
-                        + "to a port that might be the image the effect reads."
-                    ));
+                    problems.Add(
+                        LayerStackProblem.Warning(
+                            layerId,
+                            $"'{port}' is not a number '{path}' takes, so the value is dropped rather than written "
+                            + "to a port that might be the image the effect reads."
+                        )
+                    );
 
                     continue;
                 }
@@ -1571,10 +1772,12 @@ public static class LayerStackGraph {
 
             foreach (var (setting, value) in effect.Texts) {
                 if (type.Setting(setting) is null) {
-                    problems.Add(LayerStackProblem.Warning(
-                        layerId,
-                        $"'{setting}' is not a setting '{path}' declares, so it is dropped."
-                    ));
+                    problems.Add(
+                        LayerStackProblem.Warning(
+                            layerId,
+                            $"'{setting}' is not a setting '{path}' declares, so it is dropped."
+                        )
+                    );
 
                     continue;
                 }
@@ -1612,11 +1815,13 @@ public static class LayerStackGraph {
 
                 case LayerMaskSource.Texture: {
                     if (entry.Asset.Trim().Length == 0) {
-                        problems.Add(LayerStackProblem.Refusal(
-                            layerId,
-                            "This layer's mask is a texture and names no image. A bitmap with no reference is "
-                            + "refused at compile time rather than filled with black."
-                        ));
+                        problems.Add(
+                            LayerStackProblem.Refusal(
+                                layerId,
+                                "This layer's mask is a texture and names no image. A bitmap with no reference is "
+                                + "refused at compile time rather than filled with black."
+                            )
+                        );
 
                         return null;
                     }
@@ -1634,11 +1839,13 @@ public static class LayerStackGraph {
 
                 case LayerMaskSource.Anchor:
                     if (entry.Anchor.Length == 0) {
-                        problems.Add(LayerStackProblem.Refusal(
-                            layerId,
-                            "This layer's mask is an anchor and names no layer. An anchor is a reference to another "
-                            + "layer's evaluated result, by its id."
-                        ));
+                        problems.Add(
+                            LayerStackProblem.Refusal(
+                                layerId,
+                                "This layer's mask is an anchor and names no layer. An anchor is a reference to another "
+                                + "layer's evaluated result, by its id."
+                            )
+                        );
 
                         return null;
                     }
@@ -1665,32 +1872,38 @@ public static class LayerStackGraph {
                     var path = entry.Generator.Trim();
 
                     if (path.Length == 0) {
-                        problems.Add(LayerStackProblem.Refusal(
-                            layerId,
-                            "This layer's mask is a generator and names no compound. A generator is a published "
-                            + ".vxtexgraph reading the mesh maps by usage, named by its path — 'Generators/Dirt'."
-                        ));
+                        problems.Add(
+                            LayerStackProblem.Refusal(
+                                layerId,
+                                "This layer's mask is a generator and names no compound. A generator is a published "
+                                + ".vxtexgraph reading the mesh maps by usage, named by its path — 'Generators/Dirt'."
+                            )
+                        );
 
                         return null;
                     }
 
                     if (!Library.TryGet(path, out var type)) {
-                        problems.Add(LayerStackProblem.Refusal(
-                            layerId,
-                            $"This layer's mask names the generator '{path}', which is not a node type this "
-                            + "project has. The shipped compounds are published from this assembly and a "
-                            + "project's own from its compound folder; a path in neither binds nothing."
-                        ));
+                        problems.Add(
+                            LayerStackProblem.Refusal(
+                                layerId,
+                                $"This layer's mask names the generator '{path}', which is not a node type this "
+                                + "project has. The shipped compounds are published from this assembly and a "
+                                + "project's own from its compound folder; a path in neither binds nothing."
+                            )
+                        );
 
                         return null;
                     }
 
                     if (OnlyImage(type, PortDirection.Output) is not { } output) {
-                        problems.Add(LayerStackProblem.Refusal(
-                            layerId,
-                            $"The generator '{path}' does not have exactly one image output, so which of its "
-                            + "results is the mask is not something this file can decide."
-                        ));
+                        problems.Add(
+                            LayerStackProblem.Refusal(
+                                layerId,
+                                $"The generator '{path}' does not have exactly one image output, so which of its "
+                                + "results is the mask is not something this file can decide."
+                            )
+                        );
 
                         return null;
                     }
@@ -1699,10 +1912,12 @@ public static class LayerStackGraph {
 
                     foreach (var (port, value) in entry.GeneratorValues) {
                         if (type.Port(port, PortDirection.Input) is not { Kind: not PortKind.Image }) {
-                            problems.Add(LayerStackProblem.Warning(
-                                layerId,
-                                $"'{port}' is not a number '{path}' takes, so the value is dropped."
-                            ));
+                            problems.Add(
+                                LayerStackProblem.Warning(
+                                    layerId,
+                                    $"'{port}' is not a number '{path}' takes, so the value is dropped."
+                                )
+                            );
 
                             continue;
                         }
@@ -1712,10 +1927,12 @@ public static class LayerStackGraph {
 
                     foreach (var (setting, value) in entry.GeneratorTexts) {
                         if (type.Setting(setting) is null) {
-                            problems.Add(LayerStackProblem.Warning(
-                                layerId,
-                                $"'{setting}' is not a setting '{path}' declares, so it is dropped."
-                            ));
+                            problems.Add(
+                                LayerStackProblem.Warning(
+                                    layerId,
+                                    $"'{setting}' is not a setting '{path}' declares, so it is dropped."
+                                )
+                            );
 
                             continue;
                         }
@@ -1741,12 +1958,14 @@ public static class LayerStackGraph {
                     var painted = entry.Paint.Trim();
 
                     if (painted.Length == 0) {
-                        problems.Add(LayerStackProblem.Warning(
-                            layerId,
-                            "This layer's mask is painted and names no .vxpaint, so it has nothing to read. A "
-                            + "canvas is written the first time the mask is painted on; until then the entry "
-                            + "contributes nothing."
-                        ));
+                        problems.Add(
+                            LayerStackProblem.Warning(
+                                layerId,
+                                "This layer's mask is painted and names no .vxpaint, so it has nothing to read. A "
+                                + "canvas is written the first time the mask is painted on; until then the entry "
+                                + "contributes nothing."
+                            )
+                        );
 
                         return null;
                     }
@@ -1873,12 +2092,14 @@ public static class LayerStackGraph {
                     continue;
                 }
 
-                problems.Add(LayerStackProblem.Refusal(
-                    layer,
-                    $"The anchor onto layer '{anchor}' is refused: {GraphInvariants.Describe(error, from, to)} "
-                    + "⚠ An anchor onto a layer at or above its own is a loop, and the graph model is what says "
-                    + "so — the stack does not check for one itself."
-                ));
+                problems.Add(
+                    LayerStackProblem.Refusal(
+                        layer,
+                        $"The anchor onto layer '{anchor}' is refused: {GraphInvariants.Describe(error, from, to)} "
+                        + "⚠ An anchor onto a layer at or above its own is a loop, and the graph model is what says "
+                        + "so — the stack does not check for one itself."
+                    )
+                );
             }
         }
 
@@ -1921,8 +2142,12 @@ public static class LayerStackGraph {
         /// </summary>
         /// <remarks>
         ///     <para>
-        ///         ⚠ <b><a href="https://github.com/Rikarin/Vixen/issues/789">#789</a>, and the
-        ///         objection that held it back is gone rather than answered.</b> The fold was refused
+        ///         ⚠
+        ///         <b>
+        ///             <a href="https://github.com/Rikarin/Vixen/issues/789">#789</a>, and the
+        ///             objection that held it back is gone rather than answered.
+        ///         </b>
+        ///         The fold was refused
         ///         while a mask <em>replaced</em> the foreground's alpha: replacing does not commute
         ///         with an opacity, so the two were only arithmetically the same for a content whose
         ///         alpha was already 1.
@@ -1933,8 +2158,12 @@ public static class LayerStackGraph {
         ///         else, so folding is exactly a reassociation of one product.
         ///     </para>
         ///     <para>
-        ///         ⚠ <b>Which is why both numbers are range-checked, and why that is not
-        ///         defensiveness.</b> <c>saturate</c> is the identity only inside the unit interval,
+        ///         ⚠
+        ///         <b>
+        ///             Which is why both numbers are range-checked, and why that is not
+        ///             defensiveness.
+        ///         </b>
+        ///         <c>saturate</c> is the identity only inside the unit interval,
         ///         so an opacity of 2 with a mask of ½ is <c>saturate(2) · ½ = ½</c> unfolded and
         ///         <c>saturate(1) = 1</c> folded. Both numbers come out of a YAML file a person can
         ///         hand-edit. Outside the interval the mask is compiled, which keeps the fold an
@@ -1949,9 +2178,12 @@ public static class LayerStackGraph {
         ///         would have to be a claim about what a node produces, which this file cannot make.
         ///     </para>
         ///     <para>
-        ///         <b>The other half of #789's reason for waiting was that folding makes the mask path
-        ///         unreachable for the one case a device-free test can build, "which is how a mask
-        ///         that never worked ships green".</b> That is no longer true: an anchor mask, a bake
+        ///         <b>
+        ///             The other half of #789's reason for waiting was that folding makes the mask path
+        ///             unreachable for the one case a device-free test can build, "which is how a mask
+        ///             that never worked ships green".
+        ///         </b>
+        ///         That is no longer true: an anchor mask, a bake
         ///         mask and any mask with two entries all reach the full path with no imported image,
         ///         and <c>LayerStackCompileTests</c> now builds its shuffle assertions on a bake.
         ///     </para>
@@ -1988,10 +2220,14 @@ public static class LayerStackGraph {
         ///         entry for this channel no longer compiles at all (#807 · 2), so reading the channel's
         ///         base default here would be folding the alpha of a colour that never reaches the
         ///         graph — a number taken from a layer that is not there.
-        /// </para>
+        ///     </para>
         ///     <para>
-        ///         ⚠ <b>Under <see cref="Weighing" /> the question has no channel, so neither does the
-        ///         answer</b> — <a href="https://github.com/Rikarin/Vixen/issues/1138">#1138</a>.
+        ///         ⚠
+        ///         <b>
+        ///             Under <see cref="Weighing" /> the question has no channel, so neither does the
+        ///             answer
+        ///         </b>
+        ///         — <a href="https://github.com/Rikarin/Vixen/issues/1138">#1138</a>.
         ///         <c>LayerStackSplat.Coverage</c> compiles a set whose one channel is called
         ///         <c>mask</c>, and a fill's <c>Values</c> are keyed by <em>real</em> usages, so the
         ///         lookup below misses and the alpha was not folded: a fill whose base colour is
@@ -2040,8 +2276,12 @@ public static class LayerStackGraph {
         ///         (<a href="https://github.com/Rikarin/Vixen/issues/1182">#1182</a>).
         ///     </para>
         ///     <para>
-        ///         ⚠ <b>One is what a fill authoring nothing gets, and that is deliberately not a
-        ///         change here.</b> Such a layer contributes to no channel in the picture and still
+        ///         ⚠
+        ///         <b>
+        ///             One is what a fill authoring nothing gets, and that is deliberately not a
+        ///             change here.
+        ///         </b>
+        ///         Such a layer contributes to no channel in the picture and still
         ///         weighs one, because <see cref="Covers" /> is channel-blind — a separate question
         ///         about whether a fill that writes nothing is a layer at all, and one this method
         ///         must not answer by returning zero for it.
@@ -2069,11 +2309,13 @@ public static class LayerStackGraph {
                 return value;
             }
 
-            problems.Add(LayerStackProblem.Refusal(
-                layer,
-                $"The colour for channel '{usage}' has {value.Length.ToString(CultureInfo.InvariantCulture)} "
-                + "numbers and a colour is four — red, green, blue, alpha, linear."
-            ));
+            problems.Add(
+                LayerStackProblem.Refusal(
+                    layer,
+                    $"The colour for channel '{usage}' has {value.Length.ToString(CultureInfo.InvariantCulture)} "
+                    + "numbers and a colour is four — red, green, blue, alpha, linear."
+                )
+            );
 
             return [0f, 0f, 0f, 1f];
         }
@@ -2101,8 +2343,11 @@ public static class LayerStackGraph {
         /// <returns>The id, which is free in this graph.</returns>
         /// <remarks>
         ///     <para>
-        ///         ⚠ <b><a href="https://github.com/Rikarin/Vixen/issues/875">#875</a>, and the reason
-        ///         it had to land <em>here</em> rather than only in the plan.</b>
+        ///         ⚠
+        ///         <b>
+        ///             <a href="https://github.com/Rikarin/Vixen/issues/875">#875</a>, and the reason
+        ///             it had to land <em>here</em> rather than only in the plan.
+        ///         </b>
         ///         <c>TexturePlan.SeedFor</c> now mixes <c>TextureOp.Identity</c>, which
         ///         <c>TextureGraphCompiler</c> derives from the <c>NodeId</c> that emitted the op —
         ///         and for a hand-authored <c>.vxtexgraph</c> that is the end of it, because a node id
