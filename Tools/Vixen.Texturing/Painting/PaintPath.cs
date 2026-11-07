@@ -40,8 +40,8 @@ namespace Vixen.Texturing.Painting;
 ///         ⚠ <b>The tolerance is a distance in texels and every deviation this measures is one
 ///         too.</b> A tolerance expressed as a fraction of the parameter, or an absolute epsilon on
 ///         a coordinate, would be a curve that is smooth on a small path and visibly faceted on a
-///         large one — this repository's recurring shape. <see cref="Sample" /> is asserted at three
-///         path sizes for that reason.
+///         large one — this repository's recurring shape. <see cref="Sample(List{Vector2}, float)" />
+///         is asserted at three path sizes for that reason.
 ///     </para>
 /// </remarks>
 public sealed class PaintPath {
@@ -63,11 +63,15 @@ public sealed class PaintPath {
 
     readonly List<Vector2> points = [];
 
+    /// <summary>How hard each point was pressed, one to a point.</summary>
+    readonly List<float> pressures = [];
+
     /// <summary>One segment's own polyline, for the hit tests. Reused rather than allocated.</summary>
     /// <remarks>
     ///     A hit test runs on every pointer move in the path mode, and the curve it walks is the
-    ///     same one <see cref="Sample" /> builds — so allocating a list per move would be the defect
-    ///     <c>PaintUvView.dirtied</c> exists to avoid, on the hover path rather than the drag one.
+    ///     same one <see cref="Sample(List{Vector2}, float)" /> builds — so allocating a list per move
+    ///     would be the defect <c>PaintUvView.dirtied</c> exists to avoid, on the hover path rather
+    ///     than the drag one.
     /// </remarks>
     readonly List<Vector2> piece = [];
 
@@ -79,7 +83,11 @@ public sealed class PaintPath {
 
     /// <summary>Places a point at the end.</summary>
     /// <param name="at">Where, in texels.</param>
-    public void Add(Vector2 at) => points.Add(at);
+    /// <param name="pressure">How hard, 0…1.</param>
+    public void Add(Vector2 at, float pressure = 1f) {
+        points.Add(at);
+        pressures.Add(pressure);
+    }
 
     /// <summary>Moves a placed point.</summary>
     /// <param name="index">Which one.</param>
@@ -117,7 +125,11 @@ public sealed class PaintPath {
             return false;
         }
 
+        // Halfway, since a point put on a curve was never pressed: nothing should change where it lands.
+        var between = index > 0 && index < pressures.Count ? (pressures[index - 1] + pressures[index]) * 0.5f : 1f;
+
         points.Insert(index, at);
+        pressures.Insert(index, between);
 
         return true;
     }
@@ -137,6 +149,7 @@ public sealed class PaintPath {
         }
 
         points.RemoveAt(index);
+        pressures.RemoveAt(index);
 
         return true;
     }
@@ -223,12 +236,16 @@ public sealed class PaintPath {
         }
 
         points.RemoveAt(points.Count - 1);
+        pressures.RemoveAt(pressures.Count - 1);
 
         return true;
     }
 
     /// <summary>Forgets the whole path.</summary>
-    public void Clear() => points.Clear();
+    public void Clear() {
+        points.Clear();
+        pressures.Clear();
+    }
 
     /// <summary>The positions a stroke has to be moved through to follow the curve.</summary>
     /// <param name="into">Cleared, then filled with the positions in order, the first point first.</param>
@@ -261,6 +278,63 @@ public sealed class PaintPath {
             Fill(into, segment, limit);
             into.Add(points[segment + 1]);
         }
+    }
+
+    /// <summary>The positions a stroke has to be moved through, and how hard at each.</summary>
+    /// <param name="into">Cleared, then filled as <see cref="Sample(List{Vector2}, float)" /> fills it.</param>
+    /// <param name="pressure">Cleared, then filled with one pressure to a position.</param>
+    /// <param name="tolerance">
+    ///     How far the polyline may sit from the curve, in texels. Not positive is
+    ///     <see cref="Tolerance" />.
+    /// </param>
+    /// <exception cref="ArgumentNullException">A list is null.</exception>
+    /// <remarks>
+    ///     ⚠ <b>By distance along each segment and not by sample, for the reason the positions are
+    ///     not stamps.</b> How many samples a stretch of curve gets is what the tolerance decided,
+    ///     and a fade laid out per sample would run faster round the bends.
+    /// </remarks>
+    public void Sample(List<Vector2> into, List<float> pressure, float tolerance = Tolerance) {
+        ArgumentNullException.ThrowIfNull(into);
+        ArgumentNullException.ThrowIfNull(pressure);
+
+        into.Clear();
+        pressure.Clear();
+
+        if (points.Count == 0) {
+            return;
+        }
+
+        var limit = tolerance > 0f ? tolerance : Tolerance;
+
+        into.Add(points[0]);
+        pressure.Add(pressures[0]);
+
+        for (var segment = 0; segment + 1 < points.Count; segment++) {
+            var start = into.Count - 1;
+
+            Fill(into, segment, limit);
+            into.Add(points[segment + 1]);
+            Fade(into, start, pressures[segment], pressures[segment + 1], pressure);
+        }
+    }
+
+    /// <summary>Lays one segment's fade along the positions it was cut into, after its first.</summary>
+    static void Fade(List<Vector2> positions, int start, float from, float to, List<float> pressure) {
+        var length = 0f;
+
+        for (var index = start + 1; index < positions.Count; index++) {
+            length += (positions[index] - positions[index - 1]).Length();
+        }
+
+        var walked = 0f;
+
+        for (var index = start + 1; index + 1 < positions.Count; index++) {
+            walked += (positions[index] - positions[index - 1]).Length();
+            pressure.Add(float.Lerp(from, to, length > 0f ? walked / length : 1f));
+        }
+
+        // The point itself and not the far end of a sum: an artist's click holds exactly what it was given.
+        pressure.Add(to);
     }
 
     /// <summary>Puts one segment's interior points into a list, without either of its ends.</summary>

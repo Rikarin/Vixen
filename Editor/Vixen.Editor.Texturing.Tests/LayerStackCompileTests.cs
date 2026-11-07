@@ -978,6 +978,56 @@ public class LayerStackCompileTests {
         Assert.Contains(compilation.Problems, problem => problem.Severity == global::Vixen.NodeGraph.NodeSeverity.Error);
     }
 
+    /// <summary>
+    ///     A draft takes each slot nobody has filled as the layer saying nothing there, with a warning: the layers around
+    ///     it keep their picture while an artist is half way through choosing, and a bake still refuses all of these.
+    /// </summary>
+    [Fact]
+    public void A_draft_compiles_past_an_empty_slot_and_says_so() {
+        MaskAsset[] masks = [
+            new() { Source = LayerMaskSource.Texture },
+            new() { Source = LayerMaskSource.Anchor },
+            new() { Source = LayerMaskSource.Generator },
+            new() { Source = LayerMaskSource.Bake },
+            new() { Source = LayerMaskSource.Anchor, Anchor = "gone" }
+        ];
+        LayerAsset[] layers = [
+            new() { Id = "l", Kind = LayerKind.Fill, Fill = LayerFillSource.Texture },
+            new() { Id = "l", Kind = LayerKind.Fill, Fill = LayerFillSource.Graph },
+            ..masks.Select(static mask => new LayerAsset {
+                    Id = "l",
+                    Kind = LayerKind.Fill,
+                    Values = { ["baseColor"] = [1f, 0f, 0f, 1f] },
+                    Mask = mask
+                }
+            )
+        ];
+
+        foreach (var layer in layers) {
+            var stack = One(layer);
+            var build = LayerStackGraph.Build(stack, stack.Sets[0], draft: true);
+
+            Assert.False(build.HasErrors);
+            Assert.Contains(build.Problems, problem => problem.Severity == global::Vixen.NodeGraph.NodeSeverity.Warning);
+            Assert.NotNull(LayerStackCompiler.Compile(stack, build).Plan);
+        }
+    }
+
+    /// <summary>⚠ And a draft is no looser about what is wrong rather than unfinished: a loop stays a refusal.</summary>
+    [Fact]
+    public void A_draft_still_refuses_an_anchor_that_is_a_loop() {
+        var stack = One(
+            new() {
+                Id = "l",
+                Kind = LayerKind.Fill,
+                Values = { ["baseColor"] = [1f, 0f, 0f, 1f] },
+                Mask = new() { Source = LayerMaskSource.Anchor, Anchor = "l" }
+            }
+        );
+
+        Assert.True(LayerStackGraph.Build(stack, stack.Sets[0], draft: true).HasErrors);
+    }
+
     /// <summary>A number a filter does not take is dropped and reported, never written to a port.</summary>
     /// <remarks>
     ///     ⚠ <b>The port it would otherwise have reached is the image input.</b> A stack naming

@@ -186,6 +186,10 @@ public static class LayerStackGraph {
     ///     — which is the default that made a project compound <c>TG0001</c> in the panel, so a
     ///     caller that has a project should pass one built with its <c>Assets</c> folder.
     /// </param>
+    /// <param name="draft">
+    ///     Whether a slot nobody has filled yet is a warning and leaves that part of the layer out, rather than refusing
+    ///     the stack. For a host someone is editing in, and not for a bake.
+    /// </param>
     /// <returns>The graph and what building it had to say.</returns>
     /// <exception cref="ArgumentNullException">The stack or the set is null.</exception>
     /// <remarks>
@@ -242,12 +246,13 @@ public static class LayerStackGraph {
     public static LayerStackBuild Build(
         LayerStackAsset stack,
         TextureSetAsset set,
-        NodeTypeRegistry? registry = null
+        NodeTypeRegistry? registry = null,
+        bool draft = false
     ) {
         ArgumentNullException.ThrowIfNull(stack);
         ArgumentNullException.ThrowIfNull(set);
 
-        Builder builder = new(stack, set, registry ?? LayerStackCompiler.Library(out _));
+        Builder builder = new(stack, set, registry ?? LayerStackCompiler.Library(out _)) { Drafting = draft };
 
         return builder.Run();
     }
@@ -364,6 +369,22 @@ public static class LayerStackGraph {
 
         /// <summary>Whether this walk answers coverage rather than colour — see <see cref="Weights" />.</summary>
         public bool Weighing { get; init; }
+
+        /// <summary>Whether a slot nobody has filled yet leaves its layer unfinished rather than the stack broken.</summary>
+        /// <remarks>
+        ///     ⚠ <b>Refusing is right for a bake and wrong under a hand.</b> A bake that filled an empty
+        ///     slot with something would be a wrong picture nobody asked for, so the default stays. An
+        ///     artist choosing a generator is half way through a sentence, and a refusal takes every
+        ///     other layer's picture away while they finish it. What an empty slot contributes here is
+        ///     what an unpainted canvas already contributes: nothing, and a warning that says so.
+        /// </remarks>
+        public bool Drafting { get; init; }
+
+        /// <summary>Says a slot is empty, which refuses unless this is a draft.</summary>
+        void Unfilled(string layer, string message) =>
+            problems.Add(
+                Drafting ? LayerStackProblem.Warning(layer, message) : LayerStackProblem.Refusal(layer, message)
+            );
 
         /// <summary>The layer whose walk is running, or empty outside every layer.</summary>
         /// <remarks>
@@ -819,14 +840,17 @@ public static class LayerStackGraph {
             var path = layer.Paint.Trim();
 
             if (path.Length == 0) {
-                problems.Add(
-                    LayerStackProblem.Warning(
-                        layer.Id,
-                        "This paint layer names no .vxpaint, so it has nothing to composite. A canvas is written "
-                        + "the first time the layer is painted on; until then the layer keeps its blend mode, its "
-                        + "opacity and its channel enables and contributes nothing."
-                    )
-                );
+                // ⚠ Not worth saying in a draft: it is what a layer nobody has stroked yet looks like.
+                if (!Drafting) {
+                    problems.Add(
+                        LayerStackProblem.Warning(
+                            layer.Id,
+                            "This paint layer names no .vxpaint, so it has nothing to composite. A canvas is written "
+                            + "the first time the layer is painted on; until then the layer keeps its blend mode, its "
+                            + "opacity and its channel enables and contributes nothing."
+                        )
+                    );
+                }
 
                 return null;
             }
@@ -1101,13 +1125,11 @@ public static class LayerStackGraph {
 
                 case LayerFillSource.Texture: {
                     if (!layer.Textures.TryGetValue(channel.Usage, out var asset) || asset.Trim().Length == 0) {
-                        problems.Add(
-                            LayerStackProblem.Refusal(
-                                layer.Id,
-                                $"This layer is a texture fill and names no image for channel '{channel.Usage}', which "
-                                + "it writes. Restrict the layer's channels or give it an image: a bitmap with no "
-                                + "reference is refused at compile time rather than filled with black."
-                            )
+                        Unfilled(
+                            layer.Id,
+                            $"This layer is a texture fill and names no image for channel '{channel.Usage}', which "
+                            + "it writes. Restrict the layer's channels or give it an image: a bitmap with no "
+                            + "reference is refused at compile time rather than filled with black."
                         );
 
                         return null;
@@ -1133,12 +1155,10 @@ public static class LayerStackGraph {
                     var path = layer.Graph.Trim();
 
                     if (path.Length == 0) {
-                        problems.Add(
-                            LayerStackProblem.Refusal(
-                                layer.Id,
-                                "This layer is a graph fill and names no graph. A graph fill is a published "
-                                + ".vxtexgraph, named by its path in the node menu."
-                            )
+                        Unfilled(
+                            layer.Id,
+                            "This layer is a graph fill and names no graph. A graph fill is a published "
+                            + ".vxtexgraph, named by its path in the node menu."
                         );
 
                         return null;
@@ -1815,12 +1835,10 @@ public static class LayerStackGraph {
 
                 case LayerMaskSource.Texture: {
                     if (entry.Asset.Trim().Length == 0) {
-                        problems.Add(
-                            LayerStackProblem.Refusal(
-                                layerId,
-                                "This layer's mask is a texture and names no image. A bitmap with no reference is "
-                                + "refused at compile time rather than filled with black."
-                            )
+                        Unfilled(
+                            layerId,
+                            "This layer's mask is a texture and names no image. A bitmap with no reference is "
+                            + "refused at compile time rather than filled with black."
                         );
 
                         return null;
@@ -1839,12 +1857,10 @@ public static class LayerStackGraph {
 
                 case LayerMaskSource.Anchor:
                     if (entry.Anchor.Length == 0) {
-                        problems.Add(
-                            LayerStackProblem.Refusal(
-                                layerId,
-                                "This layer's mask is an anchor and names no layer. An anchor is a reference to another "
-                                + "layer's evaluated result, by its id."
-                            )
+                        Unfilled(
+                            layerId,
+                            "This layer's mask is an anchor and names no layer. An anchor is a reference to another "
+                            + "layer's evaluated result, by its id."
                         );
 
                         return null;
@@ -1853,6 +1869,12 @@ public static class LayerStackGraph {
                     return new(Anchored(entry.Anchor, channel, layerId), true);
 
                 case LayerMaskSource.Bake: {
+                    if (Drafting && entry.Map.Trim().Length == 0) {
+                        Unfilled(layerId, "This layer's mask is a mesh map and names none.");
+
+                        return null;
+                    }
+
                     var node = Add("Source/Mesh Map");
 
                     // ⚠ Written through even when it is empty or misspelt. `Source/Mesh Map` refuses
@@ -1872,12 +1894,10 @@ public static class LayerStackGraph {
                     var path = entry.Generator.Trim();
 
                     if (path.Length == 0) {
-                        problems.Add(
-                            LayerStackProblem.Refusal(
-                                layerId,
-                                "This layer's mask is a generator and names no compound. A generator is a published "
-                                + ".vxtexgraph reading the mesh maps by usage, named by its path — 'Generators/Dirt'."
-                            )
+                        Unfilled(
+                            layerId,
+                            "This layer's mask is a generator and names no compound. A generator is a published "
+                            + ".vxtexgraph reading the mesh maps by usage, named by its path — 'Generators/Dirt'."
                         );
 
                         return null;
@@ -1958,14 +1978,17 @@ public static class LayerStackGraph {
                     var painted = entry.Paint.Trim();
 
                     if (painted.Length == 0) {
-                        problems.Add(
-                            LayerStackProblem.Warning(
-                                layerId,
-                                "This layer's mask is painted and names no .vxpaint, so it has nothing to read. A "
-                                + "canvas is written the first time the mask is painted on; until then the entry "
-                                + "contributes nothing."
-                            )
-                        );
+                        // ⚠ Not worth saying in a draft: it is what a mask nobody has stroked yet looks like.
+                        if (!Drafting) {
+                            problems.Add(
+                                LayerStackProblem.Warning(
+                                    layerId,
+                                    "This layer's mask is painted and names no .vxpaint, so it has nothing to read. A "
+                                    + "canvas is written the first time the mask is painted on; until then the entry "
+                                    + "contributes nothing."
+                                )
+                            );
+                        }
 
                         return null;
                     }
@@ -2078,7 +2101,16 @@ public static class LayerStackGraph {
 
                 if (!results.TryGetValue((channel, anchor), out var from)) {
                     if (reported.Add((channel, anchor, layer))) {
-                        problems.Add(LayerStackProblem.Refusal(layer, Missing(channel, anchor)));
+                        Unfilled(layer, Missing(channel, anchor));
+                    }
+
+                    // White, which is the mask contributing nothing: the shuffles are already in the
+                    // graph, and left unwired they would fail the compile a draft exists to keep.
+                    if (Drafting) {
+                        var nothing = Add("Source/Uniform");
+
+                        nothing.SetValue("Colour", 1f, 1f, 1f, 1f);
+                        graph.Connect(new(nothing.Id, "Out"), to);
                     }
 
                     continue;
