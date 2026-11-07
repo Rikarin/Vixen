@@ -7,6 +7,19 @@ using Vixen.NodeGraph;
 
 namespace Vixen.TextureGraph;
 
+/// <summary>Says that a node cannot tile, and why.</summary>
+/// <param name="reason">The sentence an author would need.</param>
+/// <remarks>
+///     <c>TextureTilingConformanceDeviceTests</c> takes every registered node through a seam check
+///     and reads this: a node without it must tile, and a node with it must not, so a mark cannot
+///     outlive the reason it gives.
+/// </remarks>
+[AttributeUsage(AttributeTargets.Class, Inherited = false)]
+sealed class DoesNotTileAttribute(string reason) : Attribute {
+    /// <summary>Why it cannot.</summary>
+    public string Reason { get; } = reason;
+}
+
 /// <summary>How many channels one image edge carries: doc 48 § Part 4's <em>format</em>.</summary>
 /// <remarks>
 ///     <para>

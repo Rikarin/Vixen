@@ -36,7 +36,6 @@ nodes:
     values:
       Scale: [12]
       Octaves: [4]
-      Tiling: [1]
     texts: { Basis: Gradient }
   - id: 6
     type: Colour/Levels
@@ -90,7 +89,7 @@ interface:
     kind: Image
     default: []
     summary: The mask.
-settings: { baseWidth: '1024', baseHeight: '1024', seed: '1' }
+settings: { baseWidth: '1024', baseHeight: '1024', seed: '1', doesNotTile: 'Reads a mesh map, and an atlas has islands at its edges rather than a far side.' }
 parameters:
   - name: edges
     default: '0.5'

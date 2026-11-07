@@ -342,6 +342,20 @@ output texel's centre. `Rescale` derives the filter from the two level offsets
 ([#865](https://github.com/Rikarin/Vixen/issues/865)); the setting's default is `Auto` rather than a
 filter name, because no one name is right in both directions.
 
+**⚠ A read past the edge is a mode, and the plan holds it.** `TexturePlan.WrapX` and `WrapY` are
+handed to every kernel that declares `wrapX` and `wrapY` the way `seed` is, so no node has to remember
+them and a change compiles no kernel; `Math.Address` is the one place that wraps or clamps. A graph
+says `tilingX` and `tilingY` in its settings. Saying nothing tiles, unless it reads a mesh map, because
+an atlas has islands at its edges rather than a far side; a layer stack declares both false.
+`Source/Noise` had a `Tiling` port and it is gone: the plan says, per axis, so a new Noise cannot be
+left with it off. ⚠ `Blur.rvn` argued for a clamp on the grounds that tileability belongs to the
+generators, and every filter inherited that: the clamp is what lost it, and all eight grunges with it.
+`TextureTilingConformanceDeviceTests` takes every registered node and every shipped compound through a
+seam and, where it has an image input, through rolling that input. One that cannot tile says why:
+`[DoesNotTile]` on a node, `doesNotTile` in a compound's settings, and a mark on something that tiles
+is as red as a seam on something unmarked. ⚠ A wrapping neighbour read gives up partial re-evaluation,
+because `Grown` clips a rectangle to the near side of the image.
+
 **⚠ `Auto Levels` is more than the two dispatches § 4.2 names.** It is the first op whose output
 depends on *every texel of its input*, so it is one `MinMaxReduce` dispatch per level down to a 1×1
 image and then the map — three at 64², five at 4K.

@@ -3,6 +3,8 @@
 
 package Vixen.TextureGraph.Shaders
 
+import Vixen.Shaders.Core
+
 // One axis of a box blur. Two ops make a square one.
 //
 // **Separable, and the plan is what separates it.** A radius-r box over a w×h image is 2r+1 taps per
@@ -27,6 +29,13 @@ shader Blur {
 
     var stepY: int = 0
 
+    /// Non-zero when a read past the left or right edge comes back on the other side. The plan's, as
+    /// `seed` is: see `Math.Address`.
+    var wrapX: int = 0
+
+    /// The same for the top and bottom edges.
+    var wrapY: int = 0
+
     [Format("rgba16f")] var target: RWTexture2D<float4>
 
     /// The most taps this kernel takes on each side of a texel, whatever the radius says.
@@ -43,15 +52,16 @@ shader Blur {
     /// is always the width the plan resolved.
     const val MaxTaps: int = 64
 
-    /// One texel, clamped to the edge.
+    /// One texel, wrapped or held at the edge as the plan says.
     ///
-    /// Clamping rather than wrapping: a blur that wrapped would pull the opposite edge of the image
-    /// into this one, which is exactly the artefact a tileable graph is trying to avoid — and
-    /// tileability is a property of what the *generators* draw, not something a filter can bolt on.
+    /// ⚠ This used to clamp, on the argument that wrapping pulls the opposite edge in and that
+    /// tileability is a property of what the generators draw. That is backwards for an input that
+    /// tiles, where the opposite edge *is* the neighbour: a row `1 0 1 0` through a radius of one is
+    /// 0.667 at x = 0 clamped and 0.333 wrapped, so the clamp is what stopped the output tiling.
     func Tap(x: int, y: int): float4 {
         val size = source.GetDimensions(0)
 
-        return source.Load(int3(clamp(x, 0, size.x - 1), clamp(y, 0, size.y - 1), 0))
+        return source.Load(int3(Math.Address(x, size.x, wrapX), Math.Address(y, size.y, wrapY), 0))
     }
 
     [ComputeShader(8, 8, 1)]

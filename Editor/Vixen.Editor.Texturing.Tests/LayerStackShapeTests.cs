@@ -87,6 +87,21 @@ public class LayerStackShapeTests {
         LayerStackDifferential.AssertSamePlan(before.Plan, after.Plan);
     }
 
+    /// <summary>Every image in a stack is an atlas, so nothing in one reads round the edge.</summary>
+    /// <remarks>
+    ///     ⚠ A graph that says nothing tiles, so a stack has to say this: a blur over a mask would
+    ///     otherwise pull paint from the island on the far side of the map.
+    /// </remarks>
+    [Fact]
+    public void A_stack_compiles_to_a_plan_that_clamps() {
+        var stack = LayerStackDifferential.Stack();
+        var plan = LayerStackCompiler.Compile(stack, stack.Sets[0]).Plan;
+
+        Assert.NotNull(plan);
+        Assert.False(plan.WrapX);
+        Assert.False(plan.WrapY);
+    }
+
     /// <summary>A group's children survive the round trip, which is the one recursive member.</summary>
     [Fact]
     public void A_groups_children_survive_the_file() {

@@ -35,6 +35,19 @@ struct Const {
 }
 
 struct Math {
+    /// One texel coordinate onto `0 .. extent - 1`: around to the far side when `wrap` is non-zero,
+    /// and held at the edge when it is zero.
+    ///
+    /// The modulo is taken twice because `%` follows the sign of the dividend in both of Raven's
+    /// backends, so a coordinate left of the origin would otherwise fold to a negative index.
+    static func Address(coordinate: int, extent: int, wrap: int): int {
+        if (wrap == 0) {
+            return clamp(coordinate, 0, extent - 1)
+        }
+
+        return ((coordinate % extent) + extent) % extent
+    }
+
     // --- Angles ----------------------------------------------------------
 
     static func ToRadians(degrees: float): float => degrees * (Const.Pi / 180f)

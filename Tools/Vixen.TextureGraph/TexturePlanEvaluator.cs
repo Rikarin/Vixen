@@ -1746,8 +1746,8 @@ public sealed partial class TexturePlanEvaluator : IDisposable {
     ///     ⚠ <b>A member the op does not name is a refusal rather than a zero.</b> Zero is a valid
     ///     number for almost every parameter a kernel has — an opacity of zero is a no-op, an input
     ///     white of zero is a flat image — so a plan that forgot one would produce a picture that is
-    ///     wrong in a way nothing points at. <c>seed</c> is the exception, because the evaluator is
-    ///     what supplies it.
+    ///     wrong in a way nothing points at. <c>seed</c>, <c>wrapX</c> and <c>wrapY</c> are the
+    ///     exceptions, because they are the plan's rather than the op's.
     /// </remarks>
     static byte[] Uniforms(TexturePlan plan, int index, Variant variant, int size) {
         var bytes = new byte[size];
@@ -1775,6 +1775,10 @@ public sealed partial class TexturePlanEvaluator : IDisposable {
                 // that two ops disagree; the hashing itself is `TexturePlan.SeedFor`'s, on the CPU,
                 // where it is the same on every machine and every run.
                 value = plan.SeedFor(index) & 0xFFFFFF;
+            } else if (string.Equals(name, "wrapX", StringComparison.Ordinal)) {
+                value = plan.WrapX ? 1f : 0f;
+            } else if (string.Equals(name, "wrapY", StringComparison.Ordinal)) {
+                value = plan.WrapY ? 1f : 0f;
             } else {
                 throw new ArgumentException(
                     $"Op {index} runs '{op.Kernel}', which declares '{name}', and the op does not carry it. "

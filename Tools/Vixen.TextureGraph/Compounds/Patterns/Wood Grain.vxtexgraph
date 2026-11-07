@@ -30,7 +30,6 @@ nodes:
     values:
       Scale: [2.5]
       Octaves: [2]
-      Tiling: [1]
     texts: { Basis: Gradient }
   - id: 5
     type: Filters/Warp
@@ -45,7 +44,6 @@ nodes:
     y: 560
     values:
       Scale: [48]
-      Tiling: [1]
     texts: { Basis: Value }
   - id: 7
     type: Filters/Directional Blur

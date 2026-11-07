@@ -403,7 +403,7 @@ public class TextureKernelSabotageTests(ITestOutputHelper output) {
 
             // The evaluator fills this one itself, from TexturePlan.SeedFor, and an op that carried
             // it would be writing over the value the plan decided.
-            if (string.Equals(name, "seed", StringComparison.Ordinal)) {
+            if (TexturePlan.Supplies(name)) {
                 continue;
             }
 

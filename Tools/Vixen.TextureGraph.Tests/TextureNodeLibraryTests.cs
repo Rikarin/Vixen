@@ -869,7 +869,7 @@ public class TextureNodeLibraryTests {
                 var name = match.Groups["name"].Value;
 
                 // The one member the evaluator fills itself, from TexturePlan.SeedFor.
-                if (name is "seed") {
+                if (TexturePlan.Supplies(name)) {
                     continue;
                 }
 
@@ -883,7 +883,7 @@ public class TextureNodeLibraryTests {
             var compiled = data.Parameters
                 .Where(member => member.Set == DescriptorSetSlot.PerMaterial)
                 .Select(member => Unqualified(member.Name, data.ShaderName))
-                .Where(name => !string.Equals(name, "seed", StringComparison.Ordinal))
+                .Where(name => !TexturePlan.Supplies(name))
                 .Order(StringComparer.Ordinal)
                 .ToArray();
 

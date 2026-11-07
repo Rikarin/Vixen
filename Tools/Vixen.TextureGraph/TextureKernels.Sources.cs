@@ -270,11 +270,6 @@ internal static class TextureSources {
     /// <param name="octaves">How many are summed. ⚠ Ignored by <see cref="TextureNoiseBasis.Worley" />.</param>
     /// <param name="lacunarity">The frequency multiplier between octaves.</param>
     /// <param name="gain">The amplitude multiplier between octaves.</param>
-    /// <param name="tiling">
-    ///     Whether the lattice wraps. ⚠ Exact only when <paramref name="scale" /> and
-    ///     <paramref name="lacunarity" /> are whole numbers — there is no integer period for a lattice
-    ///     of 5.5 cells to wrap at, and the kernel rounds rather than refusing.
-    /// </param>
     /// <param name="metric">
     ///     What a cell's shape is. ⚠ Read by <see cref="TextureNoiseBasis.Worley" /> and by nothing
     ///     else — the other three bases have no feature point to measure to.
@@ -287,7 +282,6 @@ internal static class TextureSources {
         int octaves = 1,
         float lacunarity = 2f,
         float gain = 0.5f,
-        bool tiling = false,
         TextureCellMetric metric = TextureCellMetric.Euclidean
     ) =>
         new() {
@@ -299,8 +293,7 @@ internal static class TextureSources {
                 new("scale", scale),
                 new("octaves", octaves),
                 new("lacunarity", lacunarity),
-                new("gain", gain),
-                new("tiling", tiling ? 1f : 0f)
+                new("gain", gain)
             ]
         };
 

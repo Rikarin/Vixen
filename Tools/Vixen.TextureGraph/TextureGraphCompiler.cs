@@ -213,6 +213,11 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
     /// <summary>What this compilation's floats are, in bits.</summary>
     int bitDepth = TextureGraphSettings.DefaultBitDepth;
 
+    /// <summary>What the graph declared about tiling along each axis, resolved by <c>Finish</c>.</summary>
+    bool? tilingX;
+
+    bool? tilingY;
+
     /// <summary>The graph being walked — the flattened one, not the author's. See the base class.</summary>
     NodeGraphModel? graph;
 
@@ -732,8 +737,10 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
         authoredHeight = TextureGraphSettings.Extent(graph, TextureGraphSettings.BaseHeight, BaseHeight, out var height);
         authoredSeed = TextureGraphSettings.SeedOf(graph, Seed, out var seed);
         bitDepth = TextureGraphSettings.BitDepthOf(graph, out var depth);
+        tilingX = TextureGraphSettings.TilingOf(graph, TextureGraphSettings.TilingX, out var acrossX);
+        tilingY = TextureGraphSettings.TilingOf(graph, TextureGraphSettings.TilingY, out var acrossY);
 
-        foreach (var problem in new[] { width, height, seed, depth }) {
+        foreach (var problem in new[] { width, height, seed, depth, acrossX, acrossY }) {
             if (problem is not null) {
                 // Against no node, because it is the graph's own declaration — the same choice
                 // `Bind` makes for a parameter list that does not hold together.
@@ -1104,11 +1111,19 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
             authored[kernel.Kernel] = kernel.Source;
         }
 
+        var readsMeshMap = externals.Any(
+            external => external.Asset.StartsWith(Nodes.TextureMeshMaps.Scheme, StringComparison.Ordinal)
+        );
+
         var plan = new TexturePlan {
             BaseWidth = authoredWidth,
             BaseHeight = authoredHeight,
             BakeLevelOffset = BakeLevelOffset,
             Seed = authoredSeed,
+
+            // A graph that says nothing tiles unless it reads a mesh map. See `TilingOf`.
+            WrapX = tilingX ?? !readsMeshMap,
+            WrapY = tilingY ?? !readsMeshMap,
             Images = images.ToImmutable(),
             Ops = ops.ToImmutable(),
             Outputs = [.. kept],

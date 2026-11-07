@@ -164,11 +164,13 @@ public class TextureSourceDeviceTests(ITestOutputHelper output) {
     }
 
     /// <summary>One procedural op, its own image, at a given side.</summary>
-    static TexturePlan Procedural(TextureOp op, int side) =>
+    static TexturePlan Procedural(TextureOp op, int side, bool wrap = false) =>
         new() {
             BaseWidth = side,
             BaseHeight = side,
             Seed = 41823,
+            WrapX = wrap,
+            WrapY = wrap,
             Images = [new(TextureFormat.Rgba8)],
             Ops = [op],
             Outputs = [0]
@@ -709,7 +711,7 @@ public class TextureSourceDeviceTests(ITestOutputHelper output) {
         using var evaluator = new TexturePlanEvaluator(device);
 
         using var seamless = evaluator.Evaluate(
-            Procedural(TextureSources.Noise(0, TextureNoiseBasis.Value, 4f, tiling: true), Side)
+            Procedural(TextureSources.Noise(0, TextureNoiseBasis.Value, 4f), Side, wrap: true)
         );
 
         using var open = evaluator.Evaluate(

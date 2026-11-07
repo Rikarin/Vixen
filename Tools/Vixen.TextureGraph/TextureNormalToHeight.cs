@@ -159,7 +159,7 @@ sealed class NormalToHeightOperation : ITextureCpuOperation {
         var scale = Math.Abs(intensity) < 1e-6f ? 0d : 1d / intensity;
 
         var (gradientX, gradientY) = Slopes(normals, width, height, scale);
-        var solved = Solve(gradientX, gradientY, width, height, Math.Max(iterations, 0));
+        var solved = Solve(gradientX, gradientY, width, height, Math.Max(iterations, 0), plan.WrapX, plan.WrapY);
 
         Encode(solved, output);
     }
@@ -289,7 +289,15 @@ sealed class NormalToHeightOperation : ITextureCpuOperation {
     ///         by nobody.
     ///     </para>
     /// </remarks>
-    static double[] Solve(double[] gradientX, double[] gradientY, int width, int height, int iterations) {
+    static double[] Solve(
+        double[] gradientX,
+        double[] gradientY,
+        int width,
+        int height,
+        int iterations,
+        bool wrapX,
+        bool wrapY
+    ) {
         var texels = width * height;
 
         if (texels <= 1) {
@@ -308,12 +316,22 @@ sealed class NormalToHeightOperation : ITextureCpuOperation {
             for (var x = 0; x < width; x++) {
                 var at = (y * width) + x;
 
+                // ⚠ Along an axis that wraps the last texel has an edge to the first like any other,
+                // which is what turns the Neumann boundary into a periodic one and the only reason
+                // the answer can tile. Two texels across is not a pair with two distinct edges, so an
+                // image that narrow keeps the one it has.
                 if (x + 1 < width) {
                     Edge(builder, right, at, at + 1, (gradientX[at] + gradientX[at + 1]) * 0.5d, pinned);
+                } else if (wrapX && width > 2) {
+                    var first = y * width;
+
+                    Edge(builder, right, at, first, (gradientX[at] + gradientX[first]) * 0.5d, pinned);
                 }
 
                 if (y + 1 < height) {
                     Edge(builder, right, at, at + width, (gradientY[at] + gradientY[at + width]) * 0.5d, pinned);
+                } else if (wrapY && height > 2) {
+                    Edge(builder, right, at, x, (gradientY[at] + gradientY[x]) * 0.5d, pinned);
                 }
             }
         }

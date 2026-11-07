@@ -3,6 +3,8 @@
 
 package Vixen.TextureGraph.Shaders
 
+import Vixen.Shaders.Core
+
 // Doc 48 § 4.4's `Vector Warp`: displace the source by a two-channel map that carries the
 // displacement itself.
 //
@@ -41,13 +43,20 @@ shader VectorWarp {
     /// What a fully deflected channel displaces by, in texels of the image being written.
     var intensity: float = 0f
 
+    /// Non-zero when a read past the left or right edge comes back on the other side. The plan's, as
+    /// `seed` is: see `Math.Address`.
+    var wrapX: int = 0
+
+    /// The same for the top and bottom edges.
+    var wrapY: int = 0
+
     [Format("rgba16f")] var target: RWTexture2D<float4>
 
-    /// One texel of the source, clamped to the **source's** edge — never the target's.
+    /// One texel of the source, addressed against the **source's** extent — never the target's.
     func Tap(x: int, y: int): float4 {
         val size = source.GetDimensions(0)
 
-        return source.Load(int3(clamp(x, 0, size.x - 1), clamp(y, 0, size.y - 1), 0))
+        return source.Load(int3(Math.Address(x, size.x, wrapX), Math.Address(y, size.y, wrapY), 0))
     }
 
     /// The source at a position in **target texels**, bilinearly.

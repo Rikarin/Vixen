@@ -52,6 +52,13 @@ shader Shape {
 
     var centreY: float = 0.5f
 
+    /// Non-zero when a shape past the left or right edge comes back on the other side. The plan's, as
+    /// `seed` is: see `Math.Address`.
+    var wrapX: int = 0
+
+    /// The same for the top and bottom edges.
+    var wrapY: int = 0
+
     [Format("rgba16f")] var target: RWTexture2D<float4>
 
     /// Half the width of an equilateral triangle's incircle when its circumradius is one.
@@ -67,6 +74,15 @@ shader Shape {
     /// −ln(1/1000). The gaussian is worth exactly one part in a thousand at the boundary, which is
     /// what pins its width to `scale` rather than leaving it a taste.
     const val GaussianDecay: float = 6.907755f
+
+    /// The offset from the centre to the nearest copy of it along an axis that wraps.
+    func Nearest(offset: float, wrap: int): float {
+        if (wrap == 0) {
+            return offset
+        }
+
+        return offset - round(offset)
+    }
 
     /// How far out the shape's own boundary the point is: 0 at the centre, 1 on the boundary.
     func Reach(p: float2, shape: int): float {
@@ -125,7 +141,7 @@ shader Shape {
         }
 
         val uv = float2((float(coord.x) + 0.5f) / float(size.x), (float(coord.y) + 0.5f) / float(size.y))
-        val centred = uv - float2(centreX, centreY)
+        val centred = float2(Nearest(uv.x - centreX, wrapX), Nearest(uv.y - centreY, wrapY))
         val c = cos(rotation)
         val s = sin(rotation)
         val turned = float2(centred.x * c + centred.y * s, -centred.x * s + centred.y * c)

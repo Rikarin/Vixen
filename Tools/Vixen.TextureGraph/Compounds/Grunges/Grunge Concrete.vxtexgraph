@@ -8,7 +8,6 @@ nodes:
     values:
       Octaves: [5]
       Gain: [0.55]
-      Tiling: [1]
     texts:
       Basis: Gradient
       '=Scale': 3f + coarse * 13f
@@ -18,7 +17,6 @@ nodes:
     y: 260
     values:
       Scale: [24]
-      Tiling: [1]
     texts: { Basis: Worley }
   - id: 6
     type: Colour/Grayscale

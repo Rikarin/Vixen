@@ -196,7 +196,7 @@ public class TextureCompoundBakeDeviceTests(ITestOutputHelper output) {
     ///     </para>
     ///     <para>
     ///         ⚠ <b>And the before half is the instrument.</b> If the input noise already tiled — a
-    ///         <c>Tiling</c> flag left on, a scale that happens to land on the lattice — then "the
+    ///         graph left tiling, a scale that happens to land on the lattice — then "the
     ///         output tiles" would be true of a compound that did nothing whatever, which is exactly
     ///         the assertion-that-cannot-fail this workstream keeps producing. So the seam of the
     ///         input is asserted to be large before the seam of the output is asserted to be small.
@@ -218,13 +218,14 @@ public class TextureCompoundBakeDeviceTests(ITestOutputHelper output) {
         var raw = graph.Add("Output/Output");
         var tiled = graph.Add("Output/Output");
 
-        // ⚠ Gradient rather than value noise, and `Tiling` deliberately off: a field whose lattice
-        // wraps is one the compound has nothing to do, and this case would then be measuring the
-        // noise node.
+        // ⚠ Gradient rather than value noise, and the graph deliberately not tiling: a field whose
+        // lattice wraps is one the compound has nothing to do, and this case would then be measuring
+        // the noise node.
+        graph.Settings[TextureGraphSettings.TilingX] = "false";
+        graph.Settings[TextureGraphSettings.TilingY] = "false";
         noise.SetText("Basis", "Gradient");
         noise.SetValue("Scale", 5f);
         noise.SetValue("Octaves", 3f);
-        noise.SetValue("Tiling", 0f);
         raw.SetText("Usage", "height");
         tiled.SetText("Usage", "baseColor");
 

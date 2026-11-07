@@ -349,8 +349,14 @@ public sealed partial class TexturePlanEvaluator {
     }
 
     /// <summary>How far an op reads, when it can run over part of its image at all.</summary>
-    static int? Reach(TexturePlan plan, IReadOnlyDictionary<int, TextureExternal> externals, TextureOp op) {
+    internal static int? Reach(TexturePlan plan, IReadOnlyDictionary<int, TextureExternal> externals, TextureOp op) {
         if (TextureLocality.Of(op) is not { } reach) {
+            return null;
+        }
+
+        // ⚠ A wrapping read reaches the far side of the image, and `Grown` clips a rectangle to the
+        // near one, so a change beside the seam would repair only half of what it moved.
+        if (reach > 0 && (plan.WrapX || plan.WrapY)) {
             return null;
         }
 

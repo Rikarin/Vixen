@@ -98,10 +98,6 @@ sealed partial class NoiseNode : TextureNode {
     [Input(Minimum = 0f, SoftMaximum = 1f)]
     public Scalar Gain = 0.5f;
 
-    /// <summary>Whether the lattice wraps, so the picture tiles.</summary>
-    [Input]
-    public Bool Tiling = false;
-
     /// <summary>The field.</summary>
     [Output(Name = "Out")]
     public Image Out;
@@ -125,7 +121,6 @@ sealed partial class NoiseNode : TextureNode {
                 emitter.Integer(nameof(Octaves)),
                 emitter.Number(nameof(Lacunarity)),
                 emitter.Number(nameof(Gain)),
-                emitter.Flag(nameof(Tiling)),
                 TextureSettings.Enum(emitter, nameof(Metric), TextureCellMetric.Euclidean)
             )
         );
@@ -399,6 +394,7 @@ sealed partial class BitmapNode : TextureNode {
 ///         <c>(x + 0.5) / width</c>, which is the closed form <c>Gradient.rvn</c>'s remarks name.
 ///     </para>
 /// </remarks>
+[DoesNotTile("A sweep ends on a different value from the one it starts on, which is what a sweep is.")]
 [Node("Source/Gradient", Preview = true, Summary = "A linear, radial, angular or reflected sweep along a ramp.")]
 sealed partial class GradientNode : TextureNode {
     /// <summary>Which sweep: <c>Linear</c>, <c>Radial</c>, <c>Angular</c> or <c>Reflected</c>.</summary>
