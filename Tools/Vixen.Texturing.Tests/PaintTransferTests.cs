@@ -110,7 +110,7 @@ public class PaintTransferTests {
             }
         }
 
-        var to = PaintProjection.Over([..points], [..layout], [..indices]);
+        var to = PaintProjection.Over([.. points], [.. layout], [.. indices]);
         PaintCanvas canvas = new(Side, Side);
         for (var x = 40; x < 50; x++) {
             for (var y = 10; y < 20; y++) {

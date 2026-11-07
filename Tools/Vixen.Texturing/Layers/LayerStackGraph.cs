@@ -455,7 +455,7 @@ public static class LayerStackGraph {
 
             Anchors();
 
-            return new(graph, [..problems], [..notes]) { Layers = owners.ToImmutableDictionary() };
+            return new(graph, [.. problems], [.. notes]) { Layers = owners.ToImmutableDictionary() };
         }
 
         /// <summary>Refuses two layers sharing an identity, because an anchor names one of them.</summary>

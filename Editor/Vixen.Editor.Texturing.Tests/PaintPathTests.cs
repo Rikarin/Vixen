@@ -176,7 +176,6 @@ public class PaintPathTests {
         Assert.Empty(positions);
     }
 
-    /// <summary>An S through four points, scaled to a size.</summary>
     /// <summary>
     ///     How hard a path was pressed runs along it by distance, each point holding its own, so a stylus lifting
     ///     between two clicks fades between them whatever the tolerance cut the curve into.
@@ -241,6 +240,7 @@ public class PaintPathTests {
         Assert.Equal(0.5f, Assert.Single(pressures));
     }
 
+    /// <summary>An S through four points, scaled to a size.</summary>
     static PaintPath Curve(float size) {
         PaintPath path = new();
 
