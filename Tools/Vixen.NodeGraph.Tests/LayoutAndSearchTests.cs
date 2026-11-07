@@ -170,6 +170,14 @@ public class SearchTests {
     }
 
     [Fact]
+    public void A_whole_path_is_as_good_as_an_exact_title() {
+        var results = NodeSearch.Rank(Library(), "test/colour");
+
+        Assert.Equal("Test/Colour", results[0].Type.Path);
+        Assert.Equal(NodeSearch.Exact, results[0].Score);
+    }
+
+    [Fact]
     public void A_prefix_beats_a_substring() {
         var results = NodeSearch.Rank(Library(), "Co");
         var paths = results.Select(result => result.Type.Path).ToArray();
@@ -189,6 +197,17 @@ public class SearchTests {
 
         Assert.Equal(registry.Count, results.Length);
         Assert.Equal(results.Select(result => result.Type.Path).Order(StringComparer.Ordinal), results.Select(result => result.Type.Path));
+    }
+
+    [Fact]
+    public void Types_a_registry_does_not_hold_rank_the_same_way() {
+        var registry = Library();
+        var held = registry.Types.ToArray();
+
+        Assert.Equal(
+            NodeSearch.Rank(registry, "Co").Select(static result => result.Type.Path),
+            NodeSearch.Rank(held, "Co").Select(static result => result.Type.Path)
+        );
     }
 
     [Fact]
