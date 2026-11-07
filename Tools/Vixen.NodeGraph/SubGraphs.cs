@@ -410,7 +410,8 @@ public static class SubGraphs {
             ports.ToImmutable(),
             static () => new SubGraphNode(),
             graph.Name,
-            false,
+            // A compound that hands a picture back has one to draw, like the nodes beside it.
+            graph.Interface.Any(static port => port is { Direction: PortDirection.Output, Kind: PortKind.Image }),
             [.. graph.Parameters]
         );
     }

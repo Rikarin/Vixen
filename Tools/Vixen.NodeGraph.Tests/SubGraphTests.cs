@@ -65,6 +65,23 @@ public class SubGraphTests {
         Assert.Equal("Result", definition.Ports[1].Name);
     }
 
+    /// <summary>A compound draws a preview exactly when it hands a picture back.</summary>
+    [Theory]
+    [InlineData(PortKind.Image, PortDirection.Output, true)]
+    [InlineData(PortKind.Float, PortDirection.Output, false)]
+    [InlineData(PortKind.Image, PortDirection.Input, false)]
+    public void A_compound_has_a_preview_when_a_picture_comes_out_of_it(
+        PortKind kind,
+        PortDirection direction,
+        bool preview
+    ) {
+        var graph = new NodeGraphModel { Name = "Picture" };
+
+        graph.Interface.Add(new("Port", direction, kind));
+
+        Assert.Equal(preview, SubGraphs.Definition(graph, "Sub-graphs/Picture").Preview);
+    }
+
     [Fact]
     public void Inlining_replaces_the_node_with_the_graphs_contents_and_keeps_the_wiring() {
         var library = new SubGraphLibrary();

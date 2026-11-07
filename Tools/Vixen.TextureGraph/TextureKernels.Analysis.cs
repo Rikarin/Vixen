@@ -55,7 +55,10 @@ internal enum TextureFloodOutput {
     /// <summary>Where in its own bounding box a texel is, in red and green.</summary>
     LocalUv = 2,
 
-    /// <summary>The box itself: minimum in red and green, maximum in blue and alpha.</summary>
+    /// <summary>
+    ///     The box itself: minimum in red and green, maximum in blue and alpha. On an axis that wraps, an
+    ///     island over the seam runs past one, so that maximum less minimum is still its size.
+    /// </summary>
     BoundingBox = 3,
 
     /// <summary>The box's width, height and longer side, each as a fraction of the image.</summary>
