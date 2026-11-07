@@ -197,6 +197,12 @@ static class VulkanLoader {
     ///     </para>
     /// </remarks>
     static IEnumerable<string> Candidates() {
+        // A package that carries MoltenVK means it: nothing on the machine may stand in for what it was tested with,
+        // and a clean Mac has nothing else.
+        if (OperatingSystem.IsMacOS()) {
+            yield return Path.Combine(NativeLibraries.BaseDirectory, "libMoltenVK.dylib");
+        }
+
         foreach (var candidate in NativeLibraries.Candidates("vulkan")) {
             yield return candidate;
         }

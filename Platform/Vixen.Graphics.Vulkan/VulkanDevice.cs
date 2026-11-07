@@ -442,6 +442,9 @@ public sealed unsafe partial class VulkanDevice : IGraphicsDevice {
         return device;
     }
 
+    /// <summary>The library Vulkan was loaded from, once something has tried.</summary>
+    public static string? LibraryPath => VulkanLoader.ResolvedPath;
+
     /// <summary>Creates a device, reporting failure rather than throwing.</summary>
     /// <param name="options">What to create.</param>
     /// <param name="device">The device, when it was created.</param>
