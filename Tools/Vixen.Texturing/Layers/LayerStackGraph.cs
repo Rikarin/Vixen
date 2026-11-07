@@ -1342,6 +1342,8 @@ public static class LayerStackGraph {
                     Asset = mask.Asset,
                     Anchor = mask.Anchor,
                     Generator = mask.Generator,
+                    GeneratorValues = mask.GeneratorValues,
+                    GeneratorTexts = mask.GeneratorTexts,
                     Map = mask.Map,
                     Paint = mask.Paint
                 });
@@ -1694,6 +1696,32 @@ public static class LayerStackGraph {
                     }
 
                     var node = Add(path);
+
+                    foreach (var (port, value) in entry.GeneratorValues) {
+                        if (type.Port(port, PortDirection.Input) is not { Kind: not PortKind.Image }) {
+                            problems.Add(LayerStackProblem.Warning(
+                                layerId,
+                                $"'{port}' is not a number '{path}' takes, so the value is dropped."
+                            ));
+
+                            continue;
+                        }
+
+                        node.SetValue(port, value);
+                    }
+
+                    foreach (var (setting, value) in entry.GeneratorTexts) {
+                        if (type.Setting(setting) is null) {
+                            problems.Add(LayerStackProblem.Warning(
+                                layerId,
+                                $"'{setting}' is not a setting '{path}' declares, so it is dropped."
+                            ));
+
+                            continue;
+                        }
+
+                        node.SetText(setting, value);
+                    }
 
                     // ⚠ Not opaque: a generator is a published compound, and nothing constrains what
                     // it writes into alpha. #874.

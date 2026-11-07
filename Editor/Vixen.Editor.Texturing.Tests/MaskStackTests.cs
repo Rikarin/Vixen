@@ -39,6 +39,45 @@ public class MaskStackTests(ITestOutputHelper output) {
         Assert.NotEmpty(TextureCompoundLibrary.Shipped);
     }
 
+    /// <summary>A generator's parameter reaches the compound, survives the file, and a wrong name is reported.</summary>
+    [Fact]
+    public void A_generator_mask_takes_its_compound_parameters() {
+        static LayerStackAsset Worn(Dictionary<string, string> texts) =>
+            Dirt() with {
+                Sets = [
+                    Dirt().Sets[0] with {
+                        Layers = [
+                            Dirt().Sets[0].Layers[0] with {
+                                Mask = new() {
+                                    Source = LayerMaskSource.Generator,
+                                    Generator = "Generators/Metal Edge Wear",
+                                    GeneratorTexts = texts
+                                }
+                            }
+                        ]
+                    }
+                ]
+            };
+
+        static IEnumerable<float> Levels(LayerStackAsset stack) =>
+            LayerStackCompiler.Compile(stack, stack.Sets[0]).Plan!.Ops
+                .SelectMany(op => op.Parameters)
+                .Select(parameter => parameter.Value);
+
+        var plain = Worn([]);
+        var reaching = Worn(new() { ["amount"] = "0.9" });
+        var wrong = Worn(new() { ["nothing"] = "1" });
+        var read = LayerStackYaml.Read(LayerStackYaml.Write(reaching));
+
+        Assert.Empty(LayerStackCompiler.Compile(reaching, reaching.Sets[0]).Problems);
+        Assert.NotEqual(Levels(plain), Levels(reaching));
+        Assert.Equal("0.9", read.Sets[0].Layers[0].Mask.GeneratorTexts["amount"]);
+        Assert.Contains(
+            LayerStackCompiler.Compile(wrong, wrong.Sets[0]).Problems,
+            problem => problem.Message.Contains("'nothing'", StringComparison.Ordinal)
+        );
+    }
+
     /// <summary>A project's own compounds reach a stack, and only when the project is named.</summary>
     /// <remarks>
     ///     <para>

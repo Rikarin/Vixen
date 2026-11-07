@@ -365,6 +365,12 @@ public sealed record MaskLayerAsset {
     /// </summary>
     public string Generator { get; init; } = "";
 
+    /// <summary>The generator's numbers, by the port name its compound exposes.</summary>
+    public Dictionary<string, float[]> GeneratorValues { get; init; } = [];
+
+    /// <summary>The generator's settings, by the setting name its compound exposes.</summary>
+    public Dictionary<string, string> GeneratorTexts { get; init; } = [];
+
     /// <summary>What the map measures, for <see cref="LayerMaskSource.Bake" />.</summary>
     /// <remarks>
     ///     ⚠ <b>Not validated here.</b> <c>Source/Mesh Map</c> refuses a name nothing bakes, with a
@@ -465,6 +471,12 @@ public sealed record MaskAsset {
     ///     <see cref="LayerMaskSource.Generator" />.
     /// </summary>
     public string Generator { get; init; } = "";
+
+    /// <summary>The generator's numbers, by the port name its compound exposes.</summary>
+    public Dictionary<string, float[]> GeneratorValues { get; init; } = [];
+
+    /// <summary>The generator's settings, by the setting name its compound exposes.</summary>
+    public Dictionary<string, string> GeneratorTexts { get; init; } = [];
 
     /// <summary>What the map measures, for a base of <see cref="LayerMaskSource.Bake" />.</summary>
     public string Map { get; init; } = "";

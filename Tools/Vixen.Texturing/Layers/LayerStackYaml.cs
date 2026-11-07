@@ -329,6 +329,8 @@ public static class LayerStackYaml {
             mapping.Set("generator", Text(mask.Generator));
         }
 
+        WriteGeneratorKnobs(mapping, mask.GeneratorValues, mask.GeneratorTexts);
+
         if (mask.Map.Length > 0) {
             mapping.Set("map", Text(mask.Map));
         }
@@ -380,6 +382,8 @@ public static class LayerStackYaml {
         if (entry.Generator.Length > 0) {
             mapping.Set("generator", Text(entry.Generator));
         }
+
+        WriteGeneratorKnobs(mapping, entry.GeneratorValues, entry.GeneratorTexts);
 
         if (entry.Map.Length > 0) {
             mapping.Set("map", Text(entry.Map));
@@ -543,11 +547,39 @@ public static class LayerStackYaml {
             Asset = String(mapping, "asset", path),
             Anchor = String(mapping, "anchor", path),
             Generator = String(mapping, "generator", path),
+            GeneratorValues = Colours(mapping, "generatorValues", path),
+            GeneratorTexts = Strings(mapping, "generatorTexts", path),
             Map = String(mapping, "map", path),
             Paint = String(mapping, "paint", path),
             Layers = entries,
             Effects = effects
         };
+    }
+
+    static void WriteGeneratorKnobs(
+        YamlMapping mapping,
+        Dictionary<string, float[]> numbers,
+        Dictionary<string, string> settings
+    ) {
+        if (numbers.Count > 0) {
+            YamlMapping values = new();
+
+            foreach (var (port, value) in numbers) {
+                values.Set(port, Numbers(value));
+            }
+
+            mapping.Set("generatorValues", values);
+        }
+
+        if (settings.Count > 0) {
+            YamlMapping texts = new();
+
+            foreach (var (setting, value) in settings) {
+                texts.Set(setting, Text(value));
+            }
+
+            mapping.Set("generatorTexts", texts);
+        }
     }
 
     static MaskLayerAsset ReadMaskLayer(YamlNode node, string path) {
@@ -559,6 +591,8 @@ public static class LayerStackYaml {
             Asset = String(mapping, "asset", path),
             Anchor = String(mapping, "anchor", path),
             Generator = String(mapping, "generator", path),
+            GeneratorValues = Colours(mapping, "generatorValues", path),
+            GeneratorTexts = Strings(mapping, "generatorTexts", path),
             Map = String(mapping, "map", path),
             Paint = String(mapping, "paint", path),
             Blend = Choice(mapping, "blend", LayerBlendMode.Copy, path),
