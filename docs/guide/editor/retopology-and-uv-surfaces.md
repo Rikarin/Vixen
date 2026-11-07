@@ -4,7 +4,7 @@ slug: editor/retopology-and-uv-surfaces
 kind: guide
 area: Editor
 summary: Where a quad remesh and an unwrap are actually invoked from — the model importer, three command-line verbs, and the blockout mode's own verb and UV panel.
-api: [T:Vixen.Editor.Assets.Models.ModelRetopology, T:Vixen.Editor.Assets.Models.ModelRetopology.MeshResult, T:Vixen.Interchange.ModelGeometry, T:Vixen.Interchange.ModelWriter, T:Vixen.Interchange.PolygonMesh, T:Vixen.Editor.Assets.Models.SymmetryAxis, T:Vixen.Editor.Assets.Models.UnwrapMode, T:Vixen.Editor.Assets.Models.RetopologyGuideReference, T:Vixen.Cli.GeometryRunner, T:Vixen.Editor.Blockout.BlockoutRetopology, T:Vixen.Editor.Blockout.BlockoutUvPanel, T:Vixen.Editor.Blockout.UvIslandView, T:Vixen.Editor.Blockout.BlockoutRetopologySettings, T:Vixen.Editor.Blockout.BlockoutChartSettings, T:Vixen.Editor.Blockout.BlockoutPackSettings, T:Vixen.Editor.Blockout.BlockoutUvView, T:Vixen.Editor.Blockout.BlockoutRemeshDebug, T:Vixen.Editor.Blockout.BlockoutTheme]
+api: [T:Vixen.Editor.Assets.Models.ModelRetopology, T:Vixen.Editor.Assets.Models.ModelRetopology.MeshResult, T:Vixen.Interchange.ModelGeometry, T:Vixen.Interchange.ModelWriter, T:Vixen.Interchange.PolygonMesh, T:Vixen.Interchange.ModelWriterMaterial, T:Vixen.Editor.Assets.Models.SymmetryAxis, T:Vixen.Editor.Assets.Models.UnwrapMode, T:Vixen.Editor.Assets.Models.RetopologyGuideReference, T:Vixen.Cli.GeometryRunner, T:Vixen.Editor.Blockout.BlockoutRetopology, T:Vixen.Editor.Blockout.BlockoutUvPanel, T:Vixen.Editor.Blockout.UvIslandView, T:Vixen.Editor.Blockout.BlockoutRetopologySettings, T:Vixen.Editor.Blockout.BlockoutChartSettings, T:Vixen.Editor.Blockout.BlockoutPackSettings, T:Vixen.Editor.Blockout.BlockoutUvView, T:Vixen.Editor.Blockout.BlockoutRemeshDebug, T:Vixen.Editor.Blockout.BlockoutTheme]
 tags: [editor, importer, cli, blockout, retopology, uv, atlas]
 since: 0.1
 status: preview
@@ -34,6 +34,12 @@ is what keeps a seam a seam: welding them onto positions would close every cut i
 
 ⚠ **glTF and GLB are triangles-only by specification, so `.glb` genuinely cannot hold a quad.** Both
 write a triangulated copy and say so, naming the format. Write `.obj` to keep the quads.
+
+A mesh that only gains a layout takes the other road. `ModelGeometry.ToParts` turns a flattened file
+back into one `MeshData` per part, and each corner keeps its own normal and vertex colour, its part's
+name and its material. `ModelWriter.Write` then writes the colours as `COLOR_0` and, given a list of
+`ModelWriterMaterial`, the materials by name. ⚠ `ToMeshData` is not that road. It gives every corner
+its face's normal, which suits a remesh and lights an unwrapped ball as a polyhedron.
 
 ## What it is for
 
