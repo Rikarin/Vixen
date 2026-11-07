@@ -6,6 +6,15 @@ using Vixen.NodeGraph;
 
 namespace Vixen.TextureGraph.Nodes;
 
+/// <summary>What a Pixel Processor keeps of the <c>float4</c> its expression answers with.</summary>
+enum TexturePixelFormat {
+    /// <summary>All four lanes.</summary>
+    Colour = 0,
+
+    /// <summary>Red alone, for a port that measures.</summary>
+    Grey = 1
+}
+
 /// <summary>Arbitrary per-texel arithmetic, written in Raven.</summary>
 /// <remarks>
 ///     <para>
@@ -22,6 +31,16 @@ namespace Vixen.TextureGraph.Nodes;
 ///         may itself be an expression over the graph's exposed parameters; <c>uv</c>, the texel
 ///         centre in <c>0…1</c>; and <c>coord</c> and <c>size</c>, the integer position and extent.
 ///         It answers with a <c>float4</c>.
+///     </para>
+///     <para>
+///         ⚠ <b>Both inputs arrive as colours, always, and the output is a colour unless
+///         <see cref="Format" /> says grey.</b> It took the shape of whatever arrived, which is the
+///         rule for a node whose kernel is a tonal operator and the wrong one here: the expression
+///         decides what the lanes mean, so over a grey noise <c>float4(a.x, 1f - a.x, 0f, 1f)</c>
+///         lost its green with no message. And <c>a</c> read <c>(r, 0, 0, 1)</c> from a grey view
+///         and <c>(r, r, r, 1)</c> once a colour at <c>b</c> splatted it, so one expression drew two
+///         pictures. A colour into a port that measures is refused by name, so the cost of the
+///         default is a sentence rather than a missing channel.
 ///     </para>
 ///     <para>
 ///         <b>The op it emits bakes, through the plan and not through this assembly's resources.</b>
@@ -60,6 +79,10 @@ sealed partial class PixelProcessorNode : TextureNode {
     /// <summary>The expression, which answers with a <c>float4</c>.</summary>
     [Setting(Default = "a")]
     public string Expression = "a";
+
+    /// <summary>What is kept of the answer: <c>Colour</c>, or <c>Grey</c> for its red.</summary>
+    [Setting(AcceptedFrom = typeof(TexturePixelFormat))]
+    public string Format = "Colour";
 
     /// <summary>The image the expression calls <c>a</c>.</summary>
     [Input(Name = "A")]
@@ -115,13 +138,15 @@ sealed partial class PixelProcessorNode : TextureNode {
         // the expression names `a` and `b` as opaque black.
         var hasA = Binding.IsConnected("A");
         var hasB = Binding.IsConnected("B");
-        var a = hasA ? emitter.Read("A") : -1;
-        var b = hasB ? emitter.Read("B") : -1;
+        var a = hasA ? emitter.Read("A", TextureChannels.Colour) : -1;
+        var b = hasB ? emitter.Read("B", TextureChannels.Colour) : -1;
 
-        // Colour when nothing is wired, for `UniformNode`'s reason: a node with no image input
-        // resolves to grey — the narrowest — and a generator whose expression writes a colour would
-        // silently keep only its red.
-        var target = emitter.Write("Out", hasA || hasB ? emitter.Resolved : TextureChannels.Colour);
+        var format = TextureSettings.Enum(emitter, nameof(Format), TexturePixelFormat.Colour);
+        var target = emitter.Write(
+            "Out",
+            format == TexturePixelFormat.Grey ? TextureChannels.Grey : TextureChannels.Colour
+        );
+
         var kernel = TexturePixelProcessor.Write(expression, hasA, hasB);
         var problems = TexturePixelProcessor.Check(kernel);
 
