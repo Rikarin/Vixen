@@ -28,11 +28,10 @@ shader Levels {
 
     /// How much ordered noise to add, in units of one 8-bit step.
     ///
-    /// ⚠ **This is the reason the plan carries a seed at all in M1.** A levels curve that lifts a
-    /// narrow input range fills an 8-bit output with visible bands, and a bake is a file — so the
-    /// banding is permanent and no amount of filtering downstream removes it. One step of noise
-    /// costs nothing and is invisible; the alternative is the map being computed at 16 bits and
-    /// nobody noticing it was quantised on the way to disk.
+    /// For an image that ends in eight bits, where a levels curve lifting a narrow range bands and
+    /// a bake is a file. ⚠ **Never on the way to a height:** noise between neighbouring texels is a
+    /// slope, so one step of it reads as a surface tilted by tens of degrees, and that doubles with
+    /// the resolution. `Colour/Levels` therefore defaults this to zero.
     var dither: float = 0f
 
     /// The op's own seed, so two levels nodes in one graph do not dither identically.

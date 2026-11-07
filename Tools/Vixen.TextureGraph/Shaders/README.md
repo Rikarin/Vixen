@@ -328,7 +328,9 @@ refusal on the plan would be better still and is not this kernel's to make; ther
 
 A levels curve that lifts a narrow input range fills an 8-bit output with visible bands, and a bake is a
 **file** — so the banding is permanent and nothing downstream removes it. One step of ordered noise
-costs nothing and is invisible. That is what `dither` and `seed` are, and it is why the plan carries a
+hides that. ⚠ **It is not free, and `Colour/Levels` stopped doing it by default**: noise between
+neighbouring texels is a slope, so a default Levels over flat grey reached `Height to Normal` as a tilt
+of up to 51° at 1024. That is what `dither` and `seed` are, and it is why the plan carries a
 seed at all in M1: `TexturePlan.SeedFor` mixes the plan's seed with the op's identity on the CPU, so
 two levels nodes in one graph do not dither identically and a re-bake on the same machine is
 byte-identical. ⚠ **That identity was the op's *index* until [#875](https://github.com/Rikarin/Vixen/issues/875)** — so inserting anything ahead of a levels node changed

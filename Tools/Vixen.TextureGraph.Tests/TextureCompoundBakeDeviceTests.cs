@@ -104,10 +104,10 @@ public class TextureCompoundBakeDeviceTests(ITestOutputHelper output) {
     ///     </para>
     ///     <para>
     ///         ⚠ <b>Three and not one, and the difference was found by sabotage rather than
-    ///         reasoned.</b> The obvious bar — more than a single value — cannot fail:
-    ///         <c>Colour/Levels</c> dithers by one 8-bit step by default, and almost every compound
-    ///         here ends in one, so a flat fill comes back as <em>two</em> values. Measured:
-    ///         <c>Utility/Histogram Range</c> with its <c>range</c> collapsed to zero draws 2, and
+    ///         reasoned.</b> The obvious bar — more than a single value — could not fail while
+    ///         <c>Colour/Levels</c> dithered by default, because a flat fill came back as <em>two</em>
+    ///         values, and a graph may still ask for that dither. Measured then:
+    ///         <c>Utility/Histogram Range</c> with its <c>range</c> collapsed to zero drew 2, and
     ///         the least varied compound that is doing its job — <c>Patterns/Brick</c>, which is
     ///         nearly binary — draws 6 at 64 and 21 at <see cref="RollCallSide" />. Every other
     ///         shipped compound draws more than a hundred there, so the bar is not close: the second
@@ -147,7 +147,7 @@ public class TextureCompoundBakeDeviceTests(ITestOutputHelper output) {
             Assert.True(
                 distinct > 3,
                 $"{adapter}: '{path}' baked to {distinct} distinct values over {RollCallSide}×{RollCallSide}, "
-                + "which is a flat fill plus a levels node's dither. A compound is an arrangement of nodes "
+                + "which is a flat fill. A compound is an arrangement of nodes "
                 + "that has to compute something."
             );
 
@@ -599,8 +599,7 @@ public class TextureCompoundBakeDeviceTests(ITestOutputHelper output) {
             + $"{TextureKernelHarness.At(picture, 48, 32, 0)}, {TextureKernelHarness.At(picture, 63, 32, 0)}"
         );
 
-        // ⚠ Within a byte on either side, because `Colour/Levels` dithers by one 8-bit step by
-        // default — the same fact that made this file's roll-call bar three rather than one.
+        // Within a byte on either side, for the read-back's rounding.
         Assert.InRange(TextureKernelHarness.At(picture, 15, 32, 0), (byte)0, (byte)1);
         Assert.InRange(TextureKernelHarness.At(picture, 48, 32, 0), (byte)254, (byte)255);
 

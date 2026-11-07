@@ -193,7 +193,7 @@ public class TextureGraphDeviceTests(ITestOutputHelper output) {
                         new("gamma", 0.7f),
                         new("outputBlack", 0f),
                         new("outputWhite", 1f),
-                        new("dither", 1f)
+                        new("dither", 0f)
                     ]
                 }
             ],

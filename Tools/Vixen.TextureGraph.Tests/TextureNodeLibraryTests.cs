@@ -97,9 +97,6 @@ public class TextureNodeLibraryTests {
         [("Blur", "stepY")] = "As stepX.",
         [("BlurHq", "stepX")] = "As Blur's: the vertical pass of the separable pair.",
         [("BlurHq", "stepY")] = "As stepX.",
-        [("Levels", "dither")] = "One 8-bit step by default where the kernel defaults to none. A levels curve that "
-            + "lifts a narrow range bands an 8-bit output, and a bake is a file, so the banding is permanent. The "
-            + "kernel defaults to zero because a hand-built plan calls it too; this is the authoring default.",
         [("JumpFlood", "first")] = "Not a default: set per pass by Analysis/Distance's chain, so that the seeding "
             + "dispatch reads the mask and every one after it reads the previous record.",
         [("JumpFlood", "step")] = "Halved per pass by the chain. Its whole point is that it is not constant.",
