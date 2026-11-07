@@ -113,6 +113,7 @@ Vixen.Graphics.Vulkan.VulkanNativeHandles.VulkanNativeHandles(nint Instance, nin
 const Vixen.Graphics.Vulkan.VulkanDiagnostics.Capacity = 64 -> int
 static Vixen.Graphics.Vulkan.VulkanDevice.Create() -> Vixen.Graphics.Vulkan.VulkanDevice
 static Vixen.Graphics.Vulkan.VulkanDevice.Create(Vixen.Graphics.Vulkan.VulkanDeviceOptions options) -> Vixen.Graphics.Vulkan.VulkanDevice
+static Vixen.Graphics.Vulkan.VulkanDevice.LibraryPath.get -> string?
 static Vixen.Graphics.Vulkan.VulkanDevice.TryCreate(Vixen.Graphics.Vulkan.VulkanDeviceOptions options, out Vixen.Graphics.Vulkan.VulkanDevice? device, out string? reason) -> bool
 static Vixen.Graphics.Vulkan.VulkanDiagnostics.ErrorCount.get -> int
 static Vixen.Graphics.Vulkan.VulkanDiagnostics.Messages.get -> System.Collections.Generic.IReadOnlyCollection<string>

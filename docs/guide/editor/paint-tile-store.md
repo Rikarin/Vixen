@@ -4,7 +4,7 @@ slug: editor/paint-tile-store
 kind: guide
 area: Editor
 summary: How a paint layer's pixels are held as sparse tiles, what a stroke costs, how a host evaluates a stack without an editor, and what a .vxpaint pack holds.
-api: [T:Vixen.Texturing.Painting.PaintImageSnapshot, T:Vixen.Texturing.Painting.PaintMeshSurface, T:Vixen.Texturing.Painting.PaintView, T:Vixen.Texturing.Painting.IPaintPlacement, T:Vixen.Texturing.Painting.PaintStampTexels, T:Vixen.Texturing.Painting.PaintTexelMap`1, T:Vixen.Texturing.Painting.PaintTileCache, T:Vixen.Texturing.Layers.LayerStackEvaluator, T:Vixen.Texturing.Layers.LayerStackPictures, T:Vixen.TextureGraph.TextureRect, T:Vixen.TextureGraph.TextureRegions, T:Vixen.TextureGraph.TextureTileWrite, T:Vixen.TextureGraph.TextureImageChange, T:Vixen.TextureGraph.TextureLocality]
+api: [T:Vixen.Texturing.Painting.PaintImageSnapshot, T:Vixen.Texturing.Painting.PaintMeshSurface, T:Vixen.Texturing.Painting.PaintTransfer, T:Vixen.Texturing.Painting.PaintView, T:Vixen.Texturing.Painting.IPaintPlacement, T:Vixen.Texturing.Painting.PaintStampTexels, T:Vixen.Texturing.Painting.PaintTexelMap`1, T:Vixen.Texturing.Painting.PaintTileCache, T:Vixen.Texturing.Layers.LayerStackEvaluator, T:Vixen.Texturing.Layers.LayerStackPictures, T:Vixen.TextureGraph.TextureRect, T:Vixen.TextureGraph.TextureRegions, T:Vixen.TextureGraph.TextureTileWrite, T:Vixen.TextureGraph.TextureImageChange, T:Vixen.TextureGraph.TextureLocality]
 tags: [editor, painting, material-authoring, texture-graph]
 since: 0.1
 status: preview
@@ -108,3 +108,11 @@ rectangle per island, since the union of two is everything between them.
 
 The per-texel numbers of a stroke live in `PaintTexelMap`, a tiled sparse array, because a hash table of millions of
 entries is a cache miss per lookup.
+
+## Paint on a new layout
+
+`PaintTransfer.Move` lays a canvas out on another mesh's atlas by where each texel sits on the surface: each texel of the
+new atlas finds its point on the new mesh, the nearest point on the old mesh facing the same way, and reads the old atlas
+there, so repacked islands and a remeshed model are one case. Surface the old mesh never had reads as the background.
+`PaintTransfer.SameLayout` says first whether the two atlases are laid out alike, in which case the paint already fits
+and moving it would only resample it.
