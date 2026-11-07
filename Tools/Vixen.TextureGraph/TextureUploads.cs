@@ -175,7 +175,7 @@ public sealed class TextureUploads : IDisposable {
     /// </exception>
     /// <exception cref="ObjectDisposedException">This set has been disposed.</exception>
     public TextureHandle Add(TexturePlan plan, int image, int width, int height, ReadOnlySpan<byte> texels) =>
-        Add(plan, image, width, height, texels, default(TextureResultKey));
+        Put(plan, image, width, height, texels, default, null);
 
     /// <summary>Uploads an image the caller already holds a digest of.</summary>
     /// <param name="plan">The plan.</param>
@@ -193,7 +193,7 @@ public sealed class TextureUploads : IDisposable {
         ReadOnlySpan<byte> texels,
         TextureResultKey content
     ) =>
-        Add(plan, image, width, height, texels, content, (TextureFormat?)null);
+        Put(plan, image, width, height, texels, content, null);
 
     /// <summary>Uploads a picture at a depth of its own, which may be wider than the plan declares.</summary>
     /// <param name="plan">The plan.</param>
@@ -216,7 +216,7 @@ public sealed class TextureUploads : IDisposable {
     ///         avoided here: it is not filterable on every device, and a bitmap filters.
     ///     </para>
     /// </remarks>
-    public TextureHandle Add(
+    public TextureHandle AddPicture(
         TexturePlan plan,
         int image,
         int width,
@@ -224,9 +224,9 @@ public sealed class TextureUploads : IDisposable {
         ReadOnlySpan<byte> texels,
         TextureFormat format
     ) =>
-        Add(plan, image, width, height, texels, default, (TextureFormat?)format);
+        Put(plan, image, width, height, texels, default, format);
 
-    TextureHandle Add(
+    TextureHandle Put(
         TexturePlan plan,
         int image,
         int width,

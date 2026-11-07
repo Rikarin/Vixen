@@ -107,7 +107,7 @@ public class TextureUploadDeviceTests(ITestOutputHelper output) {
 
         using var uploads = new TextureUploads(device);
 
-        uploads.Add(
+        uploads.AddPicture(
             plan,
             0,
             Side,
@@ -145,7 +145,7 @@ public class TextureUploadDeviceTests(ITestOutputHelper output) {
 
         using var uploads = new TextureUploads(device);
 
-        uploads.Add(plan, 0, Side, Side, texels, TextureFormat.Rgba16Float);
+        uploads.AddPicture(plan, 0, Side, Side, texels, TextureFormat.Rgba16Float);
 
         using var evaluator = new TexturePlanEvaluator(device);
         using var bake = evaluator.Evaluate(plan, uploads.Externals);
