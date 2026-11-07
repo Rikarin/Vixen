@@ -68,7 +68,7 @@ public readonly record struct NodeSearchResult(NodeTypeDefinition Type, string P
 ///         <b>The score is a small integer with a stated ladder</b> rather than a fuzzy distance,
 ///         because what an author expects from a create menu is boring: an exact title first, then
 ///         titles that start with what was typed, then titles that contain it, then the category, then
-///         the summary. A subsequence matcher — which the command palette does use, because a command
+///         the summary. A whole path counts as an exact title. A subsequence matcher — which the command palette does use, because a command
 ///         is looked up by a phrase — puts <c>Sample Texture 2D</c> above <c>Sample</c> for the query
 ///         <c>st</c>, which reads as a shuffle.
 ///     </para>
@@ -195,7 +195,9 @@ public static class NodeSearch {
 
         var title = definition.Title;
 
-        if (string.Equals(title, query, StringComparison.OrdinalIgnoreCase)) {
+        // A path names one type for certain, which is what a script or a test types to mean exactly that node.
+        if (string.Equals(title, query, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(definition.Path, query, StringComparison.OrdinalIgnoreCase)) {
             return Exact;
         }
 
