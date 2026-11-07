@@ -80,6 +80,79 @@ public class TextureUploadDeviceTests(ITestOutputHelper output) {
         );
     }
 
+    /// <summary>A picture deeper than the plan's Rgba8 keeps steps no byte could hold.</summary>
+    /// <remarks>
+    ///     A plan is compiled before any file is opened, so it declares every bitmap Rgba8. Values a
+    ///     tenth of a byte apart are what prove the picture was not narrowed on its way through:
+    ///     eight bits would round them all to one level.
+    /// </remarks>
+    [Fact]
+    public void A_picture_wider_than_the_plan_keeps_its_depth() {
+        using var device = TextureKernelHarness.Open();
+
+        output.WriteLine($"wide upload on {TextureKernelHarness.Adapter(device)}");
+
+        var plan = new TexturePlan {
+            BaseWidth = Side,
+            BaseHeight = Side,
+            Images = [new(TextureFormat.Rgba8, External: true), new(TextureFormat.Rgba16Float)],
+            Ops = [Copy(1, 0)],
+            Outputs = [1]
+        };
+        var texels = new Half[Side * Side * 4];
+
+        for (var at = 0; at < texels.Length; at++) {
+            texels[at] = (Half)(0.5f + (at % 8 / 2550f));
+        }
+
+        using var uploads = new TextureUploads(device);
+
+        uploads.AddPicture(
+            plan,
+            0,
+            Side,
+            Side,
+            System.Runtime.InteropServices.MemoryMarshal.AsBytes(texels.AsSpan()),
+            TextureFormat.Rgba16Float
+        );
+
+        using var evaluator = new TexturePlanEvaluator(device);
+        using var bake = evaluator.Evaluate(plan, uploads.Externals);
+
+        var read = System.Runtime.InteropServices.MemoryMarshal.Cast<byte, Half>(bake.ReadRaw([1])[0].Texels);
+
+        Assert.Equal(texels, read.ToArray());
+    }
+
+    /// <summary>A CPU op reading a wide picture is given its bytes at the width they are.</summary>
+    [Fact]
+    public void A_cpu_op_reads_a_wide_picture_at_its_own_width() {
+        using var device = TextureKernelHarness.Open();
+
+        output.WriteLine($"wide upload into a cpu op on {TextureKernelHarness.Adapter(device)}");
+
+        var probe = new RecordTheInput();
+        var plan = new TexturePlan {
+            BaseWidth = Side,
+            BaseHeight = Side,
+            Images = [new(TextureFormat.Rgba8, External: true), new(TextureFormat.Rgba8)],
+            Ops = [new() { Kernel = "Record", Output = 1, Inputs = [0], Cpu = probe }],
+            Outputs = [1]
+        };
+        var texels = new byte[Side * Side * 8];
+
+        Random.Shared.NextBytes(texels);
+
+        using var uploads = new TextureUploads(device);
+
+        uploads.AddPicture(plan, 0, Side, Side, texels, TextureFormat.Rgba16Float);
+
+        using var evaluator = new TexturePlanEvaluator(device);
+        using var bake = evaluator.Evaluate(plan, uploads.Externals);
+
+        Assert.Equal(texels, probe.Bytes);
+    }
+
     /// <summary>⚠ A single-channel mask uploads, and a kernel reads it as <c>(r, 0, 0, 1)</c>.</summary>
     /// <remarks>
     ///     <para>

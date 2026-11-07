@@ -175,7 +175,7 @@ public sealed class TextureUploads : IDisposable {
     /// </exception>
     /// <exception cref="ObjectDisposedException">This set has been disposed.</exception>
     public TextureHandle Add(TexturePlan plan, int image, int width, int height, ReadOnlySpan<byte> texels) =>
-        Add(plan, image, width, height, texels, default);
+        Put(plan, image, width, height, texels, default, null);
 
     /// <summary>Uploads an image the caller already holds a digest of.</summary>
     /// <param name="plan">The plan.</param>
@@ -192,6 +192,48 @@ public sealed class TextureUploads : IDisposable {
         int height,
         ReadOnlySpan<byte> texels,
         TextureResultKey content
+    ) =>
+        Put(plan, image, width, height, texels, content, null);
+
+    /// <summary>Uploads a picture at a depth of its own, which may be wider than the plan declares.</summary>
+    /// <param name="plan">The plan.</param>
+    /// <param name="image">Which of its images.</param>
+    /// <param name="width">Its width in texels.</param>
+    /// <param name="height">Its height in texels.</param>
+    /// <param name="texels">Its texels, in <paramref name="format" />.</param>
+    /// <param name="format">What they are.</param>
+    /// <returns>The texture.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A compiler cannot know a file's depth</b>: a <c>Source/Bitmap</c> names a path and
+    ///         the plan is made before anything opens it, so it declares <see cref="TextureFormat.Rgba8" />
+    ///         for every picture. Narrowing a 16-bit height to fit that puts terraces in everything
+    ///         downstream, however deep the graph computes.
+    ///     </para>
+    ///     <para>
+    ///         Kernels sample, so nothing else has to change, and the evaluator reads a CPU op's
+    ///         input by what <see cref="TextureExternal.Format" /> says. A 32-bit float is best
+    ///         avoided here: it is not filterable on every device, and a bitmap filters.
+    ///     </para>
+    /// </remarks>
+    public TextureHandle AddPicture(
+        TexturePlan plan,
+        int image,
+        int width,
+        int height,
+        ReadOnlySpan<byte> texels,
+        TextureFormat format
+    ) =>
+        Put(plan, image, width, height, texels, default, format);
+
+    TextureHandle Put(
+        TexturePlan plan,
+        int image,
+        int width,
+        int height,
+        ReadOnlySpan<byte> texels,
+        TextureResultKey content,
+        TextureFormat? wider
     ) {
         RefuseInsideAFrame();
 
@@ -229,7 +271,7 @@ public sealed class TextureUploads : IDisposable {
             );
         }
 
-        var format = plan.Images[image].Format;
+        var format = wider ?? plan.Images[image].Format;
         var expected = (long)width * height * TextureFormats.BytesPerTexel(format);
 
         if (texels.Length != expected) {
@@ -254,7 +296,8 @@ public sealed class TextureUploads : IDisposable {
         // ⚠ The digest is taken here because this is the one place that has both the bytes and the
         // promise that they are what the texture holds, and xxHash is cheap beside the upload.
         declared[image] = new(texture, UploadUsage, sizes[image]) {
-            Content = content.IsValid ? content : TextureResultKey.Of(texels)
+            Content = content.IsValid ? content : TextureResultKey.Of(texels),
+            Format = wider
         };
 
         return texture;
