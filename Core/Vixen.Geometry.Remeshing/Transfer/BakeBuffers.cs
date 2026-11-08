@@ -64,6 +64,9 @@ sealed class BakeBuffers {
     /// </remarks>
     public int[]? Labels { get; set; }
 
+    /// <summary>Whether <see cref="Labels" /> are packed colours, which only the groups ever are.</summary>
+    public bool LabelsAreColours { get; set; }
+
     /// <summary>How many texels the charts claimed.</summary>
     public int Covered { get; set; }
 

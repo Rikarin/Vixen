@@ -166,16 +166,32 @@ public static class ModelGeometry {
     public static FlatModel Flatten(ReadModel model) {
         ArgumentNullException.ThrowIfNull(model);
 
-        var nodes = model.Model.Nodes;
-        var world = new Matrix4x4[nodes.Length];
+        return Flatten([model]);
+    }
 
-        for (var at = 0; at < nodes.Length; at++) {
-            world[at] = nodes[at].Parent < 0 ? nodes[at].Transform : nodes[at].Transform * world[nodes[at].Parent];
-        }
+    /// <summary>Several files as one mesh, in order, each in its own world space.</summary>
+    /// <param name="models">What <see cref="ModelReader.Read" /> returned for each, in the order they go together.</param>
+    /// <returns>The mesh, and which run of its faces came from which named part, the first file's first.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="models" /> or one of them is null.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Each file's materials are numbered after the files before it</b>, so the first
+    ///         material of a second file is not the first material of the first: a high mesh split
+    ///         across files keeps every material apart in an id map.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Welded within each file and not across them</b>, so two files that touch stay two
+    ///         shells.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Vertex colours in any file make every file's groups colours</b>, a file without them
+    ///         taking white, because one id map cannot mix packed colours with material numbers.
+    ///     </para>
+    /// </remarks>
+    public static FlatModel Flatten(IReadOnlyList<ReadModel> models) {
+        ArgumentNullException.ThrowIfNull(models);
 
-        var meshes = model.Meshes.ToDictionary(static mesh => mesh.Name, StringComparer.Ordinal);
         var built = new EditMesh();
-        var positions = new Dictionary<Vector3, int>();
         var normals = new List<Vector3>();
         var coordinates = new List<Vector2>();
         var colours = new List<Vector4>();
@@ -183,69 +199,93 @@ public static class ModelGeometry {
         var materials = new List<int>();
         var anyCoordinates = false;
         var anyNormals = false;
-        var anyColours = model.Meshes.Any(static mesh => mesh.Colours.Length == mesh.Positions.Length && mesh.Colours.Length > 0);
+        var anyColours = models.Any(
+            static model => model.Meshes.Any(
+                static mesh => mesh.Colours.Length == mesh.Positions.Length && mesh.Colours.Length > 0
+            )
+        );
+        var offset = 0;
         Span<int> loop = stackalloc int[3];
 
-        foreach (var part in model.Model.Parts) {
-            var mesh = meshes[part.Mesh];
-            var transform = world[part.Node];
-            var inverse = Matrix4x4.Invert(transform, out var inverted) ? Matrix4x4.Transpose(inverted) : transform;
-            var hasNormals = mesh.Normals.Length == mesh.Positions.Length;
-            var hasCoordinates = mesh.TexCoords.Length == mesh.Positions.Length;
-            var hasColours = mesh.Colours.Length == mesh.Positions.Length;
-            var slots = new int[mesh.Positions.Length];
-            var turned = new Vector3[hasNormals ? mesh.Positions.Length : 0];
-            var made = 0;
+        foreach (var model in models) {
+            ArgumentNullException.ThrowIfNull(model);
 
-            for (var vertex = 0; vertex < slots.Length; vertex++) {
-                var point = Matrix4x4.TransformPosition(mesh.Positions[vertex], transform);
+            var nodes = model.Model.Nodes;
+            var world = new Matrix4x4[nodes.Length];
 
-                if (!positions.TryGetValue(point, out var slot)) {
-                    slot = built.AddPosition(point);
-                    positions.Add(point, slot);
-                }
-
-                slots[vertex] = slot;
-
-                if (hasNormals) {
-                    turned[vertex] = Vector3.Normalize(Matrix4x4.TransformDirection(mesh.Normals[vertex], inverse));
-                }
+            for (var at = 0; at < nodes.Length; at++) {
+                world[at] = nodes[at].Parent < 0 ? nodes[at].Transform : nodes[at].Transform * world[nodes[at].Parent];
             }
 
-            for (var index = 0; index + 2 < mesh.Indices.Length; index += 3) {
-                var (a, b, c) = (mesh.Indices[index], mesh.Indices[index + 1], mesh.Indices[index + 2]);
+            var meshes = model.Meshes.ToDictionary(static mesh => mesh.Name, StringComparer.Ordinal);
 
-                (loop[0], loop[1], loop[2]) = (slots[a], slots[b], slots[c]);
+            // ⚠ Welded within a file and never across two. Two files are two objects, and a point they
+            // happen to share would join their shells and bend the curvature of both.
+            var positions = new Dictionary<Vector3, int>();
 
-                // A triangle the weld closed has no area, no normal and no edge.
-                if (loop[0] == loop[1] || loop[1] == loop[2] || loop[2] == loop[0]) {
-                    continue;
+            foreach (var part in model.Model.Parts) {
+                var mesh = meshes[part.Mesh];
+                var transform = world[part.Node];
+                var inverse = Matrix4x4.Invert(transform, out var inverted) ? Matrix4x4.Transpose(inverted) : transform;
+                var hasNormals = mesh.Normals.Length == mesh.Positions.Length;
+                var hasCoordinates = mesh.TexCoords.Length == mesh.Positions.Length;
+                var hasColours = mesh.Colours.Length == mesh.Positions.Length;
+                var slots = new int[mesh.Positions.Length];
+                var turned = new Vector3[hasNormals ? mesh.Positions.Length : 0];
+                var made = 0;
+
+                for (var vertex = 0; vertex < slots.Length; vertex++) {
+                    var point = Matrix4x4.TransformPosition(mesh.Positions[vertex], transform);
+
+                    if (!positions.TryGetValue(point, out var slot)) {
+                        slot = built.AddPosition(point);
+                        positions.Add(point, slot);
+                    }
+
+                    slots[vertex] = slot;
+
+                    if (hasNormals) {
+                        turned[vertex] = Vector3.Normalize(Matrix4x4.TransformDirection(mesh.Normals[vertex], inverse));
+                    }
                 }
 
-                built.AddFace(loop, anyColours ? FaceColour(mesh, a, b, c) : part.Material);
-                made++;
+                for (var index = 0; index + 2 < mesh.Indices.Length; index += 3) {
+                    var (a, b, c) = (mesh.Indices[index], mesh.Indices[index + 1], mesh.Indices[index + 2]);
 
-                normals.Add(hasNormals ? turned[a] : default);
-                normals.Add(hasNormals ? turned[b] : default);
-                normals.Add(hasNormals ? turned[c] : default);
-                coordinates.Add(hasCoordinates ? mesh.TexCoords[a] : default);
-                coordinates.Add(hasCoordinates ? mesh.TexCoords[b] : default);
-                coordinates.Add(hasCoordinates ? mesh.TexCoords[c] : default);
+                    (loop[0], loop[1], loop[2]) = (slots[a], slots[b], slots[c]);
 
-                if (anyColours) {
-                    colours.Add(hasColours ? mesh.Colours[a] : Vector4.One);
-                    colours.Add(hasColours ? mesh.Colours[b] : Vector4.One);
-                    colours.Add(hasColours ? mesh.Colours[c] : Vector4.One);
+                    // A triangle the weld closed has no area, no normal and no edge.
+                    if (loop[0] == loop[1] || loop[1] == loop[2] || loop[2] == loop[0]) {
+                        continue;
+                    }
+
+                    built.AddFace(loop, anyColours ? FaceColour(mesh, a, b, c) : part.Material + offset);
+                    made++;
+
+                    normals.Add(hasNormals ? turned[a] : default);
+                    normals.Add(hasNormals ? turned[b] : default);
+                    normals.Add(hasNormals ? turned[c] : default);
+                    coordinates.Add(hasCoordinates ? mesh.TexCoords[a] : default);
+                    coordinates.Add(hasCoordinates ? mesh.TexCoords[b] : default);
+                    coordinates.Add(hasCoordinates ? mesh.TexCoords[c] : default);
+
+                    if (anyColours) {
+                        colours.Add(hasColours ? mesh.Colours[a] : Vector4.One);
+                        colours.Add(hasColours ? mesh.Colours[b] : Vector4.One);
+                        colours.Add(hasColours ? mesh.Colours[c] : Vector4.One);
+                    }
                 }
+
+                anyNormals |= hasNormals;
+                anyCoordinates |= hasCoordinates;
+
+                var name = nodes[part.Node].Name;
+
+                parts.Add((name.Length > 0 ? name : mesh.Name, made));
+                materials.Add(part.Material + offset);
             }
 
-            anyNormals |= hasNormals;
-            anyCoordinates |= hasCoordinates;
-
-            var name = nodes[part.Node].Name;
-
-            parts.Add((name.Length > 0 ? name : mesh.Name, made));
-            materials.Add(part.Material);
+            offset += Math.Max(model.Model.Materials.Length, model.Model.Parts.Select(static part => part.Material + 1).DefaultIfEmpty(0).Max());
         }
 
         built.GroupSource = MeshGroupSource.Assigned;
@@ -262,7 +302,7 @@ public static class ModelGeometry {
     }
 
     /// <summary>A flattened file's parts again, each its own mesh, with new coordinates on every corner.</summary>
-    /// <param name="model">What <see cref="Flatten" /> returned.</param>
+    /// <param name="model">What <see cref="Flatten(ReadModel)" /> returned.</param>
     /// <param name="uvs">One coordinate per corner.</param>
     /// <returns>One mesh per part, in world space, carrying its normals, colours, name and material.</returns>
     /// <exception cref="ArgumentNullException">An argument is null.</exception>

@@ -4,7 +4,7 @@ slug: engine/map-baking
 kind: guide
 area: Engine
 summary: Casting the output's normal at the source to fill an atlas with a normal map, a displacement map and seven more mesh maps, on the CPU, with no device anywhere.
-api: [T:Vixen.Geometry.Remeshing.MapBaker, T:Vixen.Geometry.Remeshing.BakeSettings, T:Vixen.Geometry.Remeshing.BakedMaps, T:Vixen.Geometry.Remeshing.BakeSpace, T:Vixen.Geometry.Remeshing.MeshMaps, T:Vixen.Geometry.Remeshing.BakeMask, T:Vixen.Geometry.Remeshing.BakeParts, T:Vixen.Geometry.Remeshing.MeshMapKind, T:Vixen.Geometry.Remeshing.MeshMapPlane, T:Vixen.Geometry.Remeshing.MeshMapPlanes, T:Vixen.Interchange.FlatModel, T:Vixen.Geometry.MikkTSpace]
+api: [T:Vixen.Geometry.Remeshing.MapBaker, T:Vixen.Geometry.Remeshing.BakeSettings, T:Vixen.Geometry.Remeshing.BakedMaps, T:Vixen.Geometry.Remeshing.BakeSpace, T:Vixen.Geometry.Remeshing.MeshMaps, T:Vixen.Geometry.Remeshing.BakeMask, T:Vixen.Geometry.Remeshing.BakeParts, T:Vixen.Geometry.Remeshing.MeshMapKind, T:Vixen.Geometry.Remeshing.MeshMapPlane, T:Vixen.Geometry.Remeshing.MeshMapPlanes, T:Vixen.Interchange.FlatModel, T:Vixen.Geometry.MikkTSpace, T:Vixen.Geometry.Remeshing.BakeUnits, T:Vixen.Geometry.Remeshing.OcclusionFalloff, T:Vixen.Geometry.Remeshing.OcclusionDistribution, T:Vixen.Geometry.Remeshing.BakeIdSource, T:Vixen.Geometry.Remeshing.IdPalette, T:Vixen.Geometry.Remeshing.HeightRange]
 tags: [geometry, retopology, remesh, bake, normal-map, displacement, atlas, ambient-occlusion, curvature, mesh-maps, cage, hard-edge, supersampling]
 since: 0.1
 status: preview
@@ -193,7 +193,7 @@ and "fully occluded" are not the same answer.
 | `AmbientOcclusion` | The unoccluded fraction of a cosine-weighted hemisphere. One is open sky, zero is sealed |
 | `BentNormal` | The average unoccluded direction, in `Space` alongside `Normals` |
 | `Curvature` | Mean curvature, in reciprocal model units, with `CurvatureRange` beside it |
-| `Thickness` | The occluded fraction of the same hemisphere, turned through the surface |
+| `Thickness` | The mean depth through the surface along the same hemisphere, over `OcclusionRadius` |
 | `Position` | The surface point, each axis `[0, 1]` across the source's bounding box |
 | `WorldNormal` | The source's normal, unrotated and independent of `Space` |
 | `Ids` | The source's material or island index as an `int`, `-1` where there is none |
@@ -210,9 +210,11 @@ always agrees with the occlusion beside it. `OcclusionSamples` is the ray count 
 estimator's error falls as its square root; `OcclusionRadius` is how far an occluder still counts, as a
 fraction of the diagonal.
 
-⚠ **`Thickness` is a fraction, not a distance**, and it saturates at `OcclusionRadius` — a part thicker
-than the rays reach reads as fully enclosed. Measuring the inside of a closed shape wants a radius of
-one or more.
+⚠ **`Thickness` is a depth over `OcclusionRadius`**: inside a sphere of radius *r* it reads `4r/3` of
+the reach, its mean chord, and on a single sheet with nothing behind it zero, because a ray that finds no
+far wall counts nothing. It used to be the fraction of inward rays that hit anything, which is one inside
+every closed shape whatever its size — and a real model is all closed shapes. `ThicknessNormalised`
+divides the map by its largest value, so the thickest texel reads one.
 
 ⚠ **`Curvature` is one over a length, so it moves with the model's scale, deliberately.** A sphere of
 radius *r* reads `1/r`; the same sphere modelled a hundred times larger reads a hundredth of it. Every
@@ -238,6 +240,51 @@ mesh. Baked straight that is per-triangle confetti in as many hues, and nothing 
 So a bake of a guessed grouping labels the source's **connected shells** instead — two props in one
 file are two ids, one closed blob is one — and says which it did in `BakedMaps.Warnings`. A caller that
 knows the real assignment sets `GroupSource` to `MeshGroupSource.Assigned` and gets its own ids back.
+
+⚠ **One assigned group is no more use than a guessed one.** A model file's reader assigns every face its
+material, so a prop with one material arrives as one assigned group, and its id map was one flat colour
+with every shell lost. `IdSource` decides: `Automatic`, the default, takes the groups only when there
+are at least two and the shells otherwise; `Groups` and `Shells` take one or the other whatever the mesh
+says. Shells are never packed colours, whatever `GroupsAreColours` says. `IdPalette` colours the labels:
+`Random` is `IdColour`, the same colour for the same id in every bake; `HueShift` and `Grey` rank the ids
+that occur and spread them evenly round the wheel or from dark grey to white, which keeps three ids three
+far-apart colours but depends on the whole map.
+
+### Distances, rays and occluders
+
+Every distance in `BakeSettings` — `SearchRadius`, `RearDistance`, `OcclusionRadius`,
+`OcclusionMinimum`, `GroundOffset` and `HeightScale` — is in `Units`: a fraction of the source's
+diagonal by default, or the model's own units with `BakeUnits.Absolute`. ⚠ **Absolute is a claim
+about how big the model is**, and the same bake on the same model exported in centimetres finds
+nothing; it is there for a studio that works at a fixed scale.
+
+`SearchRadius` is how far a ray looks in front of the target and `RearDistance` how far behind, the
+same unless it is set. ⚠ **The two hits are compared as lengths**, not as fractions of their rays, or a
+long front and a short rear pick the further surface. With a cage the cage is the front and
+`RearDistance` is how far past the target a ray goes on.
+
+`IgnoreBackfaces` passes through a source face turned away from the target's own facing — the far wall
+of a thin plate, the underside of a strap — rather than baking its normal as a dent. The tree tells the
+two faces apart by which way the ray crosses the winding, and passes through a face that does not count
+rather than stopping at it.
+
+The occlusion rays have their own settings, which the bent normal and the thickness share:
+`OcclusionSpread` narrows the hemisphere to a cone about the normal, `OcclusionDistribution` draws the
+rays by the cosine (the default, and what a diffuse surface sees) or evenly over the solid angle,
+`OcclusionFalloff` lets a distant occluder count for less (linearly, or along a smoothstep),
+`OcclusionMinimum` starts a ray that far out so that a nearer occluder is ignored,
+`OcclusionIgnoresBackfaces` passes through the back of a face, `OcclusionWithinPart` lets only the
+texel's own part occlude when `Parts` are given, and `GroundPlane` adds a floor at the source's lowest
+Y plus `GroundOffset`. ⚠ **Y is up** for the ground plane.
+
+`HeightRange` is what `DisplacementRange` reports: the largest displacement found, the longer ray
+distance, or `HeightScale` — the last two the same for every bake made with them, so maps quantized with
+them agree.
+
+`BakeParts.ByName` takes the endings each side's names carry, so a studio that names its parts
+`_hp` and `_lp` matches them; the overload without them knows `_high`, `_low`, `_hi`, `_lo`, `_hp` and
+`_lp`. `ModelGeometry.Flatten` takes several files in order, each file's materials numbered after the
+last file's, and welds within a file but never across two.
 
 ### Nothing samples randomly
 

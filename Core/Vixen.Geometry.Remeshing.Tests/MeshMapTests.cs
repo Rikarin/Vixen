@@ -130,18 +130,30 @@ public class MeshMapTests {
         Assert.True(seen > 0, string.Join(" · ", maps.Warnings));
     }
 
-    /// <summary>Thickness is one inside a closed sphere and zero under an open sheet.</summary>
+    /// <summary>Thickness inside a sphere is its mean chord, and zero under an open sheet.</summary>
     /// <remarks>
-    ///     ⚠ <b>The pair is the test and neither half is on its own.</b> A ray entering a closed
-    ///     convex surface leaves through it, so every inward ray hits and the answer is exactly one;
-    ///     a single sheet has nothing behind it and the answer is exactly zero. A thickness that
-    ///     forgot to invert the hemisphere would read the sphere's <i>occlusion</i> — also about one
-    ///     minus nothing — and the plane is what tells the two apart.
+    ///     <para>
+    ///         ⚠ <b>A closed form, not a shape.</b> An inward ray leaving a sphere of radius <i>r</i> at
+    ///         <c>θ</c> from the normal crosses a chord of <c>2r·cos θ</c>, and the mean of <c>cos θ</c>
+    ///         under the cosine density is two thirds, so the mean depth is <c>4r/3</c> and the map
+    ///         reads that over the reach. This used to be the fraction of rays that hit anything —
+    ///         exactly one inside every closed shape whatever its size, which on a real model, all of
+    ///         it closed, was a white map.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The pair is still the test.</b> A single sheet has nothing behind it and reads zero,
+    ///         so a depth that counted an escaped ray as the whole reach would make the sheet the
+    ///         thickest thing on the model, and the plane is what says it does not.
+    ///     </para>
     /// </remarks>
     [Fact]
-    public void Thickness_is_one_inside_a_closed_sphere_and_zero_under_a_sheet() {
+    public void Thickness_inside_a_sphere_is_its_mean_chord_and_zero_under_a_sheet() {
         var sphere = Sphere(MeshMaps.Thickness, occlusionRadius: 1f);
         var thickness = Assert.IsAssignableFrom<IReadOnlyList<float>>(sphere.Thickness);
+
+        // The icosphere has a vertex on every axis, so its box is the cube about the unit sphere and
+        // the reach, one diagonal, is 2√3.
+        var wanted = 4f / 3f / (2f * MathF.Sqrt(3f));
         var seen = 0;
 
         for (var index = 0; index < thickness.Count; index++) {
@@ -149,7 +161,7 @@ public class MeshMapTests {
                 continue;
             }
 
-            Assert.Equal(1f, thickness[index]);
+            Assert.InRange(thickness[index], wanted * 0.97f, wanted * 1.03f);
             seen++;
         }
 
@@ -627,7 +639,7 @@ public class MeshMapTests {
         );
 
     /// <summary>A four-unit floor with a sheet spanning <c>[low, high]</c> in <c>x</c> above it.</summary>
-    static EditMesh Roofed(float low, float high, float height) {
+    internal static EditMesh Roofed(float low, float high, float height) {
         var mesh = TransferFixtures.Grid(4, 4f, _ => 0);
         var corners = new int[5, 5];
 
@@ -666,7 +678,7 @@ public class MeshMapTests {
     ///         is what this fixture means, so it says so.
     ///     </para>
     /// </remarks>
-    static EditMesh Strips() {
+    internal static EditMesh Strips() {
         var mesh = new EditMesh { GroupSource = MeshGroupSource.Assigned };
 
         for (var strip = 0; strip < 2; strip++) {
@@ -699,7 +711,7 @@ public class MeshMapTests {
     ///     origin goes to the left chart and one on the <c>+x</c> side to the right, which leaves a
     ///     gap in the middle narrower than a gutter.
     /// </remarks>
-    static EditMesh Unwrapped(EditMesh mesh, float lift, bool apart = false) {
+    internal static EditMesh Unwrapped(EditMesh mesh, float lift, bool apart = false) {
         var bounds = mesh.Bounds;
         var size = bounds.Maximum - bounds.Minimum;
         var tall = size.Y > 0f ? size.Y : 1f;
@@ -774,7 +786,7 @@ public class MeshMapTests {
     }
 
     /// <summary>The faces of a mesh whose corners all stand above a height, as a mesh of their own.</summary>
-    static EditMesh Cap(EditMesh mesh, float height) {
+    internal static EditMesh Cap(EditMesh mesh, float height) {
         var kept = new EditMesh();
         var moved = new Dictionary<int, int>();
 
@@ -815,7 +827,7 @@ public class MeshMapTests {
     ///     reports that irregularity as curvature — which would make the tolerance a description of
     ///     the fixture rather than of the measurement.
     /// </remarks>
-    static EditMesh Icosphere(int subdivisions, float radius) {
+    internal static EditMesh Icosphere(int subdivisions, float radius) {
         var t = (1f + MathF.Sqrt(5f)) / 2f;
 
         var points = new List<Vector3> {

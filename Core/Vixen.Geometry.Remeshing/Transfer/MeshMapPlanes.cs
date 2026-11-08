@@ -22,7 +22,7 @@ public enum MeshMapKind {
     /// <summary>Mean curvature.</summary>
     Curvature,
 
-    /// <summary>The occluded fraction of the hemisphere turned inward.</summary>
+    /// <summary>The mean depth through the surface, along the hemisphere turned inward.</summary>
     Thickness,
 
     /// <summary>The surface point within the source's box.</summary>
@@ -117,11 +117,7 @@ public static class MeshMapPlanes {
         if (maps.Ids is { } ids) {
             // ⚠ A colour per texel from its own id, here and nowhere later, because nothing may
             // interpolate an id: see MapBaker.IdColour.
-            var colours = new Vector3[ids.Count];
-
-            for (var index = 0; index < colours.Length; index++) {
-                colours[index] = maps.IdsAreColours ? MapBaker.PackedColour(ids[index]) : MapBaker.IdColour(ids[index]);
-            }
+            var colours = MapBaker.IdColours(ids, maps.IdsAreColours, maps.IdPalette);
 
             planes.Add(new(MeshMapKind.Id, size, 3, Vectors(size, colours), 0f, false));
         }
