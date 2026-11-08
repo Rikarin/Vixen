@@ -1,0 +1,97 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+package Vixen.TextureGraph.Shaders
+
+// Patina #172's histogram as a picture: `HistogramTable`'s column read along x, as a strip of numbers
+// or as bars.
+//
+// **Texel `x` reads the bin under its centre**, `floor(256 · (x + ½) / w)`, so a strip 256 texels wide
+// is one texel per bin and any other width is the same strip resampled by nearest bin. The four modes:
+//
+// - **0 · density** — the bin's share times 256, a probability density: a flat histogram is one
+//   everywhere, and the strip's mean over x is always one. Constant down y, so any row is the data.
+// - **1 · cumulative** — the share at or below `(x + ½) / w`, linear inside a bin: the distribution
+//   function, nought at the left and one at the right. `HistogramEqualise` reads the same function by
+//   value rather than by position.
+// - **2 · bars** — one where the texel is under its bin's bar, nought above it, each bar's height its
+//   share over the largest share any bin has: a chart, drawn bottom up.
+// - **3 · cumulative bars** — the same with the distribution function as the height.
+//
+// Pointwise in the table and nothing else, so it costs one or two reads a texel whatever the source
+// was.
+
+shader HistogramPlot {
+    var table: Texture2D
+
+    /// 0 density · 1 cumulative · 2 bars · 3 cumulative bars.
+    var mode: int = 0
+
+    [Format("rgba16f")] var target: RWTexture2D<float4>
+
+    const val Bins: int = 256
+
+    const val Slots: int = 64
+
+    /// One lane of a texel, by number.
+    func Lane(texel: float4, lane: int): float {
+        if (lane == 1) {
+            return texel.y
+        }
+
+        if (lane == 2) {
+            return texel.z
+        }
+
+        if (lane == 3) {
+            return texel.w
+        }
+
+        return texel.x
+    }
+
+    /// The share of the source in one bin.
+    func Share(bin: int): float => Lane(table.Load(int3(0, bin / 4, 0)), bin % 4)
+
+    /// The share of the source at or below a value, linear inside the bin it falls in.
+    func Below(value: float): float {
+        val at = saturate(value) * float(Bins)
+        val bin = clamp(int(floor(at)), 0, Bins - 1)
+        val top = Lane(table.Load(int3(0, Slots + bin / 4, 0)), bin % 4)
+        val share = Share(bin)
+
+        return top - share + share * saturate(at - float(bin))
+    }
+
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val coord = int2(int(id.x), int(id.y))
+        val size = target.GetDimensions()
+
+        if (coord.x >= size.x || coord.y >= size.y) {
+            return
+        }
+
+        val u = (float(coord.x) + 0.5f) / float(size.x)
+        val bin = clamp(int(floor(u * float(Bins))), 0, Bins - 1)
+        val height = 1f - (float(coord.y) + 0.5f) / float(size.y)
+
+        var value = Share(bin) * float(Bins)
+
+        if (mode == 1) {
+            value = Below(u)
+        }
+
+        if (mode == 2) {
+            val largest = max(table.Load(int3(0, 2 * Slots, 0)).x, 0.0000001f)
+
+            value = step(height, Share(bin) / largest)
+        }
+
+        if (mode == 3) {
+            value = step(height, Below(u))
+        }
+
+        target.Store(coord, float4(value, value, value, 1f))
+    }
+}

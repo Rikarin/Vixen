@@ -176,6 +176,19 @@ left `TextureKernelCeilings`. ⚠ `Kuwahara` **weighs** its quadrants by the inv
 variance rather than taking the least: an argmin flips on the last bit of a near tie, and the tiling
 roll call measured that as a 0.08 drift on a field rolled by whole texels.
 
+**Patina's fourth wave — five more, in one surface, and two sources widened.** `TextureStatisticsKernels`
+(Patina #172): `HistogramCount` · `HistogramTable` · `HistogramPlot` · `HistogramEqualise` · `SummedArea`.
+⚠ **The histogram is a gather, not a scatter**: a plan binds images and nothing else, so there is no
+buffer to add into and no deterministic order to add a float in, and `HistogramCount` reads each
+source texel once per four bins instead — sixty-four reads a texel, over a target sized so a 4K
+source keeps a device busy. `HistogramTable` folds the counts into one column of shares that the
+plot, the render and the equaliser all look up in, and `SummedArea` is a base-eight prefix sum, four
+passes an axis at 4K, in 32-bit float. `Noise` (Patina #167) gained a gaussian basis, a scale and an
+offset per axis, a first octave and a per-octave fold — ridged or billow — and Worley now sums its
+distances over octaves; at its defaults every picture is the one it drew before. `Shape` (Patina #168)
+gained a polygon with a side count, a star, a ring, a capsule, a crescent, a pyramid and a
+hemisphere, and a three-sided polygon is exactly the triangle.
+
 ## No `.spv` is committed here, and that is the one real departure
 
 `Editor/Vixen.Editor.Host/Shaders` commits a `.spv` and a `.reflect.json` beside every `.rvn`, and

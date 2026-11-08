@@ -1,0 +1,111 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+package Vixen.TextureGraph.Shaders
+
+// The counting half of Patina #172's histogram: how many texels of a block of the source fall in each
+// of 256 bins, four bins to a texel.
+//
+// ⚠ **A gather and not a scatter, because a texture-graph kernel has nothing to scatter into.** A
+// histogram is naturally one atomic add per texel into a bin; a plan binds images and nothing else,
+// and a float add in an image is neither atomic nor, where it is, in a deterministic order. So every
+// texel of this kernel's output *reads* a block of the source and counts the values in its own four
+// bins — each source texel is read once per four bins, sixty-four times in all. That is the whole cost,
+// and it is spread across a target big enough to keep a device busy: the node picks a level whose
+// height is between 256 and 511 rows at a large bake, so a 4K source is a 256×256 target and each texel
+// reads sixteen columns of a quarter of the rows.
+//
+// **The layout.** The target's rows are bands of sixty-four slots: row `y` counts slot `y % 64` — bins
+// `4s` to `4s + 3`, one per lane — over band `y / 64` of the source's rows, and column `x` covers source
+// columns `[x·W/w, (x+1)·W/w)`. Those integer ranges partition the source whatever the two sizes are, so
+// a target wider than the source simply has columns that read nothing, and no texel is counted twice.
+// Rows past the last whole band hold nought. `HistogramTable` sums the lot.
+//
+// **A bin is `floor(256 v)` of the red channel, clamped** — so a value of one is in the top bin with
+// 0.996, and anything outside 0..1 is counted at the end it is past. Red, for `MinMaxReduce`'s reason:
+// a grey is a decision `Grayscale` makes once.
+//
+// ⚠ The counts are whole numbers in 32-bit float, which holds every integer to 2²⁴ — one more than a
+// 4K image has texels — so nothing here rounds.
+
+shader HistogramCount {
+    var source: Texture2D
+
+    [Format("rgba32f")] var target: RWTexture2D<float4>
+
+    /// How many bins the histogram has.
+    const val Bins: int = 256
+
+    /// How many texels of four lanes hold one band's bins.
+    const val Slots: int = 64
+
+    /// The most rows or columns one texel reads. A ceiling for `Blur`'s reason, not a size: the plan's
+    /// own largest extent, so no source can have a block wider than this.
+    const val MaxExtent: int = 65536
+
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val coord = int2(int(id.x), int(id.y))
+        val size = target.GetDimensions()
+
+        if (coord.x >= size.x || coord.y >= size.y) {
+            return
+        }
+
+        val extent = source.GetDimensions(0)
+        val bands = max(size.y / Slots, 1)
+        val slot = coord.y % Slots
+        val band = coord.y / Slots
+
+        if (band >= bands) {
+            target.Store(coord, float4(0f, 0f, 0f, 0f))
+
+            return
+        }
+
+        val left = coord.x * extent.x / size.x
+        val right = (coord.x + 1) * extent.x / size.x
+        val top = band * extent.y / bands
+        val bottom = (band + 1) * extent.y / bands
+        val first = slot * 4
+
+        var counts = float4(0f, 0f, 0f, 0f)
+
+        for (dy in 0 .. MaxExtent) {
+            val y = top + dy
+
+            if (y >= bottom) {
+                break
+            }
+
+            for (dx in 0 .. MaxExtent) {
+                val x = left + dx
+
+                if (x >= right) {
+                    break
+                }
+
+                val value = source.Load(int3(x, y, 0)).x
+                val bin = clamp(int(floor(value * float(Bins))), 0, Bins - 1) - first
+
+                if (bin == 0) {
+                    counts.x = counts.x + 1f
+                }
+
+                if (bin == 1) {
+                    counts.y = counts.y + 1f
+                }
+
+                if (bin == 2) {
+                    counts.z = counts.z + 1f
+                }
+
+                if (bin == 3) {
+                    counts.w = counts.w + 1f
+                }
+            }
+        }
+
+        target.Store(coord, counts)
+    }
+}
