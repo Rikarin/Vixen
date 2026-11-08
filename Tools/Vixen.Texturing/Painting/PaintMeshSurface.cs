@@ -93,7 +93,7 @@ public sealed class PaintMeshSurface {
     ///     the point moved, so a stamp at one position on the picture lands on every copy at once.
     /// </remarks>
     public IPaintPlacement Through(PaintView view, PaintSymmetryGroup? symmetry = null) =>
-        new ViewPlacement(this, [view, ..symmetry?.Copies.Select(view.Moved) ?? []]);
+        new ViewPlacement(this, [view, .. symmetry?.Copies.Select(view.Moved) ?? []]);
 
     /// <summary>A brush in the atlas, which carries on over the seams its surface crosses.</summary>
     /// <param name="symmetry">
@@ -596,7 +596,8 @@ public sealed class PaintMeshSurface {
                 // ⚠ The frame turned rather than the point turned back: the copy weighs a point by where the
                 // stroke's own stamp would have it, which keeps a mirrored alpha mirrored.
                 var turned = density with {
-                    Tangent = copy.Direction(density.Tangent), Bitangent = copy.Direction(density.Bitangent)
+                    Tangent = copy.Direction(density.Tangent),
+                    Bitangent = copy.Direction(density.Bitangent)
                 };
                 var mirrored = new SeamWeigher(moved, turned, nearest, kernel, stamp, brush.Alpha);
 
