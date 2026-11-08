@@ -71,7 +71,8 @@ public sealed class NodeGraphClipboard {
                 // ⚠ The names as well as the numbers. Without this a copied compositor pass pasted
                 // back with no targets, no depth attachment and no name — a node that looks like the
                 // one that was copied and renders nothing.
-                Texts = new(node.Texts)
+                Texts = new(node.Texts),
+                Bypassed = node.Bypassed
             });
         }
 

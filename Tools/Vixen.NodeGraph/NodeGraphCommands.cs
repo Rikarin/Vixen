@@ -937,6 +937,7 @@ public sealed class PasteCommand : NodeGraphCommand {
 
             renumbered[entry.Id] = node.Id;
             pasted.Add(node);
+            node.Bypassed = entry.Bypassed;
 
             foreach (var (port, value) in entry.Values) {
                 node.SetValue(port, [.. value]);

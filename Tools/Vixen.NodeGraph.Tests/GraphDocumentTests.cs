@@ -58,6 +58,10 @@ public class GraphDocumentTests {
             ["Parameters"] = (
                 graph => graph.Parameters.Add(new("Grunge", "0.5", "", SettingKind.Float, 0f, 1f)),
                 graph => graph.Parameters.Any(parameter => parameter.Name == "Grunge")
+            ),
+            ["Presets"] = (
+                graph => graph.Presets.Add(new() { Name = "Rusty" }),
+                graph => graph.Presets.Any(preset => preset.Name == "Rusty")
             )
         };
 

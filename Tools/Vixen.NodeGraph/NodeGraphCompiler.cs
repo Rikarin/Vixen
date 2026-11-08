@@ -106,16 +106,14 @@ public abstract class NodeGraphCompiler<TArtefact> where TArtefact : class {
         // subclass can still be ready for `SubGraphValues` — see `Prepare`.
         Prepare(graph);
 
-        if (SubGraphSource is { } source && SubGraphs.ContainsSubGraph(graph, source)) {
-            graph = SubGraphs.Flatten(graph, source, SubGraphValues, out var refused, out var inlining);
+        graph = Walkable(graph, out var refused, out var inlining);
 
-            // ⚠ Before the loop, not after it. `Report` reads it to name a node the author can
-            // select, and a diagnostic reported against an empty map keeps a synthetic identity.
-            Inlining = inlining;
+        // ⚠ Before the loop, not after it. `Report` reads it to name a node the author can
+        // select, and a diagnostic reported against an empty map keeps a synthetic identity.
+        Inlining = inlining;
 
-            foreach (var diagnostic in refused) {
-                Report(diagnostic);
-            }
+        foreach (var diagnostic in refused) {
+            Report(diagnostic);
         }
 
         Begin(graph);
@@ -138,6 +136,48 @@ public abstract class NodeGraphCompiler<TArtefact> where TArtefact : class {
         var artefact = HasErrors ? null : Finish(graph);
 
         return new(artefact, [.. diagnostics]);
+    }
+
+    /// <summary>The graph a walk is over: the author's, with nothing switched off and every sub-graph inlined.</summary>
+    /// <param name="graph">The author's graph. Not modified.</param>
+    /// <param name="refused">What inlining had to refuse.</param>
+    /// <param name="inlining">Where each inlined node came from, or <see cref="NodeGraphInlining.Empty" />.</param>
+    /// <returns>The graph to walk, which is <paramref name="graph" /> itself when there was nothing to do.</returns>
+    /// <remarks>
+    ///     ⚠ <b><see cref="NodeBypass.Apply" /> runs twice, either side of inlining.</b> Before, so a
+    ///     bypassed sub-graph node is taken out whole rather than expanded; after, so a node switched
+    ///     off <em>inside</em> a sub-graph — which inlining copies with its flag — is taken out too.
+    ///     Protected so that a front end answering a value edit without a recompile walks the same
+    ///     graph a compile would have.
+    /// </remarks>
+    protected NodeGraphModel Walkable(
+        NodeGraphModel graph,
+        out IReadOnlyList<NodeDiagnostic> refused,
+        out NodeGraphInlining inlining
+    ) {
+        ArgumentNullException.ThrowIfNull(graph);
+
+        refused = [];
+        inlining = NodeGraphInlining.Empty;
+        graph = NodeBypass.Apply(graph, TypeOf);
+
+        if (SubGraphSource is { } source && SubGraphs.ContainsSubGraph(graph, source)) {
+            graph = SubGraphs.Flatten(graph, source, SubGraphValues, out refused, out inlining);
+            graph = NodeBypass.Apply(graph, TypeOf);
+        }
+
+        return graph;
+    }
+
+    /// <summary>A node's type, from the registry or, for a sub-graph node, from the graph it stands for.</summary>
+    NodeTypeDefinition? TypeOf(GraphNode node) {
+        if (Registry.TryGet(node.Type, out var definition)) {
+            return definition;
+        }
+
+        return SubGraphSource is { } source && source.TryGet(node.Type, out var child)
+            ? SubGraphs.Definition(child, node.Type)
+            : null;
     }
 
     /// <summary>Binds one node and hands it to <see cref="Visit" />, which is one step of a compile.</summary>

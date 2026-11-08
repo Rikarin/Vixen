@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Collections.Immutable;
+using System.Globalization;
 
 namespace Vixen.NodeGraph;
 
@@ -77,6 +78,56 @@ public enum SettingKind {
     Float
 }
 
+/// <summary>Which control an inspector draws for a setting, when its kind alone does not say.</summary>
+/// <remarks>
+///     ⚠ <b>A hint, and a front end that cannot draw one falls back to <see cref="Default" />.</b> What
+///     a setting holds is still its <see cref="SettingKind" />; this only says how an author would
+///     rather turn it.
+/// </remarks>
+public enum SettingWidget {
+    /// <summary>Whatever suits the kind: a slider for a bounded number, a field, a switch or a list.</summary>
+    Default,
+
+    /// <summary>A slider, which needs a range.</summary>
+    Slider,
+
+    /// <summary>A dial, for a number that is an angle in degrees.</summary>
+    Angle,
+
+    /// <summary>A button that stays down, for a flag.</summary>
+    Toggle
+}
+
+/// <summary>When a setting is worth showing: another setting of the same node holds, or does not hold, a value.</summary>
+/// <param name="Setting">The other setting, by name.</param>
+/// <param name="Value">The value it is compared with, as text.</param>
+/// <param name="Negated">True to show the setting while the other one does <em>not</em> hold the value.</param>
+/// <remarks>
+///     ⚠ <b>A comparison rather than an expression.</b> A condition is evaluated by every front end
+///     that draws an inspector, as the author types, and one comparison is something two front ends
+///     cannot disagree about. Hiding never changes a value: a hidden setting keeps what it holds and
+///     a compiler reads it the same.
+/// </remarks>
+public sealed record SettingCondition(string Setting, string Value, bool Negated = false) {
+    /// <summary>Whether a setting with this condition is shown while the other one holds a value.</summary>
+    /// <param name="current">What the other setting holds now.</param>
+    /// <returns><see langword="true" /> to show it.</returns>
+    /// <remarks>
+    ///     Numbers compare as numbers, so <c>1</c> and <c>1.0</c> agree; anything else compares as a
+    ///     name, ignoring case, as <see cref="SettingDefinition.Accepts" /> does.
+    /// </remarks>
+    public bool Holds(string current) {
+        ArgumentNullException.ThrowIfNull(current);
+
+        var equal = float.TryParse(current, NumberStyles.Float, CultureInfo.InvariantCulture, out var a)
+            && float.TryParse(Value, NumberStyles.Float, CultureInfo.InvariantCulture, out var b)
+                ? a == b
+                : string.Equals(current, Value, StringComparison.OrdinalIgnoreCase);
+
+        return equal != Negated;
+    }
+}
+
 /// <summary>One of a node type's settings: a name it was given rather than a value it was wired.</summary>
 /// <param name="Name">What it is called, and the key it is stored under in <see cref="GraphNode.Texts" />.</param>
 /// <param name="Default">What it says when the author has not said anything.</param>
@@ -88,6 +139,9 @@ public enum SettingKind {
 /// <param name="Accepted">
 ///     Every value this setting may hold, or empty when it may hold any name.
 /// </param>
+/// <param name="Label">What an inspector calls it, or empty for <paramref name="Name" />.</param>
+/// <param name="Widget">Which control an inspector draws for it.</param>
+/// <param name="VisibleIf">When it is worth showing, or null for always.</param>
 /// <remarks>
 ///     <para>
 ///         ⚠ <b>Deliberately not a <see cref="PortDefinition" /> with a tenth
@@ -129,8 +183,20 @@ public sealed record SettingDefinition(
     float Minimum = float.NegativeInfinity,
     float Maximum = float.PositiveInfinity,
     string Group = "",
-    ImmutableArray<string> Accepted = default
+    ImmutableArray<string> Accepted = default,
+    string Label = "",
+    SettingWidget Widget = SettingWidget.Default,
+    SettingCondition? VisibleIf = null
 ) {
+    /// <summary>What an inspector calls it: <see cref="Label" />, or the name when it has none.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Two fields because they do two jobs.</b> The name is what an expression writes, what an
+    ///     override is stored under and what a containing graph's file names, so changing it is a
+    ///     rename that reaches every one of those. The label is only what a person reads, and can say
+    ///     <c>Rust amount (0–1)</c> without breaking anything.
+    /// </remarks>
+    public string Title => Label.Length > 0 ? Label : Name;
+
     /// <summary>Every value this setting may hold, in declaration order, or empty for any name.</summary>
     /// <remarks>
     ///     <para>
