@@ -56,6 +56,7 @@ Vixen.Core.Imaging.CubeImage.Pixels.get -> System.ReadOnlySpan<Vixen.Core.Mathem
 Vixen.Core.Imaging.CubeImage.Sample(Vixen.Core.Mathematics.Vector3 direction) -> Vixen.Core.Mathematics.Vector3
 Vixen.Core.Imaging.CubeImage.Size.get -> int
 Vixen.Core.Imaging.CubeImage.SolidAngleOf(int x, int y) -> float
+Vixen.Core.Imaging.CubeLut -> static class
 Vixen.Core.Imaging.CubeMap -> static class
 Vixen.Core.Imaging.CubeMapping -> static class
 Vixen.Core.Imaging.DataFormatDescriptor -> static class
@@ -81,6 +82,8 @@ Vixen.Core.Imaging.FloatImage.Samples.get -> float[]
 Vixen.Core.Imaging.FloatImage.Samples.init -> float[]
 Vixen.Core.Imaging.FloatImage.Width.get -> int
 Vixen.Core.Imaging.FloatImage.Width.init -> int
+Vixen.Core.Imaging.ImagePadding -> static class
+Vixen.Core.Imaging.ImageResize -> static class
 Vixen.Core.Imaging.Ktx2 -> static class
 Vixen.Core.Imaging.Ktx2Exception -> sealed class
 Vixen.Core.Imaging.Ktx2Exception : System.Exception
@@ -126,7 +129,19 @@ Vixen.Core.Imaging.MipOptions.RenormaliseNormals.get -> bool
 Vixen.Core.Imaging.MipOptions.RenormaliseNormals.init -> bool
 Vixen.Core.Imaging.MipOptions.Srgb.get -> bool
 Vixen.Core.Imaging.MipOptions.Srgb.init -> bool
+Vixen.Core.Imaging.PaddingMode -> enum : int
+Vixen.Core.Imaging.PaddingMode.Colour = 3 -> Vixen.Core.Imaging.PaddingMode
+Vixen.Core.Imaging.PaddingMode.Diffusion = 4 -> Vixen.Core.Imaging.PaddingMode
+Vixen.Core.Imaging.PaddingMode.Infinite = 1 -> Vixen.Core.Imaging.PaddingMode
+Vixen.Core.Imaging.PaddingMode.None = 0 -> Vixen.Core.Imaging.PaddingMode
+Vixen.Core.Imaging.PaddingMode.PaddingMode() -> void
+Vixen.Core.Imaging.PaddingMode.Transparent = 2 -> Vixen.Core.Imaging.PaddingMode
 Vixen.Core.Imaging.PngCodec -> static class
+Vixen.Core.Imaging.ResizeFilter -> enum : int
+Vixen.Core.Imaging.ResizeFilter.Bilinear = 1 -> Vixen.Core.Imaging.ResizeFilter
+Vixen.Core.Imaging.ResizeFilter.Box = 0 -> Vixen.Core.Imaging.ResizeFilter
+Vixen.Core.Imaging.ResizeFilter.Nearest = 2 -> Vixen.Core.Imaging.ResizeFilter
+Vixen.Core.Imaging.ResizeFilter.ResizeFilter() -> void
 Vixen.Core.Imaging.SphericalHarmonicsL1 -> struct
 Vixen.Core.Imaging.SphericalHarmonicsL1 : System.IEquatable<Vixen.Core.Imaging.SphericalHarmonicsL1>
 Vixen.Core.Imaging.SphericalHarmonicsL1.SphericalHarmonicsL1() -> void
@@ -170,6 +185,7 @@ Vixen.Core.Imaging.TextureLevel.Width.init -> int
 Vixen.Core.Imaging.VkFormats -> static class
 const Vixen.Core.Imaging.BrdfLut.DefaultSamples = 1024 -> int
 const Vixen.Core.Imaging.BrdfLut.DefaultSize = 128 -> int
+const Vixen.Core.Imaging.CubeLut.MaximumSize = 64 -> int
 const Vixen.Core.Imaging.CubeMap.Faces = 6 -> int
 const Vixen.Core.Imaging.DataFormatDescriptor.BasicBlockLength = 24 -> int
 const Vixen.Core.Imaging.DataFormatDescriptor.SampleLength = 16 -> int
@@ -205,6 +221,7 @@ static Vixen.Core.Imaging.BrdfLut.Generate(int size = 128, int samples = 1024) -
 static Vixen.Core.Imaging.BrdfLut.Integrate(float cosine, float roughness, int samples) -> (float Scale, float Bias)
 static Vixen.Core.Imaging.BrdfLut.Read(Vixen.Core.Imaging.TextureData table, int x, int y) -> (float Scale, float Bias)
 static Vixen.Core.Imaging.CubeImage.Uniform(int size, Vixen.Core.Mathematics.Vector3 radiance) -> Vixen.Core.Imaging.CubeImage
+static Vixen.Core.Imaging.CubeLut.Parse(string text) -> Vixen.Core.Imaging.TextureData
 static Vixen.Core.Imaging.CubeMap.DirectionOf(int face, float u, float v) -> Vixen.Core.Mathematics.Vector3
 static Vixen.Core.Imaging.CubeMap.DirectionOfTexel(int face, int x, int y, int size) -> Vixen.Core.Mathematics.Vector3
 static Vixen.Core.Imaging.CubeMap.FaceOf(Vixen.Core.Mathematics.Vector3 direction) -> (int Face, float U, float V)
@@ -229,6 +246,8 @@ static Vixen.Core.Imaging.EnvironmentPrefilter.RoughnessOf(int level, int levelC
 static Vixen.Core.Imaging.EnvironmentPrefilter.Specular(Vixen.Core.Imaging.TextureData cube, int levelCount = 0, int samples = 128) -> Vixen.Core.Imaging.TextureData
 static Vixen.Core.Imaging.ExrCodec.Decode(System.ReadOnlySpan<byte> data) -> Vixen.Core.Imaging.FloatImage
 static Vixen.Core.Imaging.ExrCodec.Encode(Vixen.Core.Imaging.FloatImage image, Vixen.Core.Imaging.ExrPixels pixels = Vixen.Core.Imaging.ExrPixels.Float) -> byte[]
+static Vixen.Core.Imaging.ImagePadding.Pad(Vixen.Core.Imaging.FloatImage image, System.ReadOnlySpan<bool> coverage, Vixen.Core.Imaging.PaddingMode mode, int distance, System.ReadOnlySpan<float> background = default(System.ReadOnlySpan<float>)) -> int
+static Vixen.Core.Imaging.ImageResize.Resize(Vixen.Core.Imaging.FloatImage image, int width, int height, Vixen.Core.Imaging.ResizeFilter filter = Vixen.Core.Imaging.ResizeFilter.Box) -> Vixen.Core.Imaging.FloatImage
 static Vixen.Core.Imaging.Ktx2.Identifier.get -> System.ReadOnlySpan<byte>
 static Vixen.Core.Imaging.Ktx2.LayoutLength(System.ReadOnlySpan<byte> head) -> int
 static Vixen.Core.Imaging.Ktx2.Read(System.ReadOnlySpan<byte> file) -> Vixen.Core.Imaging.TextureData
@@ -268,6 +287,3 @@ static Vixen.Core.Imaging.VkFormats.From(Vixen.Graphics.PixelFormat format) -> u
 static Vixen.Core.Imaging.VkFormats.Supported.get -> System.Collections.Generic.IEnumerable<Vixen.Graphics.PixelFormat>
 static Vixen.Core.Imaging.VkFormats.To(uint vkFormat) -> Vixen.Graphics.PixelFormat
 static readonly Vixen.Core.Imaging.CubeMapping.Faces -> Vixen.Core.Imaging.CubeFace[]
-const Vixen.Core.Imaging.CubeLut.MaximumSize = 64 -> int
-static Vixen.Core.Imaging.CubeLut.Parse(string text) -> Vixen.Core.Imaging.TextureData
-Vixen.Core.Imaging.CubeLut -> static class

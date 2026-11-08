@@ -8,7 +8,7 @@ api: [T:Vixen.Core.Imaging.ExrCodec, T:Vixen.Core.Imaging.ExrPixels, T:Vixen.Cor
 tags: [imaging, png, exr, openexr, bake, 16-bit]
 since: 0.1
 status: preview
-related: [engine/map-baking, rendering/capturing-a-frame]
+related: [engine/map-baking, rendering/capturing-a-frame, core/padding-and-resizing, assets/writing-images]
 ---
 
 ## What it is

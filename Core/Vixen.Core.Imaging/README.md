@@ -34,6 +34,15 @@ platform, and a flat image with one compression method is about two hundred line
 this assembly already has. It reads what it writes, and a tiled, deep or multi-part file is refused.
 Checked against macOS ImageIO and FFmpeg, neither of which shares a line with it.
 
+## Padding and resizing
+
+`ImagePadding` fills a picture's background from its islands — infinite dilation, or dilation by a
+distance followed by transparency, a colour or a pull-push diffusion — on `MapBaker.Dilate`'s two rules:
+coverage is read and never written, and a round commits after it finishes. `ImageResize` changes a
+`FloatImage`'s size with a box, bilinear or nearest filter. Both are for exporting a texture, where the
+background bleeds into mips and a smaller size has to average every texel. See
+[padding and resizing](../../docs/guide/core/padding-and-resizing.md).
+
 ## KTX2
 
 **Level data is stored smallest first.** The level index is ordered largest first and the bytes it
