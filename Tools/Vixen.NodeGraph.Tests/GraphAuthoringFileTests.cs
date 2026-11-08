@@ -35,11 +35,11 @@ public class GraphAuthoringFileTests {
     [Fact]
     public void A_frame_keeps_its_colour_and_description() {
         NodeGraphModel graph = new();
-        graph.Groups.Add(new() { Title = "Rust", Color = "var(--color-chart-3)", Description = "Where the edges wear." });
+        graph.Groups.Add(new() { Title = "Rust", Color = "#1baf7a", Description = "Where the edges wear." });
 
         var group = Assert.Single(RoundTrip(graph, out _).Groups);
 
-        Assert.Equal("var(--color-chart-3)", group.Color);
+        Assert.Equal("#1baf7a", group.Color);
         Assert.Equal("Where the edges wear.", group.Description);
     }
 

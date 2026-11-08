@@ -164,10 +164,11 @@ public sealed class GraphGroup {
     /// <summary>Which nodes are in it.</summary>
     public List<NodeId> Nodes { get; } = [];
 
-    /// <summary>The colour its frame is drawn in, as a CSS colour, or empty for the view's own choice.</summary>
+    /// <summary>The colour its frame is drawn in, as <c>#rrggbb</c>, or empty for the view's own choice.</summary>
     /// <remarks>
-    ///     Text rather than a <c>Color</c>, because what a view can draw is the view's business: a token
-    ///     such as <c>var(--color-chart-3)</c> follows a theme, and a number would freeze one.
+    ///     A plain colour, so that any program reading the file can draw it. A view that follows a theme maps
+    ///     the colours it offers to its own and back; a theme's token, such as a CSS variable, is never what
+    ///     the file holds, since no other reader could resolve it.
     /// </remarks>
     public string Color { get; set; } = "";
 

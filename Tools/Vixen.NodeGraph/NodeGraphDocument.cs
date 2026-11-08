@@ -70,7 +70,7 @@ public sealed record GraphGroupAsset {
     /// <summary>Which nodes are in it.</summary>
     public int[] Nodes { get; init; } = [];
 
-    /// <summary>The colour its frame is drawn in, or empty for the view's own choice.</summary>
+    /// <summary>The colour its frame is drawn in, as <c>#rrggbb</c>, or empty for the view's own choice.</summary>
     public string Color { get; init; } = string.Empty;
 
     /// <summary>What the nodes in it do together.</summary>
