@@ -186,6 +186,25 @@ public class BakeSettingsTests {
         Assert.True(seen > 0, string.Join(" · ", skipped.Warnings));
     }
 
+    /// <summary>A minimum occluder distance at or past the occlusion radius is refused.</summary>
+    /// <remarks>
+    ///     Every ray would start past its own reach and see nothing, so the occlusion would be white and
+    ///     the bent normal the normal, under a ceiling a tenth up that makes them nearly black. Thickness
+    ///     reads the radius only, so the same minimum is no reason to refuse it.
+    /// </remarks>
+    [Theory]
+    [InlineData(MeshMaps.AmbientOcclusion, 0.5f)]
+    [InlineData(MeshMaps.AmbientOcclusion, 2f)]
+    [InlineData(MeshMaps.BentNormal, 0.5f)]
+    public void A_minimum_occluder_distance_at_or_past_the_radius_is_refused(MeshMaps maps, float minimum) {
+        BakeSettings settings = new() { Resolution = 24, Maps = maps, OcclusionRadius = 0.5f, OcclusionMinimum = minimum };
+
+        var refused = Assert.Throws<ArgumentOutOfRangeException>(() => Sealed(settings));
+        Assert.Equal("settings", refused.ParamName);
+
+        Assert.NotEmpty(Covered(Sealed(settings with { Maps = MeshMaps.Thickness })));
+    }
+
     /// <summary>An occlusion ray ignoring backfaces passes through a ceiling seen from behind.</summary>
     /// <remarks>The ceiling faces up, so the floor's rays meet the back of it.</remarks>
     [Fact]
