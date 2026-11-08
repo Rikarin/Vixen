@@ -6,6 +6,18 @@ package Vixen.TextureGraph.Shaders
 // Doc 48 § 4.1's eight shapes: disc · square · triangle · paraboloid · gaussian · cone · half-bell ·
 // gradation, under a scale, a rotation and a falloff. The splatter's usual pattern input.
 //
+// Patina #168 added seven more: a regular polygon with `sides`, a star with `sides` points whose
+// valleys sit at `inner` of the radius, a ring whose hole is `inner` of the radius, a capsule whose
+// half thickness is `inner`, a crescent cut by a second disc shifted `2 · inner` radii to the right,
+// a square pyramid and a hemisphere. The first five are boundaries softened over `falloff`; the last
+// two are profiles and carry their softness in their formula, as the gaussian does.
+//
+// ⚠ **Every boundary kind measures how deep a point is inside it, in units of the radius**, and
+// `falloff` is a fraction of that depth — so a ring and a capsule soften over the same width a disc
+// does. The star is the exception that has to be: a star's inside is not a distance from anything
+// simple, so it is measured along the ray from the centre — `|p|` over the boundary's radius in that
+// direction — which is still one on the boundary and nought at the centre.
+//
 // **Analytic rather than rasterised**, which is what § 4.1's table asks for and what makes this the
 // cheapest kernel in the catalogue to prove scale-invariant: the value of a texel is a closed-form
 // function of its *normalised* position, so the same authored shape is the same picture at 1K and at
@@ -24,7 +36,8 @@ package Vixen.TextureGraph.Shaders
 // flip y into a y-up frame first so that a triangle at rotation zero points up on screen.
 
 shader Shape {
-    /// 0 disc · 1 square · 2 triangle · 3 paraboloid · 4 gaussian · 5 cone · 6 half-bell · 7 gradation.
+    /// 0 disc · 1 square · 2 triangle · 3 paraboloid · 4 gaussian · 5 cone · 6 half-bell · 7 gradation ·
+    /// 8 polygon · 9 star · 10 ring · 11 capsule · 12 crescent · 13 pyramid · 14 hemisphere.
     ///
     /// ⚠ **A uniform and not a `[Permutation]`, for the reason `Shaders/README.md` gives about the
     /// blend mode** — and with more force here, because a permutation cannot be selected at all
@@ -47,6 +60,13 @@ shader Shape {
     /// spelling of `scale`. A test asserts the paraboloid ignores it, so the exception is written
     /// down rather than discovered.
     var falloff: float = 0.01f
+
+    /// How many sides a polygon has, or how many points a star. Three to sixty-four.
+    var sides: int = 6
+
+    /// A star's valleys, a ring's hole, a capsule's half thickness or a crescent's cut, as a fraction of
+    /// the radius.
+    var inner: float = 0.5f
 
     var centreX: float = 0.5f
 
@@ -75,6 +95,15 @@ shader Shape {
     /// what pins its width to `scale` rather than leaving it a taste.
     const val GaussianDecay: float = 6.907755f
 
+    const val Pi: float = 3.14159265f
+
+    const val TwoPi: float = 6.2831853f
+
+    /// The fewest sides a polygon or star may have, and the most.
+    const val FewestSides: int = 3
+
+    const val MostSides: int = 64
+
     /// The offset from the centre to the nearest copy of it along an axis that wraps.
     func Nearest(offset: float, wrap: int): float {
         if (wrap == 0) {
@@ -86,7 +115,7 @@ shader Shape {
 
     /// How far out the shape's own boundary the point is: 0 at the centre, 1 on the boundary.
     func Reach(p: float2, shape: int): float {
-        if (shape == 1) {
+        if (shape == 1 || shape == 13) {
             return max(abs(p.x), abs(p.y))
         }
 
@@ -100,6 +129,80 @@ shader Shape {
         }
 
         return length(p)
+    }
+
+    /// How many sides, inside the kernel's range.
+    func Sides(): int => clamp(sides, FewestSides, MostSides)
+
+    /// A regular polygon's reach: the largest projection on an edge normal over the apothem, so one on
+    /// every edge. One vertex points up at rotation zero, as the triangle's does, so three sides is the
+    /// triangle.
+    ///
+    /// The nearest edge normal is the one nearest in angle, so it is found in one step rather than by
+    /// a loop over every edge.
+    func PolygonReach(p: float2): float {
+        val q = float2(p.x, -p.y)
+        val count = float(Sides())
+        val step = TwoPi / count
+        val first = Pi * 0.5f + Pi / count
+        val turn = round((atan2(q.y, q.x) - first) / step)
+        val angle = first + turn * step
+
+        return (q.x * cos(angle) + q.y * sin(angle)) / cos(Pi / count)
+    }
+
+    /// A star's reach along the ray through `p`: `|p|` over the radius of the edge that ray meets. One
+    /// tip points up at rotation zero.
+    ///
+    /// The ray's angle is folded into the half sector between a tip and the valley beside it, where the
+    /// edge runs from the tip `(1, 0)` to the valley at `inner` and half a sector round; the radius it
+    /// meets is where the ray crosses that line.
+    func StarReach(p: float2): float {
+        val q = float2(p.x, -p.y)
+        val radius = length(q)
+        val half = Pi / float(Sides())
+        val fromTip = atan2(q.y, q.x) - Pi * 0.5f
+        val folded = abs(fromTip - 2f * half * round(fromTip / (2f * half)))
+        val tip = float2(1f, 0f)
+        val valley = float2(cos(half), sin(half)) * clamp(inner, 0.0001f, 1f)
+        val edge = valley - tip
+        val ray = float2(cos(folded), sin(folded))
+        val boundary = (edge.x * tip.y - edge.y * tip.x) / (edge.x * ray.y - edge.y * ray.x)
+
+        return radius / max(boundary, 0.00001f)
+    }
+
+    /// How deep `p` is inside one of the five boundary kinds Patina #168 added, in radii: positive
+    /// inside, nought on the boundary.
+    func Depth(p: float2, shape: int): float {
+        if (shape == 8) {
+            return 1f - PolygonReach(p)
+        }
+
+        if (shape == 9) {
+            return 1f - StarReach(p)
+        }
+
+        val q = float2(p.x, -p.y)
+        val hole = clamp(inner, 0f, 1f)
+
+        if (shape == 10) {
+            // Half the band's width less the distance from its middle circle.
+            return (1f - hole) * 0.5f - abs(length(q) - (1f + hole) * 0.5f)
+        }
+
+        if (shape == 11) {
+            // A segment along x whose ends are the capsule's tips less its half thickness.
+            val reach = max(1f - hole, 0f)
+            val nearest = float2(clamp(q.x, -reach, reach), 0f)
+
+            return hole - length(q - nearest)
+        }
+
+        // The crescent: inside the disc and outside the one shifted right by `2 · inner`.
+        val cut = float2(2f * hole, 0f)
+
+        return min(1f - length(q), length(q - cut) - 1f)
     }
 
     /// The reach turned into a value.
@@ -126,6 +229,14 @@ shader Shape {
             return saturate(axis * 0.5f + 0.5f)
         }
 
+        if (shape == 13) {
+            return saturate(1f - reach)
+        }
+
+        if (shape == 14) {
+            return sqrt(saturate(1f - reach * reach))
+        }
+
         // Disc, square and triangle: a hard boundary softened over `falloff` of the radius. The max
         // is what keeps a falloff of zero a step rather than a division by zero written into a file.
         return saturate((1f - reach) / max(falloff, 0.00001f))
@@ -146,7 +257,11 @@ shader Shape {
         val s = sin(rotation)
         val turned = float2(centred.x * c + centred.y * s, -centred.x * s + centred.y * c)
         val p = turned * (2f / max(scale, 0.00001f))
-        val value = Profile(Reach(p, kind), p.x, kind)
+        var value = Profile(Reach(p, kind), p.x, kind)
+
+        if (kind >= 8 && kind <= 12) {
+            value = saturate(Depth(p, kind) / max(falloff, 0.00001f))
+        }
 
         target.Store(coord, float4(value, value, value, 1f))
     }

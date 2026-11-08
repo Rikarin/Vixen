@@ -5,7 +5,7 @@ using System.Collections.Immutable;
 
 namespace Vixen.TextureGraph;
 
-/// <summary>Which of <c>Shape</c>'s eight patterns an op draws.</summary>
+/// <summary>Which of <c>Shape</c>'s fifteen patterns an op draws.</summary>
 /// <remarks>
 ///     ⚠ <b>The numbers are the contract with <c>Shaders/Shape.rvn</c>'s <c>kind</c>, which compares
 ///     against them literally.</b> Nothing in the compilation would notice a renumbering — the picture
@@ -36,7 +36,28 @@ internal enum TextureShapeKind {
     HalfBell = 6,
 
     /// <summary>A linear ramp along the shape's own x axis. Ignores <c>falloff</c>.</summary>
-    Gradation = 7
+    Gradation = 7,
+
+    /// <summary>A regular polygon of <c>sides</c> sides, one vertex up. Three sides is <see cref="Triangle" />.</summary>
+    Polygon = 8,
+
+    /// <summary>A star of <c>sides</c> points, its valleys at <c>inner</c> of the radius, one point up.</summary>
+    Star = 9,
+
+    /// <summary>A disc with a hole of <c>inner</c> of its radius.</summary>
+    Ring = 10,
+
+    /// <summary>A stadium along the shape's x axis, tip to tip across the diameter, <c>inner</c> thick each side.</summary>
+    Capsule = 11,
+
+    /// <summary>A disc less a second disc of the same size shifted right by <c>2 · inner</c> radii.</summary>
+    Crescent = 12,
+
+    /// <summary><c>1 − max(|x|, |y|)</c>: a square pyramid. Ignores <c>falloff</c>.</summary>
+    Pyramid = 13,
+
+    /// <summary><c>√(1 − r²)</c>: a hemisphere's height. Ignores <c>falloff</c>.</summary>
+    Hemisphere = 14
 }
 
 /// <summary>Which sweep a <c>Gradient</c> op runs along its ramp.</summary>
@@ -74,7 +95,30 @@ internal enum TextureNoiseBasis {
     Worley = 2,
 
     /// <summary>One uncorrelated value per <em>cell</em> — see <c>Noise.rvn</c> on why not per texel.</summary>
-    White = 3
+    White = 3,
+
+    /// <summary>
+    ///     Value noise over normally distributed corners, so its histogram is a bell about a half rather
+    ///     than a plateau. Grey.
+    /// </summary>
+    Gaussian = 4
+}
+
+/// <summary>How a <c>Noise</c> op folds each octave before it sums them.</summary>
+/// <remarks>
+///     ⚠ <b>Per octave and not on the sum</b>, which is the difference between a ridged field and a
+///     contour line: folding the sum creases it once, along the one level where it crosses a half,
+///     while folding each octave creases every scale of it.
+/// </remarks>
+internal enum TextureNoiseProfile {
+    /// <summary>The octave as it is.</summary>
+    Plain = 0,
+
+    /// <summary><c>1 − |2v − 1|</c>: bright ridges where the plain value crosses a half.</summary>
+    Ridged = 1,
+
+    /// <summary><c>|2v − 1|</c>: the ridged fold's complement, dark creases and round billows.</summary>
+    Billow = 2
 }
 
 /// <summary>How a <c>Worley</c> lattice measures the distance to a feature point.</summary>
@@ -227,19 +271,23 @@ internal static class TextureSources {
             ]
         };
 
-    /// <summary>One of the eight analytic patterns.</summary>
+    /// <summary>One of the fifteen analytic patterns.</summary>
     /// <param name="output">The image to write.</param>
     /// <param name="kind">Which pattern.</param>
     /// <param name="scale">Its diameter as a fraction of the image.</param>
     /// <param name="rotation">Radians, clockwise on screen.</param>
     /// <param name="falloff">
-    ///     The width of the soft edge, in units of the radius. ⚠ Read only by
-    ///     <see cref="TextureShapeKind.Disc" />, <see cref="TextureShapeKind.Square" /> and
-    ///     <see cref="TextureShapeKind.Triangle" />; the five profiles carry their falloff in their
-    ///     formula.
+    ///     The width of the soft edge, in units of the radius. ⚠ Read only by the boundary kinds — disc,
+    ///     square, triangle, polygon, star, ring, capsule and crescent; the seven profiles carry their
+    ///     falloff in their formula.
     /// </param>
     /// <param name="centreX">Where, in 0..1 of the image.</param>
     /// <param name="centreY">Where, in 0..1 of the image.</param>
+    /// <param name="sides">How many sides a polygon has, or points a star. Three to sixty-four.</param>
+    /// <param name="inner">
+    ///     A star's valleys, a ring's hole, a capsule's half thickness or a crescent's cut, as a
+    ///     fraction of the radius. Read by those four kinds only.
+    /// </param>
     /// <returns>The op.</returns>
     public static TextureOp Shape(
         int output,
@@ -248,7 +296,9 @@ internal static class TextureSources {
         float rotation = 0f,
         float falloff = 0.01f,
         float centreX = 0.5f,
-        float centreY = 0.5f
+        float centreY = 0.5f,
+        int sides = 6,
+        float inner = 0.5f
     ) =>
         new() {
             Kernel = "Shape",
@@ -259,7 +309,9 @@ internal static class TextureSources {
                 new("rotation", rotation),
                 new("falloff", falloff),
                 new("centreX", centreX),
-                new("centreY", centreY)
+                new("centreY", centreY),
+                new("sides", sides),
+                new("inner", inner)
             ]
         };
 
@@ -272,8 +324,14 @@ internal static class TextureSources {
     /// <param name="gain">The amplitude multiplier between octaves.</param>
     /// <param name="metric">
     ///     What a cell's shape is. ⚠ Read by <see cref="TextureNoiseBasis.Worley" /> and by nothing
-    ///     else — the other three bases have no feature point to measure to.
+    ///     else — the other bases have no feature point to measure to.
     /// </param>
+    /// <param name="scaleX">A multiplier on <paramref name="scale" /> along x.</param>
+    /// <param name="scaleY">A multiplier on <paramref name="scale" /> along y.</param>
+    /// <param name="offsetX">A shift of the lattice along x, in cells of octave zero.</param>
+    /// <param name="offsetY">A shift of the lattice along y, in cells of octave zero.</param>
+    /// <param name="minOctave">The first octave summed; the coarser ones are skipped.</param>
+    /// <param name="profile">How each octave is folded before it is summed.</param>
     /// <returns>The op. Its <c>seed</c> is supplied by the evaluator from <see cref="TexturePlan.SeedFor" />.</returns>
     public static TextureOp Noise(
         int output,
@@ -282,7 +340,13 @@ internal static class TextureSources {
         int octaves = 1,
         float lacunarity = 2f,
         float gain = 0.5f,
-        TextureCellMetric metric = TextureCellMetric.Euclidean
+        TextureCellMetric metric = TextureCellMetric.Euclidean,
+        float scaleX = 1f,
+        float scaleY = 1f,
+        float offsetX = 0f,
+        float offsetY = 0f,
+        int minOctave = 0,
+        TextureNoiseProfile profile = TextureNoiseProfile.Plain
     ) =>
         new() {
             Kernel = "Noise",
@@ -291,9 +355,15 @@ internal static class TextureSources {
                 new("basis", (float)basis),
                 new("metric", (float)metric),
                 new("scale", scale),
+                new("scaleX", scaleX),
+                new("scaleY", scaleY),
+                new("offsetX", offsetX),
+                new("offsetY", offsetY),
                 new("octaves", octaves),
+                new("minOctave", minOctave),
                 new("lacunarity", lacunarity),
-                new("gain", gain)
+                new("gain", gain),
+                new("profile", (float)profile)
             ]
         };
 

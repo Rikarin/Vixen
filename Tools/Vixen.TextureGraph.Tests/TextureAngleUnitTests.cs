@@ -59,7 +59,11 @@ public class TextureAngleUnitTests {
             + "at — it is the sweep's output being normalised, not the parameter being decoded."),
         ("Triplanar",
             "Its `rotation` is radians and goes straight to cos and sin. The constants turn atan2's and "
-            + "acos's own results into a coordinate on the picture, which is an output being normalised.")
+            + "acos's own results into a coordinate on the picture, which is an output being normalised."),
+        ("Shape",
+            "Its `rotation` is radians and goes straight to cos and sin. Pi and TwoPi divide a whole turn by a "
+            + "polygon's or a star's side count to find the sector atan2's result falls in, which is geometry "
+            + "on the shape's own angle and not the parameter being decoded (Patina #168).")
     ];
 
     /// <summary>Angle parameters that must be found, or the parse below has stopped working.</summary>
