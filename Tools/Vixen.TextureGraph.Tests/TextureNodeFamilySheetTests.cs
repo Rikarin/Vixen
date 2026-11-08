@@ -14,7 +14,7 @@ namespace Tests;
 ///     as <c>sheet.png</c>, in the order below. Without the variable the case does nothing — the oracles are in
 ///     the family tests, and this is the picture those tests are not.
 /// </remarks>
-public class TextureNodeFamilySheetTests {
+public class TextureNodeFamilySheetTests(ITestOutputHelper output) {
     const int Side = 256;
 
     static readonly byte[] Ramp = Grey(Side, Side, (x, y) => (((y * Side) + x) / (float)(Side * Side)) * (((y * Side) + x) / (float)(Side * Side)));
@@ -121,6 +121,8 @@ public class TextureNodeFamilySheetTests {
         Directory.CreateDirectory(folder);
 
         using var device = TextureKernelHarness.Open();
+
+        output.WriteLine($"adapter: {TextureKernelHarness.Adapter(device)}");
 
         const int Across = 6;
         var rows = (Subjects.Length + Across - 1) / Across;
