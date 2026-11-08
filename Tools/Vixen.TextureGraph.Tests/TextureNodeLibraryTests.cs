@@ -127,6 +127,7 @@ public class TextureNodeLibraryTests {
         [("SelectInput", "wired")] = "Not a default: one bit per slot that has a wire, and the fixture wires two.",
         [("HistogramPlot", "mode")] = "Not a default: Analysis/Histogram and Analysis/Histogram Render are the same "
             + "kernel, and the fixture's render draws bars where the kernel's own nought is the density strip.",
+        [("NormalBlend", "masked")] = "Not a default: it says whether the Mask port is wired, and the fixture wires it.",
         [("SummedArea", "axis")] = "Not a default: set per pass by Analysis/Summed Area Table's chain, x first and "
             + "then y.",
         [("SummedArea", "stride")] = "Multiplied by eight per pass along each axis. Its whole point is that it is "
@@ -710,6 +711,17 @@ public class TextureNodeLibraryTests {
 
         graph.Connect(heightToNormal, "Out", normalToHeight, "Normal");
         graph.Connect(normalToHeight, "Out", occlusion, "Height");
+
+        // Patina #176's shadow and normal mix, downstream of the same height and its two normals. The mix's
+        // optional mask is wired, to a smooth field: the shadow's hard edge would move a texel between 16
+        // and 32 bits and take the mix with it.
+        var heightShadow = graph.Add("Surface/Height Shadow");
+        var normalBlend = graph.Add("Surface/Normal Blend");
+
+        graph.Connect(slopeBlur, "Out", heightShadow, "Height");
+        graph.Connect(heightToNormal, "Out", normalBlend, "Background");
+        graph.Connect(normalCombine, "Out", normalBlend, "Foreground");
+        graph.Connect(distance, "Out", normalBlend, "Mask");
 
         // The colour side. ⚠ The blend takes a colour and a grey, so the compiler's promotion is on
         // this path too — the one op in the plan no node emitted.

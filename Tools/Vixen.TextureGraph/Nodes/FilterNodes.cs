@@ -463,16 +463,41 @@ sealed partial class Transform2DNode : TextureNode {
 ///         and a mask agree on, and picking one would be a distance field measured from a boundary
 ///         the author never chose.
 ///     </para>
+///     <para>
+///         <b>With <c>Source</c> wired it spreads a colour instead of measuring one</b> (Patina #174):
+///         every texel within <c>Max Distance</c> of the shape takes <c>Source</c>'s colour at the
+///         nearest texel inside it, and every texel beyond is transparent black. That is a dilation
+///         by colour — padding round islands, an outline the colour of what it outlines — and
+///         <c>Fade</c> multiplies it by the falling distance. <c>Mode</c> does not apply to it: the
+///         colour is always the shape's own.
+///     </para>
+///     <para>
+///         <b><c>Metric</c> changes what "near" means</b>: <c>Euclidean</c> grows a shape with round
+///         corners, <c>Chebyshev</c> keeps them square and <c>Manhattan</c> chamfers them, which is
+///         what a bevel's profile at a corner looks like under each.
+///     </para>
 /// </remarks>
-[Node("Analysis/Distance", Preview = true, Summary = "A distance field from a mask, by jump flood.")]
+[Node("Analysis/Distance", Preview = true, Summary = "A distance field from a mask, or a colour spread from it, by jump flood.")]
 sealed partial class DistanceNode : TextureNode {
     /// <summary>Which side is measured: <c>Outside</c>, <c>Inside</c> or <c>Both</c>.</summary>
     [Setting(AcceptedFrom = typeof(TextureDistanceMode))]
     public string Mode = "Outside";
 
+    /// <summary>How a length is measured: <c>Euclidean</c>, <c>Manhattan</c> or <c>Chebyshev</c>.</summary>
+    [Setting(AcceptedFrom = typeof(TextureDistanceMetric))]
+    public string Metric = "Euclidean";
+
     /// <summary>The mask to measure from. A single channel.</summary>
     [Input(Name = "Mask")]
     public Image Mask;
+
+    /// <summary>A colour to spread from the shape instead of a distance. Optional.</summary>
+    [Input(Name = "Source")]
+    public Image Source;
+
+    /// <summary>Whether a spread colour darkens with the distance from the shape.</summary>
+    [Input]
+    public Bool Fade = false;
 
     /// <summary>How far the field reaches, as a fraction of the image's longer side.</summary>
     [Input(Name = "Max Distance", Minimum = 0f, SoftMaximum = 1f)]
@@ -491,10 +516,13 @@ sealed partial class DistanceNode : TextureNode {
         ArgumentNullException.ThrowIfNull(emitter);
 
         var mode = TextureSettings.Enum(emitter, nameof(Mode), TextureDistanceMode.Outside);
+        var metric = TextureSettings.Enum(emitter, nameof(Metric), TextureDistanceMetric.Euclidean);
         var mask = emitter.ReadGrey("Mask");
-        var target = emitter.Write("Out", TextureChannels.Grey);
+        var coloured = Binding.IsConnected("Source");
+        var source = coloured ? emitter.Read("Source", TextureChannels.Colour) : -1;
+        var target = emitter.Write("Out", coloured ? TextureChannels.Colour : TextureChannels.Grey);
 
-        if (mask < 0) {
+        if (mask < 0 || (coloured && source < 0)) {
             return;
         }
 
@@ -520,7 +548,10 @@ sealed partial class DistanceNode : TextureNode {
                     height,
                     mode,
                     emitter.Number("Max Distance"),
-                    emitter.Number(nameof(Threshold))
+                    emitter.Number(nameof(Threshold)),
+                    metric,
+                    source,
+                    emitter.Flag(nameof(Fade))
                 )
             );
         } catch (ArgumentException refusal) {

@@ -42,9 +42,11 @@ public class TextureFormatDeviceTests(ITestOutputHelper output) {
     ///     texel, 255 levels, and both bakes right. Patina #171's <c>Colour/Palette</c> drew that on its
     ///     first run, and <c>Colour/Threshold</c> and <c>Colour/Quantise</c> have the same edges and had
     ///     missed them by luck. So for these the rule is that a flip is rare — a texel in 256 — rather than
-    ///     absent; a format that moved the step itself would flip a band, not a speck.
+    ///     absent; a format that moved the step itself would flip a band, not a speck. Patina #176's
+    ///     <c>Surface/Height Shadow</c> is a step too at its default hardness: a horizon a hair above the
+    ///     light's elevation at one depth is a hair below it at the other.
     /// </remarks>
-    static readonly HashSet<string> Stepped = ["Colour/Palette", "Colour/Quantise", "Colour/Threshold"];
+    static readonly HashSet<string> Stepped = ["Colour/Palette", "Colour/Quantise", "Colour/Threshold", "Surface/Height Shadow"];
 
     /// <summary>Every node a graph with nothing but wires can hold, one graph each.</summary>
     static IEnumerable<(string Path, NodeGraphModel Graph)> Library(NodeTypeRegistry registry) {
