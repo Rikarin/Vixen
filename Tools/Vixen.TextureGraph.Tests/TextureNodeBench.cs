@@ -25,9 +25,13 @@ namespace Tests;
 static class TextureNodeBench {
     /// <summary>A picture wired to one image port.</summary>
     /// <param name="Port">The port.</param>
-    /// <param name="Texels">RGBA8, row by row, at the plan's size.</param>
+    /// <param name="Texels">RGBA8, row by row, at the plan's size. Ignored when <paramref name="Source" /> is set.</param>
     /// <param name="Grey">Whether the port measures, so the picture goes in as its red channel alone.</param>
-    public sealed record Wire(string Port, byte[] Texels, bool Grey = false);
+    /// <param name="Source">
+    ///     A node type drawing the picture instead, at its defaults, for a test that needs values finer than a
+    ///     byte — a <c>Source/Gradient</c> sweep is exactly <c>(x + ½) / w</c>.
+    /// </param>
+    public sealed record Wire(string Port, byte[] Texels, bool Grey = false, string? Source = null);
 
     /// <summary>Bakes one node and reads back the image on one of its outputs.</summary>
     /// <param name="device">The device.</param>
@@ -37,6 +41,7 @@ static class TextureNodeBench {
     /// <param name="wires">What goes into the image ports.</param>
     /// <param name="configure">Sets the node's numbers and texts.</param>
     /// <param name="seed">The graph's seed.</param>
+    /// <param name="tiling">Whether the graph tiles, which is what a graph that says nothing does.</param>
     /// <returns>The output, as floats.</returns>
     public static Lanes Bake(
         VulkanDevice device,
@@ -45,21 +50,29 @@ static class TextureNodeBench {
         int height,
         Wire[] wires,
         Action<GraphNode>? configure = null,
-        int seed = 7717
+        int seed = 7717,
+        bool tiling = true
     ) {
         NodeGraphModel graph = new();
 
         graph.Settings[TextureGraphSettings.BitDepth] = "32";
+
+        if (!tiling) {
+            graph.Settings[TextureGraphSettings.TilingX] = "false";
+            graph.Settings[TextureGraphSettings.TilingY] = "false";
+        }
 
         var subject = graph.Add(path);
 
         configure?.Invoke(subject);
 
         for (var at = 0; at < wires.Length; at++) {
-            var bitmap = graph.Add("Source/Bitmap");
+            var bitmap = graph.Add(wires[at].Source ?? "Source/Bitmap");
 
-            bitmap.SetText("Source", $"picture{at}");
-            bitmap.SetText("Filter", "Point");
+            if (wires[at].Source is null) {
+                bitmap.SetText("Source", $"picture{at}");
+                bitmap.SetText("Filter", "Point");
+            }
 
             var fed = bitmap;
 

@@ -124,7 +124,15 @@ public class TextureNodeLibraryTests {
             + "kernel either way, and each node sets the direction its name says.",
         [("Polar", "toPolar")] = "Not a default: Space/Cartesian to Polar and Space/Polar to Cartesian are the same "
             + "kernel either way, and each node sets the direction its name says.",
-        [("SelectInput", "wired")] = "Not a default: one bit per slot that has a wire, and the fixture wires two."
+        [("SelectInput", "wired")] = "Not a default: one bit per slot that has a wire, and the fixture wires two.",
+        [("HistogramPlot", "mode")] = "Not a default: Analysis/Histogram and Analysis/Histogram Render are the same "
+            + "kernel, and the fixture's render draws bars where the kernel's own nought is the density strip.",
+        [("SummedArea", "axis")] = "Not a default: set per pass by Analysis/Summed Area Table's chain, x first and "
+            + "then y.",
+        [("SummedArea", "stride")] = "Multiplied by eight per pass along each axis. Its whole point is that it is "
+            + "not constant.",
+        [("SummedArea", "first")] = "As MinMaxReduce's: one on the first pass only, which divides by the texel "
+            + "count, and nought on every pass that reads an already-divided sum."
     };
 
     /// <summary>The nine usages, one per <c>Output</c> node the fixture places.</summary>
@@ -852,6 +860,15 @@ public class TextureNodeLibraryTests {
 
         graph.Connect(invert, "Out", rotateByMap, "Input");
         graph.Connect(grayscale, "Out", rotateByMap, "Rotation");
+
+        // Patina #172's statistics: three measure a grey, and the summed-area table takes either.
+        foreach (var path in (string[])[
+                     "Analysis/Histogram", "Analysis/Histogram Render", "Colour/Histogram Equalise"
+                 ]) {
+            graph.Connect(grayscale, "Out", graph.Add(path), "Input");
+        }
+
+        graph.Connect(invert, "Out", graph.Add("Analysis/Summed Area Table"), "Input");
 
         graph.Keep(vectorWarp, "baseColor");
         graph.Keep(normalTransform, "normal");

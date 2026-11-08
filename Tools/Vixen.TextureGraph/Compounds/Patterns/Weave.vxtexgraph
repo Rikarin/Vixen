@@ -1,0 +1,102 @@
+version: 1
+name: Weave
+nodes:
+  - id: 1
+    type: Source/Gradient
+    x: -1280
+    y: -200
+    values: {}
+    texts:
+      Kind: Reflected
+  - id: 2
+    type: Space/Tile
+    x: -960
+    y: -200
+    values:
+      Repeat Y: [1]
+    texts:
+      '=Repeat X': threads
+  - id: 3
+    type: Source/Gradient
+    x: -1280
+    y: 100
+    values:
+      Angle: [1.5707964]
+    texts:
+      Kind: Reflected
+  - id: 4
+    type: Space/Tile
+    x: -960
+    y: 100
+    values:
+      Repeat X: [1]
+    texts:
+      '=Repeat Y': threads
+  - id: 5
+    type: Source/Checker
+    x: -960
+    y: 360
+    values: {}
+    texts:
+      '=Scale X': threads
+      '=Scale Y': threads
+  - id: 6
+    type: Colour/Mix
+    x: -640
+    y: 0
+    values: {}
+    texts: {}
+  - id: 7
+    type: Colour/Levels
+    x: -320
+    y: 0
+    values:
+      Output Black: [1]
+      Output White: [0]
+    texts:
+      '=Gamma': flatness
+  - id: 8
+    type: Colour/Grayscale
+    x: 0
+    y: 0
+    values: {}
+    texts: {}
+  - id: 9
+    type: Sub-graph/Output
+    x: 320
+    y: 0
+    values: {}
+    texts: {}
+edges:
+  - { fromNode: 1, fromPort: Out, toNode: 2, toPort: Input }
+  - { fromNode: 3, fromPort: Out, toNode: 4, toPort: Input }
+  - { fromNode: 4, fromPort: Out, toNode: 6, toPort: Background }
+  - { fromNode: 2, fromPort: Out, toNode: 6, toPort: Foreground }
+  - { fromNode: 5, fromPort: Out, toNode: 6, toPort: Mask }
+  - { fromNode: 6, fromPort: Out, toNode: 7, toPort: Input }
+  - { fromNode: 7, fromPort: Out, toNode: 8, toPort: Input }
+  - { fromNode: 8, fromPort: Out, toNode: 9, toPort: Out }
+groups: []
+comments: []
+interface:
+  - name: Out
+    direction: Output
+    kind: Image
+    default: []
+    summary: A plain weave as a height — in each square the thread on top, crossing one way and then the other.
+settings: { baseWidth: '1024', baseHeight: '1024', seed: '1' }
+parameters:
+  - name: threads
+    default: '8'
+    summary: How many threads across the image each way. A whole number, so the weave tiles.
+    kind: Float
+    minimum: 1
+    maximum: 64
+    group: Weave
+  - name: flatness
+    default: '2'
+    summary: How flat a thread's crown is. One is a ridge; more is a rounder, flatter thread.
+    kind: Float
+    minimum: 0.25
+    maximum: 8
+    group: Weave

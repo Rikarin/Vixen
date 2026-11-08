@@ -1,0 +1,56 @@
+version: 1
+name: Clouds
+nodes:
+  - id: 1
+    type: Source/Noise
+    x: -640
+    y: 0
+    values:
+      Octaves: [7]
+    texts:
+      Basis: Gaussian
+      '=Gain': roughness
+  - id: 2
+    type: Colour/Auto Levels
+    x: -320
+    y: 0
+    values: {}
+    texts: {}
+  - id: 3
+    type: Sub-graph/Output
+    x: 0
+    y: 0
+    values: {}
+    texts: {}
+  - id: 4
+    type: Sub-graph/Input
+    x: -960
+    y: 0
+    values: {}
+    texts: {}
+edges:
+  - { fromNode: 4, fromPort: Scale, toNode: 1, toPort: Scale }
+  - { fromNode: 1, fromPort: Out, toNode: 2, toPort: Input }
+  - { fromNode: 2, fromPort: Out, toNode: 3, toPort: Out }
+groups: []
+comments: []
+interface:
+  - name: Scale
+    direction: Input
+    kind: Float
+    default: [4]
+    summary: How many of the largest billows across the image.
+  - name: Out
+    direction: Output
+    kind: Image
+    default: []
+    summary: Soft clouds, stretched onto the full range — seven octaves of gaussian noise.
+settings: { baseWidth: '1024', baseHeight: '1024', seed: '1' }
+parameters:
+  - name: roughness
+    default: '0.55'
+    summary: How much each finer octave adds. Low is soft and billowing, high is broken and grainy.
+    kind: Float
+    minimum: 0
+    maximum: 1
+    group: Clouds

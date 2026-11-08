@@ -202,8 +202,13 @@ public sealed class TextureCompoundLibraryTests : IDisposable {
                 ], "§ 4.9's Utility row marks nine ●. ⚠ `Equalize` is the one written there as "
                     + "'Delight / Equalize' — one compound under both of doc 40 § D2's names, not two"),
                 ("Patterns/", [
-                    "Brick", "Cells", "Panels", "Rivets", "Scratches", "Tile Random", "Wood Grain"
-                ], "§ 4.9's Patterns row marks these seven ● and no others"),
+                    "Brick", "Cells", "Hex Cells", "Panels", "Rivets", "Scratches", "Stripes", "Tile Random",
+                    "Triangle Grid", "Varied Brick", "Weave", "Wood Grain"
+                ], "§ 4.9's Patterns row marks these twelve ● and no others; Weave, Hex Cells, Stripes, "
+                    + "Triangle Grid and Varied Brick are Patina #168's, and Hex Cells is the row's 'Hexagon Grid'"),
+                ("Noise/", [
+                    "Cell Walls", "Clouds", "Fractal Cells", "Liquid", "Spots", "Streaks"
+                ], "§ 4.9's Noise row marks these six ● — Patina #167's compounds over the widened Source/Noise"),
                 ("Grunges/", [
                     "Grunge Clouds", "Grunge Concrete", "Grunge Damage", "Grunge Fibres", "Grunge Leaks",
                     "Grunge Rust", "Grunge Scratches", "Grunge Smears"
@@ -259,9 +264,9 @@ public sealed class TextureCompoundLibraryTests : IDisposable {
             }
         );
 
-        // ⚠ The rows above are five hard-coded prefixes, so a compound shipped anywhere else is
+        // ⚠ The rows above are six hard-coded prefixes, so a compound shipped anywhere else is
         // checked by nothing — and the comment above, `Compounds/README.md` and doc 48 § 4.9 all say
-        // this class refuses a shipped file no ● names. A sixth folder, or a file at the root, would
+        // this class refuses a shipped file no ● names. A seventh folder, or a file at the root, would
         // have shipped with every assertion here green: the per-folder loop never sees it, and the
         // manifest comparison below only compares the disk with itself.
         Assert.All(

@@ -1,0 +1,87 @@
+version: 1
+name: Hex Cells
+nodes:
+  - id: 1
+    type: Source/Shape
+    x: -1280
+    y: 0
+    values:
+      Sides: [6]
+    texts:
+      Kind: Polygon
+      '=Scale': 0.6666667f * (1f - gap)
+      '=Falloff': bevel
+  - id: 2
+    type: Space/Transform 2D
+    x: -960
+    y: 0
+    values:
+      Scale X: [1.7320508]
+    texts: {}
+  - id: 3
+    type: Space/Transform 2D
+    x: -640
+    y: 160
+    values:
+      Offset X: [0.5]
+      Offset Y: [0.5]
+    texts: {}
+  - id: 4
+    type: Colour/Blend
+    x: -320
+    y: 0
+    values: {}
+    texts:
+      Mode: Lighten
+  - id: 5
+    type: Space/Tile
+    x: 0
+    y: 0
+    values: {}
+    texts:
+      '=Repeat X': columns
+      '=Repeat Y': columns * 0.57735027f
+  - id: 6
+    type: Sub-graph/Output
+    x: 320
+    y: 0
+    values: {}
+    texts: {}
+edges:
+  - { fromNode: 1, fromPort: Out, toNode: 2, toPort: Input }
+  - { fromNode: 2, fromPort: Out, toNode: 3, toPort: Input }
+  - { fromNode: 2, fromPort: Out, toNode: 4, toPort: Background }
+  - { fromNode: 3, fromPort: Out, toNode: 4, toPort: Foreground }
+  - { fromNode: 4, fromPort: Out, toNode: 5, toPort: Input }
+  - { fromNode: 5, fromPort: Out, toNode: 6, toPort: Out }
+groups: []
+comments: []
+interface:
+  - name: Out
+    direction: Output
+    kind: Image
+    default: []
+    summary: A honeycomb of hexagons, point up, one inside a cell and nought in the gap between cells.
+settings: { baseWidth: '1024', baseHeight: '1024', seed: '1' }
+parameters:
+  - name: columns
+    default: '8'
+    summary: How many hexagons across the image. The rows follow at √3 to keep them as regular as a whole number allows.
+    kind: Float
+    minimum: 1
+    maximum: 64
+    group: Cells
+  - name: gap
+    default: '0.1'
+    summary: How much of a hexagon the joint between two takes.
+    kind: Float
+    minimum: 0
+    maximum: 0.9
+    group: Cells
+  - name: bevel
+    default: '0.15'
+    summary: How soft a cell's edge is, in units of its radius.
+    kind: Float
+    minimum: 0.001
+    maximum: 1
+    group: Cells

@@ -158,9 +158,15 @@ public class TextureGraphDeviceTests(ITestOutputHelper output) {
                         new("basis", 0f),
                         new("metric", 0f),
                         new("scale", 6f),
+                        new("scaleX", 1f),
+                        new("scaleY", 1f),
+                        new("offsetX", 0f),
+                        new("offsetY", 0f),
                         new("octaves", 3f),
+                        new("minOctave", 0f),
                         new("lacunarity", 2f),
-                        new("gain", 0.5f)
+                        new("gain", 0.5f),
+                        new("profile", 0f)
                     ]
                 },
                 new() {

@@ -1,0 +1,79 @@
+version: 1
+name: Cell Walls
+nodes:
+  - id: 1
+    type: Source/Noise
+    x: -960
+    y: 0
+    values: {}
+    texts:
+      Basis: Worley
+      Metric: $Metric
+  - id: 2
+    type: Colour/Grayscale
+    x: -640
+    y: 0
+    values:
+      Weight R: [-1]
+      Weight G: [1]
+      Weight B: [0]
+      Normalise: [0]
+    texts: {}
+  - id: 3
+    type: Colour/Levels
+    x: -320
+    y: 0
+    values: {}
+    texts:
+      '=Input White': width
+  - id: 4
+    type: Colour/Invert
+    x: 0
+    y: 0
+    values: {}
+    texts: {}
+  - id: 5
+    type: Sub-graph/Output
+    x: 320
+    y: 0
+    values: {}
+    texts: {}
+  - id: 6
+    type: Sub-graph/Input
+    x: -1280
+    y: 0
+    values: {}
+    texts: {}
+edges:
+  - { fromNode: 6, fromPort: Cells, toNode: 1, toPort: Scale }
+  - { fromNode: 1, fromPort: Out, toNode: 2, toPort: Input }
+  - { fromNode: 2, fromPort: Out, toNode: 3, toPort: Input }
+  - { fromNode: 3, fromPort: Out, toNode: 4, toPort: Input }
+  - { fromNode: 4, fromPort: Out, toNode: 5, toPort: Out }
+groups: []
+comments: []
+interface:
+  - name: Cells
+    direction: Input
+    kind: Float
+    default: [8]
+    summary: How many cells across the image.
+  - name: Out
+    direction: Output
+    kind: Image
+    default: []
+    summary: The walls between Worley cells — one where two cells meet, falling to nought across the width.
+settings: { baseWidth: '1024', baseHeight: '1024', seed: '1' }
+parameters:
+  - name: width
+    default: '0.06'
+    summary: How far into a cell a wall reaches, as a difference between the distances to its two nearest points.
+    kind: Float
+    minimum: 0.001
+    maximum: 1
+    group: Walls
+  - name: Metric
+    default: Euclidean
+    summary: The cell shape. Euclidean is round, Chebyshev square, Manhattan diamond.
+    kind: Text
+    accepted: [Euclidean, Chebyshev, Manhattan]

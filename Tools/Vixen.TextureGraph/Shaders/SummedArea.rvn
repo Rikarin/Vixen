@@ -1,0 +1,76 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+package Vixen.TextureGraph.Shaders
+
+// Patina #172's summed-area table, one pass of a prefix sum along one axis at a time.
+//
+// **A pass adds eight texels a stride apart**: `out(x) = Σ in(x − j·stride)` for `j` in 0..7, the terms
+// left of the image taken as nought. After a pass at stride `8ᵏ` a texel holds the sum of the `8ᵏ⁺¹`
+// texels ending at it, so ⌈log₈ w⌉ passes along x and then ⌈log₈ h⌉ along y leave the sum of the whole
+// rectangle from the top-left corner to the texel, inclusive. A 4K image is four passes an axis.
+//
+// **Divided by the texel count on the first pass**, so the bottom-right texel is the image's mean rather
+// than a number that grows with the bake: the table is the same picture at every resolution, and the
+// mean over any rectangle `[x₀, x₁) × [y₀, y₁)` is
+// `(S(x₁−1, y₁−1) − S(x₀−1, y₁−1) − S(x₁−1, y₀−1) + S(x₀−1, y₀−1)) · w · h / area`, with `S` nought left of
+// or above the image.
+//
+// ⚠ **A table is only as good as its precision, and differencing it spends that precision.** The node
+// computes every pass in 32-bit float; what it hands on is at the graph's own depth, and a 16-bit graph
+// keeps about three significant digits of a sum — enough to look at and not enough to difference. A
+// graph baked for its table is a 32-bit graph.
+//
+// It does not tile and is not meant to: a sum from one corner is a function of where the corner is.
+
+shader SummedArea {
+    var source: Texture2D
+
+    /// 0 along x · 1 along y.
+    var axis: int = 0
+
+    /// How far apart this pass's eight terms are, in texels.
+    var stride: int = 1
+
+    /// Non-zero on the first pass, which divides by the texel count.
+    var first: int = 1
+
+    [Format("rgba32f")] var target: RWTexture2D<float4>
+
+    /// How many terms one pass adds: the base of the scan.
+    const val Terms: int = 8
+
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val coord = int2(int(id.x), int(id.y))
+        val size = target.GetDimensions()
+
+        if (coord.x >= size.x || coord.y >= size.y) {
+            return
+        }
+
+        var apart = int2(max(stride, 1), 0)
+
+        if (axis != 0) {
+            apart = int2(0, max(stride, 1))
+        }
+
+        var total = float4(0f, 0f, 0f, 0f)
+
+        for (term in 0 .. Terms - 1) {
+            val at = coord - apart * term
+
+            if (at.x < 0 || at.y < 0) {
+                break
+            }
+
+            total = total + source.Load(int3(at.x, at.y, 0))
+        }
+
+        if (first != 0) {
+            total = total / (float(size.x) * float(size.y))
+        }
+
+        target.Store(coord, total)
+    }
+}

@@ -46,7 +46,7 @@ sealed partial class UniformNode : TextureNode {
 /// <summary>A noise field.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Its output is grey for three of the four bases and colour for the fourth</b>, which is
+///         ⚠ <b>Its output is grey for four of the five bases and colour for <c>Worley</c></b>, which is
 ///         the cheapest demonstration that a node's channels are its own decision rather than its
 ///         input's: <c>Worley</c> writes F1, F2 and a cell index into red, green and blue, so calling
 ///         it grey would silently throw two thirds of the answer away at the first thing that read it.
@@ -61,11 +61,21 @@ sealed partial class UniformNode : TextureNode {
 ///         made this node's picture a function of how many ops happened to precede it.
 ///     </para>
 /// </remarks>
-[Node("Source/Noise", Preview = true, Summary = "Value, gradient, Worley or white noise.")]
+[Node("Source/Noise", Preview = true, Summary = "Value, gradient, Worley, white or gaussian noise.")]
 sealed partial class NoiseNode : TextureNode {
-    /// <summary>Which lattice: <c>Value</c>, <c>Gradient</c>, <c>Worley</c> or <c>White</c>.</summary>
+    /// <summary>
+    ///     Which lattice: <c>Value</c>, <c>Gradient</c>, <c>Worley</c>, <c>White</c> or
+    ///     <c>Gaussian</c>.
+    /// </summary>
     [Setting(AcceptedFrom = typeof(TextureNoiseBasis))]
     public string Basis = "Value";
+
+    /// <summary>
+    ///     How each octave is folded before the sum: <c>Plain</c>, <c>Ridged</c> or <c>Billow</c>.
+    ///     Worley folds F1 and F2 and leaves the cell index alone.
+    /// </summary>
+    [Setting(AcceptedFrom = typeof(TextureNoiseProfile))]
+    public string Profile = "Plain";
 
     /// <summary>
     ///     What a cell's shape is: <c>Euclidean</c> — round — <c>Chebyshev</c> — square — or
@@ -91,9 +101,32 @@ sealed partial class NoiseNode : TextureNode {
     [Input(Minimum = 0f, Summary = "Cells across the image. Rounded to a whole number along an axis that tiles.")]
     public Scalar Scale = 8f;
 
-    /// <summary>How many are summed. Ignored by <c>Worley</c>.</summary>
+    /// <summary>A multiplier on <see cref="Scale" /> along x, for a lattice stretched along one axis.</summary>
+    [Input(Name = "Scale X", Minimum = 0f, SoftMaximum = 8f, Summary = "A multiplier on Scale along x.")]
+    public Scalar ScaleX = 1f;
+
+    /// <summary>A multiplier on <see cref="Scale" /> along y.</summary>
+    [Input(Name = "Scale Y", Minimum = 0f, SoftMaximum = 8f, Summary = "A multiplier on Scale along y.")]
+    public Scalar ScaleY = 1f;
+
+    /// <summary>
+    ///     A shift of the lattice along x, in cells of the first octave's lattice — so half is half a cell,
+    ///     the shift a running bond wants, whatever the scale.
+    /// </summary>
+    [Input(Name = "Offset X", SoftMinimum = 0f, SoftMaximum = 1f, Summary = "A shift along x, in cells.")]
+    public Scalar OffsetX = 0f;
+
+    /// <summary>A shift of the lattice along y, in cells.</summary>
+    [Input(Name = "Offset Y", SoftMinimum = 0f, SoftMaximum = 1f, Summary = "A shift along y, in cells.")]
+    public Scalar OffsetY = 0f;
+
+    /// <summary>How many are summed. Worley sums F1 and F2, and keeps the first octave's cell index.</summary>
     [Input(Minimum = 1f, Maximum = 8f)]
     public Int Octaves = 1;
+
+    /// <summary>The first octave summed: the coarser ones are skipped, at their own frequencies and hashes.</summary>
+    [Input(Name = "Min Octave", Minimum = 0f, Maximum = 7f)]
+    public Int MinOctave = 0;
 
     /// <summary>The frequency multiplier between octaves.</summary>
     [Input(Minimum = 1f)]
@@ -126,13 +159,19 @@ sealed partial class NoiseNode : TextureNode {
                 emitter.Integer(nameof(Octaves)),
                 emitter.Number(nameof(Lacunarity)),
                 emitter.Number(nameof(Gain)),
-                TextureSettings.Enum(emitter, nameof(Metric), TextureCellMetric.Euclidean)
+                TextureSettings.Enum(emitter, nameof(Metric), TextureCellMetric.Euclidean),
+                emitter.Number("Scale X"),
+                emitter.Number("Scale Y"),
+                emitter.Number("Offset X"),
+                emitter.Number("Offset Y"),
+                emitter.Integer("Min Octave"),
+                TextureSettings.Enum(emitter, nameof(Profile), TextureNoiseProfile.Plain)
             )
         );
     }
 }
 
-/// <summary>One of eight analytic patterns, on a grey.</summary>
+/// <summary>One of fifteen analytic patterns, on a grey.</summary>
 /// <remarks>
 ///     <para>
 ///         <b>The splatter's usual pattern input, which is why it is worth having as its own
@@ -140,11 +179,18 @@ sealed partial class NoiseNode : TextureNode {
 ///         <c>Splatter</c> read a stamp, and a disc with a soft edge is the stamp most graphs want.
 ///     </para>
 ///     <para>
-///         ⚠ <b><c>Falloff</c> is read by three of the eight kinds and ignored by five</b>, which is
+///         ⚠ <b><c>Falloff</c> is read by eight of the fifteen kinds and ignored by seven</b>, which is
 ///         the kernel's arrangement rather than this node's: <c>Paraboloid</c>, <c>Gaussian</c>,
-///         <c>Cone</c>, <c>HalfBell</c> and <c>Gradation</c> carry their softness in their formula.
-///         Turning it on one of those does nothing, and there is no way for a port to say so — a
-///         setting cannot hide a port.
+///         <c>Cone</c>, <c>HalfBell</c>, <c>Gradation</c>, <c>Pyramid</c> and <c>Hemisphere</c> carry
+///         their softness in their formula. Turning it on one of those does nothing, and there is no
+///         way for a port to say so — a setting cannot hide a port. <c>Sides</c> and <c>Inner</c> have
+///         the same shape: each is read by the kinds its summary names.
+///     </para>
+///     <para>
+///         <b><c>Polygon</c> with a <c>Sides</c> port is Patina #168's most-used missing node</b>, and
+///         it is a kind here rather than a node of its own because it is the same picture under the
+///         same scale, rotation, falloff and centre as every other kind: a regular polygon of three
+///         sides is exactly <c>Triangle</c>, which <c>TextureShapeFamilyDeviceTests</c> holds.
 ///     </para>
 ///     <para>
 ///         <b>Its rotation is in radians, and so is every other angle in this assembly.</b> It was
@@ -154,11 +200,12 @@ sealed partial class NoiseNode : TextureNode {
 ///         is that the kernels agree, and <c>TextureAngleUnitTests</c> is what keeps them agreeing.
 ///     </para>
 /// </remarks>
-[Node("Source/Shape", Preview = true, Summary = "A disc, square, triangle or one of five falloff profiles.")]
+[Node("Source/Shape", Preview = true, Summary = "A disc, polygon, star, ring, capsule or crescent, or one of seven profiles.")]
 sealed partial class ShapeNode : TextureNode {
     /// <summary>
     ///     Which pattern: <c>Disc</c>, <c>Square</c>, <c>Triangle</c>, <c>Paraboloid</c>,
-    ///     <c>Gaussian</c>, <c>Cone</c>, <c>HalfBell</c> or <c>Gradation</c>.
+    ///     <c>Gaussian</c>, <c>Cone</c>, <c>HalfBell</c>, <c>Gradation</c>, <c>Polygon</c>, <c>Star</c>,
+    ///     <c>Ring</c>, <c>Capsule</c>, <c>Crescent</c>, <c>Pyramid</c> or <c>Hemisphere</c>.
     /// </summary>
     [Setting(AcceptedFrom = typeof(TextureShapeKind))]
     public string Kind = "Disc";
@@ -171,9 +218,17 @@ sealed partial class ShapeNode : TextureNode {
     [Input(SoftMinimum = -MathF.PI, SoftMaximum = MathF.PI)]
     public Scalar Rotation = 0f;
 
-    /// <summary>The width of the soft edge, in units of the radius. Read by three kinds of eight.</summary>
+    /// <summary>The width of the soft edge, in units of the radius. Read by the eight boundary kinds.</summary>
     [Input(Minimum = 0f, SoftMaximum = 1f)]
     public Scalar Falloff = 0.01f;
+
+    /// <summary>How many sides a <c>Polygon</c> has, or points a <c>Star</c>.</summary>
+    [Input(Minimum = 3f, Maximum = 64f, Summary = "A polygon's sides or a star's points.")]
+    public Int Sides = 6;
+
+    /// <summary>A star's valleys, a ring's hole, a capsule's half thickness or a crescent's cut, in radii.</summary>
+    [Input(Minimum = 0f, Maximum = 1f, Summary = "Star valleys, ring hole, capsule half thickness or crescent cut, in radii.")]
+    public Scalar Inner = 0.5f;
 
     /// <summary>Where it sits along x, in 0..1 of the image.</summary>
     [Input(Name = "Centre X", SoftMinimum = 0f, SoftMaximum = 1f)]
@@ -193,7 +248,7 @@ sealed partial class ShapeNode : TextureNode {
 
         var kind = TextureSettings.Enum(emitter, nameof(Kind), TextureShapeKind.Disc);
 
-        // Grey whatever the kind: every one of the eight writes one value into three lanes.
+        // Grey whatever the kind: every one of the fifteen writes one value into three lanes.
         var target = emitter.Write("Out", TextureChannels.Grey);
 
         emitter.Dispatch(
@@ -204,7 +259,9 @@ sealed partial class ShapeNode : TextureNode {
                 emitter.Number(nameof(Rotation)),
                 emitter.Number(nameof(Falloff)),
                 emitter.Number("Centre X"),
-                emitter.Number("Centre Y")
+                emitter.Number("Centre Y"),
+                emitter.Integer(nameof(Sides)),
+                emitter.Number(nameof(Inner))
             )
         );
     }

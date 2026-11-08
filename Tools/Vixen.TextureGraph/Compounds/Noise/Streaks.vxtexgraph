@@ -1,0 +1,62 @@
+version: 1
+name: Streaks
+nodes:
+  - id: 1
+    type: Source/Noise
+    x: -640
+    y: 0
+    values:
+      Octaves: [4]
+    texts:
+      Basis: Gradient
+      '=Gain': roughness
+  - id: 2
+    type: Colour/Auto Levels
+    x: -320
+    y: 0
+    values: {}
+    texts: {}
+  - id: 3
+    type: Sub-graph/Output
+    x: 0
+    y: 0
+    values: {}
+    texts: {}
+  - id: 4
+    type: Sub-graph/Input
+    x: -960
+    y: 0
+    values: {}
+    texts: {}
+edges:
+  - { fromNode: 4, fromPort: Scale, toNode: 1, toPort: Scale }
+  - { fromNode: 4, fromPort: Stretch, toNode: 1, toPort: Scale Y }
+  - { fromNode: 1, fromPort: Out, toNode: 2, toPort: Input }
+  - { fromNode: 2, fromPort: Out, toNode: 3, toPort: Out }
+groups: []
+comments: []
+interface:
+  - name: Scale
+    direction: Input
+    kind: Float
+    default: [3]
+    summary: How many cells along a streak, across the image.
+  - name: Stretch
+    direction: Input
+    kind: Float
+    default: [16]
+    summary: How many times more cells down the image than across it. One is plain noise; more is longer streaks.
+  - name: Out
+    direction: Output
+    kind: Image
+    default: []
+    summary: A noise drawn out along x — brushed metal, wood grain, rain, scratches in one direction.
+settings: { baseWidth: '1024', baseHeight: '1024', seed: '1' }
+parameters:
+  - name: roughness
+    default: '0.5'
+    summary: How much each finer octave adds.
+    kind: Float
+    minimum: 0
+    maximum: 1
+    group: Streaks

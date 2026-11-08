@@ -5,8 +5,8 @@ package Vixen.TextureGraph.Shaders
 
 import Vixen.Shaders.Core
 
-// Doc 48 § 4.1's noise: one kernel with four bases — value · gradient · worley · white — under
-// octaves, lacunarity, gain and a seed, wrapping wherever the plan does. Worley also answers with F1, F2 and a cell index,
+// Doc 48 § 4.1's noise: one kernel with five bases — value · gradient · worley · white · gaussian —
+// under octaves, lacunarity, gain and a seed, wrapping wherever the plan does. Worley also answers with F1, F2 and a cell index,
 // "which is what a splatter wants and what saves a flood fill downstream", and with a **distance
 // metric**, which is what a cell's shape is (#1101).
 //
@@ -64,8 +64,30 @@ import Vixen.Shaders.Core
 // white noise is a different image at 1K and at 4K by construction, and doc 48 § D8 requires that it
 // not be. An author who wants one texel per sample sets `scale` to the resolution and says so.
 
+// ## What Patina #167 added: a lattice per axis, a shift, a first octave and a fold
+//
+// `scaleX` and `scaleY` multiply `scale` along one axis each, so a lattice can be eight cells across
+// and sixty-four down — a streak, a grain, a fibre — without a `Transform 2D` that would need the
+// stretch to be a whole number of repeats to keep tiling. Each axis rounds to its own whole period
+// where it wraps, which is the same rule as before, applied twice.
+//
+// `offsetX` and `offsetY` shift the lattice by cells of octave zero along that axis — the cells `scale`
+// counts, rounded where the axis wraps — and every octave moves the same distance in the picture. So a
+// shift of half is half a cell whatever the scale, which is what a running bond or a hex row wants
+// from a per-cell noise, a shift of `scale` is the whole image and the identity on an axis that wraps,
+// and a shift that is a whole number of texels rolls the picture by exactly that many.
+//
+// `minOctave` drops the coarsest octaves: octave `minOctave` is the first one summed, at its own
+// frequency and its own hash. So a two-octave sum is exactly the first octave plus `gain` times the
+// one-octave sum that starts at octave one, normalised — `TextureNoiseFamilyDeviceTests` holds that
+// identity rather than a picture.
+//
+// `profile` folds each octave before it is summed: `1 − |2v − 1|` is ridged — a crease where the
+// plain value crosses a half — and `|2v − 1|` is its complement, a billow. Folding the sum instead
+// would crease once, at one level, which is a contour line rather than a ridged field.
+
 shader Noise {
-    /// 0 value · 1 gradient · 2 worley · 3 white.
+    /// 0 value · 1 gradient · 2 worley · 3 white · 4 gaussian.
     var basis: int = 0
 
     /// 0 euclidean · 1 chebyshev · 2 manhattan. ⚠ Worley only — see `Reach`.
@@ -79,7 +101,25 @@ shader Noise {
     /// How many cells across the image at the first octave.
     var scale: float = 8f
 
-    /// How many octaves are summed. Ignored by worley — see `Worley`.
+    /// A multiplier on `scale` along x.
+    var scaleX: float = 1f
+
+    /// A multiplier on `scale` along y.
+    var scaleY: float = 1f
+
+    /// A shift of the lattice along x, in cells of octave zero.
+    var offsetX: float = 0f
+
+    /// A shift of the lattice along y, in cells of octave zero.
+    var offsetY: float = 0f
+
+    /// The first octave summed. The ones below it are skipped, at their frequencies and their hashes.
+    var minOctave: int = 0
+
+    /// 0 plain · 1 ridged · 2 billow — how each octave is folded before it is summed.
+    var profile: int = 0
+
+    /// How many octaves are summed. Worley sums F1 and F2 and keeps the first octave's index.
     var octaves: int = 1
 
     /// The frequency multiplier between octaves. 2 is the usual choice.
@@ -108,6 +148,13 @@ shader Noise {
     /// The most octaves a plan can ask for. A ceiling rather than a runtime bound, for `Blur`'s
     /// reason: an octave count arriving as a NaN would be a loop no invocation leaves.
     const val MaxOctaves: int = 8
+
+    /// The latest octave the sum may start at, so the finest one summed is octave fourteen.
+    const val MaxMinOctave: int = 7
+
+    /// The spread of a gaussian lattice value about a half: three of them reach either end, so the
+    /// clamp at the end of `Main` cuts about one value in four hundred.
+    const val GaussianSigma: float = 0.16666667f
 
     /// A sentinel strictly above every metric's bound on a 3×3 search, so the first candidate always
     /// replaces it.
@@ -150,23 +197,80 @@ shader Noise {
     /// so the continuation would have been a second statement and the first would have had no
     /// expression at all — which `RVN1001` does catch here, and does not catch when the continuation
     /// begins with an operator.
-    func CellHash(x: int, y: int, octave: int, period: int): uint {
-        val cell = Random.Combine(uint(Fold(x, period, wrapX)), uint(Fold(y, period, wrapY)))
+    func CellHash(x: int, y: int, octave: int, period: int2): uint {
+        val cell = Random.Combine(uint(Fold(x, period.x, wrapX)), uint(Fold(y, period.y, wrapY)))
 
         return Random.Combine(cell, Seeded() + Random.Hash(uint(octave)))
     }
 
+    /// How many cells across the image the first octave has along one axis: `scale` times that
+    /// axis's multiplier.
+    func Cells(multiplier: float): float => scale * max(multiplier, 0f)
+
+    /// The whole number of cells one octave has along an axis that wraps.
+    func Period(cells: float, frequency: float): int => int(round(max(cells, 1f) * frequency))
+
+    /// One octave's period per axis.
+    func Periods(frequency: float): int2 => int2(Period(Cells(scaleX), frequency), Period(Cells(scaleY), frequency))
+
     /// How many cells one unit of `uv` crosses along an axis: the period where it wraps.
-    func Stride(frequency: float, period: int, wrap: int): float {
+    func Stride(cells: float, frequency: float, period: int, wrap: int): float {
         if (wrap == 0) {
-            return max(scale, 0.00001f) * frequency
+            return max(cells, 0.00001f) * frequency
         }
 
         return float(max(period, 1))
     }
 
+    /// The offset in units of the image: cells of octave zero, which is one over its stride.
+    func Shift(): float2 {
+        val zero = Periods(1f)
+        val acrossX = Stride(Cells(scaleX), 1f, zero.x, wrapX)
+        val acrossY = Stride(Cells(scaleY), 1f, zero.y, wrapY)
+
+        return float2(offsetX / acrossX, offsetY / acrossY)
+    }
+
+    /// Where `uv` lands on one octave's lattice: shifted by the offset, then scaled per axis.
+    func Lattice(uv: float2, frequency: float, period: int2): float2 {
+        val strideX = Stride(Cells(scaleX), frequency, period.x, wrapX)
+        val strideY = Stride(Cells(scaleY), frequency, period.y, wrapY)
+
+        return (uv + Shift()) * float2(strideX, strideY)
+    }
+
+    /// One octave's value folded by `profile`.
+    func Folded(value: float): float {
+        if (profile == 1) {
+            return 1f - abs(2f * value - 1f)
+        }
+
+        if (profile == 2) {
+            return abs(2f * value - 1f)
+        }
+
+        return value
+    }
+
+    /// The frequency of the first octave summed: the lacunarity raised to `minOctave`, by repeated
+    /// multiplication so that octave zero's is exactly one.
+    func FirstFrequency(): float {
+        var frequency = 1f
+        val skipped = clamp(minOctave, 0, MaxMinOctave)
+
+        for (octave in 0 .. MaxMinOctave - 1) {
+            if (octave >= skipped) {
+                break
+            }
+
+            frequency = frequency * max(lacunarity, 1f)
+        }
+
+        return frequency
+    }
+
     /// Smoothed value noise: a hash per lattice corner, bilinear under a smoothstep.
-    func ValueAt(position: float2, octave: int, period: int): float {
+    func ValueAt(position: float2, octave: int, period: int2): float {
         val cell = floor(position)
         val local = position - cell
         val weights = local * local * (3f - 2f * local)
@@ -182,14 +286,14 @@ shader Noise {
     }
 
     /// One corner's gradient dotted with the offset to it.
-    func GradientDot(x: int, y: int, octave: int, period: int, delta: float2): float {
+    func GradientDot(x: int, y: int, octave: int, period: int2, delta: float2): float {
         val angle = Random.ToFloat01(CellHash(x, y, octave, period)) * TwoPi
 
         return delta.x * cos(angle) + delta.y * sin(angle)
     }
 
     /// Gradient (Perlin) noise, remapped from ±√2/2 onto 0..1.
-    func GradientAt(position: float2, octave: int, period: int): float {
+    func GradientAt(position: float2, octave: int, period: int2): float {
         val cell = floor(position)
         val local = position - cell
         val fade = local * local * local * (local * (local * 6f - 15f) + 10f)
@@ -208,20 +312,55 @@ shader Noise {
     }
 
     /// One uncorrelated value per cell — value noise without the interpolation.
-    func WhiteAt(position: float2, octave: int, period: int): float {
+    func WhiteAt(position: float2, octave: int, period: int2): float {
         val cell = floor(position)
 
         return Random.ToFloat01(CellHash(int(cell.x), int(cell.y), octave, period))
     }
 
+    /// One lattice corner drawn from a normal distribution about a half, by Box–Muller over two
+    /// hashes of the cell.
+    ///
+    /// ⚠ **The first uniform is kept off zero**, because `log(0)` is an infinity, and one corner in
+    /// four billion would otherwise be a NaN that the final `saturate` is not obliged to turn into
+    /// anything in particular.
+    func GaussianCorner(x: int, y: int, octave: int, period: int2): float {
+        val hash = CellHash(x, y, octave, period)
+        val first = max(Random.ToFloat01(hash), 0.0000001f)
+        val second = Random.ToFloat01(Random.Hash(hash ^ 0x5BD1E995u))
+
+        return 0.5f + GaussianSigma * sqrt(-2f * log(first)) * cos(TwoPi * second)
+    }
+
+    /// Value noise over a gaussian lattice: the same smoothstep between four corners, so the field is
+    /// as smooth as value noise and its histogram is a bell rather than a plateau.
+    func GaussianAt(position: float2, octave: int, period: int2): float {
+        val cell = floor(position)
+        val local = position - cell
+        val weights = local * local * (3f - 2f * local)
+        val x = int(cell.x)
+        val y = int(cell.y)
+
+        val c00 = GaussianCorner(x, y, octave, period)
+        val c10 = GaussianCorner(x + 1, y, octave, period)
+        val c01 = GaussianCorner(x, y + 1, octave, period)
+        val c11 = GaussianCorner(x + 1, y + 1, octave, period)
+
+        return lerp(lerp(c00, c10, weights.x), lerp(c01, c11, weights.x), weights.y)
+    }
+
     /// Whichever basis a fractal octave is made of.
-    func Octave(position: float2, octave: int, period: int): float {
+    func Octave(position: float2, octave: int, period: int2): float {
         if (basis == 1) {
             return GradientAt(position, octave, period)
         }
 
         if (basis == 3) {
             return WhiteAt(position, octave, period)
+        }
+
+        if (basis == 4) {
+            return GaussianAt(position, octave, period)
         }
 
         return ValueAt(position, octave, period)
@@ -236,18 +375,19 @@ shader Noise {
         var total = 0f
         var amplitude = 1f
         var normalisation = 0f
-        var frequency = 1f
+        var frequency = FirstFrequency()
         val wanted = clamp(octaves, 1, MaxOctaves)
+        val first = clamp(minOctave, 0, MaxMinOctave)
 
-        for (octave in 0 .. MaxOctaves - 1) {
-            if (octave >= wanted) {
+        for (summed in 0 .. MaxOctaves - 1) {
+            if (summed >= wanted) {
                 break
             }
 
-            val period = int(round(max(scale, 1f) * frequency))
-            val stride = float2(Stride(frequency, period, wrapX), Stride(frequency, period, wrapY))
+            val period = Periods(frequency)
+            val value = Octave(Lattice(uv, frequency, period), first + summed, period)
 
-            total = total + Octave(uv * stride, octave, period) * amplitude
+            total = total + Folded(value) * amplitude
             normalisation = normalisation + amplitude
             frequency = frequency * max(lacunarity, 1f)
             amplitude = amplitude * max(gain, 0f)
@@ -296,15 +436,10 @@ shader Noise {
         return 0.5f
     }
 
-    /// F1, F2 and a cell index, from one lattice.
-    ///
-    /// ⚠ **Worley ignores `octaves`, deliberately.** F1 summed over octaves is a plausible grey field,
-    /// but the F2 and the cell index of a sum of lattices name nothing — and the cell index is the
-    /// whole reason § 4.1 gives this basis its own two extra channels. A graph that wants fractal
-    /// worley sums two ops with a `Blend`, where the thing being summed is visible.
-    func Worley(uv: float2): float3 {
-        val period = int(round(max(scale, 1f)))
-        val position = uv * float2(Stride(1f, period, wrapX), Stride(1f, period, wrapY))
+    /// F1, F2 and a cell index from one octave's lattice, the two distances already normalised.
+    func WorleyOctave(uv: float2, frequency: float, octave: int): float3 {
+        val period = Periods(frequency)
+        val position = Lattice(uv, frequency, period)
         val origin = floor(position)
 
         var f1 = WorleyFar
@@ -315,7 +450,7 @@ shader Noise {
             for (column in -1 .. 1) {
                 val x = int(origin.x) + column
                 val y = int(origin.y) + row
-                val hash = CellHash(x, y, 0, period)
+                val hash = CellHash(x, y, octave, period)
                 val jitter = float2(Random.ToFloat01(hash), Random.ToFloat01(Random.Hash(hash ^ 0x68BC21EBu)))
                 val point = float2(origin.x + float(column), origin.y + float(row)) + jitter
                 val reach = Reach(point - position)
@@ -343,6 +478,44 @@ shader Noise {
         val normalisation = Normalisation()
 
         return float3(saturate(f1 * normalisation), saturate(f2 * normalisation), index)
+    }
+
+    /// F1 and F2 summed over octaves, and the cell index of the first octave summed.
+    ///
+    /// ⚠ **Worley ignored `octaves` until Patina #167, and the reason it gave still holds for one
+    /// channel of three.** F1 and F2 summed over octaves are grey fields like any other fractal sum —
+    /// fractal cells, cracked mud at two scales — but the cell index of a sum of lattices names
+    /// nothing, so blue is the first summed octave's and the sum leaves it alone. A one-octave Worley
+    /// is the picture it always was, because octave zero's hash is the one the kernel always used.
+    func Worley(uv: float2): float3 {
+        var distances = float2(0f, 0f)
+        var amplitude = 1f
+        var normalisation = 0f
+        var frequency = FirstFrequency()
+        var index = 0f
+        val wanted = clamp(octaves, 1, MaxOctaves)
+        val first = clamp(minOctave, 0, MaxMinOctave)
+
+        for (summed in 0 .. MaxOctaves - 1) {
+            if (summed >= wanted) {
+                break
+            }
+
+            val cells = WorleyOctave(uv, frequency, first + summed)
+
+            if (summed == 0) {
+                index = cells.z
+            }
+
+            distances = distances + float2(Folded(cells.x), Folded(cells.y)) * amplitude
+            normalisation = normalisation + amplitude
+            frequency = frequency * max(lacunarity, 1f)
+            amplitude = amplitude * max(gain, 0f)
+        }
+
+        val mean = distances / max(normalisation, 0.000001f)
+
+        return float3(mean.x, mean.y, index)
     }
 
     [ComputeShader(8, 8, 1)]

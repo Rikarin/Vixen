@@ -1,0 +1,66 @@
+version: 1
+name: Liquid
+nodes:
+  - id: 1
+    type: Source/Noise
+    x: -960
+    y: -120
+    values:
+      Octaves: [4]
+    texts:
+      Basis: Gradient
+  - id: 2
+    type: Source/Noise
+    x: -960
+    y: 160
+    values:
+      Scale: [3]
+      Octaves: [3]
+    texts:
+      Basis: Gradient
+  - id: 3
+    type: Filters/Warp
+    x: -480
+    y: 0
+    values: {}
+    texts:
+      '=Intensity': flow
+  - id: 4
+    type: Sub-graph/Output
+    x: 0
+    y: 0
+    values: {}
+    texts: {}
+  - id: 5
+    type: Sub-graph/Input
+    x: -1280
+    y: 0
+    values: {}
+    texts: {}
+edges:
+  - { fromNode: 5, fromPort: Scale, toNode: 1, toPort: Scale }
+  - { fromNode: 1, fromPort: Out, toNode: 3, toPort: Input }
+  - { fromNode: 2, fromPort: Out, toNode: 3, toPort: Warp }
+  - { fromNode: 3, fromPort: Out, toNode: 4, toPort: Out }
+groups: []
+comments: []
+interface:
+  - name: Scale
+    direction: Input
+    kind: Float
+    default: [6]
+    summary: How many cells of the stirred noise across the image.
+  - name: Out
+    direction: Output
+    kind: Image
+    default: []
+    summary: A noise pushed along the slopes of a coarser one, so it swirls like a liquid stirred once.
+settings: { baseWidth: '1024', baseHeight: '1024', seed: '1' }
+parameters:
+  - name: flow
+    default: '48'
+    summary: How far the noise is pushed, in texels at the graph's base resolution.
+    kind: Float
+    minimum: 0
+    maximum: 256
+    group: Liquid

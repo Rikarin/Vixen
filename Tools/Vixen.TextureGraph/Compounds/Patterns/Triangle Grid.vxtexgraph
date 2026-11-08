@@ -1,0 +1,91 @@
+version: 1
+name: Triangle Grid
+nodes:
+  - id: 1
+    type: Source/Shape
+    x: -1280
+    y: -120
+    values:
+      Centre Y: [0.64433757]
+    texts:
+      Kind: Triangle
+      '=Scale': 1.1547005f * (1f - gap)
+      '=Falloff': bevel
+  - id: 2
+    type: Source/Shape
+    x: -1280
+    y: 160
+    values:
+      Rotation: [3.1415927]
+      Centre X: [0]
+      Centre Y: [0.35566243]
+    texts:
+      Kind: Triangle
+      '=Scale': 1.1547005f * (1f - gap)
+      '=Falloff': bevel
+  - id: 3
+    type: Colour/Blend
+    x: -960
+    y: 0
+    values: {}
+    texts:
+      Mode: Lighten
+  - id: 4
+    type: Space/Transform 2D
+    x: -640
+    y: 0
+    values:
+      Scale Y: [1.1547005]
+    texts: {}
+  - id: 5
+    type: Space/Tile
+    x: -320
+    y: 0
+    values:
+      Offset X: [0.5]
+    texts:
+      '=Repeat X': bands * 1.7320508f
+      '=Repeat Y': 2f * bands
+  - id: 6
+    type: Sub-graph/Output
+    x: 0
+    y: 0
+    values: {}
+    texts: {}
+edges:
+  - { fromNode: 1, fromPort: Out, toNode: 3, toPort: Background }
+  - { fromNode: 2, fromPort: Out, toNode: 3, toPort: Foreground }
+  - { fromNode: 3, fromPort: Out, toNode: 4, toPort: Input }
+  - { fromNode: 4, fromPort: Out, toNode: 5, toPort: Input }
+  - { fromNode: 5, fromPort: Out, toNode: 6, toPort: Out }
+groups: []
+comments: []
+interface:
+  - name: Out
+    direction: Output
+    kind: Image
+    default: []
+    summary: Equilateral triangles, alternately point up and point down, one inside a triangle and nought in the gap.
+settings: { baseWidth: '1024', baseHeight: '1024', seed: '1' }
+parameters:
+  - name: bands
+    default: '4'
+    summary: How many pairs of rows down the image — an even count, so the half shift between rows meets itself. The columns follow at √3 times this, as regular as a whole number allows.
+    kind: Float
+    minimum: 1
+    maximum: 64
+    group: Grid
+  - name: gap
+    default: '0.1'
+    summary: How much of a triangle the joint between two takes.
+    kind: Float
+    minimum: 0
+    maximum: 0.9
+    group: Grid
+  - name: bevel
+    default: '0.1'
+    summary: How soft a triangle's edge is, in units of its radius.
+    kind: Float
+    minimum: 0.001
+    maximum: 1
+    group: Grid

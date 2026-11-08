@@ -1,0 +1,117 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+package Vixen.TextureGraph.Shaders
+
+// The table half of Patina #172's histogram: `HistogramCount`'s blocks summed into one column of
+// fractions that every reader of the histogram looks things up in.
+//
+// **Column 0 is the table, and every other texel is nought.** Row `s` below 64 holds the share of the
+// source's texels in bins `4s` to `4s + 3`, one per lane. Row `64 + s` holds the share at or below each
+// of those four bins — the cumulative distribution at each bin's top edge. Row 128's red holds the
+// largest share any one bin has, which is what scales a drawn histogram to its own height. The node puts
+// this at a level at least 129 rows tall.
+//
+// **Shares and not counts**, divided by the sum of every count rather than by a texel count the kernel
+// would have to be told: each source texel is in exactly one bin, so the sum is the texel count, and the
+// table is a distribution whatever size the source was. That is what lets a reader at any resolution
+// look it up without knowing the source's.
+//
+// ⚠ One invocation per row does all of its row's work, sixty-four slots across every column and band of
+// the counts. That is a few hundred thousand reads for a 4K source, once, and it is cheaper than the
+// dispatches a tree of partial sums would cost to save it.
+
+shader HistogramTable {
+    var counts: Texture2D
+
+    [Format("rgba32f")] var target: RWTexture2D<float4>
+
+    const val Slots: int = 64
+
+    /// The widest the counts can be. A loop ceiling for `Blur`'s reason.
+    const val MaxExtent: int = 65536
+
+    /// One slot's four bins, summed over every column and band of the counts.
+    func Slot(slot: int): float4 {
+        val extent = counts.GetDimensions(0)
+        val bands = max(extent.y / Slots, 1)
+
+        var total = float4(0f, 0f, 0f, 0f)
+
+        for (band in 0 .. MaxExtent) {
+            if (band >= bands) {
+                break
+            }
+
+            for (column in 0 .. MaxExtent) {
+                if (column >= extent.x) {
+                    break
+                }
+
+                total = total + counts.Load(int3(column, band * Slots + slot, 0))
+            }
+        }
+
+        return total
+    }
+
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val coord = int2(int(id.x), int(id.y))
+        val size = target.GetDimensions()
+
+        if (coord.x >= size.x || coord.y >= size.y) {
+            return
+        }
+
+        if (coord.x != 0 || coord.y > 2 * Slots) {
+            target.Store(coord, float4(0f, 0f, 0f, 0f))
+
+            return
+        }
+
+        val wanted = coord.y % Slots
+
+        var grand = 0f
+        var below = 0f
+        var largest = 0f
+        var own = float4(0f, 0f, 0f, 0f)
+
+        for (slot in 0 .. Slots - 1) {
+            val bins = Slot(slot)
+            val sum = bins.x + bins.y + bins.z + bins.w
+
+            grand = grand + sum
+            largest = max(largest, max(max(bins.x, bins.y), max(bins.z, bins.w)))
+
+            if (slot < wanted) {
+                below = below + sum
+            }
+
+            if (slot == wanted) {
+                own = bins
+            }
+        }
+
+        val share = 1f / max(grand, 1f)
+
+        if (coord.y == 2 * Slots) {
+            target.Store(coord, float4(largest * share, 0f, 0f, 1f))
+
+            return
+        }
+
+        if (coord.y >= Slots) {
+            val first = below + own.x
+            val second = first + own.y
+            val third = second + own.z
+            val fourth = third + own.w
+
+            target.Store(coord, float4(first, second, third, fourth) * share)
+
+            return
+        }
+
+        target.Store(coord, own * share)
+    }
+}
