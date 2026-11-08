@@ -95,6 +95,13 @@ public sealed class LayerStackEvaluator : IDisposable {
     /// <summary>Whether a pass-through <see cref="Capture" /> keeps what is beneath it.</summary>
     public bool Backdrop { get; init; }
 
+    /// <summary>
+    ///     Whether every output is how much of each texel the stack's layers cover rather than what they look like —
+    ///     <see cref="LayerStackGraph.Weights" />, with this evaluator's canvases and pictures behind it. Patina #136 reads
+    ///     one texel of it to say which layer is on top where a person clicked.
+    /// </summary>
+    public bool Weighing { get; init; }
+
     /// <summary>Whether the last <see cref="Prepare" /> compiled, rather than only moving values.</summary>
     public bool Compiled { get; private set; }
 
@@ -125,8 +132,8 @@ public sealed class LayerStackEvaluator : IDisposable {
         ArgumentNullException.ThrowIfNull(set);
         ArgumentNullException.ThrowIfNull(registry);
 
-        var build = Capture.Length > 0
-            ? LayerStackGraph.Capture(stack, set, Capture, Backdrop, registry, Draft, subGraphs)
+        var build = Weighing ? LayerStackGraph.Weights(stack, set, registry, subGraphs)
+            : Capture.Length > 0 ? LayerStackGraph.Capture(stack, set, Capture, Backdrop, registry, Draft, subGraphs)
             : LayerStackGraph.Build(stack, set, registry, Draft, subGraphs);
 
         Problems = build.Problems;
