@@ -1,0 +1,53 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+package Vixen.TextureGraph.Shaders
+
+// A grey read through a ramp that is itself an image — Patina #171.
+//
+// `GradientMap` reads a ramp the CPU baked from a gradient setting; this reads one a graph drew, so
+// a ramp can come from a photograph or be driven by values upstream. The grey picks a position along
+// one row of the ramp image, left at nought and right at one, interpolated between the two nearest
+// texels exactly as `GradientMap` does. `row` picks which row, as a fraction of the ramp's height
+// measured between the first and last texel centres, so 0 is the top row and 1 the bottom one.
+//
+// The ramp is read at its own size, whatever the plan's is, and is clamped rather than wrapped: a
+// ramp has two ends rather than a far side.
+
+shader ImageRamp {
+    var source: Texture2D
+
+    var ramp: Texture2D
+
+    /// Which row of the ramp to read, from 0 at the top to 1 at the bottom.
+    var row: float = 0.5f
+
+    [Format("rgba16f")] var target: RWTexture2D<float4>
+
+    func Sample(position: float): float4 {
+        val extent = ramp.GetDimensions(0)
+        val last = max(extent.x - 1, 0)
+        val y = clamp(int(floor(saturate(row) * float(extent.y - 1) + 0.5f)), 0, extent.y - 1)
+        val at = saturate(position) * float(last)
+        val low = clamp(int(floor(at)), 0, last)
+        val high = clamp(low + 1, 0, last)
+        val t = at - float(low)
+
+        return lerp(ramp.Load(int3(low, y, 0)), ramp.Load(int3(high, y, 0)), float4(t, t, t, t))
+    }
+
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val coord = int2(int(id.x), int(id.y))
+        val size = target.GetDimensions()
+
+        if (coord.x >= size.x || coord.y >= size.y) {
+            return
+        }
+
+        val extent = source.GetDimensions(0)
+        val texel = source.Load(int3(clamp(coord.x, 0, extent.x - 1), clamp(coord.y, 0, extent.y - 1), 0))
+
+        target.Store(coord, Sample(texel.x))
+    }
+}

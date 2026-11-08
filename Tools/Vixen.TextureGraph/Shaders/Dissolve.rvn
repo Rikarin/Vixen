@@ -1,0 +1,81 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+package Vixen.TextureGraph.Shaders
+
+import Vixen.Shaders.Core
+
+// The foreground over the background in a scatter of whole texels — Patina #171.
+//
+// Each texel shows the foreground outright or the background outright, never a mix: it draws one
+// number from the plan's seed and its own position, and shows the foreground where that number is
+// below `opacity` times the mask. So the share of foreground texels is the opacity on average and
+// every texel is exactly one of the two inputs, which is what makes a dissolve a dissolve and not a
+// fade. The draw is `Random`'s hash, so a texel's choice repeats across bakes and a new seed
+// reshuffles it.
+//
+// The draw is per texel of the image being written, so it does not scale with the bake: a dissolve is
+// a grain, and a 4× bake is a four times finer grain at the same proportion.
+
+shader Dissolve {
+    var background: Texture2D
+
+    var foreground: Texture2D
+
+    var mask: Texture2D
+
+    var opacity: float = 0.5f
+
+    /// Non-zero when `mask` was wired. Unwired, the node binds the foreground there and this is zero.
+    var masked: int = 0
+
+    /// The op's own seed, already mixed. See `TexturePlan.SeedFor`.
+    var seed: float = 0f
+
+    [Format("rgba16f")] var target: RWTexture2D<float4>
+
+    func Under(coord: int2): float4 {
+        val extent = background.GetDimensions(0)
+
+        return background.Load(int3(clamp(coord.x, 0, extent.x - 1), clamp(coord.y, 0, extent.y - 1), 0))
+    }
+
+    func Over(coord: int2): float4 {
+        val extent = foreground.GetDimensions(0)
+
+        return foreground.Load(int3(clamp(coord.x, 0, extent.x - 1), clamp(coord.y, 0, extent.y - 1), 0))
+    }
+
+    func Weight(coord: int2): float {
+        val extent = mask.GetDimensions(0)
+
+        return mask.Load(int3(clamp(coord.x, 0, extent.x - 1), clamp(coord.y, 0, extent.y - 1), 0)).x
+    }
+
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val coord = int2(int(id.x), int(id.y))
+        val size = target.GetDimensions()
+
+        if (coord.x >= size.x || coord.y >= size.y) {
+            return
+        }
+
+        var amount = saturate(opacity)
+
+        if (masked != 0) {
+            amount = amount * saturate(Weight(coord))
+        }
+
+        val seeded = uint(int(max(seed, 0f)))
+        val draw = Random.ToFloat01(Random.Hash3(uint(coord.x), uint(coord.y), seeded))
+
+        var chosen = Under(coord)
+
+        if (draw < amount) {
+            chosen = Over(coord)
+        }
+
+        target.Store(coord, chosen)
+    }
+}

@@ -94,6 +94,9 @@ public class TextureTilingConformanceDeviceTests(ITestOutputHelper output) {
     static string StimulusFor(string path, string port) =>
         (path, port) switch {
             ("Analysis/Distance", _) or ("Analysis/Flood Fill", _) => Mask,
+            // A smooth field has no staircase, so an anti-alias leaves it alone and is examined on nothing.
+            // A median keeps a smooth field to rounding, so it is examined on edges with corners to round.
+            ("Filters/Anti-Alias", _) or ("Filters/Median", _) => Mask,
             ("Surface/Bevel", _) or ("Surface/Metal Reflectance", _) => Mask,
             ("Filters/Vector Warp", "Vectors") or ("Analysis/Colour Select", _) => Colour,
             ("Surface/Normal Combine", _) => Normal,
@@ -121,6 +124,7 @@ public class TextureTilingConformanceDeviceTests(ITestOutputHelper output) {
             "Filters/Blur HQ" => [("Sigma", 6f)],
             "Filters/Directional Blur" => [("Length", 16f), ("Angle", 0.6f)],
             "Filters/Sharpen" => [("Radius", 6f)],
+            "Filters/Median" => [("Radius", 4f)],
             "Filters/Non-Uniform Blur" => [("Max Radius", 12f)],
             "Surface/Curvature" => [("Radius", 4f)],
             "Source/Shape" => [("Scale", 0.5f), ("Centre X", 0.95f), ("Centre Y", 0.05f)],
@@ -136,6 +140,10 @@ public class TextureTilingConformanceDeviceTests(ITestOutputHelper output) {
         // An island is named by where it is. That it stays one island over the seam is held by
         // TextureFloodReachDeviceTests, which a seam on a picture this contrasty could not see.
         "Analysis/Flood Fill",
+        // A table read by value: the second input is looked up, not drawn, so rolling it changes what
+        // every texel looks up. Each is pointwise in its first input, and the seam holds that.
+        "Colour/Image Ramp",
+        "Colour/Lookup Table",
         "Placement/Splatter",
         "Placement/Tile Sampler",
         "Patterns/Tile Random",
@@ -143,6 +151,9 @@ public class TextureTilingConformanceDeviceTests(ITestOutputHelper output) {
         "Space/Crop",
         "Space/Tile",
         "Space/Transform 2D",
+        // A twist about one centre. It tiles while its disc stays inside the image, which the seam
+        // holds; rolling the input moves the picture under the twist and not the twist.
+        "Space/Swirl",
         "Utility/Make It Tile",
         "Utility/Safe Transform"
     ];

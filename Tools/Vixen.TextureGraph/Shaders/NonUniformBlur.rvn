@@ -20,13 +20,15 @@ import Vixen.Shaders.Core
 // over the full 3×3 including the four **diagonal** neighbours, each worth 1/9. A single separable
 // pass leaves the diagonals black.
 //
-// ## The cost, and why the ceiling is smaller than `Blur`'s
+// ## The cost, and a budget in taps rather than a ceiling on the radius
 //
-// `Blur` reaches 64 texels because 129 taps per axis is cheap. This one is `(2r+1)²`: at r = 12 that
-// is 625 taps and at 64 it would be 16 641. So `MaxRadius` is 12, and a plan asking for more is
-// reported by `TextureFilters.Verify` rather than silently clamped — which is #678's rule, and it
-// bites here exactly where it was found, because a radius that fits at the authoring resolution is
-// four times larger in a 4× bake.
+// `Blur` reaches far because 129 taps per axis is cheap. This one is `(2n+1)²` taps for n per side,
+// so n is held to `MaxTaps` — 12, which is 625 taps. ⚠ **It used to hold the *radius* to 12 instead**,
+// which `TextureFilters.Verify` reported at bake time: a radius of 12 authored at 1K was 48 at a 4×
+// bake and refused, so the widest blur a map could ask for was a dozen texels at the bake resolution
+// (Patina #173). Past the budget the same width is now covered by the same number of taps spaced
+// further apart — `Blur`'s rule since #678 — so the box thins rather than narrowing, the width is
+// always the width the plan resolved, and nothing is refused.
 //
 // ## What the map is read as
 //
@@ -56,17 +58,16 @@ shader NonUniformBlur {
 
     [Format("rgba16f")] var target: RWTexture2D<float4>
 
-    /// The widest box this kernel will build. See the header: the cost is the square of it.
-    const val MaxRadius: int = 12
+    /// The most taps this kernel takes on each side of a texel, whatever the radius says. See the
+    /// header: the cost is the square of it, and past it the taps spread out.
+    const val MaxTaps: int = 12
 
-    /// One texel of the source, addressed against the **source's** extent — never the target's.
     func Tap(x: int, y: int): float4 {
         val size = source.GetDimensions(0)
 
         return source.Load(int3(Math.Address(x, size.x, wrapX), Math.Address(y, size.y, wrapY), 0))
     }
 
-    /// The radius map at an output texel, in its own grid.
     func Radius(coord: int2): float {
         val size = target.GetDimensions()
         val extent = radiusMap.GetDimensions(0)
@@ -76,9 +77,9 @@ shader NonUniformBlur {
         return radiusMap.Load(int3(Math.Address(x, extent.x, wrapX), Math.Address(y, extent.y, wrapY), 0)).x
     }
 
-    /// The weight of one axis offset under a fractional radius — 1 inside, the fraction on the rim.
-    func Weight(offset: int, whole: int, partial: float): float {
-        val d = abs(offset)
+    /// A tap's weight by its index from the centre: one inside, the fraction at the rim, nought past it.
+    func Weight(index: int, whole: int, partial: float): float {
+        val d = abs(index)
 
         if (d <= whole) {
             return 1f
@@ -100,59 +101,55 @@ shader NonUniformBlur {
             return
         }
 
-        val wide = clamp(saturate(Radius(coord)) * max(maxRadius, 0f), 0f, float(MaxRadius))
-        val whole = int(floor(wide))
-        val partial = wide - float(whole)
+        val wide = saturate(Radius(coord)) * max(maxRadius, 0f)
 
-        // A radius under a tenth of a texel is the texel itself, and taking it here keeps a black
-        // region of the radius map an **exact** copy rather than a copy within a rounding.
         if (wide < 0.05f) {
             target.Store(coord, Tap(coord.x, coord.y))
 
             return
         }
 
-        val reach = whole + 1
+        // Under the budget the spacing is exactly one and this is the box it always was, texel for
+        // texel; past it the taps are `spacing` apart and the outermost pair still lands on the radius.
+        val spacing = max(1f, wide / float(MaxTaps))
+        val reach = wide / spacing
+        val whole = min(int(floor(reach)), MaxTaps)
+        val partial = reach - float(whole)
+        val extent = whole + 1
 
         var sum = float4(0f, 0f, 0f, 0f)
         var weight = 0f
 
-        for (jy in 0 .. 2 * MaxRadius + 2) {
-            val dy = jy - MaxRadius - 1
+        for (jy in 0 .. 2 * MaxTaps + 2) {
+            val iy = jy - MaxTaps - 1
 
-            if (dy < -reach) {
+            if (iy < -extent || iy > extent) {
                 continue
             }
 
-            if (dy > reach) {
-                break
-            }
-
-            val wy = Weight(dy, whole, partial)
+            val wy = Weight(iy, whole, partial)
 
             if (wy <= 0f) {
                 continue
             }
 
-            for (jx in 0 .. 2 * MaxRadius + 2) {
-                val dx = jx - MaxRadius - 1
+            for (jx in 0 .. 2 * MaxTaps + 2) {
+                val ix = jx - MaxTaps - 1
 
-                if (dx < -reach) {
+                if (ix < -extent || ix > extent) {
                     continue
                 }
 
-                if (dx > reach) {
-                    break
-                }
-
-                val w = wy * Weight(dx, whole, partial)
+                val w = wy * Weight(ix, whole, partial)
 
                 if (w <= 0f) {
                     continue
                 }
 
-                // ⚠ One statement per line. A continuation is two statements here.
-                sum = sum + w * Tap(coord.x + dx, coord.y + dy)
+                val ox = int(round(float(ix) * spacing))
+                val oy = int(round(float(iy) * spacing))
+
+                sum = sum + w * Tap(coord.x + ox, coord.y + oy)
                 weight = weight + w
             }
         }

@@ -1,0 +1,62 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+package Vixen.TextureGraph.Shaders
+
+// Each output colour channel as a weighted sum of the three input ones, plus an offset — Patina #171.
+//
+// Where `ChannelShuffle` picks one channel, this mixes them: the nine weights are a 3×3 matrix by
+// rows, so `redFromGreen` is how much of the input's green goes into the output's red. The
+// identity is the default. Nothing is normalised or clamped, so a difference of two channels is
+// spelled with a negative weight and survives into a float image; an 8-bit one clamps it on store.
+// Alpha is copied.
+
+shader ChannelMix {
+    var source: Texture2D
+
+    var redFromRed: float = 1f
+
+    var redFromGreen: float = 0f
+
+    var redFromBlue: float = 0f
+
+    var redOffset: float = 0f
+
+    var greenFromRed: float = 0f
+
+    var greenFromGreen: float = 1f
+
+    var greenFromBlue: float = 0f
+
+    var greenOffset: float = 0f
+
+    var blueFromRed: float = 0f
+
+    var blueFromGreen: float = 0f
+
+    var blueFromBlue: float = 1f
+
+    var blueOffset: float = 0f
+
+    [Format("rgba16f")] var target: RWTexture2D<float4>
+
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val coord = int2(int(id.x), int(id.y))
+        val size = target.GetDimensions()
+
+        if (coord.x >= size.x || coord.y >= size.y) {
+            return
+        }
+
+        val extent = source.GetDimensions(0)
+        val texel = source.Load(int3(clamp(coord.x, 0, extent.x - 1), clamp(coord.y, 0, extent.y - 1), 0))
+        val rgb = float3(texel.x, texel.y, texel.z)
+
+        val red = dot(rgb, float3(redFromRed, redFromGreen, redFromBlue)) + redOffset
+        val green = dot(rgb, float3(greenFromRed, greenFromGreen, greenFromBlue)) + greenOffset
+        val blue = dot(rgb, float3(blueFromRed, blueFromGreen, blueFromBlue)) + blueOffset
+
+        target.Store(coord, float4(red, green, blue, texel.w))
+    }
+}

@@ -1,0 +1,44 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+package Vixen.TextureGraph.Shaders
+
+import Vixen.Shaders.Core
+
+// The sRGB transfer function, either way — Patina #171.
+//
+// The piecewise curve, not a 2.2 power: `ColorSpaces.SrgbToLinear` and `LinearToSrgb` are the
+// engine's one copy of it, and this calls them. Alpha is linear in both encodings and is copied.
+// Inputs are clamped to nought first, because the curve's power is undefined below it and a NaN
+// written into a baked file is permanent.
+
+shader SrgbConvert {
+    var source: Texture2D
+
+    /// Non-zero decodes sRGB to linear; zero encodes linear as sRGB.
+    var toLinear: int = 1
+
+    [Format("rgba16f")] var target: RWTexture2D<float4>
+
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val coord = int2(int(id.x), int(id.y))
+        val size = target.GetDimensions()
+
+        if (coord.x >= size.x || coord.y >= size.y) {
+            return
+        }
+
+        val extent = source.GetDimensions(0)
+        val texel = source.Load(int3(clamp(coord.x, 0, extent.x - 1), clamp(coord.y, 0, extent.y - 1), 0))
+        val rgb = max(float3(texel.x, texel.y, texel.z), float3(0f, 0f, 0f))
+
+        var converted = ColorSpaces.LinearToSrgb(rgb)
+
+        if (toLinear != 0) {
+            converted = ColorSpaces.SrgbToLinear(rgb)
+        }
+
+        target.Store(coord, float4(converted.x, converted.y, converted.z, texel.w))
+    }
+}

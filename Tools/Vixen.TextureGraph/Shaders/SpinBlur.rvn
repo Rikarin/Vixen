@@ -1,0 +1,98 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+package Vixen.TextureGraph.Shaders
+
+import Vixen.Shaders.Core
+
+// A smear along the circle about a centre — Patina #173's spin blur.
+//
+// Each texel averages `samples` bilinear reads spread evenly over an arc of `angle` radians centred on
+// itself, about (`centreX`, `centreY`). The arc is taken in texels rather than in the unit square, so
+// a circle stays a circle on an image that is not square. `RadialBlur` is the other half of the pair:
+// it smears along the ray from the centre, this across it.
+//
+// Taking no length, it is resolution-independent by construction: an angle is the same arc at any
+// bake. The reads wrap or clamp as the plan says, but an arc about one centre runs opposite ways on the
+// two sides of the image, so the picture cannot tile however the reads are addressed.
+
+shader SpinBlur {
+    var source: Texture2D
+
+    /// The centre, as a fraction of the image.
+    var centreX: float = 0.5f
+
+    var centreY: float = 0.5f
+
+    /// The whole arc each texel is smeared over, in radians.
+    var angle: float = 0.2f
+
+    /// How many reads along the arc.
+    var samples: int = 16
+
+    var wrapX: int = 0
+
+    var wrapY: int = 0
+
+    [Format("rgba16f")] var target: RWTexture2D<float4>
+
+    const val MaxSamples: int = 64
+
+    func Fetch(x: int, y: int): float4 {
+        val extent = source.GetDimensions(0)
+
+        return source.Load(int3(Math.Address(x, extent.x, wrapX), Math.Address(y, extent.y, wrapY), 0))
+    }
+
+    /// A bilinear read at a position in the source's texels.
+    func At(px: float, py: float): float4 {
+        val x0 = int(floor(px))
+        val y0 = int(floor(py))
+        val tx = px - float(x0)
+        val ty = py - float(y0)
+
+        val top = lerp(Fetch(x0, y0), Fetch(x0 + 1, y0), float4(tx, tx, tx, tx))
+        val bottom = lerp(Fetch(x0, y0 + 1), Fetch(x0 + 1, y0 + 1), float4(tx, tx, tx, tx))
+
+        return lerp(top, bottom, float4(ty, ty, ty, ty))
+    }
+
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val coord = int2(int(id.x), int(id.y))
+        val size = target.GetDimensions()
+
+        if (coord.x >= size.x || coord.y >= size.y) {
+            return
+        }
+
+        val extent = source.GetDimensions(0)
+        val scale = float2(float(extent.x) / float(size.x), float(extent.y) / float(size.y))
+        val centre = float2(centreX * float(extent.x), centreY * float(extent.y))
+        val offset = float2((float(coord.x) + 0.5f) * scale.x, (float(coord.y) + 0.5f) * scale.y) - centre
+        val count = clamp(samples, 1, MaxSamples)
+
+        var sum = float4(0f, 0f, 0f, 0f)
+
+        for (i in 0 .. MaxSamples) {
+            if (i >= count) {
+                break
+            }
+
+            var t = 0f
+
+            if (count > 1) {
+                t = float(i) / float(count - 1) - 0.5f
+            }
+
+            val turn = angle * t
+            val c = cos(turn)
+            val s = sin(turn)
+            val turned = float2(offset.x * c - offset.y * s, offset.x * s + offset.y * c) + centre
+
+            sum = sum + At(turned.x - 0.5f, turned.y - 0.5f)
+        }
+
+        target.Store(coord, sum / float(count))
+    }
+}

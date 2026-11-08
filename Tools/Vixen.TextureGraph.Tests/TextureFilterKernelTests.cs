@@ -274,7 +274,6 @@ public class TextureFilterKernelTests {
     [Theory]
     [InlineData("BlurHq", "MaxRadius", 64)]
     [InlineData("DirectionalBlur", "MaxSteps", 64)]
-    [InlineData("NonUniformBlur", "MaxRadius", 12)]
     [InlineData("Sharpen", "MaxRadius", 8)]
     [InlineData("RadialBlur", "MaxSamples", 32)]
     [InlineData("SlopeBlur", "MaxSamples", 32)]
@@ -301,35 +300,35 @@ public class TextureFilterKernelTests {
     }
 
     /// <summary>
-    ///     ⚠ The same plan, baked four times larger, runs off two kernels' loops — and that is
+    ///     ⚠ The same plan, baked four times larger, runs off one kernel's loop — and that is
     ///     <a href="https://github.com/Rikarin/Vixen/issues/678">#678</a>.
     /// </summary>
     /// <remarks>
     ///     <para>
     ///         <b>The number that matters is the resolved one, and nothing else in this assembly
-    ///         computes it against a ceiling.</b> A non-uniform blur of 8 texels at a 1K base is 32
-    ///         texels in a 4K bake, and the kernel loops to 12 — so what the artist gets is a
-    ///         12-texel blur, silently, and the graph is a different material at the resolution they
-    ///         shipped it at. <c>TexturePlan.Validate</c> cannot say so: it knows nothing about what
-    ///         a kernel's loop bound is. The kernel cannot say so either: a shader has nowhere to
-    ///         raise.
+    ///         computes it against a ceiling.</b> A sharpen of 4 texels at a 1K base is 16 texels in a 4K
+    ///         bake, and the kernel loops to 8 — so what the artist would get is an 8-texel sharpen,
+    ///         silently. <c>TexturePlan.Validate</c> cannot say so: it knows nothing about what a kernel's
+    ///         loop bound is. The kernel cannot say so either: a shader has nowhere to raise.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And the plan is <em>valid</em>.</b> Both halves are asserted here, because a
-    ///         reader who found only the second would reasonably assume <c>Validate</c> had it
-    ///         covered.
+    ///         ⚠ <b>This said two kernels until Patina #173.</b> The non-uniform blur beside it resolves 8
+    ///         to 32 and used to be refused at its loop of 12; it now spends a budget of taps over any
+    ///         width, as <c>Blur</c> does, so the same plan reports the sharpen alone — and that the blur
+    ///         is <em>not</em> reported is asserted, because a ceiling left behind in
+    ///         <c>TextureKernelCeilings</c> would refuse a bake the kernel now draws correctly.
     ///     </para>
     /// </remarks>
     [Fact]
-    public void The_same_plan_baked_four_times_larger_runs_off_two_kernels_loops() {
+    public void The_same_plan_baked_four_times_larger_runs_off_one_kernels_loop() {
         var plan = Plan(-2, TextureFilters.NonUniformBlurOp(2, 0, 1, 8f), TextureFilters.SharpenOp(3, 2, 1f, 4f));
 
         Assert.Empty(plan.Validate());
 
         var problems = TextureFilters.Verify(plan);
 
-        Assert.Equal(2, problems.Length);
-        Assert.Contains(problems, line => line.Contains("NonUniformBlur", StringComparison.Ordinal) && line.Contains("32", StringComparison.Ordinal));
+        Assert.Single(problems);
+        Assert.DoesNotContain(problems, line => line.Contains("NonUniformBlur", StringComparison.Ordinal));
         Assert.Contains(problems, line => line.Contains("Sharpen", StringComparison.Ordinal) && line.Contains("16", StringComparison.Ordinal));
     }
 

@@ -180,7 +180,12 @@ sealed partial class NonUniformBlurNode : TextureNode {
     public Image RadiusMap;
 
     /// <summary>What a fully lit texel is worth, in texels at the base resolution.</summary>
-    [Input(Name = "Max Radius", Minimum = 0f, Maximum = 12f)]
+    /// <remarks>
+    ///     ⚠ <b>No hard maximum since Patina #173.</b> It was 12, because the kernel looped to 12 texels and
+    ///     <c>TextureFilters.Verify</c> refused a bake that resolved past it; the kernel now spends a budget
+    ///     of taps and spreads them over any width, as <c>Filters/Blur</c> does.
+    /// </remarks>
+    [Input(Name = "Max Radius", Minimum = 0f, SoftMaximum = 64f)]
     public Scalar MaxRadius = 4f;
 
     /// <summary>The blurred image.</summary>

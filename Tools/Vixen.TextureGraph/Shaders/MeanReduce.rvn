@@ -1,0 +1,72 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+package Vixen.TextureGraph.Shaders
+
+// One rung of the mean a colour match needs before it can shift anything — Patina #171.
+//
+// The ladder `MinMaxReduce` climbs for Auto Levels, carrying a mean instead of a pair. Each texel
+// written is the mean of the block of the level above it, and its alpha is how much of that block
+// lay inside the image, so a block hanging off the edge of an image whose size is not a power of two
+// counts for what it covers and no more. The first rung reads colour and weighs every texel alike;
+// every later one reads the (mean, coverage) the rung before wrote and weighs by the coverage.
+
+shader MeanReduce {
+    var source: Texture2D
+
+    /// Non-zero on the first rung, which reads the picture rather than a reduced one.
+    var first: int = 1
+
+    [Format("rgba16f")] var target: RWTexture2D<float4>
+
+    const val MaxBlock: int = 8
+
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val coord = int2(int(id.x), int(id.y))
+        val size = target.GetDimensions()
+
+        if (coord.x >= size.x || coord.y >= size.y) {
+            return
+        }
+
+        val parent = source.GetDimensions(0)
+        val blockX = clamp((parent.x + size.x - 1) / size.x, 1, MaxBlock)
+        val blockY = clamp((parent.y + size.y - 1) / size.y, 1, MaxBlock)
+
+        var sum = float3(0f, 0f, 0f)
+        var weight = 0f
+
+        for (dy in 0 .. MaxBlock) {
+            if (dy >= blockY) {
+                break
+            }
+
+            for (dx in 0 .. MaxBlock) {
+                if (dx >= blockX) {
+                    break
+                }
+
+                val x = coord.x * blockX + dx
+                val y = coord.y * blockY + dy
+
+                if (x < parent.x && y < parent.y) {
+                    val tap = source.Load(int3(x, y, 0))
+
+                    var w = 1f
+
+                    if (first == 0) {
+                        w = tap.w
+                    }
+
+                    sum = sum + float3(tap.x, tap.y, tap.z) * w
+                    weight = weight + w
+                }
+            }
+        }
+
+        val mean = sum / max(weight, 0.000001f)
+
+        target.Store(coord, float4(mean.x, mean.y, mean.z, weight / float(blockX * blockY)))
+    }
+}

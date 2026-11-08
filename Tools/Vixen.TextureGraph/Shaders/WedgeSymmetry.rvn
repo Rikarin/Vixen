@@ -1,0 +1,80 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+package Vixen.TextureGraph.Shaders
+
+import Vixen.Shaders.Core
+
+// One wedge of the image repeated round a centre, mirrored every other time — Patina #175.
+//
+// The circle about (`centreX`, `centreY`) is cut into `wedges` equal wedges, the first starting at
+// `rotation` radians from +x, and every texel reads the first half-wedge: its angle is folded into
+// one wedge and then reflected about the wedge's middle, so neighbouring wedges are mirror images and
+// meet without a seam. That is a kaleidoscope with `2 · wedges` mirrors. The distance from the centre
+// is kept, and taken in texels, so a circle stays a circle on an image that is not square. Reads are
+// bilinear and wrap or clamp as the plan says.
+
+shader WedgeSymmetry {
+    var source: Texture2D
+
+    /// How many wedges make the circle.
+    var wedges: int = 6
+
+    /// Where the first wedge starts, in radians from +x.
+    var rotation: float = 0f
+
+    /// The centre, as a fraction of the image.
+    var centreX: float = 0.5f
+
+    var centreY: float = 0.5f
+
+    var wrapX: int = 0
+
+    var wrapY: int = 0
+
+    [Format("rgba16f")] var target: RWTexture2D<float4>
+
+    func Fetch(x: int, y: int): float4 {
+        val extent = source.GetDimensions(0)
+
+        return source.Load(int3(Math.Address(x, extent.x, wrapX), Math.Address(y, extent.y, wrapY), 0))
+    }
+
+    /// A bilinear read at a position in the source's texels, measured from texel centres.
+    func At(px: float, py: float): float4 {
+        val x0 = int(floor(px))
+        val y0 = int(floor(py))
+        val tx = px - float(x0)
+        val ty = py - float(y0)
+
+        val top = lerp(Fetch(x0, y0), Fetch(x0 + 1, y0), float4(tx, tx, tx, tx))
+        val bottom = lerp(Fetch(x0, y0 + 1), Fetch(x0 + 1, y0 + 1), float4(tx, tx, tx, tx))
+
+        return lerp(top, bottom, float4(ty, ty, ty, ty))
+    }
+
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val coord = int2(int(id.x), int(id.y))
+        val size = target.GetDimensions()
+
+        if (coord.x >= size.x || coord.y >= size.y) {
+            return
+        }
+
+        val extent = source.GetDimensions(0)
+        val scale = float2(float(extent.x) / float(size.x), float(extent.y) / float(size.y))
+        val centre = float2(centreX * float(extent.x), centreY * float(extent.y))
+        val offset = float2((float(coord.x) + 0.5f) * scale.x, (float(coord.y) + 0.5f) * scale.y) - centre
+        val distance = sqrt(dot(offset, offset))
+
+        // The wedge's own angle is a whole turn divided, which is the one thing the turn constant is
+        // for here: `rotation` is radians and is never converted.
+        val wedge = Const.TwoPi / float(clamp(wedges, 1, 64))
+        val relative = atan2(offset.y, offset.x) - rotation
+        val within = relative - wedge * floor(relative / wedge)
+        val folded = min(within, wedge - within) + rotation
+
+        target.Store(coord, At(centre.x + distance * cos(folded) - 0.5f, centre.y + distance * sin(folded) - 0.5f))
+    }
+}

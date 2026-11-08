@@ -1,0 +1,43 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+package Vixen.TextureGraph.Shaders
+
+// Each colour channel onto a few evenly spaced values — Patina #171.
+//
+// `levels` values from nought to one inclusive, each taking an equal share of the input range:
+// with four, the input quarters go to 0, 1/3, 2/3 and 1. So both ends survive, which is what a
+// posterised mask needs, and a channel that was already one of the levels is unchanged. Fewer than
+// two levels is read as two, since one value is not a quantisation of anything, and more than 256 as
+// 256, the node's own bound and an 8-bit channel's every value.
+
+shader Quantise {
+    var source: Texture2D
+
+    /// How many values a channel may take, at least two.
+    var levels: int = 4
+
+    [Format("rgba16f")] var target: RWTexture2D<float4>
+
+    func Snap(value: float, count: float): float {
+        val bucket = clamp(floor(saturate(value) * count), 0f, count - 1f)
+
+        return bucket / (count - 1f)
+    }
+
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val coord = int2(int(id.x), int(id.y))
+        val size = target.GetDimensions()
+
+        if (coord.x >= size.x || coord.y >= size.y) {
+            return
+        }
+
+        val extent = source.GetDimensions(0)
+        val texel = source.Load(int3(clamp(coord.x, 0, extent.x - 1), clamp(coord.y, 0, extent.y - 1), 0))
+        val count = float(clamp(levels, 2, 256))
+
+        target.Store(coord, float4(Snap(texel.x, count), Snap(texel.y, count), Snap(texel.z, count), texel.w))
+    }
+}

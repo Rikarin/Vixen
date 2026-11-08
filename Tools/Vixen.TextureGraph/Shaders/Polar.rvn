@@ -1,0 +1,79 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+package Vixen.TextureGraph.Shaders
+
+import Vixen.Shaders.Core
+
+// The image between square and polar coordinates, either way — Patina #175.
+//
+// **To polar** (`toPolar` non-zero): across the output is the angle, a whole turn from left to right
+// starting along +x and turning towards +y, and down it is the distance from the centre, nought at
+// the top and the inscribed circle's edge at the bottom. So a ring about the centre becomes a
+// horizontal band, and a ray a vertical line. **From polar** is the inverse: the output is square,
+// and each texel reads the input at its own (angle, distance), so a horizontal band becomes a ring.
+// Applied in turn the two return the inside of the inscribed circle; the corners outside it read
+// the bottom row, clamped, because nothing in a polar image lies beyond it.
+//
+// Both work in the unit square, so on an image that is not square the circle is an ellipse — the
+// same convention `Source/Gradient`'s radial sweep has. Reads are bilinear; the angle axis wraps
+// whatever the plan says, because it is periodic by construction, and the distance axis clamps.
+
+shader Polar {
+    var source: Texture2D
+
+    /// Non-zero maps square to polar; zero maps polar back to square.
+    var toPolar: int = 1
+
+    [Format("rgba16f")] var target: RWTexture2D<float4>
+
+    func Fetch(x: int, y: int, wrapAcross: int): float4 {
+        val extent = source.GetDimensions(0)
+
+        return source.Load(int3(Math.Address(x, extent.x, wrapAcross), Math.Address(y, extent.y, 0), 0))
+    }
+
+    /// A bilinear read at a position in the unit square.
+    func At(u: float, v: float, wrapAcross: int): float4 {
+        val extent = source.GetDimensions(0)
+        val px = u * float(extent.x) - 0.5f
+        val py = v * float(extent.y) - 0.5f
+        val x0 = int(floor(px))
+        val y0 = int(floor(py))
+        val tx = px - float(x0)
+        val ty = py - float(y0)
+
+        val top = lerp(Fetch(x0, y0, wrapAcross), Fetch(x0 + 1, y0, wrapAcross), float4(tx, tx, tx, tx))
+        val bottom = lerp(Fetch(x0, y0 + 1, wrapAcross), Fetch(x0 + 1, y0 + 1, wrapAcross), float4(tx, tx, tx, tx))
+
+        return lerp(top, bottom, float4(ty, ty, ty, ty))
+    }
+
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val coord = int2(int(id.x), int(id.y))
+        val size = target.GetDimensions()
+
+        if (coord.x >= size.x || coord.y >= size.y) {
+            return
+        }
+
+        val u = (float(coord.x) + 0.5f) / float(size.x)
+        val v = (float(coord.y) + 0.5f) / float(size.y)
+
+        if (toPolar != 0) {
+            val turn = u * Const.TwoPi
+            val distance = 0.5f * v
+
+            target.Store(coord, At(0.5f + distance * cos(turn), 0.5f + distance * sin(turn), 0))
+
+            return
+        }
+
+        val dx = u - 0.5f
+        val dy = v - 0.5f
+        val around = atan2(dy, dx) * Const.InvTwoPi
+
+        target.Store(coord, At(around - floor(around), min(2f * sqrt(dx * dx + dy * dy), 1f), 1))
+    }
+}

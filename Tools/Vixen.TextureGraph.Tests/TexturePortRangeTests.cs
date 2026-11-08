@@ -95,7 +95,6 @@ public class TexturePortRangeTests(ITestOutputHelper output) {
     [Theory]
     [InlineData("Filters/Blur HQ", "Sigma", TextureFilters.BlurHq, "sigma")]
     [InlineData("Filters/Directional Blur", "Length", TextureFilters.DirectionalBlur, "length")]
-    [InlineData("Filters/Non-Uniform Blur", "Max Radius", TextureFilters.NonUniformBlur, "maxRadius")]
     [InlineData("Filters/Sharpen", "Radius", TextureFilters.Sharpen, "radius")]
     public void A_ceiling_is_the_ports_maximum(string node, string port, string kernel, string parameter) {
         var declared = Registry().Get(node).Port(port, PortDirection.Input)!;
@@ -120,9 +119,7 @@ public class TexturePortRangeTests(ITestOutputHelper output) {
 
             foreach (var port in Numbers(type)) {
                 foreach (var bound in new[] { port.Minimum, port.Maximum }) {
-                    // ⚠ The one ceiling on a product: the kernel clamps a map's value times this, so 24
-                    // reaches 12 at half the map and is another picture. The bound is still its ceiling.
-                    if (float.IsInfinity(bound) || (type.Path == "Filters/Non-Uniform Blur" && bound > 0f)) {
+                    if (float.IsInfinity(bound)) {
                         continue;
                     }
 

@@ -197,9 +197,9 @@ public sealed class TextureCompoundLibraryTests : IDisposable {
         // one row where the plan and the folder legitimately disagree says why in both places.
         var rows = new (string Folder, string[] Marked, string Why)[] {
                 ("Utility/", [
-                    "Contrast Luminosity", "Equalize", "Highpass", "Histogram Range", "Histogram Scan",
+                    "Contrast Luminosity", "Equalize", "Glow", "Highpass", "Histogram Range", "Histogram Scan",
                     "Histogram Select", "Make It Tile", "Safe Transform"
-                ], "§ 4.9's Utility row marks eight ●. ⚠ `Equalize` is the one written there as "
+                ], "§ 4.9's Utility row marks nine ●. ⚠ `Equalize` is the one written there as "
                     + "'Delight / Equalize' — one compound under both of doc 40 § D2's names, not two"),
                 ("Patterns/", [
                     "Brick", "Cells", "Panels", "Rivets", "Scratches", "Tile Random", "Wood Grain"

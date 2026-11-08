@@ -1,7 +1,7 @@
 # Shaders
 
-The texture graph's atomic kernels, in Raven. **Forty-nine `.rvn` files**, which is
-[doc 48 § 4.11](../../../docs/plan/48-material-authoring.md)'s forty-one adjusted four ways — and
+The texture graph's atomic kernels, in Raven. **Seventy-five `.rvn` files**, which is
+[doc 48 § 4.11](../../../docs/plan/48-material-authoring.md)'s forty-one adjusted five ways — and
 every adjustment is a fact about the catalogue rather than an arithmetic slip:
 
 | | | |
@@ -11,7 +11,8 @@ every adjustment is a fact about the catalogue rather than an arithmetic slip:
 | + `Triplanar`, `ColourSelect` | +2 | § M8's two late scope rows, which arrived after § 4.11 was counted — [#815](https://github.com/Rikarin/Vixen/issues/815) and [#1010](https://github.com/Rikarin/Vixen/issues/1010) |
 | + `Mix` | +1 | § M10's, and the only one dogfooding asked for — [#1059](https://github.com/Rikarin/Vixen/issues/1059) |
 | + `MetalReflectance` | +1 | § M10's second: a § 4.9 *compound* row that no atom could express, because nothing mapped a metal name to an F0 — [#1096](https://github.com/Rikarin/Vixen/issues/1096) |
-| = files in this folder | **49** | `TextureKernels.Names` at run time |
+| + Patina's audit: 14 colour, 5 filter and 7 remap kernels | +26 | Patina #171, #173 and #175: rows the reference catalogue has and § 4.11 never listed. `MeanReduce` and `BoundsReduce` are ladder rungs again, not nodes |
+| = files in this folder | **75** | `TextureKernels.Names` at run time |
 
 ⚠ **This number read forty-five while the folder held forty-seven, and it is the third time a count
 here has fallen behind the directory.** `Triplanar` and `ColourSelect` shipped and nobody came back.
@@ -160,6 +161,20 @@ under that mode `Coverage` returns the texel's own luminance — so weighting th
 weighting a colour by itself, and a minified greyscale pattern would resolve brighter than the pattern
 ([#950](https://github.com/Rikarin/Vixen/issues/950)). The premultiplied resolve is for a *straight
 pair*, and that mode does not have one.
+
+**Patina's audit — twenty-six more, in three surfaces.** `TextureColourOperators` (Patina #171): `Clamp` ·
+`Threshold` · `Quantise` · `ChannelMix` · `ImageRamp` · `ReplaceColour` · `ReplaceColourRange` ·
+`MeanReduce` · `Dissolve` · `SrgbConvert` · `Premultiply` · `ColourLookup` · `Palette` · `SelectInput`.
+`TextureSmoothingFilters` (Patina #173): `Median` · `Bilateral` · `Kuwahara` · `SpinBlur` · `AntiAlias`.
+`TextureRemapKernels` (Patina #175): `Polar` · `CornerWarp` · `RotateByMap` · `Swirl` · `WedgeSymmetry` ·
+`BoundsReduce` · `Trim`. ⚠ Three of them back two nodes each — `SrgbConvert`, `Premultiply` and `Polar`
+go either way by a switch, and `ReplaceColour` takes its `from` colour from a port or from the 1×1 a
+`MeanReduce` ladder measured — so the node count is not the kernel count. ⚠ Every one that reads a
+neighbour reads it through `Math.Address` and spends a **budget in taps** rather than a ceiling on its
+width, which is `Blur`'s rule since #678; `NonUniformBlur` moved to the same rule in the same batch and
+left `TextureKernelCeilings`. ⚠ `Kuwahara` **weighs** its quadrants by the inverse fourth power of their
+variance rather than taking the least: an argmin flips on the last bit of a near tie, and the tiling
+roll call measured that as a 0.08 drift on a field rolled by whole texels.
 
 ## No `.spv` is committed here, and that is the one real departure
 

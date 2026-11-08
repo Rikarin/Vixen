@@ -1,0 +1,83 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+package Vixen.TextureGraph.Shaders
+
+// One of four images, chosen by a number — Patina #171's input selector.
+//
+// **A dispatch rather than a rewiring at compile time**, because the choice is a value: the plan's
+// rule is that a value change never recompiles, and a selector the compiler resolved would make
+// moving its index a structural edit. So all four slots are bound and the kernel copies one. An
+// unwired slot is bound to an image the node already holds, and `wired` says which slots are real:
+// choosing an unwired one writes transparent black, which is visible, rather than quietly showing
+// another input.
+
+shader SelectInput {
+    var first: Texture2D
+
+    var second: Texture2D
+
+    var third: Texture2D
+
+    var fourth: Texture2D
+
+    /// Which slot to copy, counted from one.
+    var index: int = 1
+
+    /// One bit per slot, the first slot's lowest: set where something was wired.
+    var wired: int = 1
+
+    [Format("rgba16f")] var target: RWTexture2D<float4>
+
+    func First(coord: int2): float4 {
+        val extent = first.GetDimensions(0)
+
+        return first.Load(int3(clamp(coord.x, 0, extent.x - 1), clamp(coord.y, 0, extent.y - 1), 0))
+    }
+
+    func Second(coord: int2): float4 {
+        val extent = second.GetDimensions(0)
+
+        return second.Load(int3(clamp(coord.x, 0, extent.x - 1), clamp(coord.y, 0, extent.y - 1), 0))
+    }
+
+    func Third(coord: int2): float4 {
+        val extent = third.GetDimensions(0)
+
+        return third.Load(int3(clamp(coord.x, 0, extent.x - 1), clamp(coord.y, 0, extent.y - 1), 0))
+    }
+
+    func Fourth(coord: int2): float4 {
+        val extent = fourth.GetDimensions(0)
+
+        return fourth.Load(int3(clamp(coord.x, 0, extent.x - 1), clamp(coord.y, 0, extent.y - 1), 0))
+    }
+
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val coord = int2(int(id.x), int(id.y))
+        val size = target.GetDimensions()
+
+        if (coord.x >= size.x || coord.y >= size.y) {
+            return
+        }
+
+        val slot = clamp(index, 1, 4) - 1
+
+        var chosen = float4(0f, 0f, 0f, 0f)
+
+        if (((wired >> slot) & 1) != 0) {
+            if (slot == 0) {
+                chosen = First(coord)
+            } else if (slot == 1) {
+                chosen = Second(coord)
+            } else if (slot == 2) {
+                chosen = Third(coord)
+            } else {
+                chosen = Fourth(coord)
+            }
+        }
+
+        target.Store(coord, chosen)
+    }
+}

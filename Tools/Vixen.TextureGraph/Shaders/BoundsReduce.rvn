@@ -1,0 +1,95 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+package Vixen.TextureGraph.Shaders
+
+// One rung of the box that holds an image's content — Patina #175's trim to content.
+//
+// The ladder `MinMaxReduce` climbs, carrying a rectangle: each texel written is the union of the
+// rectangles of a block of the rung above, as (left, top, right, bottom) in the unit square of the
+// original image. On the first rung a texel is content when its value passes `threshold` — its
+// alpha when `useAlpha` is set, and otherwise the largest of its colour channels — and contributes its
+// own square; one that is not contributes the empty box (2, 2, −1, −1), which every union ignores.
+// A block hanging off the edge of an image whose size is not a power of two contributes only what it
+// covers.
+//
+// ⚠ The node writes these rungs at 32 bits whatever the graph's depth, because a texel edge at 4K is
+// 1/4096 and a half float near one resolves 1/2048: a 16-bit box is off by a texel.
+
+shader BoundsReduce {
+    var source: Texture2D
+
+    /// Non-zero on the first rung, which reads the picture rather than a reduced one.
+    var first: int = 1
+
+    /// What a texel's value must exceed to be content.
+    var threshold: float = 0f
+
+    /// Non-zero tests alpha rather than the colour channels.
+    var useAlpha: int = 0
+
+    [Format("rgba16f")] var target: RWTexture2D<float4>
+
+    const val MaxBlock: int = 8
+
+    func Box(x: int, y: int, parent: int2): float4 {
+        val tap = source.Load(int3(x, y, 0))
+
+        if (first == 0) {
+            return tap
+        }
+
+        var value = max(max(tap.x, tap.y), tap.z)
+
+        if (useAlpha != 0) {
+            value = tap.w
+        }
+
+        if (value > threshold) {
+            return float4(float(x) / float(parent.x), float(y) / float(parent.y), float(x + 1) / float(parent.x), float(y + 1) / float(parent.y))
+        }
+
+        return float4(2f, 2f, -1f, -1f)
+    }
+
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val coord = int2(int(id.x), int(id.y))
+        val size = target.GetDimensions()
+
+        if (coord.x >= size.x || coord.y >= size.y) {
+            return
+        }
+
+        val parent = source.GetDimensions(0)
+        val blockX = clamp((parent.x + size.x - 1) / size.x, 1, MaxBlock)
+        val blockY = clamp((parent.y + size.y - 1) / size.y, 1, MaxBlock)
+
+        var low = float2(2f, 2f)
+        var high = float2(-1f, -1f)
+
+        for (dy in 0 .. MaxBlock) {
+            if (dy >= blockY) {
+                break
+            }
+
+            for (dx in 0 .. MaxBlock) {
+                if (dx >= blockX) {
+                    break
+                }
+
+                val x = coord.x * blockX + dx
+                val y = coord.y * blockY + dy
+
+                if (x < parent.x && y < parent.y) {
+                    val box = Box(x, y, parent)
+
+                    low = min(low, float2(box.x, box.y))
+                    high = max(high, float2(box.z, box.w))
+                }
+            }
+        }
+
+        target.Store(coord, float4(low.x, low.y, high.x, high.y))
+    }
+}

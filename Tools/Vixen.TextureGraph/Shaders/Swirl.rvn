@@ -1,0 +1,85 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+package Vixen.TextureGraph.Shaders
+
+import Vixen.Shaders.Core
+
+// The image twisted about a centre, most at the centre and not at all at a radius — Patina #175.
+//
+// A texel at distance r from the centre reads the source turned by `angle · (1 − r/radius)²` about
+// it, so the twist falls smoothly to nothing at `radius` and everything beyond is a copy. `radius` is
+// a fraction of the image's width and the twist is taken in texels, so a circle stays a circle on an
+// image that is not square. Reads are bilinear and wrap or clamp as the plan says; a swirl whose disc
+// lies inside the image leaves the edges alone, so a tiling input keeps tiling.
+
+shader Swirl {
+    var source: Texture2D
+
+    /// The centre, as a fraction of the image.
+    var centreX: float = 0.5f
+
+    var centreY: float = 0.5f
+
+    /// Where the twist ends, as a fraction of the image's width.
+    var radius: float = 0.4f
+
+    /// How far the centre turns, in radians. Negative turns the other way.
+    var angle: float = 3f
+
+    var wrapX: int = 0
+
+    var wrapY: int = 0
+
+    [Format("rgba16f")] var target: RWTexture2D<float4>
+
+    func Fetch(x: int, y: int): float4 {
+        val extent = source.GetDimensions(0)
+
+        return source.Load(int3(Math.Address(x, extent.x, wrapX), Math.Address(y, extent.y, wrapY), 0))
+    }
+
+    /// A bilinear read at a position in the source's texels, measured from texel centres.
+    func At(px: float, py: float): float4 {
+        val x0 = int(floor(px))
+        val y0 = int(floor(py))
+        val tx = px - float(x0)
+        val ty = py - float(y0)
+
+        val top = lerp(Fetch(x0, y0), Fetch(x0 + 1, y0), float4(tx, tx, tx, tx))
+        val bottom = lerp(Fetch(x0, y0 + 1), Fetch(x0 + 1, y0 + 1), float4(tx, tx, tx, tx))
+
+        return lerp(top, bottom, float4(ty, ty, ty, ty))
+    }
+
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val coord = int2(int(id.x), int(id.y))
+        val size = target.GetDimensions()
+
+        if (coord.x >= size.x || coord.y >= size.y) {
+            return
+        }
+
+        val extent = source.GetDimensions(0)
+        val scale = float2(float(extent.x) / float(size.x), float(extent.y) / float(size.y))
+        val centre = float2(centreX * float(extent.x), centreY * float(extent.y))
+        val offset = float2((float(coord.x) + 0.5f) * scale.x, (float(coord.y) + 0.5f) * scale.y) - centre
+        val reach = max(radius, 0f) * float(extent.x)
+        val distance = sqrt(dot(offset, offset))
+
+        var turn = 0f
+
+        if (distance < reach) {
+            val falloff = 1f - distance / reach
+
+            turn = angle * falloff * falloff
+        }
+
+        val c = cos(turn)
+        val s = sin(turn)
+        val turned = float2(offset.x * c - offset.y * s, offset.x * s + offset.y * c) + centre
+
+        target.Store(coord, At(turned.x - 0.5f, turned.y - 0.5f))
+    }
+}

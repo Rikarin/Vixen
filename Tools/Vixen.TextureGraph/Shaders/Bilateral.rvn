@@ -1,0 +1,100 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+package Vixen.TextureGraph.Shaders
+
+import Vixen.Shaders.Core
+
+// A blur that does not cross an edge — Patina #173's edge-preserving smooth.
+//
+// A bilateral filter: every tap is weighed by a gaussian of its distance, as `BlurHq` weighs it, and
+// again by a gaussian of how different its colour is from the centre's. Across a step the second
+// weight falls to nothing and the step survives; inside a region of one colour it is one and this is
+// a gaussian blur. `rangeSigma` is the colour difference, in channel units, at which a tap counts for
+// e^-½ of a like-coloured one: small keeps more edges, large is closer to a plain blur.
+//
+// `sigma` is a length and is scaled with the bake. The window reaches two sigmas, and past
+// `MaxTaps` either side its taps spread out rather than the window shrinking — `Blur`'s budget rule.
+// The read wraps or clamps as the plan says.
+
+shader Bilateral {
+    var source: Texture2D
+
+    /// The spatial gaussian's sigma, in texels of the image being written.
+    var sigma: float = 2f
+
+    /// The colour difference at which a tap's weight has fallen to e^-½.
+    var rangeSigma: float = 0.1f
+
+    var wrapX: int = 0
+
+    var wrapY: int = 0
+
+    [Format("rgba16f")] var target: RWTexture2D<float4>
+
+    /// The most taps either side of the centre along each axis.
+    const val MaxTaps: int = 8
+
+    func Tap(x: int, y: int): float4 {
+        val size = source.GetDimensions(0)
+
+        return source.Load(int3(Math.Address(x, size.x, wrapX), Math.Address(y, size.y, wrapY), 0))
+    }
+
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val coord = int2(int(id.x), int(id.y))
+        val size = target.GetDimensions()
+
+        if (coord.x >= size.x || coord.y >= size.y) {
+            return
+        }
+
+        val centre = Tap(coord.x, coord.y)
+        val spatial = max(sigma, 0f)
+
+        if (spatial < 0.01f) {
+            target.Store(coord, centre)
+
+            return
+        }
+
+        val wide = 2f * spatial
+        val spacing = max(1f, wide / float(MaxTaps))
+        val reach = clamp(int(ceil(wide / spacing)), 1, MaxTaps)
+        val spatialScale = -0.5f / (spatial * spatial)
+        val range = max(rangeSigma, 0.0001f)
+        val rangeScale = -0.5f / (range * range)
+
+        var sum = float4(0f, 0f, 0f, 0f)
+        var weight = 0f
+
+        for (jy in 0 .. 2 * MaxTaps) {
+            val iy = jy - MaxTaps
+
+            if (iy < -reach || iy > reach) {
+                continue
+            }
+
+            for (jx in 0 .. 2 * MaxTaps) {
+                val ix = jx - MaxTaps
+
+                if (ix < -reach || ix > reach) {
+                    continue
+                }
+
+                val ox = int(round(float(ix) * spacing))
+                val oy = int(round(float(iy) * spacing))
+                val tap = Tap(coord.x + ox, coord.y + oy)
+                val difference = float3(tap.x - centre.x, tap.y - centre.y, tap.z - centre.z)
+                val distance = float(ox * ox + oy * oy)
+                val w = exp(distance * spatialScale + dot(difference, difference) * rangeScale)
+
+                sum = sum + tap * w
+                weight = weight + w
+            }
+        }
+
+        target.Store(coord, sum / max(weight, 0.000001f))
+    }
+}

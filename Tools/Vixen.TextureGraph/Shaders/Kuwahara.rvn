@@ -1,0 +1,150 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+package Vixen.TextureGraph.Shaders
+
+import Vixen.Shaders.Core
+
+// A painterly smooth — Patina #173 — as a Kuwahara filter.
+//
+// The four square quadrants that share the texel as a corner are measured, and the texel takes the
+// mean of the ones whose colours vary least. Inside a flat region every quadrant agrees; at an edge the
+// quadrant that lies wholly on one side has the least variance, so the edge stays sharp while the
+// regions either side flatten into strokes. The variance is summed over red, green and blue.
+//
+// ⚠ **Weighted rather than chosen.** The classic filter takes the single least-varied quadrant, and an
+// argmin is discontinuous: where two quadrants vary almost alike — every extremum of a smooth field —
+// a difference in the last bit of the input flips the choice and moves the output by the gap between
+// two means. The tiling roll call caught exactly that: the same field rolled by whole texels came back
+// 0.08 different, from rounding in the stimulus alone. So each quadrant is weighed by the inverse fourth
+// power of its variance (the generalised filter's exponent of eight on the deviation): a quadrant with
+// a fraction of another's variance dominates it completely, which keeps an edge as sharp as the
+// argmin did, and two that nearly tie blend, which is continuous.
+//
+// `radius` is a length and is scaled with the bake. Past `MaxTaps` taps per quadrant side the taps
+// spread out rather than the quadrant shrinking — `Blur`'s budget rule. The read wraps or clamps as
+// the plan says.
+
+shader Kuwahara {
+    var source: Texture2D
+
+    /// The side of each quadrant, in texels of the image being written.
+    var radius: float = 4f
+
+    var wrapX: int = 0
+
+    var wrapY: int = 0
+
+    [Format("rgba16f")] var target: RWTexture2D<float4>
+
+    /// The most taps along one side of a quadrant, the shared corner excluded.
+    const val MaxTaps: int = 6
+
+    func Tap(x: int, y: int): float4 {
+        val size = source.GetDimensions(0)
+
+        return source.Load(int3(Math.Address(x, size.x, wrapX), Math.Address(y, size.y, wrapY), 0))
+    }
+
+    /// One quadrant's mean colour, and in alpha's place the summed variance of its colour channels.
+    func Quadrant(coord: int2, dx: int, dy: int, reach: int, spacing: float): float4 {
+        var sum = float4(0f, 0f, 0f, 0f)
+        var squares = 0f
+        var count = 0f
+
+        for (j in 0 .. MaxTaps) {
+            if (j > reach) {
+                break
+            }
+
+            for (i in 0 .. MaxTaps) {
+                if (i > reach) {
+                    break
+                }
+
+                val tap = Tap(coord.x + dx * int(round(float(i) * spacing)), coord.y + dy * int(round(float(j) * spacing)))
+
+                sum = sum + tap
+                squares = squares + dot(float3(tap.x, tap.y, tap.z), float3(tap.x, tap.y, tap.z))
+                count = count + 1f
+            }
+        }
+
+        val mean = sum / count
+        val variance = squares / count - dot(float3(mean.x, mean.y, mean.z), float3(mean.x, mean.y, mean.z))
+
+        return float4(mean.x, mean.y, mean.z, variance)
+    }
+
+    /// What every variance is lifted by, so a flat quadrant weighs a great deal rather than infinitely.
+    const val Floor: float = 0.00001f
+
+    /// A quadrant's weight: its variance's inverse fourth power, relative to the least one's.
+    func Weight(variance: float, least: float): float {
+        val ratio = least / (max(variance, 0f) + Floor)
+        val squared = ratio * ratio
+
+        return squared * squared
+    }
+
+    func Alpha(coord: int2, dx: int, dy: int, reach: int, spacing: float): float {
+        var sum = 0f
+        var count = 0f
+
+        for (j in 0 .. MaxTaps) {
+            if (j > reach) {
+                break
+            }
+
+            for (i in 0 .. MaxTaps) {
+                if (i > reach) {
+                    break
+                }
+
+                sum = sum + Tap(coord.x + dx * int(round(float(i) * spacing)), coord.y + dy * int(round(float(j) * spacing))).w
+                count = count + 1f
+            }
+        }
+
+        return sum / count
+    }
+
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val coord = int2(int(id.x), int(id.y))
+        val size = target.GetDimensions()
+
+        if (coord.x >= size.x || coord.y >= size.y) {
+            return
+        }
+
+        val wide = max(radius, 0f)
+
+        if (wide < 0.5f) {
+            target.Store(coord, Tap(coord.x, coord.y))
+
+            return
+        }
+
+        val spacing = max(1f, wide / float(MaxTaps))
+        val reach = clamp(int(round(wide / spacing)), 1, MaxTaps)
+
+        val q0 = Quadrant(coord, -1, -1, reach, spacing)
+        val q1 = Quadrant(coord, 1, -1, reach, spacing)
+        val q2 = Quadrant(coord, -1, 1, reach, spacing)
+        val q3 = Quadrant(coord, 1, 1, reach, spacing)
+
+        // Relative to the least variance, so the weights are at most one and nothing overflows.
+        val least = max(min(min(q0.w, q1.w), min(q2.w, q3.w)), 0f) + Floor
+        val w0 = Weight(q0.w, least)
+        val w1 = Weight(q1.w, least)
+        val w2 = Weight(q2.w, least)
+        val w3 = Weight(q3.w, least)
+        val total = w0 + w1 + w2 + w3
+
+        val colour = (float3(q0.x, q0.y, q0.z) * w0 + float3(q1.x, q1.y, q1.z) * w1 + float3(q2.x, q2.y, q2.z) * w2 + float3(q3.x, q3.y, q3.z) * w3) / total
+        val alpha = (Alpha(coord, -1, -1, reach, spacing) * w0 + Alpha(coord, 1, -1, reach, spacing) * w1 + Alpha(coord, -1, 1, reach, spacing) * w2 + Alpha(coord, 1, 1, reach, spacing) * w3) / total
+
+        target.Store(coord, float4(colour.x, colour.y, colour.z, alpha))
+    }
+}

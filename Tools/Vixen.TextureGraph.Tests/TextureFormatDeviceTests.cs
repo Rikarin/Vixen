@@ -32,6 +32,20 @@ public class TextureFormatDeviceTests(ITestOutputHelper output) {
     /// <summary>The largest move a half's rounding can excuse, in eight-bit levels of a finished picture.</summary>
     const int Rounding = 3;
 
+    /// <summary>
+    ///     Nodes that send a continuous input to a few values, and how many texels of one picture may land on
+    ///     the other side of a step at 16 bits than at 32.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>A step is where rounding is not small.</b> A noise texel at 0.50001 is white under a palette
+    ///     of black and white at 32 bits, and rounds to exactly 0.5 at 16, where the tie goes to black: one
+    ///     texel, 255 levels, and both bakes right. Patina #171's <c>Colour/Palette</c> drew that on its
+    ///     first run, and <c>Colour/Threshold</c> and <c>Colour/Quantise</c> have the same edges and had
+    ///     missed them by luck. So for these the rule is that a flip is rare — a texel in 256 — rather than
+    ///     absent; a format that moved the step itself would flip a band, not a speck.
+    /// </remarks>
+    static readonly HashSet<string> Stepped = ["Colour/Palette", "Colour/Quantise", "Colour/Threshold"];
+
     /// <summary>Every node a graph with nothing but wires can hold, one graph each.</summary>
     static IEnumerable<(string Path, NodeGraphModel Graph)> Library(NodeTypeRegistry registry) {
         foreach (var type in registry.Types.OrderBy(static type => type.Path, StringComparer.Ordinal)) {
@@ -129,7 +143,10 @@ public class TextureFormatDeviceTests(ITestOutputHelper output) {
                 var largest = Enumerable.Range(0, expected.Pixels.Length)
                     .Max(at => Math.Abs(expected.Pixels[at] - actual.Pixels[at]));
 
-                if (largest > Rounding) {
+                var flipped = Enumerable.Range(0, expected.Pixels.Length)
+                    .Count(at => Math.Abs(expected.Pixels[at] - actual.Pixels[at]) > Rounding);
+
+                if (Stepped.Contains(path) ? flipped * 256 > expected.Pixels.Length : largest > Rounding) {
                     moved.Add($"{path} image {image}: {largest} levels");
                 }
 

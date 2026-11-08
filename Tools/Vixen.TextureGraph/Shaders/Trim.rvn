@@ -1,0 +1,98 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+package Vixen.TextureGraph.Shaders
+
+// The image cropped to the box its content occupies and scaled to fill — Patina #175's trim.
+//
+// `bounds` is the 1×1 a `BoundsReduce` ladder ended on: (left, top, right, bottom) in the unit square.
+// The box is grown by `margin` on every side, as a fraction of the image, and then either stretched
+// onto the whole output (`stretch` non-zero) or grown about its centre along its shorter side until it
+// has the output's aspect, so the content keeps its proportions. Reads are bilinear and clamped: the
+// box can only reach past the image by its margin or its aspect, and what lies there is the edge.
+// An image with no content at all is copied unchanged rather than blown up from nothing.
+
+shader Trim {
+    var source: Texture2D
+
+    var bounds: Texture2D
+
+    /// What is added round the content, as a fraction of the image.
+    var margin: float = 0f
+
+    /// Non-zero fills the output on both axes; zero keeps the content's aspect.
+    var stretch: int = 0
+
+    [Format("rgba16f")] var target: RWTexture2D<float4>
+
+    func Fetch(x: int, y: int): float4 {
+        val extent = source.GetDimensions(0)
+
+        return source.Load(int3(clamp(x, 0, extent.x - 1), clamp(y, 0, extent.y - 1), 0))
+    }
+
+    func At(u: float, v: float): float4 {
+        val extent = source.GetDimensions(0)
+        val px = u * float(extent.x) - 0.5f
+        val py = v * float(extent.y) - 0.5f
+        val x0 = int(floor(px))
+        val y0 = int(floor(py))
+        val tx = px - float(x0)
+        val ty = py - float(y0)
+
+        val top = lerp(Fetch(x0, y0), Fetch(x0 + 1, y0), float4(tx, tx, tx, tx))
+        val bottom = lerp(Fetch(x0, y0 + 1), Fetch(x0 + 1, y0 + 1), float4(tx, tx, tx, tx))
+
+        return lerp(top, bottom, float4(ty, ty, ty, ty))
+    }
+
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val coord = int2(int(id.x), int(id.y))
+        val size = target.GetDimensions()
+
+        if (coord.x >= size.x || coord.y >= size.y) {
+            return
+        }
+
+        val u = (float(coord.x) + 0.5f) / float(size.x)
+        val v = (float(coord.y) + 0.5f) / float(size.y)
+        val box = bounds.Load(int3(0, 0, 0))
+
+        if (box.x > box.z || box.y > box.w) {
+            target.Store(coord, At(u, v))
+
+            return
+        }
+
+        val pad = max(margin, 0f)
+
+        var low = float2(box.x - pad, box.y - pad)
+        var high = float2(box.z + pad, box.w + pad)
+
+        if (stretch == 0) {
+            val extent = source.GetDimensions(0)
+
+            // Widths in texels of the source, so the aspect compared is the picture's and not the
+            // unit square's.
+            val wide = (high.x - low.x) * float(extent.x)
+            val tall = (high.y - low.y) * float(extent.y)
+            val want = float(size.x) / float(size.y)
+            val middle = 0.5f * (low + high)
+
+            if (wide < want * tall) {
+                val half = 0.5f * want * tall / float(extent.x)
+
+                low = float2(middle.x - half, low.y)
+                high = float2(middle.x + half, high.y)
+            } else {
+                val half = 0.5f * (wide / want) / float(extent.y)
+
+                low = float2(low.x, middle.y - half)
+                high = float2(high.x, middle.y + half)
+            }
+        }
+
+        target.Store(coord, At(lerp(low.x, high.x, u), lerp(low.y, high.y, v)))
+    }
+}

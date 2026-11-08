@@ -154,6 +154,17 @@ shader Transform2D {
             i11 = a00 / det
         }
 
+        // ⚠ The turn and the shear are taken in texels, not in the unit square (Patina #175). On an
+        // image twice as wide as it is tall a quarter turn in the unit square is a quarter turn and a
+        // squash by two, so a circle came out an ellipse. Conjugating the inverse by the aspect does
+        // the turn in a square space and leaves scale and offset where they were: a diagonal matrix
+        // commutes with the conjugation, so a pure scale is unchanged, and a square image has an aspect
+        // of one, so every square bake is the picture it always was.
+        val aspect = float(size.x) / float(size.y)
+
+        i01 = i01 / aspect
+        i10 = i10 * aspect
+
         val extent = source.GetDimensions(0)
 
         // How many source texels one output texel covers, along each of the inverse's columns.
