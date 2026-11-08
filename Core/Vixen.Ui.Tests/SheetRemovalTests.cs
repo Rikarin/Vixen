@@ -120,7 +120,9 @@ public class SheetRemovalTests {
     public void A_retained_board_replays_after_a_removal_without_the_removed_rules_under_the_verifier() {
         using var document = Board(withOverride: true, out var sheet);
         document.RetainsDrawing = true;
-        Assert.True(document.VerifiesRetainedDrawing, "this suite is meant to run as a Debug build");
+
+        // ⚠ On by default only in a Debug build, and CI tests a Release one.
+        document.VerifiesRetainedDrawing = true;
 
         Frame(document);
         Frame(document);

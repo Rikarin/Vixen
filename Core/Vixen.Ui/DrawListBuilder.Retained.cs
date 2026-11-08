@@ -84,7 +84,7 @@ public sealed partial class DrawListBuilder {
 
     /// <summary>Whether each replay is checked against a fresh emission, throwing on a difference.</summary>
     /// <remarks>
-    ///     On in a Debug build, which is what every test runs. A differential test turns it off, so that what it compares against a full rebuild is the
+    ///     On in a Debug build; ⚠ CI tests a Release one, so a test that needs it turns it on. A differential test turns it off, so that what it compares against a full rebuild is the
     ///     replay a Release build ships rather than a replay already corrected by this check.
     /// </remarks>
     internal bool Verifying { get; set; }
