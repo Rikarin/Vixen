@@ -277,7 +277,9 @@ public static class LayerStackGraph {
             subGraphs ??= published;
         }
 
-        Builder builder = new(stack, set, registry) { Drafting = draft, SubGraphs = subGraphs };
+        Builder builder = new(stack, LayerStackInstances.Resolve(stack, set, out var found), registry) {
+            Drafting = draft, SubGraphs = subGraphs, Found = found
+        };
 
         return builder.Run();
     }
@@ -331,7 +333,9 @@ public static class LayerStackGraph {
             subGraphs ??= published;
         }
 
-        Builder builder = new(stack, set, registry) { Weighing = true, SubGraphs = subGraphs };
+        Builder builder = new(stack, LayerStackInstances.Resolve(stack, set, out var found), registry) {
+            Weighing = true, SubGraphs = subGraphs, Found = found
+        };
 
         return builder.Run();
     }
@@ -381,7 +385,8 @@ public static class LayerStackGraph {
             subGraphs ??= published;
         }
 
-        Builder builder = new(stack, set, registry) {
+        Builder builder = new(stack, LayerStackInstances.Resolve(stack, set, out var found), registry) {
+            Found = found,
             Drafting = draft,
             SubGraphs = subGraphs,
             Capturing = group,
@@ -522,6 +527,9 @@ public static class LayerStackGraph {
         /// <summary>Whether a pass-through <see cref="Capturing" /> keeps what is beneath it, rather than isolating.</summary>
         public bool Backdrop { get; init; }
 
+        /// <summary>What resolving the set's instances had to say, which this build reports as its own.</summary>
+        public IReadOnlyList<LayerStackProblem> Found { get; init; } = [];
+
         /// <summary>Says a slot is empty, which refuses unless this is a draft.</summary>
         void Unfilled(string layer, string message) =>
             problems.Add(
@@ -554,6 +562,8 @@ public static class LayerStackGraph {
         string usage = "";
 
         public LayerStackBuild Run() {
+            problems.AddRange(Found);
+
             if (set.Channels.Count == 0) {
                 problems.Add(
                     LayerStackProblem.Refusal(

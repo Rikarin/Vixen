@@ -25,7 +25,18 @@ public enum LayerKind {
     ///     unread, as the way back. The canvas is a cache of what <see cref="LayerStackGraph.Capture" /> evaluated when
     ///     it was flattened, so editing a child of a flattened group changes nothing until it is unflattened.
     /// </remarks>
-    Group = 3
+    Group = 3,
+
+    /// <summary>
+    ///     Another layer, by reference: <see cref="LayerAsset.Instance" /> names it, in this set or another of the stack,
+    ///     and <see cref="LayerStackInstances.Resolve" /> puts it in this one's place at compile (Patina #108).
+    /// </summary>
+    /// <remarks>
+    ///     <b>What stays the instance's own</b> is its name, whether it is on, its opacity, its blend and the anchor point
+    ///     it publishes; its own mask entries narrow the source's mask. Everything else — what the layer is, its channels,
+    ///     its mask, its effects and a folder's layers — is the source's, so an edit to the source shows in every instance.
+    /// </remarks>
+    Instance = 4
 }
 
 /// <summary>How a fill layer's source is put onto the surface.</summary>
@@ -435,6 +446,15 @@ public sealed record AnchorReference {
     public string Channel { get; init; } = "";
 }
 
+/// <summary>The layer an <see cref="LayerKind.Instance" /> stands for: a layer's id, in a set of the stack.</summary>
+public sealed record InstanceReference {
+    /// <summary>The texture set the source is in, by name, or empty for the instance's own set.</summary>
+    public string Set { get; init; } = "";
+
+    /// <summary>The source layer's <see cref="LayerAsset.Id" />.</summary>
+    public string Layer { get; init; } = "";
+}
+
 /// <summary>One entry in a mask's own small stack.</summary>
 /// <remarks>
 ///     <para>
@@ -826,6 +846,9 @@ public sealed record LayerAsset {
 
     /// <summary>A group's layers, bottom first.</summary>
     public List<LayerAsset> Children { get; init; } = [];
+
+    /// <summary>The layer an <see cref="LayerKind.Instance" /> stands for. Read on an instance and nothing else.</summary>
+    public InstanceReference Instance { get; init; } = new();
 
     /// <summary>Whether this layer writes a given channel.</summary>
     /// <param name="usage">The channel's usage.</param>
