@@ -120,6 +120,33 @@ internal static class TextureAdjust {
         ImmutableArray<int> scratch,
         int width,
         int height
+    ) =>
+        Reduction(source, scratch, width, height, TextureColourKernels.MinMaxReduce);
+
+    /// <summary>The same ladder, climbed by another reducing kernel.</summary>
+    /// <param name="source">The image to reduce.</param>
+    /// <param name="scratch">The reduction images, one per rung, as for the min/max ladder.</param>
+    /// <param name="width">The width of <paramref name="source" />, in texels of this bake.</param>
+    /// <param name="height">Its height.</param>
+    /// <param name="kernel">
+    ///     The kernel each rung runs. It reads a block of the rung above, takes a <c>first</c> that is one
+    ///     on the first rung only, and is the same kernel all the way down — <c>MinMaxReduce</c> or
+    ///     <c>MeanReduce</c>.
+    /// </param>
+    /// <returns>The ops, in evaluation order. The last image is 1×1.</returns>
+    /// <exception cref="ArgumentException">The scratch list is the wrong length.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Either extent is not positive.</exception>
+    /// <remarks>
+    ///     Patina #171: <c>Colour/Colour Match</c> needs the image's mean colour exactly where Auto Levels
+    ///     needs its extremes, and the ladder is the hard part — how many rungs, at which offsets, each
+    ///     stamped for the extent it was emitted for. Writing it twice would be two answers to that.
+    /// </remarks>
+    public static ImmutableArray<TextureOp> Reduction(
+        int source,
+        ImmutableArray<int> scratch,
+        int width,
+        int height,
+        string kernel
     ) {
         var levels = ReductionLevels(width, height);
         var dispatches = levels.Length;
@@ -141,7 +168,7 @@ internal static class TextureAdjust {
         for (var pass = 0; pass < dispatches; pass++) {
             ops.Add(
                 new() {
-                    Kernel = TextureColourKernels.MinMaxReduce,
+                    Kernel = kernel,
                     Output = scratch[pass],
                     Inputs = [pass == 0 ? source : scratch[pass - 1]],
 

@@ -24,8 +24,9 @@ namespace Tests;
 ///         <b>The oracle is the same one § 4.3 is measured by everywhere else</b>: a one-texel
 ///         checkerboard has a mean of exactly one half, so a correct minification of it is 128
 ///         everywhere and a point-sampled one is 0 or 255 everywhere. Those two are as far apart as a
-///         picture gets, and on the 256×64 quarter turn below the wrong answer is not merely aliased
-///         but *uniformly black* — every output texel lands on an even source column.
+///         picture gets. ⚠ The 256×64 quarter turn below used the first half — it minified four times
+///         — until Patina #175 made the turn one in texels; it now uses the second, because a turn in
+///         texels reads one texel per texel and a wrongly divided footprint is a grey.
 ///     </para>
 /// </remarks>
 public class TextureAspectDeviceTests(ITestOutputHelper output) {
@@ -36,7 +37,7 @@ public class TextureAspectDeviceTests(ITestOutputHelper output) {
     /// </remarks>
     const float QuarterTurn = MathF.PI / 2f;
 
-    /// <summary>The wide axis. Four times the tall one, so a quarter turn is a 4× minification.</summary>
+    /// <summary>The wide axis. Four times the tall one, so a footprint divided by the wrong one is four.</summary>
     const int Wide = 256;
 
     const int Tall = 64;
@@ -112,29 +113,29 @@ public class TextureAspectDeviceTests(ITestOutputHelper output) {
     }
 
     /// <summary>
-    ///     ⚠ A quarter turn on a 4:1 image is a 4× minification along one axis, and the footprint has
-    ///     to say so.
+    ///     ⚠ A quarter turn on a 4:1 image is taken in texels, so it minifies nothing — and the footprint
+    ///     still has to be measured per axis to say so.
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The worked case from <a href="https://github.com/Rikarin/Vixen/issues/677">#677</a>,
-    ///         and the arithmetic is worth restating because the numbers are what make it a test
-    ///         rather than a re-run.</b> At a quarter turn the inverse is
-    ///         <c>(0 1 / −1 0)</c>. A step of one output texel along x is <c>1/size.x</c> of the
-    ///         output, so *both* rows of column 0 are divided by <c>size.x</c> — giving
-    ///         <c>footX = |(0, 64/256)| = 0.25</c> — and both rows of column 1 by <c>size.y</c>,
-    ///         giving <c>footY = |(256/64, 0)| = 4</c>. Four samples per axis.
+    ///         <b>This said the opposite until Patina #175</b>, and the arithmetic was right for what the
+    ///         kernel did then: it turned the unit square, so a quarter turn laid the 256 columns of a
+    ///         256×64 image onto its 64 rows, and a correct footprint averaged four of them into 128. That
+    ///         is a turn that squashes a circle into an ellipse by the aspect, which no artist turning a
+    ///         picture means. The kernel now conjugates its inverse by the aspect, so the turn happens in
+    ///         a square space and every texel centre lands on a texel centre.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Dividing <c>i10</c> by <c>size.y</c> instead makes both footprints exactly 1</b>,
-    ///         and <c>ceil(1)</c> is one tap. One tap of a column checkerboard through this
-    ///         transform lands on source column <c>4y + 2</c> for every output row — always even,
-    ///         always black — so the wrong answer here is not a shimmer that needs a picture to see.
-    ///         It is a black image where a grey one belongs.
+    ///         ⚠ <b>The guard <a href="https://github.com/Rikarin/Vixen/issues/677">#677</a> put here
+    ///         survives the change of answer.</b> At a quarter turn the inverse is now
+    ///         <c>(0 ¼ / −4 0)</c>, and the footprints are <c>|(0, −4 · 64/256)| = 1</c> and
+    ///         <c>|(¼ · 256/64, 0)| = 1</c>: one tap. Dividing either column by the other axis's extent
+    ///         makes a footprint of four, four taps, and a grey where a point-sampled turn of a column
+    ///         checkerboard is a row checkerboard of pure black and white.
     ///     </para>
     /// </remarks>
     [Fact]
-    public void A_quarter_turn_on_a_wide_image_minifies_by_the_aspect_ratio() {
+    public void A_quarter_turn_on_a_wide_image_is_taken_in_texels_and_minifies_nothing() {
         using var device = TextureKernelHarness.Open();
 
         output.WriteLine($"adapter: {TextureKernelHarness.Adapter(device)}");
@@ -152,23 +153,17 @@ public class TextureAspectDeviceTests(ITestOutputHelper output) {
         Assert.Equal(Wide, picture.Width);
         Assert.Equal(Tall, picture.Height);
 
-        AssertFlat(
-            picture,
-            128,
-            2,
-            $"a column checkerboard on a {Wide}×{Tall} image, turned a quarter and so minified four "
-            + $"times along y, on {TextureKernelHarness.Adapter(device)}"
-        );
+        AssertStriped(picture, alongX: true, $"a column checkerboard on a {Wide}×{Tall} image, turned a quarter, on {TextureKernelHarness.Adapter(device)}");
     }
 
     /// <summary>The transpose of the same case, so neither axis is right by accident.</summary>
     /// <remarks>
-    ///     A 64×256 image turned a quarter maps a *row* checkerboard onto the wide axis, which
-    ///     exercises the other column of the inverse. A fix that corrected <c>footX</c> and left
-    ///     <c>footY</c> alone passes the test above and fails this one.
+    ///     A 64×256 image turned a quarter maps a <em>row</em> checkerboard onto columns, which exercises
+    ///     the other column of the inverse. A fix that corrected <c>footX</c> and left <c>footY</c> alone
+    ///     passes the test above and fails this one.
     /// </remarks>
     [Fact]
-    public void A_quarter_turn_on_a_tall_image_minifies_by_the_aspect_ratio_too() {
+    public void A_quarter_turn_on_a_tall_image_is_taken_in_texels_too() {
         using var device = TextureKernelHarness.Open();
 
         output.WriteLine($"adapter: {TextureKernelHarness.Adapter(device)}");
@@ -186,13 +181,24 @@ public class TextureAspectDeviceTests(ITestOutputHelper output) {
         Assert.Equal(Tall, picture.Width);
         Assert.Equal(Wide, picture.Height);
 
-        AssertFlat(
-            picture,
-            128,
-            2,
-            $"a row checkerboard on a {Tall}×{Wide} image, turned a quarter, on "
-            + $"{TextureKernelHarness.Adapter(device)}"
-        );
+        AssertStriped(picture, alongX: false, $"a row checkerboard on a {Tall}×{Wide} image, turned a quarter, on {TextureKernelHarness.Adapter(device)}");
+    }
+
+    /// <summary>Every texel pure black or white, constant along one axis and alternating along the other.</summary>
+    static void AssertStriped(Bitmap picture, bool alongX, string what) {
+        for (var y = 0; y < picture.Height; y++) {
+            for (var x = 0; x < picture.Width; x++) {
+                var value = TextureKernelHarness.At(picture, x, y, 0);
+                var first = alongX ? TextureKernelHarness.At(picture, 0, y, 0) : TextureKernelHarness.At(picture, x, 0, 0);
+                var neighbour = alongX
+                    ? TextureKernelHarness.At(picture, x, (y + 1) % picture.Height, 0)
+                    : TextureKernelHarness.At(picture, (x + 1) % picture.Width, y, 0);
+
+                Assert.True(value is 0 or 255, $"{what}: ({x}, {y}) is {value}, a mix where a turn in texels reads one texel.");
+                Assert.True(value == first, $"{what}: ({x}, {y}) is {value} and its stripe began {first}.");
+                Assert.True(value != neighbour, $"{what}: ({x}, {y}) and its neighbour across the stripes are both {value}.");
+            }
+        }
     }
 
     /// <summary>

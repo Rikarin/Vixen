@@ -1,0 +1,47 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+package Vixen.TextureGraph.Shaders
+
+// Each colour channel to nought or one about a level — Patina #171.
+//
+// `softness` widens the step into a smoothstep of that width centred on the level, so a mask cut
+// from a smooth field can keep an anti-aliased edge. Zero is a hard step, and a value exactly at
+// the level goes to one, so a grey of one half thresholded at one half is white.
+
+shader Threshold {
+    var source: Texture2D
+
+    /// Where the step is.
+    var level: float = 0.5f
+
+    /// How wide the step is. Zero is a hard edge.
+    var softness: float = 0f
+
+    [Format("rgba16f")] var target: RWTexture2D<float4>
+
+    func Cut(value: float): float {
+        val width = clamp(softness, 0f, 1f)
+
+        if (width < 0.00001f) {
+            return step(level, value)
+        }
+
+        return smoothstep(level - 0.5f * width, level + 0.5f * width, value)
+    }
+
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val coord = int2(int(id.x), int(id.y))
+        val size = target.GetDimensions()
+
+        if (coord.x >= size.x || coord.y >= size.y) {
+            return
+        }
+
+        val extent = source.GetDimensions(0)
+        val texel = source.Load(int3(clamp(coord.x, 0, extent.x - 1), clamp(coord.y, 0, extent.y - 1), 0))
+
+        target.Store(coord, float4(Cut(texel.x), Cut(texel.y), Cut(texel.z), texel.w))
+    }
+}

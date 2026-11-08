@@ -1,0 +1,45 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+package Vixen.TextureGraph.Shaders
+
+// Colour multiplied by alpha, or divided by it — Patina #171.
+//
+// Dividing is undefined where alpha is nought, and the colour there is gone whichever way it is
+// read, so a transparent texel unpremultiplies to transparent black rather than to a NaN. Alpha
+// itself is unchanged both ways, which is what makes the pair an inverse wherever alpha is not zero.
+
+shader Premultiply {
+    var source: Texture2D
+
+    /// Non-zero divides by alpha instead of multiplying.
+    var inverse: int = 0
+
+    [Format("rgba16f")] var target: RWTexture2D<float4>
+
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val coord = int2(int(id.x), int(id.y))
+        val size = target.GetDimensions()
+
+        if (coord.x >= size.x || coord.y >= size.y) {
+            return
+        }
+
+        val extent = source.GetDimensions(0)
+        val texel = source.Load(int3(clamp(coord.x, 0, extent.x - 1), clamp(coord.y, 0, extent.y - 1), 0))
+        val alpha = texel.w
+
+        var factor = alpha
+
+        if (inverse != 0) {
+            factor = 0f
+
+            if (alpha > 0.000001f) {
+                factor = 1f / alpha
+            }
+        }
+
+        target.Store(coord, float4(texel.x * factor, texel.y * factor, texel.z * factor, alpha))
+    }
+}

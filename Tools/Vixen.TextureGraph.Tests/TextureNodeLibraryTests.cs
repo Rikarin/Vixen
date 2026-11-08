@@ -105,7 +105,26 @@ public class TextureNodeLibraryTests {
         [("MinMaxReduce", "first")] = "As JumpFlood's: set per rung by Colour/Auto Levels' ladder, so that the "
             + "first dispatch reads grey values and every one after it reads an already-reduced (min, max) pair. "
             + "Leaving it 1 on a later rung reduces the minimum against itself and loses the maximum, which is a "
-            + "picture stretched from (min, min) — black."
+            + "picture stretched from (min, min) — black.",
+        [("MeanReduce", "first")] = "As MinMaxReduce's: set per rung by Colour/Colour Match's ladder. Left 1 on a later "
+            + "rung, a rung would weigh every reduced texel alike and lose the coverage that keeps a block hanging "
+            + "off the image's edge from counting for a whole one.",
+        [("BoundsReduce", "first")] = "As MinMaxReduce's: set per rung by Space/Trim to Content's ladder, so that only "
+            + "the first rung tests a value against the threshold and every later one unions boxes.",
+        [("ReplaceColour", "measured")] = "Not a default: Colour/Colour Match is the same kernel with `from` read off "
+            + "the mean its ladder measured, and Colour/Replace Colour leaves it off.",
+        [("ReplaceColour", "toRed")] = "Colour/Colour Match's Target is a mid grey, so a match dropped in unwired "
+            + "desaturates towards grey rather than turning the image blue, which is Replace Colour's default.",
+        [("ReplaceColour", "toGreen")] = "As toRed.",
+        [("ReplaceColour", "toBlue")] = "As toRed.",
+        [("Dissolve", "masked")] = "Not a default: it says whether the Mask port is wired, and the fixture wires it.",
+        [("SrgbConvert", "toLinear")] = "Not a default: Colour/sRGB to Linear and Colour/Linear to sRGB are the same "
+            + "kernel either way, and each node sets the direction its name says.",
+        [("Premultiply", "inverse")] = "Not a default: Colour/Premultiply and Colour/Unpremultiply are the same "
+            + "kernel either way, and each node sets the direction its name says.",
+        [("Polar", "toPolar")] = "Not a default: Space/Cartesian to Polar and Space/Polar to Cartesian are the same "
+            + "kernel either way, and each node sets the direction its name says.",
+        [("SelectInput", "wired")] = "Not a default: one bit per slot that has a wire, and the fixture wires two."
     };
 
     /// <summary>The nine usages, one per <c>Output</c> node the fixture places.</summary>
@@ -789,6 +808,50 @@ public class TextureNodeLibraryTests {
         // composites: a colour arriving at it is a TG0004 by design.
         graph.Connect(grayscale, "Out", autoLevels, "Input");
         graph.Connect(autoLevels, "Out", gradientMap, "Input");
+
+        // Patina #171's colour and blend operators, every one on the colour side or, where a port
+        // measures, on the grey. Like `mix` above they end in no Output node, and their ops are still
+        // in the plan, which is what this file reads.
+        foreach (var path in (string[]) [
+                     "Colour/Clamp", "Colour/Quantise", "Colour/Channel Mix", "Colour/Replace Colour",
+                     "Colour/Colour Match", "Colour/Replace Colour Range", "Colour/sRGB to Linear",
+                     "Colour/Linear to sRGB", "Colour/Premultiply", "Colour/Unpremultiply", "Colour/Palette"
+                 ]) {
+            graph.Connect(invert, "Out", graph.Add(path), "Input");
+        }
+
+        var threshold = graph.Add("Colour/Threshold");
+        var imageRamp = graph.Add("Colour/Image Ramp");
+        var dissolve = graph.Add("Colour/Dissolve");
+        var lookup = graph.Add("Colour/Lookup Table");
+        var select = graph.Add("Colour/Select Input");
+
+        graph.Connect(grayscale, "Out", threshold, "Input");
+        graph.Connect(grayscale, "Out", imageRamp, "Input");
+        graph.Connect(invert, "Out", imageRamp, "Ramp");
+        graph.Connect(invert, "Out", dissolve, "Background");
+        graph.Connect(blur, "Out", dissolve, "Foreground");
+        graph.Connect(grayscale, "Out", dissolve, "Mask");
+        graph.Connect(invert, "Out", lookup, "Input");
+        graph.Connect(hsl, "Out", lookup, "Table");
+        graph.Connect(invert, "Out", select, "Input 1");
+        graph.Connect(blur, "Out", select, "Input 2");
+
+        // Patina #173's smoothing filters and #175's remaps, each over one image. Rotate by Map is the
+        // one with a second port, and its map measures.
+        foreach (var path in (string[]) [
+                     "Filters/Median", "Filters/Edge-Preserving Blur", "Filters/Painterly Smooth",
+                     "Filters/Spin Blur", "Filters/Anti-Alias", "Space/Cartesian to Polar",
+                     "Space/Polar to Cartesian", "Space/Four-Corner Warp", "Space/Swirl", "Space/Wedge Symmetry",
+                     "Space/Trim to Content"
+                 ]) {
+            graph.Connect(noise, "Out", graph.Add(path), "Input");
+        }
+
+        var rotateByMap = graph.Add("Space/Rotate by Map");
+
+        graph.Connect(invert, "Out", rotateByMap, "Input");
+        graph.Connect(grayscale, "Out", rotateByMap, "Rotation");
 
         graph.Keep(vectorWarp, "baseColor");
         graph.Keep(normalTransform, "normal");

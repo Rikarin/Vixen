@@ -1,0 +1,141 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+package Vixen.TextureGraph.Shaders
+
+import Vixen.Shaders.Core
+
+// The image's four corners moved to four points — Patina #175's four-corner warp.
+//
+// The source's unit square is mapped bilinearly onto the quad the four points make, top left, top
+// right, bottom right and bottom left, in the unit square of the output. Each output texel inverts
+// that map in closed form — a quadratic in the vertical coordinate — and reads the source there.
+// Bilinear rather than projective, because a bilinear quad keeps straight edges straight and evenly
+// divided along them, which is what an artist dragging a corner expects of a texture, and because it
+// has no horizon to fold over. Outside the quad is transparent black.
+//
+// The default corners are the image's own, which is the identity to the texel. Reads are bilinear
+// and wrap or clamp as the plan says, so a quad that is the whole image keeps a tiling input tiling.
+
+shader CornerWarp {
+    var source: Texture2D
+
+    var topLeftX: float = 0f
+
+    var topLeftY: float = 0f
+
+    var topRightX: float = 1f
+
+    var topRightY: float = 0f
+
+    var bottomRightX: float = 1f
+
+    var bottomRightY: float = 1f
+
+    var bottomLeftX: float = 0f
+
+    var bottomLeftY: float = 1f
+
+    var wrapX: int = 0
+
+    var wrapY: int = 0
+
+    [Format("rgba16f")] var target: RWTexture2D<float4>
+
+    func Fetch(x: int, y: int): float4 {
+        val extent = source.GetDimensions(0)
+
+        return source.Load(int3(Math.Address(x, extent.x, wrapX), Math.Address(y, extent.y, wrapY), 0))
+    }
+
+    func At(u: float, v: float): float4 {
+        val extent = source.GetDimensions(0)
+        val px = u * float(extent.x) - 0.5f
+        val py = v * float(extent.y) - 0.5f
+        val x0 = int(floor(px))
+        val y0 = int(floor(py))
+        val tx = px - float(x0)
+        val ty = py - float(y0)
+
+        val top = lerp(Fetch(x0, y0), Fetch(x0 + 1, y0), float4(tx, tx, tx, tx))
+        val bottom = lerp(Fetch(x0, y0 + 1), Fetch(x0 + 1, y0 + 1), float4(tx, tx, tx, tx))
+
+        return lerp(top, bottom, float4(ty, ty, ty, ty))
+    }
+
+    func Cross(a: float2, b: float2): float => a.x * b.y - a.y * b.x
+
+    /// The horizontal coordinate, given the vertical one, from whichever axis is better conditioned.
+    func Across(h: float2, e: float2, f: float2, g: float2, v: float): float {
+        val dx = e.x + g.x * v
+        val dy = e.y + g.y * v
+
+        if (abs(dx) > abs(dy)) {
+            return (h.x - f.x * v) / dx
+        }
+
+        return (h.y - f.y * v) / max(abs(dy), 0.000001f) * sign(dy)
+    }
+
+    func Inside(st: float2): bool => st.x >= -0.0001f && st.x <= 1.0001f && st.y >= -0.0001f && st.y <= 1.0001f
+
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val coord = int2(int(id.x), int(id.y))
+        val size = target.GetDimensions()
+
+        if (coord.x >= size.x || coord.y >= size.y) {
+            return
+        }
+
+        val p = float2((float(coord.x) + 0.5f) / float(size.x), (float(coord.y) + 0.5f) / float(size.y))
+        val a = float2(topLeftX, topLeftY)
+        val b = float2(topRightX, topRightY)
+        val c = float2(bottomRightX, bottomRightY)
+        val d = float2(bottomLeftX, bottomLeftY)
+
+        // p = a + e·s + f·t + g·s·t, solved for (s, t).
+        val e = b - a
+        val f = d - a
+        val g = a - b + c - d
+        val h = p - a
+
+        val k2 = Cross(g, f)
+        val k1 = Cross(e, f) + Cross(h, g)
+        val k0 = Cross(h, e)
+
+        var st = float2(-1f, -1f)
+
+        if (abs(k2) < 0.000001f) {
+            if (abs(k1) > 0.000001f) {
+                val t = -k0 / k1
+
+                st = float2(Across(h, e, f, g, t), t)
+            }
+        } else {
+            val discriminant = k1 * k1 - 4f * k0 * k2
+
+            if (discriminant >= 0f) {
+                val root = sqrt(discriminant)
+                val t1 = (-k1 - root) / (2f * k2)
+                val first = float2(Across(h, e, f, g, t1), t1)
+
+                if (Inside(first)) {
+                    st = first
+                } else {
+                    val t2 = (-k1 + root) / (2f * k2)
+
+                    st = float2(Across(h, e, f, g, t2), t2)
+                }
+            }
+        }
+
+        if (!Inside(st)) {
+            target.Store(coord, float4(0f, 0f, 0f, 0f))
+
+            return
+        }
+
+        target.Store(coord, At(saturate(st.x), saturate(st.y)))
+    }
+}

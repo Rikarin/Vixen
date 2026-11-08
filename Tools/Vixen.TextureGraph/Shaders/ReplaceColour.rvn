@@ -1,0 +1,109 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+package Vixen.TextureGraph.Shaders
+
+// The whole image moved in hue, saturation and lightness by however far one colour is from
+// another — Patina #171's colour replace and its colour match.
+//
+// The shift is taken in HSL and added to every texel, so the `from` colour lands exactly on the `to`
+// colour and everything else keeps its distance from it: a red wall turned blue keeps its darker
+// mortar. Hue wraps; saturation and lightness are clamped to the unit range.
+//
+// **Two nodes, one kernel.** `Colour/Replace Colour` names `from`. `Colour/Colour Match` measures
+// it: `measured` reads `from` out of `reference`, the 1×1 mean a `MeanReduce` ladder ended on, so the
+// image's average colour is what lands on `to`. Replace Colour binds its source there and the kernel
+// never reads it.
+//
+// The conversion is written here because the shader library has no HSL. `ComputeColor.HueRotate`
+// rotates a YIQ chroma plane, which is what `Colour/HSL` wants and not what this does: it cannot say
+// what hue a colour *is*, and a replace has to.
+
+shader ReplaceColour {
+    var source: Texture2D
+
+    var reference: Texture2D
+
+    var fromRed: float = 1f
+
+    var fromGreen: float = 0f
+
+    var fromBlue: float = 0f
+
+    var toRed: float = 0f
+
+    var toGreen: float = 0f
+
+    var toBlue: float = 1f
+
+    /// Non-zero takes `from` from the first texel of `reference` instead.
+    var measured: int = 0
+
+    [Format("rgba16f")] var target: RWTexture2D<float4>
+
+    func ToHsl(c: float3): float3 {
+        val high = max(max(c.x, c.y), c.z)
+        val low = min(min(c.x, c.y), c.z)
+        val lightness = 0.5f * (high + low)
+        val chroma = high - low
+
+        if (chroma < 0.000001f) {
+            return float3(0f, 0f, lightness)
+        }
+
+        val saturation = chroma / max(1f - abs(2f * lightness - 1f), 0.000001f)
+
+        var hue = 0f
+
+        if (high == c.x) {
+            hue = (c.y - c.z) / chroma
+        } else if (high == c.y) {
+            hue = (c.z - c.x) / chroma + 2f
+        } else {
+            hue = (c.x - c.y) / chroma + 4f
+        }
+
+        hue = hue / 6f
+
+        return float3(hue - floor(hue), saturation, lightness)
+    }
+
+    /// One channel of HSL to RGB, in the closed form that needs no branch on the sextant.
+    func Channel(n: float, hsl: float3): float {
+        val k = n + hsl.x * 12f
+        val wrapped = k - 12f * floor(k / 12f)
+        val a = hsl.y * min(hsl.z, 1f - hsl.z)
+
+        return hsl.z - a * max(-1f, min(min(wrapped - 3f, 9f - wrapped), 1f))
+    }
+
+    func ToRgb(hsl: float3): float3 => float3(Channel(0f, hsl), Channel(8f, hsl), Channel(4f, hsl))
+
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val coord = int2(int(id.x), int(id.y))
+        val size = target.GetDimensions()
+
+        if (coord.x >= size.x || coord.y >= size.y) {
+            return
+        }
+
+        val extent = source.GetDimensions(0)
+        val texel = source.Load(int3(clamp(coord.x, 0, extent.x - 1), clamp(coord.y, 0, extent.y - 1), 0))
+
+        var from = float3(fromRed, fromGreen, fromBlue)
+
+        if (measured != 0) {
+            val mean = reference.Load(int3(0, 0, 0))
+
+            from = float3(mean.x, mean.y, mean.z)
+        }
+
+        val shift = ToHsl(saturate(float3(toRed, toGreen, toBlue))) - ToHsl(saturate(from))
+        val hsl = ToHsl(saturate(float3(texel.x, texel.y, texel.z))) + shift
+        val moved = float3(hsl.x - floor(hsl.x), saturate(hsl.y), saturate(hsl.z))
+        val rgb = ToRgb(moved)
+
+        target.Store(coord, float4(rgb.x, rgb.y, rgb.z, texel.w))
+    }
+}

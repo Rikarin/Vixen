@@ -75,7 +75,6 @@ internal static class TextureKernelCeilings {
         new Dictionary<(string, string), float> {
             [(TextureFilters.BlurHq, "sigma")] = 64f / 3f,
             [(TextureFilters.DirectionalBlur, "length")] = 64f,
-            [(TextureFilters.NonUniformBlur, "maxRadius")] = 12f,
             [(TextureFilters.Sharpen, "radius")] = 8f,
 
             [(TextureSurfaceKernels.Curvature, "radius")] = 256f,

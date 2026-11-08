@@ -1,0 +1,93 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+package Vixen.TextureGraph.Shaders
+
+import Vixen.Shaders.Core
+
+// A staircase edge smoothed along its own direction — Patina #173's anti-alias.
+//
+// The luminance gradient is taken with a Sobel operator, and where its contrast passes `threshold`
+// the texel is averaged with four bilinear reads, one and two texels either way *along* the edge,
+// perpendicular to the gradient. Two texels rather than one because a shallow staircase's steps are
+// several texels long, and a read one texel away lands on the same step it started on: measured on a
+// slope of a quarter, one-texel reads softened only the texel at each riser. A straight edge on an
+// axis is constant along itself, so it is left exactly as it
+// was; a diagonal staircase is not, and its steps are averaged into a ramp. Below the threshold
+// nothing changes, so flat regions and soft gradients are untouched, and between one and two times the
+// threshold the smoothing fades in so the gate leaves no ring.
+//
+// Contrast is the Sobel magnitude over four, which is one across a full black-to-white step. The reads
+// wrap or clamp as the plan says.
+
+shader AntiAlias {
+    var source: Texture2D
+
+    /// The edge contrast, from nought to one, below which a texel is left alone.
+    var threshold: float = 0.1f
+
+    var wrapX: int = 0
+
+    var wrapY: int = 0
+
+    [Format("rgba16f")] var target: RWTexture2D<float4>
+
+    func Fetch(x: int, y: int): float4 {
+        val extent = source.GetDimensions(0)
+
+        return source.Load(int3(Math.Address(x, extent.x, wrapX), Math.Address(y, extent.y, wrapY), 0))
+    }
+
+    func Luma(x: int, y: int): float {
+        val texel = Fetch(x, y)
+
+        return ColorSpaces.Luminance(float3(texel.x, texel.y, texel.z))
+    }
+
+    /// A bilinear read at a position in texels, measured from texel centres.
+    func At(px: float, py: float): float4 {
+        val x0 = int(floor(px))
+        val y0 = int(floor(py))
+        val tx = px - float(x0)
+        val ty = py - float(y0)
+
+        val top = lerp(Fetch(x0, y0), Fetch(x0 + 1, y0), float4(tx, tx, tx, tx))
+        val bottom = lerp(Fetch(x0, y0 + 1), Fetch(x0 + 1, y0 + 1), float4(tx, tx, tx, tx))
+
+        return lerp(top, bottom, float4(ty, ty, ty, ty))
+    }
+
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val coord = int2(int(id.x), int(id.y))
+        val size = target.GetDimensions()
+
+        if (coord.x >= size.x || coord.y >= size.y) {
+            return
+        }
+
+        val x = coord.x
+        val y = coord.y
+        val centre = Fetch(x, y)
+
+        val gx = (Luma(x + 1, y - 1) + 2f * Luma(x + 1, y) + Luma(x + 1, y + 1)) - (Luma(x - 1, y - 1) + 2f * Luma(x - 1, y) + Luma(x - 1, y + 1))
+        val gy = (Luma(x - 1, y + 1) + 2f * Luma(x, y + 1) + Luma(x + 1, y + 1)) - (Luma(x - 1, y - 1) + 2f * Luma(x, y - 1) + Luma(x + 1, y - 1))
+        val magnitude = sqrt(gx * gx + gy * gy)
+        val contrast = 0.25f * magnitude
+        val gate = max(threshold, 0.0001f)
+        val amount = smoothstep(gate, 2f * gate, contrast)
+
+        if (amount <= 0f) {
+            target.Store(coord, centre)
+
+            return
+        }
+
+        val tangent = float2(-gy, gx) / magnitude
+        val near = At(float(x) + tangent.x, float(y) + tangent.y) + At(float(x) - tangent.x, float(y) - tangent.y)
+        val far = At(float(x) + 2f * tangent.x, float(y) + 2f * tangent.y) + At(float(x) - 2f * tangent.x, float(y) - 2f * tangent.y)
+        val smoothed = (centre + near + far) / 5f
+
+        target.Store(coord, lerp(centre, smoothed, float4(amount, amount, amount, amount)))
+    }
+}

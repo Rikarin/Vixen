@@ -1,0 +1,133 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+package Vixen.TextureGraph.Shaders
+
+// Every texel snapped to the nearest of a few named colours — Patina #171's palette.
+//
+// Up to eight colours, of which the first `count` are used, and nearest is Euclidean in RGB. A tie
+// goes to the earlier colour, so the answer never depends on the order the GPU happened to compare
+// them in. Alpha is copied: a palette is a set of colours, not of opacities.
+
+shader Palette {
+    var source: Texture2D
+
+    /// How many of the eight colours are in the palette, from one to eight.
+    var count: int = 2
+
+    var red0: float = 0f
+
+    var green0: float = 0f
+
+    var blue0: float = 0f
+
+    var red1: float = 1f
+
+    var green1: float = 1f
+
+    var blue1: float = 1f
+
+    var red2: float = 1f
+
+    var green2: float = 0f
+
+    var blue2: float = 0f
+
+    var red3: float = 0f
+
+    var green3: float = 1f
+
+    var blue3: float = 0f
+
+    var red4: float = 0f
+
+    var green4: float = 0f
+
+    var blue4: float = 1f
+
+    var red5: float = 1f
+
+    var green5: float = 1f
+
+    var blue5: float = 0f
+
+    var red6: float = 0f
+
+    var green6: float = 1f
+
+    var blue6: float = 1f
+
+    var red7: float = 1f
+
+    var green7: float = 0f
+
+    var blue7: float = 1f
+
+    [Format("rgba16f")] var target: RWTexture2D<float4>
+
+    func Entry(index: int): float3 {
+        if (index == 1) {
+            return float3(red1, green1, blue1)
+        }
+
+        if (index == 2) {
+            return float3(red2, green2, blue2)
+        }
+
+        if (index == 3) {
+            return float3(red3, green3, blue3)
+        }
+
+        if (index == 4) {
+            return float3(red4, green4, blue4)
+        }
+
+        if (index == 5) {
+            return float3(red5, green5, blue5)
+        }
+
+        if (index == 6) {
+            return float3(red6, green6, blue6)
+        }
+
+        if (index == 7) {
+            return float3(red7, green7, blue7)
+        }
+
+        return float3(red0, green0, blue0)
+    }
+
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val coord = int2(int(id.x), int(id.y))
+        val size = target.GetDimensions()
+
+        if (coord.x >= size.x || coord.y >= size.y) {
+            return
+        }
+
+        val extent = source.GetDimensions(0)
+        val texel = source.Load(int3(clamp(coord.x, 0, extent.x - 1), clamp(coord.y, 0, extent.y - 1), 0))
+        val rgb = float3(texel.x, texel.y, texel.z)
+        val used = clamp(count, 1, 8)
+
+        var best = Entry(0)
+        var nearest = dot(rgb - best, rgb - best)
+
+        for (i in 1 .. 8) {
+            if (i >= used) {
+                break
+            }
+
+            val candidate = Entry(i)
+            val distance = dot(rgb - candidate, rgb - candidate)
+
+            if (distance < nearest) {
+                nearest = distance
+                best = candidate
+            }
+        }
+
+        target.Store(coord, float4(best.x, best.y, best.z, texel.w))
+    }
+}

@@ -1,0 +1,86 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+package Vixen.TextureGraph.Shaders
+
+import Vixen.Shaders.Core
+
+// The image turned about a centre by an angle that varies per texel — Patina #175's rotate by map.
+//
+// Each texel reads the source turned about (`centreX`, `centreY`) by `angle` times the red channel of
+// `rotation` at that texel, so a constant map is a plain rotation and a gradient bends the image into
+// a spiral. ⚠ The map is read for its **red** channel, as every map-reading kernel here reads it: a
+// mask is an `R8` image and a luminance would be a third of it. The turn is taken in texels, so a
+// circle stays a circle on an image that is not square. Reads are bilinear and wrap or clamp as the
+// plan says.
+
+shader RotateByMap {
+    var source: Texture2D
+
+    var rotation: Texture2D
+
+    /// The turn where the map is one, in radians.
+    var angle: float = 0.785398f
+
+    /// The centre, as a fraction of the image.
+    var centreX: float = 0.5f
+
+    var centreY: float = 0.5f
+
+    var wrapX: int = 0
+
+    var wrapY: int = 0
+
+    [Format("rgba16f")] var target: RWTexture2D<float4>
+
+    func Fetch(x: int, y: int): float4 {
+        val extent = source.GetDimensions(0)
+
+        return source.Load(int3(Math.Address(x, extent.x, wrapX), Math.Address(y, extent.y, wrapY), 0))
+    }
+
+    /// A bilinear read at a position in the source's texels, measured from texel centres.
+    func At(px: float, py: float): float4 {
+        val x0 = int(floor(px))
+        val y0 = int(floor(py))
+        val tx = px - float(x0)
+        val ty = py - float(y0)
+
+        val top = lerp(Fetch(x0, y0), Fetch(x0 + 1, y0), float4(tx, tx, tx, tx))
+        val bottom = lerp(Fetch(x0, y0 + 1), Fetch(x0 + 1, y0 + 1), float4(tx, tx, tx, tx))
+
+        return lerp(top, bottom, float4(ty, ty, ty, ty))
+    }
+
+    func Amount(coord: int2): float {
+        val size = target.GetDimensions()
+        val extent = rotation.GetDimensions(0)
+        val x = int(floor((float(coord.x) + 0.5f) * float(extent.x) / float(size.x)))
+        val y = int(floor((float(coord.y) + 0.5f) * float(extent.y) / float(size.y)))
+
+        return rotation.Load(int3(Math.Address(x, extent.x, wrapX), Math.Address(y, extent.y, wrapY), 0)).x
+    }
+
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val coord = int2(int(id.x), int(id.y))
+        val size = target.GetDimensions()
+
+        if (coord.x >= size.x || coord.y >= size.y) {
+            return
+        }
+
+        val extent = source.GetDimensions(0)
+        val scale = float2(float(extent.x) / float(size.x), float(extent.y) / float(size.y))
+        val centre = float2(centreX * float(extent.x), centreY * float(extent.y))
+        val offset = float2((float(coord.x) + 0.5f) * scale.x, (float(coord.y) + 0.5f) * scale.y) - centre
+        val turn = angle * Amount(coord)
+        val c = cos(turn)
+        val s = sin(turn)
+
+        // The output at p shows the source at p turned back: an image rotated by +turn.
+        val turned = float2(offset.x * c + offset.y * s, -offset.x * s + offset.y * c) + centre
+
+        target.Store(coord, At(turned.x - 0.5f, turned.y - 0.5f))
+    }
+}

@@ -1,0 +1,101 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+package Vixen.TextureGraph.Shaders
+
+import Vixen.Shaders.Core
+
+// The median of a square window, per channel — Patina #173.
+//
+// **A rank by counting rather than a sort**, because a kernel has no array it can sort in place. For
+// each tap the kernel counts, per channel, how many taps are below it and how many are at or below
+// it; the tap whose rank brackets the middle one is the median. That is n² compares for n taps, so
+// the window is held to `MaxTaps` either side — at most 5 × 5 — and a wider `radius` spreads those
+// taps further apart rather than adding more, which is `Blur`'s budget-in-taps rule: the width is
+// always the width the plan resolved, so a 4× bake is not a narrower filter than a 1× one.
+//
+// The window wraps or clamps at the edge as the plan says (`Math.Address`), so a tiling input keeps
+// tiling. A median is idempotent on a flat region and keeps a straight step edge exactly where it was,
+// which is the property that makes it the noise filter for masks.
+
+shader Median {
+    var source: Texture2D
+
+    /// The half-width of the window, in texels of the image being written.
+    var radius: float = 1f
+
+    var wrapX: int = 0
+
+    var wrapY: int = 0
+
+    [Format("rgba16f")] var target: RWTexture2D<float4>
+
+    /// The most taps either side of the centre. The window is at most `(2 · MaxTaps + 1)²`.
+    const val MaxTaps: int = 2
+
+    func Tap(x: int, y: int): float4 {
+        val size = source.GetDimensions(0)
+
+        return source.Load(int3(Math.Address(x, size.x, wrapX), Math.Address(y, size.y, wrapY), 0))
+    }
+
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val coord = int2(int(id.x), int(id.y))
+        val size = target.GetDimensions()
+
+        if (coord.x >= size.x || coord.y >= size.y) {
+            return
+        }
+
+        val wide = max(radius, 0f)
+
+        if (wide < 0.5f) {
+            target.Store(coord, Tap(coord.x, coord.y))
+
+            return
+        }
+
+        val spacing = max(1f, wide / float(MaxTaps))
+        val reach = clamp(int(round(wide / spacing)), 1, MaxTaps)
+        val side = 2 * reach + 1
+        val count = side * side
+        val middle = float((count - 1) / 2)
+
+        var median = Tap(coord.x, coord.y)
+
+        for (i in 0 .. 24) {
+            if (i >= count) {
+                break
+            }
+
+            val ox = int(round(float(i % side - reach) * spacing))
+            val oy = int(round(float(i / side - reach) * spacing))
+            val candidate = Tap(coord.x + ox, coord.y + oy)
+
+            var below = float4(0f, 0f, 0f, 0f)
+            var atOrBelow = float4(0f, 0f, 0f, 0f)
+
+            for (j in 0 .. 24) {
+                if (j >= count) {
+                    break
+                }
+
+                val px = int(round(float(j % side - reach) * spacing))
+                val py = int(round(float(j / side - reach) * spacing))
+                val other = Tap(coord.x + px, coord.y + py)
+
+                below = below + (float4(1f, 1f, 1f, 1f) - step(candidate, other))
+                atOrBelow = atOrBelow + step(other, candidate)
+            }
+
+            // Where at most `middle` taps are below the candidate and more than `middle` are at or
+            // below it, the candidate holds the middle rank. Equal taps all qualify and are equal.
+            val chosen = step(below, float4(middle, middle, middle, middle)) * step(float4(middle + 0.5f, middle + 0.5f, middle + 0.5f, middle + 0.5f), atOrBelow)
+
+            median = lerp(median, candidate, chosen)
+        }
+
+        target.Store(coord, median)
+    }
+}

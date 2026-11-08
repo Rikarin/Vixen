@@ -1,0 +1,66 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+package Vixen.TextureGraph.Shaders
+
+// Colours near one colour moved towards another, and everything else left alone — Patina #171.
+//
+// The nearness is `ColourSelect`'s exactly: Euclidean distance in RGB, full weight inside `tolerance`
+// and falling linearly to nothing over `softness` beyond it. A texel at full weight is moved by
+// `to − from`, so the `from` colour lands on `to` and its neighbours keep their offset from it, which
+// keeps the shading inside a recoloured region.
+
+shader ReplaceColourRange {
+    var source: Texture2D
+
+    var fromRed: float = 1f
+
+    var fromGreen: float = 0f
+
+    var fromBlue: float = 0f
+
+    var toRed: float = 0f
+
+    var toGreen: float = 0f
+
+    var toBlue: float = 1f
+
+    /// How far from `from` a colour still moves the whole way.
+    var tolerance: float = 0.1f
+
+    /// How much further the move fades out over.
+    var softness: float = 0.1f
+
+    [Format("rgba16f")] var target: RWTexture2D<float4>
+
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val coord = int2(int(id.x), int(id.y))
+        val size = target.GetDimensions()
+
+        if (coord.x >= size.x || coord.y >= size.y) {
+            return
+        }
+
+        val extent = source.GetDimensions(0)
+        val texel = source.Load(int3(clamp(coord.x, 0, extent.x - 1), clamp(coord.y, 0, extent.y - 1), 0))
+        val rgb = float3(texel.x, texel.y, texel.z)
+        val from = float3(fromRed, fromGreen, fromBlue)
+        val delta = rgb - from
+        val distance = sqrt(dot(delta, delta))
+        val inner = max(tolerance, 0f)
+        val outer = inner + max(softness, 0f)
+
+        var weight = 0f
+
+        if (distance <= inner) {
+            weight = 1f
+        } else if (outer > inner) {
+            weight = saturate(1f - (distance - inner) / (outer - inner))
+        }
+
+        val moved = rgb + (float3(toRed, toGreen, toBlue) - from) * weight
+
+        target.Store(coord, float4(moved.x, moved.y, moved.z, texel.w))
+    }
+}

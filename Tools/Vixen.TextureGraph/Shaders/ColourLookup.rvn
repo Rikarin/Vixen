@@ -1,0 +1,68 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+package Vixen.TextureGraph.Shaders
+
+// A colour graded through a lookup cube stored as a 2D strip — Patina #171's 2D LUT.
+//
+// The strip is the layout colour-grading tools exchange: `size` slices of `size × size` texels side
+// by side, so the image is `size²` wide and `size` tall. Within a slice red runs left to right and
+// green top to bottom; blue picks the slice. The slice's side is read off the strip's height and the
+// slice count off its width, so any size works, and the read is trilinear: bilinear inside the two
+// slices either side of the blue coordinate, then a lerp between them. An identity strip therefore
+// returns its input exactly at every lattice point and to within the cube's own linearity between
+// them. Alpha is copied.
+//
+// A strip that is one slice wide — a square — is a table of red and green alone, which blue cannot
+// reach: the lookup stays inside whatever slices the image holds rather than reading past its edge.
+
+shader ColourLookup {
+    var source: Texture2D
+
+    var table: Texture2D
+
+    [Format("rgba16f")] var target: RWTexture2D<float4>
+
+    func Slice(slice: int, r: float, g: float, side: int): float4 {
+        val last = side - 1
+        val x0 = clamp(int(floor(r)), 0, last)
+        val y0 = clamp(int(floor(g)), 0, last)
+        val x1 = min(x0 + 1, last)
+        val y1 = min(y0 + 1, last)
+        val tx = r - float(x0)
+        val ty = g - float(y0)
+        val origin = slice * side
+
+        val top = lerp(table.Load(int3(origin + x0, y0, 0)), table.Load(int3(origin + x1, y0, 0)), float4(tx, tx, tx, tx))
+        val bottom = lerp(table.Load(int3(origin + x0, y1, 0)), table.Load(int3(origin + x1, y1, 0)), float4(tx, tx, tx, tx))
+
+        return lerp(top, bottom, float4(ty, ty, ty, ty))
+    }
+
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val coord = int2(int(id.x), int(id.y))
+        val size = target.GetDimensions()
+
+        if (coord.x >= size.x || coord.y >= size.y) {
+            return
+        }
+
+        val extent = source.GetDimensions(0)
+        val texel = source.Load(int3(clamp(coord.x, 0, extent.x - 1), clamp(coord.y, 0, extent.y - 1), 0))
+
+        val strip = table.GetDimensions(0)
+        val side = max(strip.y, 1)
+        val slices = max(strip.x / side, 1)
+        val last = float(side - 1)
+        val rgb = saturate(float3(texel.x, texel.y, texel.z)) * float3(last, last, float(slices - 1))
+
+        val b0 = clamp(int(floor(rgb.z)), 0, slices - 1)
+        val b1 = min(b0 + 1, slices - 1)
+        val tb = rgb.z - float(b0)
+
+        val graded = lerp(Slice(b0, rgb.x, rgb.y, side), Slice(b1, rgb.x, rgb.y, side), float4(tb, tb, tb, tb))
+
+        target.Store(coord, float4(graded.x, graded.y, graded.z, texel.w))
+    }
+}

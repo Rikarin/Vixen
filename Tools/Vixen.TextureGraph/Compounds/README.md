@@ -22,6 +22,7 @@ authored, and what it cost to author the things that could**.
 | | Histogram Select | two `Levels` and a `Darken`, then a contrast curve |
 | | Contrast Luminosity | one `Levels`, all four handles from two knobs |
 | | Highpass | `Blur` → `Invert` → `Blend Copy` at half opacity |
+| | Glow | `Levels` for a bright pass → `Blur HQ` → `Blend Add` back over the picture, at the `Amount` |
 | | Equalize | `Highpass` at a coarse radius, then `Contrast Luminosity`. ⚠ **This is § 4.9's *Delight / Equalize* ●, and the slash there is an alias rather than an enumeration** — doc 40 § D2's second row names one technique ("high-pass over a large-radius blur") twice, exactly as its neighbour names one compound *make-it-tile / smart auto-tile*. There is no second file owed ([#1110](https://github.com/Rikarin/Vixen/issues/1110)) |
 | | Safe Transform | `Transform 2D` under `Wrap`, quarter turns and whole tile counts |
 | | Make It Tile | offset-wrap, a mirrored `Gradation` cross for the seam mask, a masked composite |

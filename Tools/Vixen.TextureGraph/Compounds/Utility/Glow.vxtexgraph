@@ -1,0 +1,72 @@
+version: 1
+name: Glow
+nodes:
+  - id: 1
+    type: Sub-graph/Input
+    x: -640
+    y: 0
+    values: {}
+    texts: {}
+  - id: 2
+    type: Colour/Levels
+    x: -320
+    y: 160
+    values: {}
+    texts: {}
+  - id: 3
+    type: Filters/Blur HQ
+    x: 0
+    y: 160
+    values: {}
+    texts: {}
+  - id: 4
+    type: Colour/Blend
+    x: 320
+    y: 0
+    values: {}
+    texts: { Mode: Add }
+  - id: 5
+    type: Sub-graph/Output
+    x: 640
+    y: 0
+    values: {}
+    texts: {}
+edges:
+  - { fromNode: 1, fromPort: Input, toNode: 2, toPort: Input }
+  - { fromNode: 1, fromPort: Threshold, toNode: 2, toPort: Input Black }
+  - { fromNode: 2, fromPort: Out, toNode: 3, toPort: Input }
+  - { fromNode: 1, fromPort: Radius, toNode: 3, toPort: Sigma }
+  - { fromNode: 1, fromPort: Input, toNode: 4, toPort: Background }
+  - { fromNode: 3, fromPort: Out, toNode: 4, toPort: Foreground }
+  - { fromNode: 1, fromPort: Amount, toNode: 4, toPort: Opacity }
+  - { fromNode: 4, fromPort: Out, toNode: 5, toPort: Out }
+groups: []
+comments: []
+interface:
+  - name: Input
+    direction: Input
+    kind: Image
+    default: []
+    summary: The picture whose bright parts glow.
+  - name: Threshold
+    direction: Input
+    kind: Float
+    default: [0.6]
+    summary: The level above which a value glows. What is below it adds nothing.
+  - name: Radius
+    direction: Input
+    kind: Float
+    default: [8]
+    summary: How far the glow spreads, as a gaussian's sigma in texels at the base resolution.
+  - name: Amount
+    direction: Input
+    kind: Float
+    default: [1]
+    summary: How strongly the glow is added back, from nothing at 0 to all of it at 1.
+  - name: Out
+    direction: Output
+    kind: Image
+    default: []
+    summary: The picture with its bright parts bled outward, added over itself.
+settings: { baseWidth: '1024', baseHeight: '1024', seed: '1' }
+parameters: []
