@@ -1,0 +1,76 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+package Vixen.TextureGraph.Shaders
+
+// Each colour channel compared with one value: one where the comparison holds and nought where it does not.
+//
+// **What a mask's Compare Mask is** (Patina #110): a mask is a grey, and asking where it is above a half, or within a
+// little of a quarter, is a selection of its own. Threshold is the soft form of `greater or equal`; this is every
+// comparison, hard. The tolerance is read by the two equalities alone: an ordering with a tolerance would be two
+// orderings that disagree about the same texel.
+
+shader Compare {
+    /// What to compare.
+    var source: Texture2D
+
+    /// What each channel is compared with.
+    var value: float = 0.5f
+
+    /// How far from the value still counts as equal to it.
+    var tolerance: float = 0.05f
+
+    /// 0 greater · 1 greater or equal · 2 less · 3 less or equal · 4 equal · 5 not equal.
+    var operation: int = 0
+
+    [Format("rgba16f")] var target: RWTexture2D<float4>
+
+    /// Whether one channel's comparison holds.
+    func Holds(channel: float): bool {
+        if (operation == 1) {
+            return channel >= value
+        }
+
+        if (operation == 2) {
+            return channel < value
+        }
+
+        if (operation == 3) {
+            return channel <= value
+        }
+
+        if (operation == 4) {
+            return abs(channel - value) <= max(tolerance, 0f)
+        }
+
+        if (operation == 5) {
+            return abs(channel - value) > max(tolerance, 0f)
+        }
+
+        return channel > value
+    }
+
+    /// One where it holds, nought where it does not.
+    func Answer(channel: float): float {
+        if (Holds(channel)) {
+            return 1f
+        }
+
+        return 0f
+    }
+
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val coord = int2(int(id.x), int(id.y))
+        val size = target.GetDimensions()
+
+        if (coord.x >= size.x || coord.y >= size.y) {
+            return
+        }
+
+        val extent = source.GetDimensions(0)
+        val texel = source.Load(int3(clamp(coord.x, 0, extent.x - 1), clamp(coord.y, 0, extent.y - 1), 0))
+
+        target.Store(coord, float4(Answer(texel.x), Answer(texel.y), Answer(texel.z), texel.w))
+    }
+}

@@ -121,6 +121,37 @@ public class LayerStackInstanceTests {
         Assert.Equal(("Other", "rust"), (read.Instance.Set, read.Instance.Layer));
     }
 
+    /// <summary>A mesh-map mask reads the lane it names (Patina #110), which a shuffle moves into every lane.</summary>
+    [Fact]
+    public void A_mesh_map_mask_reads_its_lane() {
+        static int Greens(LayerMaskLane lane) {
+            var stack = Stack(
+                Fill("rust", Red) with { Mask = new() { Source = LayerMaskSource.Bake, Map = "world", Lane = lane } }
+            );
+            var plan = LayerStackCompiler.Compile(stack, stack.Sets[0]).Plan!;
+
+            return plan.Ops.Count(op => op.Kernel == "ChannelShuffle"
+                && op.Find("sourceR")?.Value == 1f
+                && op.Find("sourceG")?.Value == 1f
+                && op.Find("sourceB")?.Value == 1f
+            );
+        }
+
+        Assert.Equal(1, Greens(LayerMaskLane.Green));
+        Assert.Equal(0, Greens(LayerMaskLane.Red));
+        Assert.Equal(
+            LayerMaskLane.Blue,
+            LayerStackYaml.Read(
+                    LayerStackYaml.Write(
+                        Stack(Fill("rust", Red) with { Mask = new() { Source = LayerMaskSource.Bake, Lane = LayerMaskLane.Blue } })
+                    )
+                )
+                .Sets[0]
+                .Layers[0]
+                .Mask.Lane
+        );
+    }
+
     static LayerAsset Fill(string id, float[] colour) =>
         new() { Id = id, Kind = LayerKind.Fill, Values = { ["baseColor"] = colour } };
 

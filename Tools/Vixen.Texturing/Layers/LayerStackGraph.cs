@@ -1852,7 +1852,8 @@ public static class LayerStackGraph {
                         GeneratorTexts = mask.GeneratorTexts,
                         GeneratorInputs = mask.GeneratorInputs,
                         Map = mask.Map,
-                        Paint = mask.Paint
+                        Paint = mask.Paint,
+                        Lane = mask.Lane
                     }
                 );
             } else if (mask.Paint.Length > 0) {
@@ -1880,6 +1881,10 @@ public static class LayerStackGraph {
                     // Already reported. A refusal stops the compile, so there is no picture to be
                     // wrong about; the walk continues so that one bad entry does not hide the rest.
                     continue;
+                }
+
+                if (entry.Lane != LayerMaskLane.Red && entry.Source != LayerMaskSource.Anchor) {
+                    wire = Laned(wire, entry.Lane);
                 }
 
                 if (cursor is not { } beneath) {
@@ -1941,6 +1946,33 @@ public static class LayerStackGraph {
         ///     coloured bitmap entry composite differently under <c>Multiply</c> from the way the same
         ///     bitmap composites as the only entry, and nothing downstream would say so. #874.
         /// </remarks>
+        /// <summary>
+        ///     A mask source's chosen lane moved into every colour lane, opaque, which is what everything after this reads
+        ///     a mask by (Patina #110).
+        /// </summary>
+        MaskSlot Laned(MaskSlot slot, LayerMaskLane lane) {
+            var from = Lane(lane);
+            var node = Add("Colour/Channel Shuffle");
+
+            node.SetText("Red From", from);
+            node.SetText("Green From", from);
+            node.SetText("Blue From", from);
+            node.SetText("Alpha From", "One");
+
+            graph.Connect(slot.Port, new(node.Id, "First"));
+
+            return new(new PortRef(node.Id, "Out"), true);
+        }
+
+        /// <summary>The shuffle source that reads a lane of the first input.</summary>
+        static string Lane(LayerMaskLane lane) =>
+            lane switch {
+                LayerMaskLane.Green => "FirstGreen",
+                LayerMaskLane.Blue => "FirstBlue",
+                LayerMaskLane.Alpha => "FirstAlpha",
+                _ => "FirstRed"
+            };
+
         MaskSlot Opaque(MaskSlot slot) {
             if (slot.Opaque) {
                 return slot;
@@ -2117,12 +2149,13 @@ public static class LayerStackGraph {
         ///         rather than multiplies; <see cref="Anchors" /> reports a refused anchor once.
         ///     </para>
         /// </remarks>
-        PortRef Anchored(string anchor, string channel, string layerId) {
+        PortRef Anchored(string anchor, string channel, string layerId, LayerMaskLane lane) {
             var value = Add("Colour/Channel Shuffle");
+            var from = Lane(lane);
 
-            value.SetText("Red From", "FirstRed");
-            value.SetText("Green From", "FirstRed");
-            value.SetText("Blue From", "FirstRed");
+            value.SetText("Red From", from);
+            value.SetText("Green From", from);
+            value.SetText("Blue From", from);
             value.SetText("Alpha From", "One");
 
             var covered = Add("Colour/Channel Shuffle");
@@ -2324,7 +2357,8 @@ public static class LayerStackGraph {
                         return null;
                     }
 
-                    return new(Anchored(entry.Anchor.Anchor, read, layerId), true);
+                    // The lane is read inside, where the picture is still a colour: what leaves is a grey already.
+                    return new(Anchored(entry.Anchor.Anchor, read, layerId, entry.Lane), true);
 
                 case LayerMaskSource.Bake: {
                     if (Drafting && entry.Map.Trim().Length == 0) {

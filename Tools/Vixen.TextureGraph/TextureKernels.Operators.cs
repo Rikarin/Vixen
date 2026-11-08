@@ -27,6 +27,9 @@ static class TextureColourOperators {
     /// <summary>Each colour channel to nought or one about a level, with an optional soft edge.</summary>
     public const string Threshold = "Threshold";
 
+    /// <summary>Each colour channel to nought or one by a comparison with a value.</summary>
+    public const string Compare = "Compare";
+
     /// <summary>Each colour channel onto a few evenly spaced values.</summary>
     public const string Quantise = "Quantise";
 
@@ -68,6 +71,7 @@ static class TextureColourOperators {
         ChannelMix,
         Clamp,
         ColourLookup,
+        Compare,
         Dissolve,
         ImageRamp,
         MeanReduce,

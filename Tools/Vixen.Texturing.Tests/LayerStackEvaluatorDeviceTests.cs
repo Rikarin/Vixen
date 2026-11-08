@@ -220,7 +220,42 @@ public sealed class LayerStackEvaluatorDeviceTests : IDisposable {
         Assert.NotEqual(unmasked, replaced);
     }
 
-    byte[] Texel(TexturePlanEvaluator evaluator, LayerBlendMode mode, float alpha, MaskAsset mask) {
+    /// <summary>
+    ///     A mask reads the lane it names (Patina #110): green of a coloured anchor is the same mask as a constant of that
+    ///     green, and red of it is not.
+    /// </summary>
+    [Fact]
+    public void A_mask_reads_the_lane_it_names() {
+        using var device = OpenDevice();
+        using var evaluator = new TexturePlanEvaluator(device);
+
+        MaskAsset Lane(LayerMaskLane lane) =>
+            new() {
+                Source = LayerMaskSource.Anchor,
+                Anchor = new() { Anchor = "Under", Channel = Usage },
+                Lane = lane,
+                Layers = [new() { Source = LayerMaskSource.Constant, Value = 1f, Blend = LayerBlendMode.Multiply }]
+            };
+
+        var green = Texel(evaluator, LayerBlendMode.Copy, 1f, Lane(LayerMaskLane.Green), "Under");
+        var red = Texel(evaluator, LayerBlendMode.Copy, 1f, Lane(LayerMaskLane.Red), "Under");
+        var constant = Texel(
+            evaluator,
+            LayerBlendMode.Copy,
+            1f,
+            new() {
+                Source = LayerMaskSource.Constant,
+                Value = 0.6f,
+                Layers = [new() { Source = LayerMaskSource.Constant, Value = 1f, Blend = LayerBlendMode.Multiply }]
+            },
+            "Under"
+        );
+
+        Assert.Equal(constant, green);
+        Assert.NotEqual(constant, red);
+    }
+
+    byte[] Texel(TexturePlanEvaluator evaluator, LayerBlendMode mode, float alpha, MaskAsset mask, string point = "") {
         LayerStackAsset stack = new() {
             Name = "Replace",
             BaseWidth = 16,
@@ -230,7 +265,12 @@ public sealed class LayerStackEvaluatorDeviceTests : IDisposable {
                     Name = "Body",
                     Channels = [new() { Usage = Usage, Default = [0f, 0f, 0f, 1f] }],
                     Layers = [
-                        new() { Id = "under", Kind = LayerKind.Fill, Values = { [Usage] = [0.2f, 0.2f, 0.2f, 1f] } },
+                        new() {
+                            Id = "under",
+                            Kind = LayerKind.Fill,
+                            AnchorPoint = point,
+                            Values = { [Usage] = point.Length > 0 ? [0.2f, 0.6f, 0.4f, 1f] : [0.2f, 0.2f, 0.2f, 1f] }
+                        },
                         new() {
                             Id = "over",
                             Kind = LayerKind.Fill,

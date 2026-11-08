@@ -446,6 +446,26 @@ public sealed record AnchorReference {
     public string Channel { get; init; } = "";
 }
 
+/// <summary>Which lane of its source's picture a mask, or an entry of one, reads (Patina #110).</summary>
+/// <remarks>
+///     <b>Red is every mask's lane by default</b>, which is right for a grey and for a canvas painted in white. A mesh map
+///     that measures a direction — <c>world</c>, <c>position</c>, <c>normal</c>, <c>bent</c> — keeps its other axes in
+///     green and blue, which a mask could not reach before this.
+/// </remarks>
+public enum LayerMaskLane {
+    /// <summary>The red lane: X of a direction.</summary>
+    Red = 0,
+
+    /// <summary>The green lane: Y of a direction.</summary>
+    Green = 1,
+
+    /// <summary>The blue lane: Z of a direction.</summary>
+    Blue = 2,
+
+    /// <summary>The alpha lane.</summary>
+    Alpha = 3
+}
+
 /// <summary>The layer an <see cref="LayerKind.Instance" /> stands for: a layer's id, in a set of the stack.</summary>
 public sealed record InstanceReference {
     /// <summary>The texture set the source is in, by name, or empty for the instance's own set.</summary>
@@ -507,6 +527,9 @@ public sealed record MaskLayerAsset {
 
     /// <summary>The <c>.vxpaint</c> this entry's painted pixels live in. M9.</summary>
     public string Paint { get; init; } = "";
+
+    /// <summary>Which lane of its picture this entry reads.</summary>
+    public LayerMaskLane Lane { get; init; } = LayerMaskLane.Red;
 
     /// <summary>How this entry composites over the entries beneath it.</summary>
     public LayerBlendMode Blend { get; init; } = LayerBlendMode.Copy;
@@ -613,6 +636,9 @@ public sealed record MaskAsset {
 
     /// <summary>What the map measures, for a base of <see cref="LayerMaskSource.Bake" />.</summary>
     public string Map { get; init; } = "";
+
+    /// <summary>Which lane of its picture the base reads.</summary>
+    public LayerMaskLane Lane { get; init; } = LayerMaskLane.Red;
 
     /// <summary>The entries composited over the base, bottom first.</summary>
     /// <remarks>

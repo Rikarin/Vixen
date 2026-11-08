@@ -361,6 +361,10 @@ public static class LayerStackYaml {
             mapping.Set("map", Text(mask.Map));
         }
 
+        if (mask.Lane != LayerMaskLane.Red) {
+            mapping.Set("lane", Text(mask.Lane.ToString()));
+        }
+
         if (mask.Paint.Length > 0) {
             mapping.Set("paint", Text(mask.Paint));
         }
@@ -414,6 +418,10 @@ public static class LayerStackYaml {
 
         if (entry.Map.Length > 0) {
             mapping.Set("map", Text(entry.Map));
+        }
+
+        if (entry.Lane != LayerMaskLane.Red) {
+            mapping.Set("lane", Text(entry.Lane.ToString()));
         }
 
         if (entry.Paint.Length > 0) {
@@ -646,6 +654,7 @@ public static class LayerStackYaml {
             GeneratorTexts = Strings(mapping, "generatorTexts", path),
             GeneratorInputs = ReadInputs(mapping, "generatorInputs", path),
             Map = String(mapping, "map", path),
+            Lane = Choice(mapping, "lane", LayerMaskLane.Red, path),
             Paint = String(mapping, "paint", path),
             Layers = entries,
             Effects = effects
@@ -691,6 +700,7 @@ public static class LayerStackYaml {
             GeneratorTexts = Strings(mapping, "generatorTexts", path),
             GeneratorInputs = ReadInputs(mapping, "generatorInputs", path),
             Map = String(mapping, "map", path),
+            Lane = Choice(mapping, "lane", LayerMaskLane.Red, path),
             Paint = String(mapping, "paint", path),
             Blend = Choice(mapping, "blend", LayerBlendMode.Copy, path),
             Opacity = Single(mapping, "opacity", 1f, path),
