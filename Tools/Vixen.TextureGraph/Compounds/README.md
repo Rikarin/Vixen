@@ -37,7 +37,7 @@ authored, and what it cost to author the things that could**.
 | | Weave | two `Reflected` sweeps tiled into threads each way, a `Checker` choosing which is on top through `Colour/Mix` |
 | | Hex Cells | a six-sided `Shape` widened by √3 in `Transform 2D`, laid again half a tile on, `Lighten`, `Tile` — a whole number of rows, so as regular as that allows |
 | | Triangle Grid | a point-up and a point-down `Triangle` stretched by 2/√3, `Tile` with a half shift per row and an even row count |
-| | Brick, per brick | ⚠ the existing `Brick` gained `variation`: two `White` noises with a lattice of `Columns` × `Rows`, the second shifted half a cell, picked per course by a row-parity `Checker`, through `Levels` and a `Multiply`. At its default of nought the picture is the one it was |
+| | Varied Brick | `Brick`'s two nodes and a tone per brick: two `White` noises with a lattice of `Columns` × `Rows`, the second shifted half a cell, picked per course by a row-parity `Checker`, through `Levels` and a `Multiply`. ⚠ A file of its own rather than a knob on `Brick`, because Patina's end-to-end suite opens `Brick` and counts its wires |
 | `Noise` | Clouds | seven octaves of `Gaussian` noise → `Auto Levels` |
 | | Cell Walls | `Worley` F2 − F1 through `Grayscale` weights, `Levels` to a width, `Invert` |
 | | Fractal Cells | `Worley` summed over octaves, its F1 → `Auto Levels` |
@@ -363,7 +363,7 @@ nowhere else.
 
 ### 8 · The fourth round: twelve rows, and what Patina #167 and #168 found authoring them
 
-Eleven new files and a knob on `Brick`, over a `Noise` and a `Shape` that had just widened. Three
+Twelve new files, over a `Noise` and a `Shape` that had just widened. Three
 findings, each of which cost a wrong picture before it cost a line here.
 
 ⚠ **A per-axis lattice is what made per-brick variation authorable at all.** A brick's tone is one

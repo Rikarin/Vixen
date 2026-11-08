@@ -203,9 +203,9 @@ public sealed class TextureCompoundLibraryTests : IDisposable {
                     + "'Delight / Equalize' — one compound under both of doc 40 § D2's names, not two"),
                 ("Patterns/", [
                     "Brick", "Cells", "Hex Cells", "Panels", "Rivets", "Scratches", "Stripes", "Tile Random",
-                    "Triangle Grid", "Weave", "Wood Grain"
-                ], "§ 4.9's Patterns row marks these eleven ● and no others; Weave, Hex Cells, Stripes and "
-                    + "Triangle Grid are Patina #168's, and Hex Cells is the row's 'Hexagon Grid'"),
+                    "Triangle Grid", "Varied Brick", "Weave", "Wood Grain"
+                ], "§ 4.9's Patterns row marks these twelve ● and no others; Weave, Hex Cells, Stripes, "
+                    + "Triangle Grid and Varied Brick are Patina #168's, and Hex Cells is the row's 'Hexagon Grid'"),
                 ("Noise/", [
                     "Cell Walls", "Clouds", "Fractal Cells", "Liquid", "Spots", "Streaks"
                 ], "§ 4.9's Noise row marks these six ● — Patina #167's compounds over the widened Source/Noise"),

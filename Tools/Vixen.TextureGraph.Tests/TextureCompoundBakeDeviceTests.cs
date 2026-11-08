@@ -163,7 +163,7 @@ public class TextureCompoundBakeDeviceTests(ITestOutputHelper output) {
         // embedded with this case green: the equality above compares the loop with `Shipped`, and
         // `Shipped` is the manifest, so a glob that narrowed takes both sides down together. This is
         // the only number here that is independent of the assembly's own idea of what it ships.
-        Assert.True(baked >= 46, $"only {baked} compounds were baked, and forty-six ship.");
+        Assert.True(baked >= 47, $"only {baked} compounds were baked, and forty-seven ship.");
     }
 
     /// <summary>

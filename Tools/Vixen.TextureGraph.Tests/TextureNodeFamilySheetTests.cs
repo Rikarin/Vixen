@@ -109,7 +109,7 @@ public class TextureNodeFamilySheetTests(ITestOutputHelper output) {
         ("weave", "Patterns/Weave", [], null),
         ("hex cells", "Patterns/Hex Cells", [], null),
         ("triangle grid", "Patterns/Triangle Grid", [], null),
-        ("brick varied", "Patterns/Brick", [], node => node.SetText("variation", "0.6"))
+        ("varied brick", "Patterns/Varied Brick", [], null)
     ];
 
     [Fact]

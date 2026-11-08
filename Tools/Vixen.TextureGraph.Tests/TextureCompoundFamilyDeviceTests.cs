@@ -210,11 +210,11 @@ public class TextureCompoundFamilyDeviceTests(ITestOutputHelper output) {
     }
 
     [Fact]
-    public void Every_brick_is_one_tone_and_without_variation_every_brick_is_white() {
+    public void Every_varied_brick_is_one_tone_and_without_variation_every_brick_is_white() {
         using var device = TextureKernelHarness.Open();
 
         Lanes Bricks(string variation) =>
-            Compound(device, "Patterns/Brick", node => {
+            Compound(device, "Patterns/Varied Brick", node => {
                 node.SetValue("Columns", 4f);
                 node.SetValue("Rows", 8f);
                 node.SetText("variation", variation);
