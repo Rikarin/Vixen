@@ -62,6 +62,25 @@ answered by a refresh, while a number moved beside a bypassed node still is.
 - **A preset names parameters by name and only the ones it names.** One added later keeps its value
   when the preset is chosen, and a name the graph no longer declares is ignored.
 
+## Examples
+
+Switching a Levels off and taking the graph a compile walks, which wires the noise straight to the output:
+
+```csharp no-compile="a fragment — `registry` is whatever node library the host registered"
+levels.Bypassed = true;
+var walked = NodeBypass.Apply(graph, node => registry.TryGet(node.Type, out var type) ? type : null);
+// walked has no Levels, and the Output's input comes from the noise.
+```
+
+A parameter shown as a dial, labelled apart from its name, and only while another is on:
+
+```csharp no-compile="a fragment — the parameter list belongs to a graph the caller holds"
+graph.Parameters.Add(new("Worn", "true", Kind: SettingKind.Bool, Widget: SettingWidget.Toggle));
+graph.Parameters.Add(new(
+    "ScratchAngle", "45", Kind: SettingKind.Float, Minimum: 0f, Maximum: 360f,
+    Label: "Scratch angle", Widget: SettingWidget.Angle, VisibleIf: new("Worn", "true")));
+```
+
 ## See also
 
 - [Sub-graph values](sub-graph-values.md) — how a containing graph's settings reach a published graph's
