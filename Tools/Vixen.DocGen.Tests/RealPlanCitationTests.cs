@@ -401,6 +401,7 @@ public class RealPlanCitationTests {
         var (citations, index, exempt) = Sweep();
         List<string> failures = [];
         var held = 0;
+        var heldAtHead = 0;
 
         foreach (var cited in citations) {
             // Code only: a range of a guide page or a README is prose citing prose, and shares words
@@ -425,6 +426,7 @@ public class RealPlanCitationTests {
                 failures.Add($"{cited.Document}:{cited.Line} `{cited.Text}` {problem}");
             } else if (ProseNames(cited).Count > 0 || ProseCode(cited).Count > 0) {
                 held++;
+                heldAtHead += cited.Commit is null ? 1 : 0;
             }
         }
 
@@ -436,8 +438,17 @@ public class RealPlanCitationTests {
         );
 
         // The instrument: a rule that holds nothing is not reading ranges. 50 when this was written,
-        // read by raising the floor out of reach.
-        Assert.True(held >= 40, $"only {held} range citation(s) were held to their prose, so the rule has stopped reading");
+        // read by raising the floor out of reach. ⚠ 21 of those are pinned, and a shallow clone —
+        // CI's — has no commit to read a pin at, so it holds the 29 at HEAD and only those can be
+        // held everywhere. The floor over all of them is the full clone's.
+        Assert.True(
+            heldAtHead >= 25,
+            $"only {heldAtHead} unpinned range citation(s) were held to their prose, so the rule has stopped reading"
+        );
+
+        if (!History.IsShallow) {
+            Assert.True(held >= 40, $"only {held} range citation(s) were held to their prose, so the rule has stopped reading");
+        }
     }
 
     /// <summary>
@@ -924,7 +935,14 @@ public class RealPlanCitationTests {
         var placed = 0;
 
         foreach (var (cited, comment) in SourceCitations(index)) {
-            if (Resolve(cited, index) is not null || Unverifiable(cited)) {
+            if (Resolve(cited, index) is not null) {
+                continue;
+            }
+
+            // ⚠ A pin a shallow clone — CI's — cannot read says nothing about its exemption either way,
+            // so the exemption is not reported as no longer cited below.
+            if (Unverifiable(cited)) {
+                exemptUsed.Add((cited.Document, cited.Text));
                 continue;
             }
 
