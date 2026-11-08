@@ -161,6 +161,10 @@ public class TextureCompoundFamilyDeviceTests(ITestOutputHelper output) {
                 Assert.True(At(hex, i / 8f, j / 5f) > 0.9f, $"the hexagon at tile ({i}, {j})'s corner is dark");
                 Assert.True(At(hex, (i + 0.5f) / 8f, (j + 0.5f) / 5f) > 0.9f, $"the hexagon in tile ({i}, {j}) is dark");
 
+                // And it reaches out to its flank: its apothem is 0.45 of a tile once widened by √3, so
+                // four tenths of a tile right of its centre is still inside, and a narrower one ends sooner.
+                Assert.True(At(hex, (i + 0.9f) / 8f, (j + 0.5f) / 5f) > 0.9f, $"the hexagon in tile ({i}, {j}) is too narrow");
+
                 // The joint between two side by side, and the slanted one between a hexagon and the one
                 // below and to the right of it.
                 Assert.True(At(hex, (i + 1f) / 8f, (j + 0.5f) / 5f) < 0.1f, $"the joint right of tile ({i}, {j})'s hexagon is lit");
@@ -174,7 +178,12 @@ public class TextureCompoundFamilyDeviceTests(ITestOutputHelper output) {
         using var device = TextureKernelHarness.Open();
 
         // Four bands are eight rows, and round(4√3) = 7 columns.
-        var grid = Compound(device, "Patterns/Triangle Grid", node => node.SetText("bevel", "0.05"), 512);
+        // A wide joint, so that a point-up triangle's apex starts a fifth of a row below the row's top while the
+        // point-down triangle beside it already has its base there.
+        var grid = Compound(device, "Patterns/Triangle Grid", node => {
+            node.SetText("bevel", "0.02");
+            node.SetText("gap", "0.3");
+        }, 512);
 
         for (var j = 0; j < 8; j++) {
             // Every other row is shifted half a triangle, so its point-up centroids sit on whole columns.
@@ -190,6 +199,12 @@ public class TextureCompoundFamilyDeviceTests(ITestOutputHelper output) {
                 // The slanted edge they share, and the horizontal edge on top of the row.
                 Assert.True(At(grid, (upU + downU) / 2f, (j + 0.5f) / 8f) < 0.1f, $"the edge between them at ({i}, {j}) is lit");
                 Assert.True(At(grid, upU, j / 8f) < 0.1f, $"the top of row {j} is lit at column {i}");
+
+                // ⚠ Which row is shifted is what makes the rows one lattice, and every point above is the same in a
+                // grid whose rows were not shifted at all — each row alone is a valid strip. Just under the row's
+                // top, the point-up triangle has not begun and the point-down one is at its widest.
+                Assert.True(At(grid, upU, (j + 0.12f) / 8f) < 0.1f, $"above the apex at ({i}, {j}) is lit");
+                Assert.True(At(grid, downU, (j + 0.12f) / 8f) > 0.9f, $"under the base at ({i}, {j}) is dark");
             }
         }
     }
