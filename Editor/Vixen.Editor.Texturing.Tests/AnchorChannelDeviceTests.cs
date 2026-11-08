@@ -111,7 +111,7 @@ public class AnchorChannelDeviceTests(ITestOutputHelper output) {
                 Kind = LayerKind.Filter,
                 FilterNode = "Colour/Blend",
                 Settings = { ["Opacity"] = [0.5f] },
-                Inputs = { ["Foreground"] = new() { Anchor = "Wear", Channel = "roughness" } }
+                Inputs = { ["Foreground"] = LayerInputAsset.Of(new() { Anchor = "Wear", Channel = "roughness" }) }
             }
         );
 

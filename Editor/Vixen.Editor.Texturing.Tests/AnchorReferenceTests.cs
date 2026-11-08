@@ -19,7 +19,7 @@ public class AnchorReferenceTests {
         Assert.Equal(new AnchorReference { Anchor = "Wear", Channel = "height" }, read.Layers[1].Mask.Anchor);
         Assert.Equal(
             new AnchorReference { Anchor = "Wear", Channel = "roughness" },
-            read.Layers[2].Inputs["Foreground"]
+            read.Layers[2].Inputs["Foreground"].Anchor
         );
         Assert.Equal(
             new AnchorReference { Anchor = "Wear", Channel = "height" },
@@ -27,7 +27,7 @@ public class AnchorReferenceTests {
         );
         Assert.Equal(
             new AnchorReference { Anchor = "Wear", Channel = "height" },
-            read.Layers[2].Mask.Effects[0].Inputs["Foreground"]
+            read.Layers[2].Mask.Effects[0].Inputs["Foreground"].Anchor
         );
         Assert.True(read.Layers[3].Flattened);
         Assert.Equal("stack.Body.g.vxpaint", read.Layers[3].Paint);
@@ -88,7 +88,7 @@ public class AnchorReferenceTests {
                             Id = "filter",
                             Kind = LayerKind.Filter,
                             FilterNode = "Colour/Blend",
-                            Inputs = { ["Foreground"] = new() { Anchor = "Wear", Channel = "roughness" } },
+                            Inputs = { ["Foreground"] = LayerInputAsset.Of(new() { Anchor = "Wear", Channel = "roughness" }) },
                             Mask = new() {
                                 Layers = [
                                     new() {
@@ -100,7 +100,7 @@ public class AnchorReferenceTests {
                                 Effects = [
                                     new() {
                                         Node = "Colour/Blend",
-                                        Inputs = { ["Foreground"] = new() { Anchor = "Wear", Channel = "height" } }
+                                        Inputs = { ["Foreground"] = LayerInputAsset.Of(new() { Anchor = "Wear", Channel = "height" }) }
                                     }
                                 ]
                             }

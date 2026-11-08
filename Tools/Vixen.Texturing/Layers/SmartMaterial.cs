@@ -545,7 +545,7 @@ public static class SmartMaterial {
 
                         // A reference is a record nothing edits in place, so the dictionary is the thing to copy. One
                         // naming an anchor point that did not come is dropped, as a stranded mask entry is switched off.
-                        Inputs = Inputs(layer, layer.Inputs, "an input"),
+                        Inputs = Sources(layer, layer.Inputs, "an input"),
                         Fill = layer is { Kind: LayerKind.Fill, Fill: LayerFillSource.Anchor } && gone.Contains(layer.Anchor.Anchor)
                             ? Unanchored(layer)
                             : layer.Fill,
@@ -576,7 +576,7 @@ public static class SmartMaterial {
                                 StringComparer.Ordinal
                             ),
                             Texts = new Dictionary<string, string>(effect.Texts, StringComparer.Ordinal),
-                            Inputs = Inputs(layer, effect.Inputs, "a mask effect's input")
+                            Inputs = Sources(layer, effect.Inputs, "a mask effect's input")
                         }
                     )
                 ],
@@ -647,6 +647,37 @@ public static class SmartMaterial {
                 }
 
                 kept[port] = reference;
+            }
+
+            return kept;
+        }
+
+        // ⚠ An input's own numbers and settings are mutable dictionaries, copied for the reason `Texts` above is.
+        Dictionary<string, LayerInputAsset> Sources(
+            LayerAsset layer,
+            Dictionary<string, LayerInputAsset> inputs,
+            string what
+        ) {
+            Dictionary<string, LayerInputAsset> kept = new(StringComparer.Ordinal);
+
+            foreach (var (port, input) in inputs) {
+                if (input.Source == LayerInputSource.Anchor && gone.Contains(input.Anchor.Anchor)) {
+                    dropped.Add(
+                        $"Layer '{Named(layer)}' read the anchor point '{input.Anchor.Anchor}' as {what} ('{port}'), "
+                        + "and that anchor point was on a painted layer that did not come, so the input is left unfed."
+                    );
+
+                    continue;
+                }
+
+                kept[port] = input with {
+                    Values = input.Values.ToDictionary(
+                        entry => entry.Key,
+                        entry => entry.Value.ToArray(),
+                        StringComparer.Ordinal
+                    ),
+                    Texts = new Dictionary<string, string>(input.Texts, StringComparer.Ordinal)
+                };
             }
 
             return kept;

@@ -335,13 +335,18 @@ public sealed record SettingDefinition(
 /// <param name="Settings">
 ///     The names it holds, in declaration order. Empty for the many node types that hold none.
 /// </param>
+/// <param name="Adjustment">
+///     Whether a host may offer it as an adjustment of a picture it already has, when its ports allow one —
+///     <see cref="NodeAttribute.Adjustment" />.
+/// </param>
 public sealed record NodeTypeDefinition(
     string Path,
     ImmutableArray<PortDefinition> Ports,
     Func<Node> Create,
     string Summary = "",
     bool Preview = false,
-    ImmutableArray<SettingDefinition> Settings = default
+    ImmutableArray<SettingDefinition> Settings = default,
+    bool Adjustment = true
 ) {
     /// <summary>The settings, or an empty array for a type with none.</summary>
     public ImmutableArray<SettingDefinition> Settings { get; } = Settings.IsDefault ? [] : Settings;

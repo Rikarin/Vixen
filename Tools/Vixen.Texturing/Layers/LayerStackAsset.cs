@@ -387,6 +387,83 @@ public sealed record AnchorReference {
     public string Channel { get; init; } = "";
 }
 
+/// <summary>Where one image input of a filter, a mask step or a graph fill reads its picture.</summary>
+/// <remarks>
+///     Patina #113 and #114, and Patina's ADR 0017. A filter's first image input is its <em>subject</em>, the picture it
+///     changes; the others are what it reads to change it — the field a warp follows, the slope a blur runs down.
+/// </remarks>
+public enum LayerInputSource {
+    /// <summary>
+    ///     The stack beneath the layer, in <see cref="LayerInputAsset.Channel" />, or in the channel being built when
+    ///     that is empty. What lets a filter read height and write normal.
+    /// </summary>
+    Beneath = 0,
+
+    /// <summary>A named anchor point, in <see cref="LayerInputAsset.Anchor" />'s channel.</summary>
+    Anchor = 1,
+
+    /// <summary>
+    ///     A node or published compound with no image input — a noise, a pattern, a grunge — named by
+    ///     <see cref="LayerInputAsset.Generator" />, with its own numbers and settings.
+    /// </summary>
+    Generator = 2,
+
+    /// <summary>An imported image, by the reference a host resolves.</summary>
+    Texture = 3,
+
+    /// <summary>A mesh map, by what it measures.</summary>
+    Bake = 4
+}
+
+/// <summary>What one image input reads: the stack beneath in a channel, an anchor point, a generator, an image or a bake.</summary>
+/// <remarks>
+///     <para>
+///         <b>The <see cref="AnchorReference" /> it replaces, widened</b> (Patina #113). An input could be fed only from
+///         an anchor point, so a warp by a noise needed the noise to be a layer of the stack first, and nothing could
+///         read another channel of the stack beneath.
+///     </para>
+///     <para>
+///         ⚠ <b>Flat, with a discriminator, for <see cref="LayerAsset" />'s reason</b>: a <c>.vxlayers</c> is YAML people
+///         merge. Each member is read by one <see cref="Source" /> and ignored by the others.
+///     </para>
+/// </remarks>
+public sealed record LayerInputAsset {
+    /// <summary>Where the picture comes from.</summary>
+    public LayerInputSource Source { get; init; } = LayerInputSource.Beneath;
+
+    /// <summary>The channel read beneath, by usage, for <see cref="LayerInputSource.Beneath" />. Empty is the channel being built.</summary>
+    public string Channel { get; init; } = "";
+
+    /// <summary>The anchor point read, and in which channel, for <see cref="LayerInputSource.Anchor" />.</summary>
+    public AnchorReference Anchor { get; init; } = new();
+
+    /// <summary>The node type or compound path, for <see cref="LayerInputSource.Generator" />: <c>Source/Noise</c>, <c>Noise/Clouds</c>.</summary>
+    public string Generator { get; init; } = "";
+
+    /// <summary>The generator's numbers, by the port name it declares.</summary>
+    public Dictionary<string, float[]> Values { get; init; } = [];
+
+    /// <summary>The generator's settings, by the setting name it declares.</summary>
+    public Dictionary<string, string> Texts { get; init; } = [];
+
+    /// <summary>The imported image, for <see cref="LayerInputSource.Texture" />.</summary>
+    public string Asset { get; init; } = "";
+
+    /// <summary>What the mesh map measures, for <see cref="LayerInputSource.Bake" />.</summary>
+    public string Map { get; init; } = "";
+
+    /// <summary>An input reading an anchor point.</summary>
+    /// <param name="reference">The anchor point and its channel.</param>
+    /// <returns>The input.</returns>
+    public static LayerInputAsset Of(AnchorReference reference) =>
+        new() { Source = LayerInputSource.Anchor, Anchor = reference };
+
+    /// <summary>An input reading the stack beneath the layer.</summary>
+    /// <param name="channel">The channel, by usage; empty for the channel being built.</param>
+    /// <returns>The input.</returns>
+    public static LayerInputAsset BeneathIn(string channel) => new() { Channel = channel };
+}
+
 /// <summary>One entry in a mask's own small stack.</summary>
 /// <remarks>
 ///     <para>
@@ -483,9 +560,10 @@ public sealed record MaskEffectAsset {
     public Dictionary<string, string> Texts { get; init; } = [];
 
     /// <summary>
-    ///     Its other image inputs, by port name, each read from an anchor point. The mask goes into the one input left.
+    ///     Where its other image inputs read, by port name. The mask always goes into its first image input, its subject;
+    ///     an input named by one of the set's channels and left out here reads the stack beneath in that channel.
     /// </summary>
-    public Dictionary<string, AnchorReference> Inputs { get; init; } = [];
+    public Dictionary<string, LayerInputAsset> Inputs { get; init; } = [];
 }
 
 /// <summary>One layer's mask: a base, a small stack over it, and the effects on the result.</summary>
@@ -660,11 +738,13 @@ public sealed record LayerAsset {
     /// <summary>The anchor point a <see cref="LayerFillSource.Anchor" /> fill reads.</summary>
     public AnchorReference Anchor { get; init; } = new();
 
-    /// <summary>
-    ///     Image inputs of a graph fill or a <see cref="FilterNode" /> filter, by port name, each read from an anchor
-    ///     point. A filter's own input is the one image input left, which reads the stack beneath it.
-    /// </summary>
-    public Dictionary<string, AnchorReference> Inputs { get; init; } = [];
+    /// <summary>Where the image inputs of a graph fill or a <see cref="FilterNode" /> filter read, by port name.</summary>
+    /// <remarks>
+    ///     An input left out of this reads, in order: the stack beneath in the channel it is named after, when its name
+    ///     is one of the set's channels; the stack beneath in the channel being built, when it is a filter's first image
+    ///     input — its subject; nothing, when the node does without it; and otherwise it is a slot nobody has filled.
+    /// </remarks>
+    public Dictionary<string, LayerInputAsset> Inputs { get; init; } = [];
 
     /// <summary>Which adjustment a <see cref="LayerKind.Filter" /> layer applies.</summary>
     /// <remarks>

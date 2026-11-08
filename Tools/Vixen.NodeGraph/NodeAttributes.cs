@@ -35,6 +35,24 @@ public sealed class NodeAttribute(string path) : Attribute {
     ///     rather than of the view — a <c>Time</c> node has nothing to preview whatever is drawing it.
     /// </remarks>
     public bool Preview { get; init; }
+
+    /// <summary>
+    ///     Whether a host may offer the node as an adjustment of a picture it already has — a layer stack's filter, a
+    ///     mask's step — when its ports allow one. True unless the node says otherwise.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The ports cannot say this, and the node can.</b> An image in and an image out is the shape of
+    ///         an adjustment and of two other things: a node whose output <em>describes</em> its input — a
+    ///         histogram, a chart of one, a table of running sums — and a node whose other inputs are what it is
+    ///         about — a blend, a selector, a scatter. Both compile under a stack, and neither gives a layer or a
+    ///         mask a picture of the surface back (Patina #220).
+    ///     </para>
+    ///     <para>
+    ///         Metadata for a host, as <see cref="Preview" /> is. A graph wires the node whatever this says.
+    ///     </para>
+    /// </remarks>
+    public bool Adjustment { get; init; } = true;
 }
 
 /// <summary>Marks a field as an input port.</summary>

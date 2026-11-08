@@ -14,7 +14,7 @@ namespace Vixen.TextureGraph.Nodes;
 ///     over a grey stays grey, one channel wide, all the way down. Without that rule the library needs
 ///     a <c>BlendGrayscale</c> beside this, which is the cost § Part 4 names.
 /// </remarks>
-[Node("Colour/Blend", Preview = true, Summary = "Two images composited under one of sixteen operators.")]
+[Node("Colour/Blend", Preview = true, Adjustment = false, Summary = "Two images composited under one of sixteen operators.")]
 sealed partial class BlendNode : TextureNode {
     /// <summary>Which operator. One of <c>TextureBlendMode</c>'s sixteen names.</summary>
     [Setting(AcceptedFrom = typeof(TextureBlendMode))]

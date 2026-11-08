@@ -456,8 +456,10 @@ public static class LayerStackEdit {
                 uses.Add(new(layer.Id, "fill", layer.Anchor));
             }
 
-            foreach (var (port, reference) in layer.Inputs) {
-                uses.Add(new(layer.Id, $"input {port}", reference));
+            foreach (var (port, input) in layer.Inputs) {
+                if (input.Source == LayerInputSource.Anchor) {
+                    uses.Add(new(layer.Id, $"input {port}", input.Anchor));
+                }
             }
 
             if (layer.Mask.Source == LayerMaskSource.Anchor) {
@@ -486,8 +488,10 @@ public static class LayerStackEdit {
             }
 
             foreach (var effect in layer.Mask.Effects) {
-                foreach (var (port, reference) in effect.Inputs) {
-                    uses.Add(new(layer.Id, $"mask effect {effect.Node} {port}", reference));
+                foreach (var (port, input) in effect.Inputs) {
+                    if (input.Source == LayerInputSource.Anchor) {
+                        uses.Add(new(layer.Id, $"mask effect {effect.Node} {port}", input.Anchor));
+                    }
                 }
             }
         }
@@ -540,10 +544,17 @@ public static class LayerStackEdit {
         Dictionary<string, AnchorReference> Ports(Dictionary<string, AnchorReference> inputs) =>
             inputs.ToDictionary(static pair => pair.Key, pair => Moved(pair.Value), StringComparer.Ordinal);
 
+        Dictionary<string, LayerInputAsset> Sources(Dictionary<string, LayerInputAsset> inputs) =>
+            inputs.ToDictionary(
+                static pair => pair.Key,
+                pair => pair.Value with { Anchor = Moved(pair.Value.Anchor) },
+                StringComparer.Ordinal
+            );
+
         LayerAsset Layer(LayerAsset layer) =>
             layer with {
                 Anchor = Moved(layer.Anchor),
-                Inputs = Ports(layer.Inputs),
+                Inputs = Sources(layer.Inputs),
                 Mask = layer.Mask with {
                     Anchor = Moved(layer.Mask.Anchor),
                     GeneratorInputs = Ports(layer.Mask.GeneratorInputs),
@@ -554,7 +565,7 @@ public static class LayerStackEdit {
                             }
                         )
                     ],
-                    Effects = [.. layer.Mask.Effects.Select(effect => effect with { Inputs = Ports(effect.Inputs) })]
+                    Effects = [.. layer.Mask.Effects.Select(effect => effect with { Inputs = Sources(effect.Inputs) })]
                 },
                 Children = [.. layer.Children.Select(Layer)]
             };

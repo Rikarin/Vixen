@@ -13,15 +13,53 @@ public sealed class LayerAdjustmentTests {
     [InlineData("Colour/Clamp", true)]
     [InlineData("Filters/Median", true)]
     [InlineData("Utility/Glow", true)]
+    [InlineData("Colour/Histogram Equalise", true)]
+    [InlineData("Filters/Warp", true)]
+    [InlineData("Filters/Slope Blur", true)]
+    [InlineData("Colour/Image Ramp", true)]
     [InlineData("Colour/Blend", false)]
-    [InlineData("Colour/Image Ramp", false)]
+    [InlineData("Colour/Select Input", false)]
+    [InlineData("Placement/Tile Sampler", false)]
+    [InlineData("Placement/Splatter", false)]
     [InlineData("Source/Noise", false)]
     [InlineData("Colour/Premultiply", false)]
     [InlineData("Colour/Unpremultiply", false)]
-    public void One_image_in_and_one_out_is_an_adjustment_unless_it_cannot_change_a_stack(string path, bool offered) {
+    public void An_image_in_and_one_out_is_an_adjustment_unless_the_node_or_the_stack_says_not(string path, bool offered) {
         var library = LayerStackCompiler.Library(out _);
 
         Assert.True(library.TryGet(path, out var type), $"'{path}' is not in the library.");
         Assert.Equal(offered, LayerStackGraph.IsAdjustment(type!));
+    }
+
+    /// <summary>
+    ///     Patina #220: a node whose output measures its input — a histogram, a chart of one, a table of running sums —
+    ///     gives a layer or a mask nothing of the surface back, and is offered as neither.
+    /// </summary>
+    [Theory]
+    [InlineData("Analysis/Histogram")]
+    [InlineData("Analysis/Histogram Render")]
+    [InlineData("Analysis/Summed Area Table")]
+    public void A_statistic_is_neither_a_filter_nor_a_mask_step(string path) {
+        var library = LayerStackCompiler.Library(out _);
+
+        Assert.True(library.TryGet(path, out var type), $"'{path}' is not in the library.");
+        Assert.False(type!.Adjustment, $"'{path}' does not say it is no adjustment.");
+        Assert.False(LayerStackGraph.IsAdjustment(type));
+        Assert.False(LayerStackGraph.IsMaskStep(type));
+    }
+
+    /// <summary>
+    ///     ⚠ The whole library, so that the next statistics node cannot be offered by forgetting to say so: every type
+    ///     a host is offered either declares itself an adjustment or is offered for a reason the stack gives.
+    /// </summary>
+    [Fact]
+    public void Nothing_that_says_it_is_no_adjustment_is_offered() {
+        var library = LayerStackCompiler.Library(out _);
+
+        Assert.All(
+            library.Types.Where(static type => !type.Adjustment),
+            static type => Assert.False(LayerStackGraph.IsAdjustment(type), type.Path)
+        );
+        Assert.Contains(library.Types, static type => !type.Adjustment);
     }
 }

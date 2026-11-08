@@ -652,7 +652,7 @@ sealed partial class PaletteNode : TextureNode {
 ///     change must not recompile the plan. An unwired slot that is chosen draws transparent black, which
 ///     is visible, rather than quietly standing in another input.
 /// </remarks>
-[Node("Colour/Select Input", Preview = true, Summary = "Passes on one of four inputs, chosen by number.")]
+[Node("Colour/Select Input", Preview = true, Adjustment = false, Summary = "Passes on one of four inputs, chosen by number.")]
 sealed partial class SelectInputNode : TextureNode {
     /// <summary>Slot one.</summary>
     [Input(Name = "Input 1")]
