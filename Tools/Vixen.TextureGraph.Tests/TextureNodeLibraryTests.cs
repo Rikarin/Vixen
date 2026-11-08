@@ -862,7 +862,7 @@ public class TextureNodeLibraryTests {
         graph.Connect(grayscale, "Out", rotateByMap, "Rotation");
 
         // Patina #172's statistics: three measure a grey, and the summed-area table takes either.
-        foreach (var path in (string[]) [
+        foreach (var path in (string[])[
                      "Analysis/Histogram", "Analysis/Histogram Render", "Colour/Histogram Equalise"
                  ]) {
             graph.Connect(grayscale, "Out", graph.Add(path), "Input");

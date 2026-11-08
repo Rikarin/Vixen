@@ -62,7 +62,7 @@ public class TextureShapeFamilyDeviceTests(ITestOutputHelper output) {
 
         output.WriteLine($"adapter: {TextureKernelHarness.Adapter(device)}");
 
-        foreach (var (rotation, falloff) in (ReadOnlySpan<(float, float)>) [(0f, 0.05f), (0.7f, 0.2f), (-2.1f, 0.01f)]) {
+        foreach (var (rotation, falloff) in (ReadOnlySpan<(float, float)>)[(0f, 0.05f), (0.7f, 0.2f), (-2.1f, 0.01f)]) {
             void Numbers(GraphNode node) {
                 node.SetValue("Rotation", rotation);
                 node.SetValue("Falloff", falloff);
@@ -105,7 +105,7 @@ public class TextureShapeFamilyDeviceTests(ITestOutputHelper output) {
     public void A_star_covers_the_area_of_its_points_and_valleys() {
         using var device = TextureKernelHarness.Open();
 
-        foreach (var (points, inner) in (ReadOnlySpan<(int, float)>) [(5, 0.4f), (7, 0.6f), (4, 0.25f)]) {
+        foreach (var (points, inner) in (ReadOnlySpan<(int, float)>)[(5, 0.4f), (7, 0.6f), (4, 0.25f)]) {
             var star = Shape(device, "Star", node => {
                 node.SetValue("Sides", points);
                 node.SetValue("Inner", inner);
@@ -122,7 +122,7 @@ public class TextureShapeFamilyDeviceTests(ITestOutputHelper output) {
     public void A_ring_covers_the_band_between_its_hole_and_its_rim() {
         using var device = TextureKernelHarness.Open();
 
-        foreach (var hole in (ReadOnlySpan<float>) [0.3f, 0.7f]) {
+        foreach (var hole in (ReadOnlySpan<float>)[0.3f, 0.7f]) {
             var ring = Shape(device, "Ring", node => node.SetValue("Inner", hole));
 
             Assert.Equal(MathF.PI * (1f - (hole * hole)) * Unit, Covered(ring), 0.004f);
@@ -139,7 +139,7 @@ public class TextureShapeFamilyDeviceTests(ITestOutputHelper output) {
     public void A_capsule_is_a_rectangle_and_two_half_discs() {
         using var device = TextureKernelHarness.Open();
 
-        foreach (var half in (ReadOnlySpan<float>) [0.25f, 0.5f]) {
+        foreach (var half in (ReadOnlySpan<float>)[0.25f, 0.5f]) {
             var capsule = Shape(device, "Capsule", node => node.SetValue("Inner", half));
             var expected = ((MathF.PI * half * half) + (2f * (1f - half) * 2f * half)) * Unit;
 
@@ -158,7 +158,7 @@ public class TextureShapeFamilyDeviceTests(ITestOutputHelper output) {
     public void A_crescent_is_a_disc_less_its_lens_with_the_cutting_disc() {
         using var device = TextureKernelHarness.Open();
 
-        foreach (var cut in (ReadOnlySpan<float>) [0.25f, 0.5f, 0.8f]) {
+        foreach (var cut in (ReadOnlySpan<float>)[0.25f, 0.5f, 0.8f]) {
             var crescent = Shape(device, "Crescent", node => node.SetValue("Inner", cut));
             var expected = (MathF.PI - Lens(2f * cut)) * Unit;
 

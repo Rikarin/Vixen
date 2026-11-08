@@ -75,7 +75,7 @@ public class TextureHistogramDeviceTests(ITestOutputHelper output) {
             var below = shares.Take(bin).Sum();
             var expected = below + (shares[bin] * ((u * 256) - bin));
 
-            foreach (var y in (int[]) [0, side / 3, side - 1]) {
+            foreach (var y in (int[])[0, side / 3, side - 1]) {
                 Assert.Equal((float)(shares[bin] * 256), density.At(x, y, 0), 0.002f);
                 Assert.Equal((float)expected, cumulative.At(x, y, 0), 0.001f);
             }

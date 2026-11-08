@@ -53,7 +53,7 @@ public class TextureNoiseFamilyDeviceTests(ITestOutputHelper output) {
 
         output.WriteLine($"adapter: {TextureKernelHarness.Adapter(device)}");
 
-        foreach (var basis in (string[]) ["Gradient", "Value", "Gaussian"]) {
+        foreach (var basis in (string[])["Gradient", "Value", "Gaussian"]) {
             var still = Noise(device, basis, node => node.SetValue("Octaves", 3f));
             var rolled = Noise(device, basis, node => {
                 node.SetValue("Octaves", 3f);
@@ -83,7 +83,7 @@ public class TextureNoiseFamilyDeviceTests(ITestOutputHelper output) {
         // Sixteen white cells across and eight down: a 64-texel image is constant on blocks four wide and
         // eight tall, and no taller — whether the axis rounds to a period because it wraps or takes the
         // number as it is because it does not.
-        foreach (var tiling in (bool[]) [true, false]) {
+        foreach (var tiling in (bool[])[true, false]) {
             Blocks(Noise(device, "White", node => {
                 node.SetValue("Scale", 16f);
                 node.SetValue("Scale Y", 0.5f);
@@ -127,7 +127,7 @@ public class TextureNoiseFamilyDeviceTests(ITestOutputHelper output) {
 
         const float Gain = 0.6f;
 
-        foreach (var (basis, profile) in (ReadOnlySpan<(string, string)>) [("Value", "Plain"), ("Gradient", "Ridged"), ("Worley", "Plain")]) {
+        foreach (var (basis, profile) in (ReadOnlySpan<(string, string)>)[("Value", "Plain"), ("Gradient", "Ridged"), ("Worley", "Plain")]) {
             Lanes Sum(int first, int count) =>
                 Noise(device, basis, node => {
                     node.SetText("Profile", profile);
@@ -204,7 +204,7 @@ public class TextureNoiseFamilyDeviceTests(ITestOutputHelper output) {
     public void Every_option_at_once_still_tiles() {
         using var device = TextureKernelHarness.Open();
 
-        foreach (var basis in (string[]) ["Value", "Gradient", "Worley", "White", "Gaussian"]) {
+        foreach (var basis in (string[])["Value", "Gradient", "Worley", "White", "Gaussian"]) {
             var field = Noise(device, basis, node => {
                 node.SetText("Profile", "Ridged");
                 node.SetValue("Scale", 3.3f);
