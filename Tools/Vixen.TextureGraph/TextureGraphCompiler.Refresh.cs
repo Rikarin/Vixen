@@ -161,15 +161,11 @@ public sealed partial class TextureGraphCompiler {
             return null;
         }
 
-        var walked = author;
-        var inlining = NodeGraphInlining.Empty;
+        // The same graph a compile walks, bypassed nodes and reroutes taken out — see `Walkable`.
+        var walked = Walkable(author, out var refused, out var inlining);
 
-        if (SubGraphSource is { } source && SubGraphs.ContainsSubGraph(author, source)) {
-            walked = SubGraphs.Flatten(author, source, SubGraphValues, out var refused, out inlining);
-
-            if (refused.Count > 0 || spoke) {
-                return null;
-            }
+        if (refused.Count > 0 || spoke) {
+            return null;
         }
 
         if (!last.Differences(walked, out var changed) || !Retuned(last.Inlining, inlining, everyScope, out var retuned)) {

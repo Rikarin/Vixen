@@ -70,6 +70,24 @@ public sealed class GraphNode {
     /// <summary>Where it sits on the canvas.</summary>
     public Vector2 Position { get; set; }
 
+    /// <summary>Whether the node is switched off, so that what it is fed passes straight through it.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>A flag on the node rather than an edit of the wires</b>, because an author who
+    ///         bypasses a node to compare the picture with and without it wants it back exactly as it
+    ///         was — the wires, the values and the place. Rewiring round it would make "turn it back
+    ///         on" a second edit that has to remember the first.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Honoured by <see cref="NodeGraphCompiler{TArtefact}" />, not by each front
+    ///         end.</b> <see cref="NodeBypass.Apply" /> takes a bypassed node out of the graph a walk
+    ///         is over and wires each of its outputs to whatever feeds its first input of the same
+    ///         kind, so a compiler never sees the node and cannot forget to skip it. An output with no
+    ///         such input leaves what it fed unwired.
+    ///     </para>
+    /// </remarks>
+    public bool Bypassed { get; set; }
+
     /// <summary>The inline values its unconnected inputs have been given.</summary>
     /// <remarks>
     ///     Only the ones an author has actually changed. A port that is not here takes the default
@@ -145,6 +163,38 @@ public sealed class GraphGroup {
 
     /// <summary>Which nodes are in it.</summary>
     public List<NodeId> Nodes { get; } = [];
+
+    /// <summary>The colour its frame is drawn in, as a CSS colour, or empty for the view's own choice.</summary>
+    /// <remarks>
+    ///     Text rather than a <c>Color</c>, because what a view can draw is the view's business: a token
+    ///     such as <c>var(--color-chart-3)</c> follows a theme, and a number would freeze one.
+    /// </remarks>
+    public string Color { get; set; } = "";
+
+    /// <summary>What the nodes in it do together, for whoever reads the graph next.</summary>
+    public string Description { get; set; } = "";
+}
+
+/// <summary>A named set of values for a graph's parameters.</summary>
+/// <remarks>
+///     <para>
+///         <b>In the document, beside <see cref="NodeGraphModel.Parameters" />, because a preset is
+///         content.</b> A rusty, a clean and a painted version of one material are what its author
+///         ships with it, and a list kept anywhere but the file would not travel with the graph.
+///     </para>
+///     <para>
+///         ⚠ <b>Values by parameter name, and only for the parameters it names.</b> A parameter added
+///         after the preset was saved keeps its own value when the preset is chosen, and a name the
+///         graph no longer declares is ignored rather than refused — a preset is a suggestion, and a
+///         rename should not make choosing one an error.
+///     </para>
+/// </remarks>
+public sealed class GraphPreset {
+    /// <summary>What the preset is called. Unique within the graph.</summary>
+    public string Name { get; set; } = "";
+
+    /// <summary>What each parameter is set to, as the text <see cref="GraphNode.Texts" /> would hold.</summary>
+    public Dictionary<string, string> Values { get; } = new(StringComparer.Ordinal);
 }
 
 /// <summary>A sticky note.</summary>
@@ -333,6 +383,13 @@ public sealed class NodeGraphModel {
     /// </remarks>
     public List<SettingDefinition> Parameters { get; } = [];
 
+    /// <summary>Named sets of values for <see cref="Parameters" />, in the order an author made them.</summary>
+    /// <remarks>
+    ///     Mutating it is not noticed; call <see cref="Touch" /> after. See <see cref="GraphPreset" />
+    ///     for why a preset lives in the file.
+    /// </remarks>
+    public List<GraphPreset> Presets { get; } = [];
+
     /// <summary>One of the graph's own settings, or the empty string.</summary>
     /// <param name="key">Its key.</param>
     /// <returns>What it says.</returns>
@@ -384,6 +441,7 @@ public sealed class NodeGraphModel {
         target.Comments.AddRange(Comments);
         target.Interface.AddRange(Interface);
         target.Parameters.AddRange(Parameters);
+        target.Presets.AddRange(Presets);
 
         foreach (var (key, value) in Settings) {
             target.Settings[key] = value;

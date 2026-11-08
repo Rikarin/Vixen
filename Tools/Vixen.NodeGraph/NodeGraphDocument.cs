@@ -32,6 +32,9 @@ public sealed record GraphNodeAsset {
     /// <summary>The inline texts its unconnected inputs were given, port name to text.</summary>
     /// <remarks>See <see cref="GraphNode.Texts" /> for why a name is not a lane of float.</remarks>
     public Dictionary<string, string> Texts { get; init; } = [];
+
+    /// <summary>Whether it is switched off. See <see cref="GraphNode.Bypassed" />.</summary>
+    public bool Bypassed { get; init; }
 }
 
 /// <summary>One connection, as a file holds it.</summary>
@@ -66,6 +69,12 @@ public sealed record GraphGroupAsset {
 
     /// <summary>Which nodes are in it.</summary>
     public int[] Nodes { get; init; } = [];
+
+    /// <summary>The colour its frame is drawn in, or empty for the view's own choice.</summary>
+    public string Color { get; init; } = string.Empty;
+
+    /// <summary>What the nodes in it do together.</summary>
+    public string Description { get; init; } = string.Empty;
 }
 
 /// <summary>A sticky note, as a file holds it.</summary>
@@ -156,6 +165,35 @@ public sealed record GraphParameterAsset {
     ///     things and the list rather than the kind is what says so.
     /// </remarks>
     public string[] Accepted { get; init; } = [];
+
+    /// <summary>What an inspector calls it, or empty for its name.</summary>
+    public string Label { get; init; } = string.Empty;
+
+    /// <summary>Which control an inspector draws for it.</summary>
+    public SettingWidget Widget { get; init; }
+
+    /// <summary>The parameter whose value decides whether this one is shown, or empty for always.</summary>
+    /// <remarks>
+    ///     Three flat fields rather than one nested <see cref="SettingCondition" />, for
+    ///     <see cref="GraphEdgeAsset" />'s reason: this is a line in a diff.
+    /// </remarks>
+    public string VisibleIf { get; init; } = string.Empty;
+
+    /// <summary>The value <see cref="VisibleIf" /> is compared with.</summary>
+    public string VisibleValue { get; init; } = string.Empty;
+
+    /// <summary>True to show this one while <see cref="VisibleIf" /> does not hold the value.</summary>
+    public bool VisibleNegated { get; init; }
+}
+
+/// <summary>A named set of parameter values, as a file holds it. See <see cref="GraphPreset" />.</summary>
+[DataContract("GraphPreset")]
+public sealed record GraphPresetAsset {
+    /// <summary>What the preset is called.</summary>
+    public string Name { get; init; } = string.Empty;
+
+    /// <summary>What each parameter is set to, by name.</summary>
+    public Dictionary<string, string> Values { get; init; } = [];
 }
 
 /// <summary>
@@ -217,6 +255,9 @@ public sealed record NodeGraphAsset {
 
     /// <summary>The knobs it exposes when another graph, or a bake, contains it.</summary>
     public GraphParameterAsset[] Parameters { get; init; } = [];
+
+    /// <summary>Named sets of values for <see cref="Parameters" />.</summary>
+    public GraphPresetAsset[] Presets { get; init; } = [];
 }
 
 /// <summary>Between the model and the file shape.</summary>
@@ -242,7 +283,8 @@ public static class NodeGraphDocument {
                 X = node.Position.X,
                 Y = node.Position.Y,
                 Values = new(node.Values),
-                Texts = new(node.Texts)
+                Texts = new(node.Texts),
+                Bypassed = node.Bypassed
             });
         }
 
@@ -260,7 +302,13 @@ public static class NodeGraphDocument {
         List<GraphGroupAsset> groups = [];
 
         foreach (var group in graph.Groups) {
-            groups.Add(new() { Id = group.Id, Title = group.Title, Nodes = [.. group.Nodes.Select(id => id.Value)] });
+            groups.Add(new() {
+                Id = group.Id,
+                Title = group.Title,
+                Nodes = [.. group.Nodes.Select(id => id.Value)],
+                Color = group.Color,
+                Description = group.Description
+            });
         }
 
         List<GraphCommentAsset> comments = [];
@@ -299,8 +347,19 @@ public static class NodeGraphDocument {
                 Minimum = parameter.Minimum,
                 Maximum = parameter.Maximum,
                 Group = parameter.Group,
-                Accepted = [.. parameter.Accepted]
+                Accepted = [.. parameter.Accepted],
+                Label = parameter.Label,
+                Widget = parameter.Widget,
+                VisibleIf = parameter.VisibleIf?.Setting ?? "",
+                VisibleValue = parameter.VisibleIf?.Value ?? "",
+                VisibleNegated = parameter.VisibleIf?.Negated ?? false
             });
+        }
+
+        List<GraphPresetAsset> presets = [];
+
+        foreach (var preset in graph.Presets) {
+            presets.Add(new() { Name = preset.Name, Values = new(preset.Values, StringComparer.Ordinal) });
         }
 
         return new() {
@@ -312,7 +371,8 @@ public static class NodeGraphDocument {
             Comments = [.. comments],
             Interface = [.. ports],
             Settings = new(graph.Settings, StringComparer.Ordinal),
-            Parameters = [.. parameters]
+            Parameters = [.. parameters],
+            Presets = [.. presets]
         };
     }
 
@@ -385,9 +445,36 @@ public static class NodeGraphDocument {
                     entry.Minimum,
                     entry.Maximum,
                     entry.Group,
-                    [.. entry.Accepted]
+                    [.. entry.Accepted],
+                    entry.Label,
+                    entry.Widget,
+                    entry.VisibleIf.Length > 0 ? new(entry.VisibleIf, entry.VisibleValue, entry.VisibleNegated) : null
                 )
             );
+        }
+
+        HashSet<string> presets = new(StringComparer.Ordinal);
+
+        foreach (var entry in asset.Presets) {
+            if (string.IsNullOrWhiteSpace(entry.Name) || !presets.Add(entry.Name)) {
+                found.Add(new(
+                    "NG0105",
+                    string.IsNullOrWhiteSpace(entry.Name)
+                        ? "A preset of the graph has no name, and a preset is chosen by name. It was dropped."
+                        : $"The graph declares two presets called '{entry.Name}'. The second was dropped.",
+                    NodeId.None
+                ));
+
+                continue;
+            }
+
+            GraphPreset preset = new() { Name = entry.Name };
+
+            foreach (var (name, value) in entry.Values) {
+                preset.Values[name] = value;
+            }
+
+            graph.Presets.Add(preset);
         }
 
         // Before the nodes, because the boundary nodes a sub-graph's entry and exit are drawn from
@@ -433,6 +520,8 @@ public static class NodeGraphDocument {
 
             var node = graph.Add(id, entry.Type, new(entry.X, entry.Y));
 
+            node.Bypassed = entry.Bypassed;
+
             foreach (var (port, value) in entry.Values) {
                 node.SetValue(port, value);
             }
@@ -466,7 +555,12 @@ public static class NodeGraphDocument {
         }
 
         foreach (var entry in asset.Groups) {
-            var group = new GraphGroup { Id = entry.Id, Title = entry.Title };
+            var group = new GraphGroup {
+                Id = entry.Id,
+                Title = entry.Title,
+                Color = entry.Color,
+                Description = entry.Description
+            };
 
             foreach (var member in entry.Nodes) {
                 var id = new NodeId(member);

@@ -648,6 +648,8 @@ public static class SubGraphs {
 
             var copy = extracted.Add(node.Id, node.Type, node.Position);
 
+            copy.Bypassed = node.Bypassed;
+
             foreach (var (port, value) in node.Values) {
                 copy.SetValue(port, [.. value]);
             }
@@ -920,6 +922,9 @@ public static class SubGraphs {
                 var id = preserve ? node.Id : new NodeId(++next);
                 var copy = result.Add(id, node.Type, node.Position + offset);
 
+                // A node switched off inside a sub-graph stays off once inlined, and the compiler's
+                // second pass over the flattened graph is what takes it out — see NodeBypass.
+                copy.Bypassed = node.Bypassed;
                 local[node.Id] = id;
 
                 // The way back. Recorded here rather than derived afterwards because this is the only
