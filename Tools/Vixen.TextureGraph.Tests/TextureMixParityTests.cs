@@ -89,25 +89,6 @@ public class TextureMixParityTests {
         );
 
     /// <summary>
-    ///     ⚠ The composite differs in exactly one line, and that line is where the opacity is read.
-    /// </summary>
-    /// <remarks>
-    ///     <para>
-    ///         <b>Exactly one, counted, rather than "the mask appears somewhere".</b> The whole claim
-    ///         <c>Mix</c> makes about itself is that it is <c>Blend</c> with the opacity read per
-    ///         texel; a second difference — an alpha rule quietly simplified, the <c>atop</c> branch
-    ///         dropped, the <c>max(alpha, 1e-6)</c> floor moved — is the thing this exists to catch,
-    ///         and it is invisible in every picture where the backdrop is opaque, which is every
-    ///         picture a texture graph makes until a group isolates one (#832, #899).
-    ///     </para>
-    ///     <para>
-    ///         ⚠ <b>And the line is named on both sides.</b> Asserting only "one line differs" would
-    ///         pass if the difference had moved to some other line and the opacity had gone back to
-    ///         being a uniform — a <c>Mix</c> that ignores its mask, which is a kernel that composites
-    ///         everything everywhere.
-    ///     </para>
-    /// </remarks>
-    /// <summary>
     ///     The functions <c>Combine</c> calls for the fourteen modes Patina #104 added are the same in both kernels.
     /// </summary>
     /// <remarks>
@@ -130,6 +111,25 @@ public class TextureMixParityTests {
             Lines(Function(TextureKernels.Source("Mix"), name))
         );
 
+    /// <summary>
+    ///     ⚠ The composite differs in exactly one line, and that line is where the opacity is read.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Exactly one, counted, rather than "the mask appears somewhere".</b> The whole claim
+    ///         <c>Mix</c> makes about itself is that it is <c>Blend</c> with the opacity read per
+    ///         texel; a second difference — an alpha rule quietly simplified, the <c>atop</c> branch
+    ///         dropped, the <c>max(alpha, 1e-6)</c> floor moved — is the thing this exists to catch,
+    ///         and it is invisible in every picture where the backdrop is opaque, which is every
+    ///         picture a texture graph makes until a group isolates one (#832, #899).
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the line is named on both sides.</b> Asserting only "one line differs" would
+    ///         pass if the difference had moved to some other line and the opacity had gone back to
+    ///         being a uniform — a <c>Mix</c> that ignores its mask, which is a kernel that composites
+    ///         everything everywhere.
+    ///     </para>
+    /// </remarks>
     [Fact]
     public void The_composite_differs_in_exactly_the_line_that_reads_the_mask() {
         var blend = Lines(Function(TextureKernels.Source("Blend"), "Main"));

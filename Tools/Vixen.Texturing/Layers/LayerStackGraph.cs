@@ -972,6 +972,20 @@ public static class LayerStackGraph {
             return new(node.Id, "Out");
         }
 
+        /// <summary>A picture with its alpha forced to one and its colour kept, which is what Replace composites.</summary>
+        PortRef Solid(PortRef content) {
+            var node = Add("Colour/Channel Shuffle");
+
+            node.SetText("Red From", "FirstRed");
+            node.SetText("Green From", "FirstGreen");
+            node.SetText("Blue From", "FirstBlue");
+            node.SetText("Alpha From", "One");
+
+            graph.Connect(content, new(node.Id, "First"));
+
+            return new(node.Id, "Out");
+        }
+
         /// <summary>A group's children, passed through or isolated, or nothing when they add none.</summary>
         /// <remarks>
         ///     <para>
@@ -1029,20 +1043,6 @@ public static class LayerStackGraph {
         ///         that means "do not reinterpret my children" is the one that does not isolate.
         ///     </para>
         /// </remarks>
-        /// <summary>A picture with its alpha forced to one and its colour kept, which is what Replace composites.</summary>
-        PortRef Solid(PortRef content) {
-            var node = Add("Colour/Channel Shuffle");
-
-            node.SetText("Red From", "FirstRed");
-            node.SetText("Green From", "FirstGreen");
-            node.SetText("Blue From", "FirstBlue");
-            node.SetText("Alpha From", "One");
-
-            graph.Connect(content, new(node.Id, "First"));
-
-            return new(node.Id, "Out");
-        }
-
         PortRef Transparent() {
             var empty = Add("Source/Uniform");
 
@@ -1932,20 +1932,6 @@ public static class LayerStackGraph {
             return composited;
         }
 
-        /// <summary>The same mask entry with its alpha replaced by 1, or the entry unchanged.</summary>
-        /// <param name="slot">The entry.</param>
-        /// <returns>A slot a compositor may read as a number.</returns>
-        /// <remarks>
-        ///     ⚠
-        ///     <b>
-        ///         The red is splatted across the colour lanes as well, so that this is the same
-        ///         shuffle <see cref="Mask" /> ends with rather than a second convention.
-        ///     </b>
-        ///     A mask is
-        ///     read for its red everywhere in this file; carrying green and blue through would make a
-        ///     coloured bitmap entry composite differently under <c>Multiply</c> from the way the same
-        ///     bitmap composites as the only entry, and nothing downstream would say so. #874.
-        /// </remarks>
         /// <summary>
         ///     A mask source's chosen lane moved into every colour lane, opaque, which is what everything after this reads
         ///     a mask by (Patina #110).
@@ -1973,6 +1959,20 @@ public static class LayerStackGraph {
                 _ => "FirstRed"
             };
 
+        /// <summary>The same mask entry with its alpha replaced by 1, or the entry unchanged.</summary>
+        /// <param name="slot">The entry.</param>
+        /// <returns>A slot a compositor may read as a number.</returns>
+        /// <remarks>
+        ///     ⚠
+        ///     <b>
+        ///         The red is splatted across the colour lanes as well, so that this is the same
+        ///         shuffle <see cref="Mask" /> ends with rather than a second convention.
+        ///     </b>
+        ///     A mask is
+        ///     read for its red everywhere in this file; carrying green and blue through would make a
+        ///     coloured bitmap entry composite differently under <c>Multiply</c> from the way the same
+        ///     bitmap composites as the only entry, and nothing downstream would say so. #874.
+        /// </remarks>
         MaskSlot Opaque(MaskSlot slot) {
             if (slot.Opaque) {
                 return slot;

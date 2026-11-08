@@ -41,10 +41,11 @@ public class TextureFormatDeviceTests(ITestOutputHelper output) {
     ///     of black and white at 32 bits, and rounds to exactly 0.5 at 16, where the tie goes to black: one
     ///     texel, 255 levels, and both bakes right. Patina #171's <c>Colour/Palette</c> drew that on its
     ///     first run, and <c>Colour/Threshold</c> and <c>Colour/Quantise</c> have the same edges and had
-    ///     missed them by luck. So for these the rule is that a flip is rare — a texel in 256 — rather than
-    ///     absent; a format that moved the step itself would flip a band, not a speck.
+    ///     missed them by luck; Patina #110's <c>Analysis/Compare</c> is the same step. So for these the rule is
+    ///     that a flip is rare — a texel in 256 — rather than absent; a format that moved the step itself would
+    ///     flip a band, not a speck.
     /// </remarks>
-    static readonly HashSet<string> Stepped = ["Colour/Palette", "Colour/Quantise", "Colour/Threshold"];
+    static readonly HashSet<string> Stepped = ["Analysis/Compare", "Colour/Palette", "Colour/Quantise", "Colour/Threshold"];
 
     /// <summary>Every node a graph with nothing but wires can hold, one graph each.</summary>
     static IEnumerable<(string Path, NodeGraphModel Graph)> Library(NodeTypeRegistry registry) {

@@ -555,7 +555,10 @@ public static class SmartMaterial {
                         // a `.vxpaint` that names another stack is the thing this whole pass is for.
                         Paint = "",
                         Mask = Mask(layer),
-                        Children = Copy(layer.Children)
+                        Children = Copy(layer.Children),
+
+                        // An instance names its source by id, which a material carries with it or does not; Patina #108.
+                        Instance = layer.Instance with { }
                     }
                 );
             }
