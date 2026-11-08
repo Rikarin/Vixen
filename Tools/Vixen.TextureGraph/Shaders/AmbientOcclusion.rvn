@@ -66,11 +66,19 @@ shader AmbientOcclusion {
 
     const val TwoPi: float = 6.2831853f
 
-    /// One tap's height, addressed against the source's own extent.
-    func Height(x: float, y: float): float {
+    /// The height `offset` texels from `coord`, addressed against the source's own extent.
+    ///
+    /// ⚠ **The offset is floored on its own, not after it is added to the texel.** A direction along
+    /// an axis has a `cos` or `sin` of a few times 1e-8 rather than zero, and its sign is the driver's.
+    /// Added to a column of one or more it rounds away, and added to column zero it floors to minus
+    /// one, so the first column read its neighbour on the far side and every other column read
+    /// itself: a seam, and a picture that did not roll with its input, on llvmpipe and not MoltenVK.
+    func Height(coord: int2, offset: float2): float {
         val extent = source.GetDimensions(0)
+        val x = coord.x + int(floor(offset.x))
+        val y = coord.y + int(floor(offset.y))
 
-        return source.Load(int3(Math.Address(int(floor(x)), extent.x, wrapX), Math.Address(int(floor(y)), extent.y, wrapY), 0)).x
+        return source.Load(int3(Math.Address(x, extent.x, wrapX), Math.Address(y, extent.y, wrapY), 0)).x
     }
 
     [ComputeShader(8, 8, 1)]
@@ -84,7 +92,7 @@ shader AmbientOcclusion {
 
         val directions = clamp(samples, 1, MaxSamples)
         val reach = max(radius, 1f)
-        val here = Height(float(coord.x), float(coord.y))
+        val here = Height(coord, float2(0f, 0f))
 
         // A height of one is `height` of the image's width, and a march of d texels is d/width of it,
         // so the tangent of an elevation is the rise over d, in the same units, which is where the
@@ -106,7 +114,7 @@ shader AmbientOcclusion {
 
             for (step in 1 .. Steps) {
                 val distance = reach * float(step) / float(Steps)
-                val sample = Height(float(coord.x) + stride.x * distance, float(coord.y) + stride.y * distance)
+                val sample = Height(coord, stride * distance)
                 val tangent = (sample - here) * scale / distance
 
                 steepest = max(steepest, tangent)
