@@ -292,7 +292,7 @@ public enum LayerMaskSource {
     Paint = 6
 }
 
-/// <summary>Which of doc 48 § 4.2's sixteen operators a layer composites with.</summary>
+/// <summary>Which of the thirty operators a layer composites with.</summary>
 /// <remarks>
 ///     <para>
 ///         ⚠ <b>The names and the numbers are <c>Vixen.TextureGraph</c>'s
@@ -359,7 +359,55 @@ public enum LayerBlendMode {
     ColourBurn = 14,
 
     /// <summary><c>a + (b − ½) · 2</c>. Neutral at mid-grey.</summary>
-    SignedAdd = 15
+    SignedAdd = 15,
+
+    /// <summary>
+    ///     Copy that does not read the foreground's own alpha, so a transparent texel of it replaces the backdrop too.
+    ///     Opacity, and a layer's mask, still decide how much. No neutral.
+    /// </summary>
+    Replace = 16,
+
+    /// <summary><c>b / a</c>: divide with the operands exchanged. No neutral foreground.</summary>
+    InverseDivide = 17,
+
+    /// <summary><c>b − a</c>: subtract with the operands exchanged. No neutral foreground.</summary>
+    InverseSubtract = 18,
+
+    /// <summary><c>a + b − 1</c>. Neutral at white.</summary>
+    LinearBurn = 19,
+
+    /// <summary>Colour burn below mid-grey and colour dodge above, over twice the distance. Neutral at mid-grey.</summary>
+    VividLight = 20,
+
+    /// <summary><c>a + 2b − 1</c>, clipped to 0 to 1, which is what tells it from signed add. Neutral at mid-grey.</summary>
+    LinearLight = 21,
+
+    /// <summary>Darken with <c>2b</c> below mid-grey, lighten with <c>2b − 1</c> above. Neutral at mid-grey.</summary>
+    PinLight = 22,
+
+    /// <summary>The foreground's hue with the backdrop's saturation and value, in HSV.</summary>
+    Hue = 23,
+
+    /// <summary>The foreground's saturation with the backdrop's hue and value, in HSV.</summary>
+    Saturation = 24,
+
+    /// <summary>The foreground's hue and saturation with the backdrop's value, in HSV.</summary>
+    Colour = 25,
+
+    /// <summary>The foreground's value with the backdrop's hue and saturation, in HSV.</summary>
+    Value = 26,
+
+    /// <summary>Two normal maps by whiteout: slopes added, heights multiplied. Neutral at the flat normal.</summary>
+    NormalMapCombine = 27,
+
+    /// <summary>
+    ///     The foreground normal map reoriented to follow the backdrop's surface (reoriented normal mapping). Neutral at
+    ///     the flat normal.
+    /// </summary>
+    NormalMapDetail = 28,
+
+    /// <summary>The backdrop's normals reoriented to follow the foreground's surface. Neutral at the flat normal.</summary>
+    NormalMapInverseDetail = 29
 }
 
 /// <summary>A reference to a named anchor point, in one of the set's channels.</summary>

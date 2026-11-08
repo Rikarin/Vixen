@@ -87,8 +87,29 @@ public class LayerStackCompileTests {
 
             var blend = Find(compilation.Plan, "Blend");
 
-            Assert.Equal((float)(int)mode, blend.Find("mode")!.Value.Value);
+            // ⚠ Replace is the one mode a layer does not hand the kernel: it is made opaque before its mask and
+            // composited as Copy, since the kernel's Replace would discard the mask with the alpha (Patina #104).
+            var compiled = mode == LayerBlendMode.Replace ? LayerBlendMode.Copy : mode;
+
+            Assert.Equal((float)(int)compiled, blend.Find("mode")!.Value.Value);
         }
+    }
+
+    /// <summary>A Replace layer ignores its own alpha and keeps its mask, which the plan shows as an opaque shuffle.</summary>
+    [Fact]
+    public void A_replace_layer_is_made_opaque_before_its_mask() {
+        var replace = One(
+            new() { Id = "l", Kind = LayerKind.Fill, Blend = LayerBlendMode.Replace, Values = { ["baseColor"] = Opaque } }
+        );
+        var copy = One(new() { Id = "l", Kind = LayerKind.Fill, Values = { ["baseColor"] = Opaque } });
+
+        var replaced = LayerStackCompiler.Compile(replace, replace.Sets[0]);
+        var copied = LayerStackCompiler.Compile(copy, copy.Sets[0]);
+
+        Assert.Empty(replaced.Problems);
+        Assert.NotNull(replaced.Plan);
+        Assert.NotNull(copied.Plan);
+        Assert.Equal(Count(copied.Plan, "ChannelShuffle") + 1, Count(replaced.Plan, "ChannelShuffle"));
     }
 
     /// <summary>A layer restricted to one channel appears in that channel's chain and no other.</summary>

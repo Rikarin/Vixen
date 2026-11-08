@@ -50,7 +50,7 @@ public class TextureMixParityTests {
     ///     last case would still answer for a copy. The count below is what says the body is the
     ///     whole body; the equality is what says the two are the same one.
     /// </remarks>
-    static ImmutableArray<int> Selectors { get; } = [.. Enumerable.Range(1, 15)];
+    static ImmutableArray<int> Selectors { get; } = [.. Enumerable.Range(1, 29)];
 
     /// <summary>Comment markers, which are prose about the arithmetic rather than the arithmetic.</summary>
     static readonly Regex Comment = new(@"//.*$", RegexOptions.Multiline);
@@ -107,6 +107,29 @@ public class TextureMixParityTests {
     ///         everything everywhere.
     ///     </para>
     /// </remarks>
+    /// <summary>
+    ///     The functions <c>Combine</c> calls for the fourteen modes Patina #104 added are the same in both kernels.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b><c>Combine</c> being equal is not enough once it calls out.</b> A vivid light fixed in one
+    ///     <c>VividLight</c> and not the other leaves both <c>Combine</c> bodies identical and two pictures.
+    /// </remarks>
+    [Theory]
+    [InlineData("Unit")]
+    [InlineData("Unpacked")]
+    [InlineData("Packed")]
+    [InlineData("Whiteout")]
+    [InlineData("Reoriented")]
+    [InlineData("Hsv")]
+    [InlineData("Rgb")]
+    [InlineData("VividLight")]
+    [InlineData("PinLight")]
+    public void What_the_operator_table_calls_is_the_same_in_both_kernels(string name) =>
+        Assert.Equal(
+            Lines(Function(TextureKernels.Source("Blend"), name)),
+            Lines(Function(TextureKernels.Source("Mix"), name))
+        );
+
     [Fact]
     public void The_composite_differs_in_exactly_the_line_that_reads_the_mask() {
         var blend = Lines(Function(TextureKernels.Source("Blend"), "Main"));

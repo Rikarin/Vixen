@@ -840,6 +840,17 @@ public static class LayerStackGraph {
                 captures[channel.Usage] = foreground;
             }
 
+            // ⚠ **Replace ignores the layer's own alpha and keeps its mask, and the kernel cannot tell the two
+            // apart** (Patina #104): a mask multiplies into the foreground's alpha just below, so the kernel's
+            // Replace, which reads no foreground alpha, would discard the mask with it. The content is made
+            // opaque here, before the mask, and composited as Copy — which is the same sentence in the order
+            // a stack can say it.
+            var replacing = layer.Blend == LayerBlendMode.Replace;
+
+            if (replacing) {
+                foreground = Solid(foreground);
+            }
+
             var opacity = Opacity(layer, channel);
             var folded = Folds(layer.Mask, opacity);
 
@@ -851,7 +862,7 @@ public static class LayerStackGraph {
 
             var blend = Add("Colour/Blend");
 
-            blend.SetText("Mode", layer.Blend.ToString());
+            blend.SetText("Mode", (replacing ? LayerBlendMode.Copy : layer.Blend).ToString());
             blend.SetValue("Opacity", opacity);
 
             // ⚠ **A filter layer's content *is* the backdrop, so it composites atop it and never over
@@ -1008,6 +1019,20 @@ public static class LayerStackGraph {
         ///         that means "do not reinterpret my children" is the one that does not isolate.
         ///     </para>
         /// </remarks>
+        /// <summary>A picture with its alpha forced to one and its colour kept, which is what Replace composites.</summary>
+        PortRef Solid(PortRef content) {
+            var node = Add("Colour/Channel Shuffle");
+
+            node.SetText("Red From", "FirstRed");
+            node.SetText("Green From", "FirstGreen");
+            node.SetText("Blue From", "FirstBlue");
+            node.SetText("Alpha From", "One");
+
+            graph.Connect(content, new(node.Id, "First"));
+
+            return new(node.Id, "Out");
+        }
+
         PortRef Transparent() {
             var empty = Add("Source/Uniform");
 
