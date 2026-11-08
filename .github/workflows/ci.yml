@@ -216,8 +216,13 @@ jobs:
 
       # Keyed on the manifest, because that is the only thing that changes what would be downloaded.
       # A version bump is a new key and a fresh fetch; anything else is a hit.
-      - name: Cache native dependencies
-        uses: actions/cache@v4
+      # ⚠ Restored here and saved straight after the restore below, not by actions/cache's post step:
+      # that one saves only when the whole job passes, and this job failed from September to November,
+      # so the cache was never written and every run fetched every archive. On 2026-11-08 GitHub's
+      # release links then answered 503 for hours and every leg failed before a test ran.
+      - name: Restore cached native dependencies
+        id: native-cache
+        uses: actions/cache/restore@v4
         with:
           path: artifacts/native/.cache
           key: native-${{ matrix.os }}-${{ hashFiles('build/native-dependencies.json') }}
@@ -229,6 +234,16 @@ jobs:
       - name: Restore native dependencies
         run: ./build.sh RestoreNativeDeps
         shell: bash
+        env:
+          # Lets a failed release link fall back to the same asset through the API (Build.Native.cs).
+          GITHUB_TOKEN: ${{ github.token }}
+
+      - name: Save native dependencies
+        if: steps.native-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: artifacts/native/.cache
+          key: native-${{ matrix.os }}-${{ hashFiles('build/native-dependencies.json') }}
 
       - name: Test
         run: ./build.sh Test --configuration Release

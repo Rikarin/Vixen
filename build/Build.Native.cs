@@ -7,10 +7,12 @@ using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.RegularExpressions;
 using Nuke.Common;
 using Nuke.Common.IO;
 using Serilog;
@@ -153,10 +155,7 @@ partial class Build {
         var partial = cached + ".partial";
         partial.DeleteFile();
 
-        await using (var response = await client.GetStreamAsync(artifact.Url))
-        await using (var file = File.Create(partial)) {
-            await response.CopyToAsync(file);
-        }
+        await Download(client, artifact.Url, partial);
 
         var actual = Hash(partial);
 
@@ -177,6 +176,117 @@ partial class Build {
 
         File.Move(partial, cached);
         return cached;
+    }
+
+    /// <summary>The waits, in seconds, before each round of <see cref="Download" />.</summary>
+    static readonly int[] DownloadWaits = [0, 10, 30, 90];
+
+    /// <summary>Writes the file at <paramref name="url" /> to <paramref name="path" />, trying more than once.</summary>
+    /// <remarks>
+    ///     ⚠ GitHub's release download links answered 503 and 504 for hours on 2026-11-08 while its API
+    ///     served the same files, so CI failed before any test ran on every leg. Each round tries the
+    ///     link and then, given <c>GITHUB_TOKEN</c>, the same asset through the API, before waiting
+    ///     longer. Where the bytes came from does not matter: the caller hashes them against the pin.
+    /// </remarks>
+    static async Task Download(HttpClient client, string url, AbsolutePath path) {
+        var failures = new List<string>();
+
+        foreach (var wait in DownloadWaits) {
+            await Task.Delay(TimeSpan.FromSeconds(wait));
+
+            foreach (var source in new[] { Direct, FromGitHubApi }) {
+                using var request = await source(url);
+
+                if (request is null) {
+                    continue;
+                }
+
+                try {
+                    using var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
+
+                    if (!response.IsSuccessStatusCode) {
+                        failures.Add($"{request.RequestUri} answered {(int)response.StatusCode}");
+                        continue;
+                    }
+
+                    await using var body = await response.Content.ReadAsStreamAsync();
+                    await using var file = File.Create(path);
+                    await body.CopyToAsync(file);
+                    return;
+                } catch (Exception exception) when (exception is HttpRequestException or IOException or TaskCanceledException) {
+                    failures.Add($"{request.RequestUri}: {exception.Message}");
+                }
+            }
+
+            Log.Warning("Could not download {Url} yet: {Failure}", url, failures[^1]);
+        }
+
+        throw new HttpRequestException($"Could not download {url}:\n  {string.Join("\n  ", failures)}");
+    }
+
+    static Task<HttpRequestMessage?> Direct(string url) => Task.FromResult<HttpRequestMessage?>(new(HttpMethod.Get, url));
+
+    /// <summary>
+    ///     The same release asset through the GitHub API, or <see langword="null" /> without a token or
+    ///     for a link that is not a release asset's.
+    /// </summary>
+    /// <remarks>
+    ///     The API's asset endpoint is addressed by tag and file name through its
+    ///     <c>/releases/tags/{tag}</c> listing; asking for <c>application/octet-stream</c> on the
+    ///     asset's own URL returns the bytes.
+    /// </remarks>
+    static async Task<HttpRequestMessage?> FromGitHubApi(string url) {
+        var token = Environment.GetEnvironmentVariable("GITHUB_TOKEN");
+        var release = Regex.Match(
+            url,
+            "^https://github\\.com/([^/]+)/([^/]+)/releases/download/([^/]+)/([^/]+)$"
+        );
+
+        if (string.IsNullOrEmpty(token) || !release.Success) {
+            return null;
+        }
+
+        var (owner, repo, tag, name) =
+            (release.Groups[1].Value, release.Groups[2].Value, release.Groups[3].Value, release.Groups[4].Value);
+        var asset = await GitHubAssetUrl(owner, repo, tag, name, token);
+
+        if (asset is null) {
+            return null;
+        }
+
+        var request = new HttpRequestMessage(HttpMethod.Get, asset);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        request.Headers.Accept.ParseAdd("application/octet-stream");
+        request.Headers.UserAgent.ParseAdd("vixen-build");
+        return request;
+    }
+
+    /// <summary>The API URL of the asset named <paramref name="name" /> in release <paramref name="tag" />.</summary>
+    static async Task<string?> GitHubAssetUrl(string owner, string repo, string tag, string name, string token) {
+        using var client = new HttpClient { Timeout = TimeSpan.FromMinutes(1) };
+        using var request = new HttpRequestMessage(
+            HttpMethod.Get,
+            $"https://api.github.com/repos/{owner}/{repo}/releases/tags/{tag}"
+        );
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        request.Headers.UserAgent.ParseAdd("vixen-build");
+
+        try {
+            using var response = await client.SendAsync(request);
+
+            if (!response.IsSuccessStatusCode) {
+                return null;
+            }
+
+            using var listing = await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync());
+
+            return listing.RootElement.GetProperty("assets").EnumerateArray()
+                .Where(asset => asset.GetProperty("name").GetString() == name)
+                .Select(asset => asset.GetProperty("url").GetString())
+                .FirstOrDefault();
+        } catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or JsonException) {
+            return null;
+        }
     }
 
     /// <summary>Pulls exactly the named entries out of the archive, and the licence beside them.</summary>
