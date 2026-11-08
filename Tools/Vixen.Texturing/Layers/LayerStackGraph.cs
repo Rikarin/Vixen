@@ -2726,7 +2726,9 @@ public static class LayerStackGraph {
         float Opacity(LayerAsset layer, ChannelAsset channel) {
             var opacity = layer.Opacity;
 
-            if (layer.Kind != LayerKind.Fill || layer.Fill != LayerFillSource.Constant) {
+            // ⚠ A constant's alpha is the layer's own alpha, folded in here rather than carried in the picture — so
+            // Replace, which does not read it, has to say so here as well as in `Solid` (Patina #104).
+            if (layer.Kind != LayerKind.Fill || layer.Fill != LayerFillSource.Constant || layer.Blend == LayerBlendMode.Replace) {
                 return opacity;
             }
 

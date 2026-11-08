@@ -39,7 +39,7 @@ public sealed class LayerStackEvaluatorDeviceTests : IDisposable {
 
         var strokes = Gen.Select(Gen.Int[0, Size - 1], Gen.Int[0, Size - 1], Gen.Int[1, 2]).Array[1, 4];
 
-        Gen.Select(Gen.Int[2, 7], Gen.Int[0, 15], Gen.Int[0, 4], Gen.Int[0, int.MaxValue], strokes)
+        Gen.Select(Gen.Int[2, 7], Gen.Int[0, 29], Gen.Int[0, 4], Gen.Int[0, int.MaxValue], strokes)
             .Sample(
                 (count, mode, filter, seed, stamps) => {
                     using var evaluator = new TexturePlanEvaluator(device);
@@ -190,6 +190,73 @@ public sealed class LayerStackEvaluatorDeviceTests : IDisposable {
         }
     }
 
+    /// <summary>
+    ///     A Replace layer composites as if its own alpha were one and still reads its mask (Patina #104).
+    /// </summary>
+    /// <remarks>
+    ///     Relative, so that the channel's encoding cannot matter: Replace of a half-transparent colour under a half
+    ///     mask is Copy of the opaque colour under that mask, and is neither Copy of the half-transparent colour nor
+    ///     Replace with no mask. ⚠ The mask has two entries so that it is not folded into the opacity — a folded mask
+    ///     would pass this whatever the stack did with the alpha, since opacity is never the foreground's.
+    /// </remarks>
+    [Fact]
+    public void A_replace_layer_ignores_its_alpha_and_keeps_its_mask() {
+        using var device = OpenDevice();
+        using var evaluator = new TexturePlanEvaluator(device);
+
+        MaskAsset half = new() {
+            Source = LayerMaskSource.Constant,
+            Value = 0.5f,
+            Layers = [new() { Source = LayerMaskSource.Constant, Value = 1f, Blend = LayerBlendMode.Multiply }]
+        };
+
+        var replaced = Texel(evaluator, LayerBlendMode.Replace, 0.5f, half);
+        var opaque = Texel(evaluator, LayerBlendMode.Copy, 1f, half);
+        var copied = Texel(evaluator, LayerBlendMode.Copy, 0.5f, half);
+        var unmasked = Texel(evaluator, LayerBlendMode.Replace, 0.5f, new());
+
+        Assert.Equal(opaque, replaced);
+        Assert.NotEqual(copied, replaced);
+        Assert.NotEqual(unmasked, replaced);
+    }
+
+    byte[] Texel(TexturePlanEvaluator evaluator, LayerBlendMode mode, float alpha, MaskAsset mask) {
+        LayerStackAsset stack = new() {
+            Name = "Replace",
+            BaseWidth = 16,
+            BaseHeight = 16,
+            Sets = [
+                new() {
+                    Name = "Body",
+                    Channels = [new() { Usage = Usage, Default = [0f, 0f, 0f, 1f] }],
+                    Layers = [
+                        new() { Id = "under", Kind = LayerKind.Fill, Values = { [Usage] = [0.2f, 0.2f, 0.2f, 1f] } },
+                        new() {
+                            Id = "over",
+                            Kind = LayerKind.Fill,
+                            Blend = mode,
+                            Mask = mask,
+                            Values = { [Usage] = [0.9f, 0.6f, 0.3f, alpha] }
+                        }
+                    ]
+                }
+            ]
+        };
+
+        using var run = new LayerStackEvaluator(
+            evaluator,
+            new PaintCanvasStore(long.MaxValue),
+            Path.Combine(folder, $"{Guid.NewGuid():N}.vxlayers")
+        );
+
+        Assert.Empty(run.Prepare(stack, stack.Sets[0], Library.Registry, Library.SubGraphs));
+
+        using var bake = run.EvaluateClean();
+        var output = run.Outputs.First(static o => o.Usage == Usage).Image;
+
+        return bake.ReadTexels(output, [new(8, 8, 1, 1)])[0];
+    }
+
     static void Same(LayerStackEvaluator run, string when) {
         var repaired = Pixels(run, clean: false);
         var clean = Pixels(run, clean: true);
@@ -279,7 +346,7 @@ public sealed class LayerStackEvaluatorDeviceTests : IDisposable {
                     _ => new() {
                         Id = $"f{index}",
                         Kind = LayerKind.Fill,
-                        Blend = (LayerBlendMode)((mode + index) % 16),
+                        Blend = (LayerBlendMode)((mode + index) % 30),
                         Opacity = 0.4f,
                         Values = { [Usage] = [0.1f * index, 0.3f, 0.7f, 0.9f] }
                     }
