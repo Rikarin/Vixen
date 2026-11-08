@@ -1,0 +1,101 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+package Vixen.TextureGraph.Shaders
+
+// Patina #179's volume mask and two-point gradient: shapes in the model's own space, read through its
+// position map, so they cross UV seams as the model does.
+//
+// **One kernel, three kinds, two nodes**, `Polar.rvn`'s arrangement: `Source/Volume Mask` is a box or an
+// ellipsoid, and `Source/Volume Gradient` a ramp between two points. The position is § D12's bake, 0..1
+// over the mesh's bounds, and so is every coordinate here.
+//
+// - **Box** (`kind` 0): one inside the box of extents `b` centred on `a`, falling to nought over
+//   `falloff` outside it — the distance to the box, so its corners round as they fade.
+// - **Ellipsoid** (`kind` 1): one inside the ellipsoid of diameters `b` centred on `a`, falling over
+//   `falloff` measured along its shortest semi-axis.
+// - **Gradient** (`kind` 2): nought at `a`, one at `b`, linear along the line between them and constant
+//   across it — the projection of the position onto that line, clamped. `falloff` is not read.
+//
+// A negative extent is no extent. Pointwise in the position map, so it tiles exactly when that map does.
+
+shader VolumeShape {
+    /// § D12's position bake: 0..1 over the mesh's bounds in red, green and blue.
+    var position: Texture2D
+
+    /// 0 box · 1 ellipsoid · 2 gradient.
+    var kind: int = 0
+
+    /// The box's or ellipsoid's centre, or the gradient's start, along x.
+    var ax: float = 0.5f
+
+    /// The same along y.
+    var ay: float = 0.5f
+
+    /// The same along z.
+    var az: float = 0.5f
+
+    /// The box's or ellipsoid's extent, or the gradient's end, along x.
+    var bx: float = 0.5f
+
+    /// The same along y.
+    var by: float = 0.5f
+
+    /// The same along z.
+    var bz: float = 0.5f
+
+    /// How far outside the shape it fades to nought, in the position map's units. Nought is a hard edge.
+    var falloff: float = 0.1f
+
+    [Format("rgba16f")] var target: RWTexture2D<float4>
+
+    /// One less a distance over the falloff, or a step where there is none.
+    func Fade(distance: float): float {
+        if (falloff <= 0.000001f) {
+            if (distance > 0f) {
+                return 0f
+            }
+
+            return 1f
+        }
+
+        return 1f - saturate(distance / falloff)
+    }
+
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val coord = int2(int(id.x), int(id.y))
+        val size = target.GetDimensions()
+
+        if (coord.x >= size.x || coord.y >= size.y) {
+            return
+        }
+
+        val extent = position.GetDimensions(0)
+        val p = position.Load(int3(clamp(coord.x, 0, extent.x - 1), clamp(coord.y, 0, extent.y - 1), 0)).xyz
+        val a = float3(ax, ay, az)
+        val b = float3(bx, by, bz)
+
+        var value = 0f
+
+        if (kind == 2) {
+            val along = b - a
+            val span = dot(along, along)
+
+            if (span > 0.0000001f) {
+                value = saturate(dot(p - a, along) / span)
+            }
+        } else if (kind == 1) {
+            val semi = max(b * 0.5f, float3(0.000001f, 0.000001f, 0.000001f))
+            val scaled = length((p - a) / semi)
+
+            value = Fade((scaled - 1f) * min(semi.x, min(semi.y, semi.z)))
+        } else {
+            val outside = max(abs(p - a) - max(b, float3(0f, 0f, 0f)) * 0.5f, float3(0f, 0f, 0f))
+
+            value = Fade(length(outside))
+        }
+
+        target.Store(coord, float4(value, value, value, 1f))
+    }
+}

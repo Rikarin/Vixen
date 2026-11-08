@@ -127,6 +127,12 @@ public class TextureNodeLibraryTests {
         [("SelectInput", "wired")] = "Not a default: one bit per slot that has a wire, and the fixture wires two.",
         [("HistogramPlot", "mode")] = "Not a default: Analysis/Histogram and Analysis/Histogram Render are the same "
             + "kernel, and the fixture's render draws bars where the kernel's own nought is the density strip.",
+        [("VolumeShape", "kind")] = "Not a default: Source/Volume Mask and Source/Volume Gradient are the same kernel, "
+            + "and the gradient sets the kind its name says.",
+        [("VolumeShape", "ay")] = "Source/Volume Gradient starts at the bottom of the model, where the kernel's own "
+            + "point is the mask's centre.",
+        [("VolumeShape", "by")] = "And ends at its top, where the kernel's is the mask's extent.",
+        [("VolumeShape", "falloff")] = "Not read by the gradient, which passes nought.",
         [("NormalBlend", "masked")] = "Not a default: it says whether the Mask port is wired, and the fixture wires it.",
         [("SummedArea", "axis")] = "Not a default: set per pass by Analysis/Summed Area Table's chain, x first and "
             + "then y.",
@@ -822,6 +828,11 @@ public class TextureNodeLibraryTests {
         graph.Connect(hsl, "Out", triplanar, "Input");
         graph.Connect(place, "Out", triplanar, "Position");
         graph.Connect(facing, "Out", triplanar, "Normal");
+
+        // Patina #179's three readers of the same position bake, each ending in no Output node.
+        foreach (var path in (string[])["Source/Volume Noise", "Source/Volume Mask", "Source/Volume Gradient"]) {
+            graph.Connect(place, "Out", graph.Add(path), "Position");
+        }
         graph.Connect(gradient, "Out", curve, "Input");
 
         // Grey into the ladder and out through the ramp, because Gradient Map measures rather than

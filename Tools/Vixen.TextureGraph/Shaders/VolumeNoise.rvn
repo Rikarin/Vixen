@@ -1,0 +1,330 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+package Vixen.TextureGraph.Shaders
+
+import Vixen.Shaders.Core
+
+// Patina #179's volume noise: a noise of the model's own space rather than of the texture's.
+//
+// **Every texel reads a position and evaluates a 3D noise there**, so two texels either side of a UV
+// seam that are one point on the surface get one value, and a material made from this continues across
+// the seam the way a carved block would. The position is § D12's `position` bake — unsigned, already
+// 0..1 over the mesh's bounds — so `scale` is cells across the model's bounding box.
+//
+// **Four bases**: value (trilinear over cell corners), gradient (Perlin's, with the twelve cube-edge
+// gradients), Worley (the distance to the nearest of one jittered point per cell, F1) and simplex
+// (Gustavson's tetrahedral lattice, the cheaper and less axis-aligned gradient noise). **Three
+// profiles**, `Noise`'s own: plain, ridged `1 − |2v − 1|` and billow `|2v − 1|`, each folded per octave
+// before the sum so a ridge stays a line at every octave.
+//
+// **The sum is normalised by its amplitudes**, so more octaves add detail and do not move the mean. The
+// seed is the op's, so two of these in one graph are two noises, and a cell's hash folds the octave in,
+// so octaves are not one lattice scaled.
+//
+// It is pointwise in the position map, so it tiles exactly when that map does — which a baked atlas
+// does not need to: its continuity is across the seams of the model, not the edges of the image.
+
+shader VolumeNoise {
+    /// § D12's position bake: 0..1 over the mesh's bounds in red, green and blue.
+    var position: Texture2D
+
+    /// 0 value · 1 gradient · 2 Worley · 3 simplex.
+    var basis: int = 1
+
+    /// 0 plain · 1 ridged · 2 billow — folded per octave, as `Noise.rvn`'s.
+    var profile: int = 0
+
+    /// Cells across the model's bounding box, at the first octave.
+    var scale: float = 4f
+
+    /// How many octaves are summed, 1..`MaxOctaves`.
+    var octaves: int = 4
+
+    /// How much finer each octave is than the one before.
+    var lacunarity: float = 2f
+
+    /// How much weaker each octave is than the one before.
+    var gain: float = 0.5f
+
+    /// A shift of the lattice along x, in cells of the first octave.
+    var offsetX: float = 0f
+
+    /// The same along y.
+    var offsetY: float = 0f
+
+    /// The same along z.
+    var offsetZ: float = 0f
+
+    /// The op's own seed, already mixed. See `TexturePlan.SeedFor`.
+    var seed: float = 0f
+
+    [Format("rgba16f")] var target: RWTexture2D<float4>
+
+    /// A ceiling for `Blur.rvn`'s reason: an octave count arriving as a NaN must not be a loop no
+    /// invocation leaves.
+    const val MaxOctaves: int = 8
+
+    func Seeded(): uint => uint(int(max(seed, 0f)))
+
+    /// One lattice point's hash, under one octave's salt.
+    func Cell(x: int, y: int, z: int, salt: uint): uint => Random.Combine(Random.Hash3(uint(x), uint(y), uint(z)), salt)
+
+    func Smooth(t: float3): float3 => t * t * t * (t * (t * 6f - float3(15f, 15f, 15f)) + float3(10f, 10f, 10f))
+
+    /// Value noise: a value per lattice point, blended trilinearly by the smooth step.
+    func ValueAt(p: float3, salt: uint): float {
+        val lattice = floor(p)
+        val w = Smooth(p - lattice)
+        val x = int(lattice.x)
+        val y = int(lattice.y)
+        val z = int(lattice.z)
+
+        val c000 = Random.ToFloat01(Cell(x, y, z, salt))
+        val c100 = Random.ToFloat01(Cell(x + 1, y, z, salt))
+        val c010 = Random.ToFloat01(Cell(x, y + 1, z, salt))
+        val c110 = Random.ToFloat01(Cell(x + 1, y + 1, z, salt))
+        val c001 = Random.ToFloat01(Cell(x, y, z + 1, salt))
+        val c101 = Random.ToFloat01(Cell(x + 1, y, z + 1, salt))
+        val c011 = Random.ToFloat01(Cell(x, y + 1, z + 1, salt))
+        val c111 = Random.ToFloat01(Cell(x + 1, y + 1, z + 1, salt))
+
+        val near = lerp(lerp(c000, c100, w.x), lerp(c010, c110, w.x), w.y)
+        val far = lerp(lerp(c001, c101, w.x), lerp(c011, c111, w.x), w.y)
+
+        return lerp(near, far, w.z)
+    }
+
+    /// One of the twelve cube-edge gradients, dotted with the offset from its lattice point.
+    func EdgeDot(hash: uint, d: float3): float {
+        val edge = int(hash % 12u)
+
+        if (edge == 0) {
+            return d.x + d.y
+        }
+
+        if (edge == 1) {
+            return -d.x + d.y
+        }
+
+        if (edge == 2) {
+            return d.x - d.y
+        }
+
+        if (edge == 3) {
+            return -d.x - d.y
+        }
+
+        if (edge == 4) {
+            return d.x + d.z
+        }
+
+        if (edge == 5) {
+            return -d.x + d.z
+        }
+
+        if (edge == 6) {
+            return d.x - d.z
+        }
+
+        if (edge == 7) {
+            return -d.x - d.z
+        }
+
+        if (edge == 8) {
+            return d.y + d.z
+        }
+
+        if (edge == 9) {
+            return -d.y + d.z
+        }
+
+        if (edge == 10) {
+            return d.y - d.z
+        }
+
+        return -d.y - d.z
+    }
+
+    /// Gradient (Perlin) noise, remapped from about ±1 onto 0..1.
+    func GradientAt(p: float3, salt: uint): float {
+        val lattice = floor(p)
+        val f = p - lattice
+        val w = Smooth(f)
+        val x = int(lattice.x)
+        val y = int(lattice.y)
+        val z = int(lattice.z)
+
+        val g000 = EdgeDot(Cell(x, y, z, salt), f)
+        val g100 = EdgeDot(Cell(x + 1, y, z, salt), f - float3(1f, 0f, 0f))
+        val g010 = EdgeDot(Cell(x, y + 1, z, salt), f - float3(0f, 1f, 0f))
+        val g110 = EdgeDot(Cell(x + 1, y + 1, z, salt), f - float3(1f, 1f, 0f))
+        val g001 = EdgeDot(Cell(x, y, z + 1, salt), f - float3(0f, 0f, 1f))
+        val g101 = EdgeDot(Cell(x + 1, y, z + 1, salt), f - float3(1f, 0f, 1f))
+        val g011 = EdgeDot(Cell(x, y + 1, z + 1, salt), f - float3(0f, 1f, 1f))
+        val g111 = EdgeDot(Cell(x + 1, y + 1, z + 1, salt), f - float3(1f, 1f, 1f))
+
+        val near = lerp(lerp(g000, g100, w.x), lerp(g010, g110, w.x), w.y)
+        val far = lerp(lerp(g001, g101, w.x), lerp(g011, g111, w.x), w.y)
+
+        return saturate(lerp(near, far, w.z) * 0.5f + 0.5f)
+    }
+
+    /// Worley's F1: the distance to the nearest of one jittered point per cell, over the 27 cells about
+    /// this one, which is every cell a nearest point can be in.
+    func WorleyAt(p: float3, salt: uint): float {
+        val lattice = floor(p)
+        var nearest = 4f
+
+        for (dz in -1 .. 1) {
+            for (dy in -1 .. 1) {
+                for (dx in -1 .. 1) {
+                    val x = int(lattice.x) + dx
+                    val y = int(lattice.y) + dy
+                    val z = int(lattice.z) + dz
+                    val hash = Cell(x, y, z, salt)
+                    val jitter = float3(
+                        Random.ToFloat01(hash),
+                        Random.ToFloat01(Random.Hash(hash ^ 0x68BC21EBu)),
+                        Random.ToFloat01(Random.Hash(hash ^ 0x1B873593u))
+                    )
+                    val site = float3(float(x), float(y), float(z)) + jitter
+
+                    nearest = min(nearest, length(site - p))
+                }
+            }
+        }
+
+        return saturate(nearest)
+    }
+
+    /// One simplex corner's contribution: Gustavson's `(0.6 − r²)⁴ · g · d`.
+    func Corner(hash: uint, d: float3): float {
+        val falloff = 0.6f - dot(d, d)
+
+        if (falloff <= 0f) {
+            return 0f
+        }
+
+        val square = falloff * falloff
+
+        return square * square * EdgeDot(hash, d)
+    }
+
+    /// Simplex noise over the tetrahedral lattice, remapped from about ±1 onto 0..1.
+    func SimplexAt(p: float3, salt: uint): float {
+        val skew = (p.x + p.y + p.z) / 3f
+        val cell = floor(p + float3(skew, skew, skew))
+        val unskew = (cell.x + cell.y + cell.z) / 6f
+        val d0 = p - (cell - float3(unskew, unskew, unskew))
+
+        // Which tetrahedron of the skewed cube the point is in, by the order of its coordinates.
+        var first = float3(0f, 0f, 1f)
+        var second = float3(0f, 1f, 1f)
+
+        if (d0.x >= d0.y) {
+            if (d0.y >= d0.z) {
+                first = float3(1f, 0f, 0f)
+                second = float3(1f, 1f, 0f)
+            } else if (d0.x >= d0.z) {
+                first = float3(1f, 0f, 0f)
+                second = float3(1f, 0f, 1f)
+            } else {
+                first = float3(0f, 0f, 1f)
+                second = float3(1f, 0f, 1f)
+            }
+        } else {
+            if (d0.y < d0.z) {
+                first = float3(0f, 0f, 1f)
+                second = float3(0f, 1f, 1f)
+            } else if (d0.x < d0.z) {
+                first = float3(0f, 1f, 0f)
+                second = float3(0f, 1f, 1f)
+            } else {
+                first = float3(0f, 1f, 0f)
+                second = float3(1f, 1f, 0f)
+            }
+        }
+
+        val sixth = 1f / 6f
+        val d1 = d0 - first + float3(sixth, sixth, sixth)
+        val d2 = d0 - second + float3(2f * sixth, 2f * sixth, 2f * sixth)
+        val d3 = d0 - float3(1f, 1f, 1f) + float3(0.5f, 0.5f, 0.5f)
+
+        val x = int(cell.x)
+        val y = int(cell.y)
+        val z = int(cell.z)
+
+        val n0 = Corner(Cell(x, y, z, salt), d0)
+        val n1 = Corner(Cell(x + int(first.x), y + int(first.y), z + int(first.z), salt), d1)
+        val n2 = Corner(Cell(x + int(second.x), y + int(second.y), z + int(second.z), salt), d2)
+        val n3 = Corner(Cell(x + 1, y + 1, z + 1, salt), d3)
+
+        return saturate((n0 + n1 + n2 + n3) * 16f + 0.5f)
+    }
+
+    func Basis(p: float3, salt: uint): float {
+        if (basis == 0) {
+            return ValueAt(p, salt)
+        }
+
+        if (basis == 2) {
+            return WorleyAt(p, salt)
+        }
+
+        if (basis == 3) {
+            return SimplexAt(p, salt)
+        }
+
+        return GradientAt(p, salt)
+    }
+
+    func Fold(v: float): float {
+        if (profile == 1) {
+            return 1f - abs(2f * v - 1f)
+        }
+
+        if (profile == 2) {
+            return abs(2f * v - 1f)
+        }
+
+        return v
+    }
+
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val coord = int2(int(id.x), int(id.y))
+        val size = target.GetDimensions()
+
+        if (coord.x >= size.x || coord.y >= size.y) {
+            return
+        }
+
+        val extent = position.GetDimensions(0)
+        val place = position.Load(int3(clamp(coord.x, 0, extent.x - 1), clamp(coord.y, 0, extent.y - 1), 0)).xyz
+        val count = clamp(octaves, 1, MaxOctaves)
+
+        var frequency = max(scale, 0f)
+        var amplitude = 1f
+        var total = 0f
+        var weight = 0f
+
+        for (octave in 0 .. MaxOctaves - 1) {
+            if (octave >= count) {
+                break
+            }
+
+            val salt = Random.Combine(Seeded(), Random.Hash(uint(octave)))
+            val p = place * frequency + float3(offsetX, offsetY, offsetZ) * (frequency / max(scale, 0.000001f))
+
+            total = total + amplitude * Fold(Basis(p, salt))
+            weight = weight + amplitude
+            frequency = frequency * max(lacunarity, 1f)
+            amplitude = amplitude * max(gain, 0f)
+        }
+
+        val value = saturate(total / max(weight, 0.000001f))
+
+        target.Store(coord, float4(value, value, value, 1f))
+    }
+}
