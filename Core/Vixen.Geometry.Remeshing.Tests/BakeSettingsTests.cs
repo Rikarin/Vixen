@@ -200,7 +200,7 @@ public class BakeSettingsTests {
     [Fact]
     public void Occlusion_within_a_part_leaves_out_every_other_part() {
         // The floor's sixteen faces come first in the source, then the ceiling's sixteen.
-        BakeParts parts = new([..Enumerable.Repeat(0, 16), ..Enumerable.Repeat(1, 16)], [..Enumerable.Repeat(0, 16)]);
+        BakeParts parts = new([.. Enumerable.Repeat(0, 16), .. Enumerable.Repeat(1, 16)], [.. Enumerable.Repeat(0, 16)]);
 
         var whole = Sealed(new() { Resolution = 24, Maps = MeshMaps.AmbientOcclusion, Parts = parts });
         var within = Sealed(new() { Resolution = 24, Maps = MeshMaps.AmbientOcclusion, Parts = parts, OcclusionWithinPart = true });
@@ -374,7 +374,7 @@ public class BakeSettingsTests {
 
     static int Column(BakedMaps maps, int index) => index % maps.Resolution;
 
-    static int[] Ids(BakedMaps maps) => [..maps.Ids!.Where(id => id >= 0).Distinct().Order()];
+    static int[] Ids(BakedMaps maps) => [.. maps.Ids!.Where(id => id >= 0).Distinct().Order()];
 
     /// <summary>Flat four-unit sheets at heights, each facing up or down: wider than every target, so no ray falls off one.</summary>
     static EditMesh Sheets(params (float Z, bool Up)[] sheets) {
