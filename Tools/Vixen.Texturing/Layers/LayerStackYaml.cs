@@ -150,6 +150,10 @@ public static class LayerStackYaml {
 
         mapping.Set("kind", Text(layer.Kind.ToString()));
 
+        if (layer.AnchorPoint.Length > 0) {
+            mapping.Set("anchorPoint", Text(layer.AnchorPoint));
+        }
+
         if (!layer.Enabled) {
             mapping.Set("enabled", new YamlScalar("false", YamlScalarStyle.Plain));
         }
@@ -217,6 +221,12 @@ public static class LayerStackYaml {
         if (layer.Graph.Length > 0) {
             mapping.Set("graph", Text(layer.Graph));
         }
+
+        if (layer.Anchor.Anchor.Length > 0 || layer.Anchor.Channel.Length > 0) {
+            mapping.Set("anchor", Write(layer.Anchor));
+        }
+
+        WriteInputs(mapping, "inputs", layer.Inputs);
 
         // ⚠ One of the two and never both — #1068. `filterNode` takes precedence when it is there,
         // and `LayerFilterKind.Levels` is zero, so a file carrying both would read as a compound and
@@ -325,8 +335,8 @@ public static class LayerStackYaml {
             mapping.Set("asset", Text(mask.Asset));
         }
 
-        if (mask.Anchor.Length > 0) {
-            mapping.Set("anchor", Text(mask.Anchor));
+        if (mask.Anchor.Anchor.Length > 0 || mask.Anchor.Channel.Length > 0) {
+            mapping.Set("anchor", Write(mask.Anchor));
         }
 
         if (mask.Generator.Length > 0) {
@@ -334,6 +344,7 @@ public static class LayerStackYaml {
         }
 
         WriteGeneratorKnobs(mapping, mask.GeneratorValues, mask.GeneratorTexts);
+        WriteInputs(mapping, "generatorInputs", mask.GeneratorInputs);
 
         if (mask.Map.Length > 0) {
             mapping.Set("map", Text(mask.Map));
@@ -379,8 +390,8 @@ public static class LayerStackYaml {
             mapping.Set("asset", Text(entry.Asset));
         }
 
-        if (entry.Anchor.Length > 0) {
-            mapping.Set("anchor", Text(entry.Anchor));
+        if (entry.Anchor.Anchor.Length > 0 || entry.Anchor.Channel.Length > 0) {
+            mapping.Set("anchor", Write(entry.Anchor));
         }
 
         if (entry.Generator.Length > 0) {
@@ -388,6 +399,7 @@ public static class LayerStackYaml {
         }
 
         WriteGeneratorKnobs(mapping, entry.GeneratorValues, entry.GeneratorTexts);
+        WriteInputs(mapping, "generatorInputs", entry.GeneratorInputs);
 
         if (entry.Map.Length > 0) {
             mapping.Set("map", Text(entry.Map));
@@ -441,7 +453,64 @@ public static class LayerStackYaml {
             mapping.Set("texts", texts);
         }
 
+        WriteInputs(mapping, "inputs", effect.Inputs);
+
         return mapping;
+    }
+
+    /// <summary>A reference to an anchor point, as its name and the channel it reads.</summary>
+    static YamlMapping Write(AnchorReference reference) {
+        YamlMapping mapping = new() { Style = YamlCollectionStyle.Flow };
+
+        mapping.Set("name", Text(reference.Anchor));
+
+        if (reference.Channel.Length > 0) {
+            mapping.Set("channel", Text(reference.Channel));
+        }
+
+        return mapping;
+    }
+
+    static void WriteInputs(YamlMapping mapping, string key, Dictionary<string, AnchorReference> inputs) {
+        if (inputs.Count == 0) {
+            return;
+        }
+
+        YamlMapping ports = new();
+
+        foreach (var (port, reference) in inputs) {
+            ports.Set(port, Write(reference));
+        }
+
+        mapping.Set(key, ports);
+    }
+
+    static AnchorReference ReadAnchor(YamlMapping mapping, string key, string path) {
+        if (!mapping.TryGet(key, out var node)) {
+            return new();
+        }
+
+        return ReadReference(node, $"{path}.{key}");
+    }
+
+    static AnchorReference ReadReference(YamlNode node, string path) {
+        var reference = Mapping(node, path);
+
+        return new() { Anchor = String(reference, "name", path), Channel = String(reference, "channel", path) };
+    }
+
+    static Dictionary<string, AnchorReference> ReadInputs(YamlMapping mapping, string key, string path) {
+        Dictionary<string, AnchorReference> inputs = [];
+
+        if (!mapping.TryGet(key, out var node)) {
+            return inputs;
+        }
+
+        foreach (var (port, entry) in Mapping(node, $"{path}.{key}")) {
+            inputs[port] = ReadReference(entry, $"{path}.{key}.{port}");
+        }
+
+        return inputs;
     }
 
     static TextureSetAsset ReadSet(YamlNode node, string path) {
@@ -507,6 +576,7 @@ public static class LayerStackYaml {
         return new() {
             Id = String(mapping, "id", path),
             Name = String(mapping, "name", path),
+            AnchorPoint = String(mapping, "anchorPoint", path),
             Kind = Choice(mapping, "kind", LayerKind.Fill, path),
             Enabled = Flag(mapping, "enabled", true, path),
             Opacity = Single(mapping, "opacity", 1f, path),
@@ -519,6 +589,8 @@ public static class LayerStackYaml {
             Values = Colours(mapping, "values", path),
             Textures = Strings(mapping, "textures", path),
             Graph = String(mapping, "graph", path),
+            Anchor = ReadAnchor(mapping, "anchor", path),
+            Inputs = ReadInputs(mapping, "inputs", path),
             Filter = Choice(mapping, "filter", LayerFilterKind.Levels, path),
             FilterNode = String(mapping, "filterNode", path),
             Settings = Colours(mapping, "settings", path),
@@ -550,10 +622,11 @@ public static class LayerStackYaml {
             Source = Choice(mapping, "source", LayerMaskSource.None, path),
             Value = Single(mapping, "value", 1f, path),
             Asset = String(mapping, "asset", path),
-            Anchor = String(mapping, "anchor", path),
+            Anchor = ReadAnchor(mapping, "anchor", path),
             Generator = String(mapping, "generator", path),
             GeneratorValues = Colours(mapping, "generatorValues", path),
             GeneratorTexts = Strings(mapping, "generatorTexts", path),
+            GeneratorInputs = ReadInputs(mapping, "generatorInputs", path),
             Map = String(mapping, "map", path),
             Paint = String(mapping, "paint", path),
             Layers = entries,
@@ -594,10 +667,11 @@ public static class LayerStackYaml {
             Source = Choice(mapping, "source", LayerMaskSource.Constant, path),
             Value = Single(mapping, "value", 1f, path),
             Asset = String(mapping, "asset", path),
-            Anchor = String(mapping, "anchor", path),
+            Anchor = ReadAnchor(mapping, "anchor", path),
             Generator = String(mapping, "generator", path),
             GeneratorValues = Colours(mapping, "generatorValues", path),
             GeneratorTexts = Strings(mapping, "generatorTexts", path),
+            GeneratorInputs = ReadInputs(mapping, "generatorInputs", path),
             Map = String(mapping, "map", path),
             Paint = String(mapping, "paint", path),
             Blend = Choice(mapping, "blend", LayerBlendMode.Copy, path),
@@ -613,7 +687,8 @@ public static class LayerStackYaml {
             Node = String(mapping, "node", path),
             Enabled = Flag(mapping, "enabled", true, path),
             Values = Colours(mapping, "values", path),
-            Texts = Strings(mapping, "texts", path)
+            Texts = Strings(mapping, "texts", path),
+            Inputs = ReadInputs(mapping, "inputs", path)
         };
     }
 

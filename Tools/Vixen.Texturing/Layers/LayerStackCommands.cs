@@ -7,6 +7,12 @@ using Vixen.Authoring;
 
 namespace Vixen.Texturing.Layers;
 
+/// <summary>One place a set reads an anchor point: the layer, what part of it, and the reference.</summary>
+/// <param name="Layer">The <see cref="LayerAsset.Id" /> of the layer that reads it.</param>
+/// <param name="Where">Which part of that layer: <c>fill</c>, <c>mask</c>, <c>mask entry 2</c>, an input's port.</param>
+/// <param name="Reference">The anchor point and the channel read.</param>
+public sealed record LayerAnchorUse(string Layer, string Where, AnchorReference Reference);
+
 /// <summary>Where a layer is in a stack: the texture set it belongs to, and its own identity.</summary>
 /// <param name="Set">The <see cref="TextureSetAsset.Name" />.</param>
 /// <param name="Id">The <see cref="LayerAsset.Id" />.</param>
@@ -411,6 +417,268 @@ public static class LayerStackEdit {
         parent.Insert(target, layer);
 
         return true;
+    }
+
+    /// <summary>Every anchor point a set declares, by name, with the id of the layer that publishes it.</summary>
+    /// <param name="set">The set.</param>
+    /// <returns>Name to layer id, in the file's order; a name declared twice keeps its first layer.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="set" /> is null.</exception>
+    public static IReadOnlyDictionary<string, string> AnchorPoints(TextureSetAsset set) {
+        ArgumentNullException.ThrowIfNull(set);
+
+        Dictionary<string, string> points = new(StringComparer.Ordinal);
+
+        foreach (var layer in Everything(set.Layers)) {
+            if (layer.AnchorPoint.Length > 0) {
+                points.TryAdd(layer.AnchorPoint, layer.Id);
+            }
+        }
+
+        return points;
+    }
+
+    /// <summary>Every reference to an anchor point in a set: who reads which, where and in which channel.</summary>
+    /// <param name="set">The set.</param>
+    /// <returns>The references, in the file's order.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="set" /> is null.</exception>
+    /// <remarks>
+    ///     ⚠ <b>Only references the compiler reads.</b> A mask's anchor is listed when its source is
+    ///     <see cref="LayerMaskSource.Anchor" />, and a fill's when it is <see cref="LayerFillSource.Anchor" />: a name
+    ///     left behind by a source changed since reads nothing, and a list saying it did would be the defect.
+    /// </remarks>
+    public static IReadOnlyList<LayerAnchorUse> AnchorUses(TextureSetAsset set) {
+        ArgumentNullException.ThrowIfNull(set);
+
+        List<LayerAnchorUse> uses = [];
+
+        foreach (var layer in Everything(set.Layers)) {
+            if (layer is { Kind: LayerKind.Fill, Fill: LayerFillSource.Anchor }) {
+                uses.Add(new(layer.Id, "fill", layer.Anchor));
+            }
+
+            foreach (var (port, reference) in layer.Inputs) {
+                uses.Add(new(layer.Id, $"input {port}", reference));
+            }
+
+            if (layer.Mask.Source == LayerMaskSource.Anchor) {
+                uses.Add(new(layer.Id, "mask", layer.Mask.Anchor));
+            }
+
+            if (layer.Mask.Source == LayerMaskSource.Generator) {
+                foreach (var (port, reference) in layer.Mask.GeneratorInputs) {
+                    uses.Add(new(layer.Id, $"mask generator {port}", reference));
+                }
+            }
+
+            for (var index = 0; index < layer.Mask.Layers.Count; index++) {
+                var entry = layer.Mask.Layers[index];
+                var where = $"mask entry {(index + 1).ToString(CultureInfo.InvariantCulture)}";
+
+                if (entry.Source == LayerMaskSource.Anchor) {
+                    uses.Add(new(layer.Id, where, entry.Anchor));
+                }
+
+                if (entry.Source == LayerMaskSource.Generator) {
+                    foreach (var (port, reference) in entry.GeneratorInputs) {
+                        uses.Add(new(layer.Id, $"{where} generator {port}", reference));
+                    }
+                }
+            }
+
+            foreach (var effect in layer.Mask.Effects) {
+                foreach (var (port, reference) in effect.Inputs) {
+                    uses.Add(new(layer.Id, $"mask effect {effect.Node} {port}", reference));
+                }
+            }
+        }
+
+        return uses;
+    }
+
+    /// <summary>A name for an anchor point that no layer of the set publishes: the one wanted, or it numbered.</summary>
+    /// <param name="set">The set.</param>
+    /// <param name="wanted">The name asked for.</param>
+    /// <returns>The name.</returns>
+    /// <exception cref="ArgumentNullException">An argument is null.</exception>
+    public static string FreeAnchor(TextureSetAsset set, string wanted) {
+        ArgumentNullException.ThrowIfNull(set);
+        ArgumentNullException.ThrowIfNull(wanted);
+
+        var taken = AnchorPoints(set);
+
+        if (!taken.ContainsKey(wanted)) {
+            return wanted;
+        }
+
+        for (var number = 2; ; number++) {
+            var numbered = wanted + " " + number.ToString(CultureInfo.InvariantCulture);
+
+            if (!taken.ContainsKey(numbered)) {
+                return numbered;
+            }
+        }
+    }
+
+    /// <summary>Layers with every reference to one anchor point pointed at another name, and nothing else changed.</summary>
+    /// <param name="layers">The layers, which this does not change.</param>
+    /// <param name="from">The name read now.</param>
+    /// <param name="to">The name to read.</param>
+    /// <returns>New layers, sharing nothing a later edit could reach with the ones given.</returns>
+    /// <exception cref="ArgumentNullException">An argument is null.</exception>
+    /// <remarks>
+    ///     What renaming an anchor point rewrites, so that a rename is one undoable edit and no reference is left
+    ///     reading a name nothing publishes. The anchor point itself is not renamed here.
+    /// </remarks>
+    public static List<LayerAsset> Reanchored(IEnumerable<LayerAsset> layers, string from, string to) {
+        ArgumentNullException.ThrowIfNull(layers);
+        ArgumentNullException.ThrowIfNull(from);
+        ArgumentNullException.ThrowIfNull(to);
+
+        AnchorReference Moved(AnchorReference reference) =>
+            string.Equals(reference.Anchor, from, StringComparison.Ordinal) ? reference with { Anchor = to } : reference;
+
+        Dictionary<string, AnchorReference> Ports(Dictionary<string, AnchorReference> inputs) =>
+            inputs.ToDictionary(static pair => pair.Key, pair => Moved(pair.Value), StringComparer.Ordinal);
+
+        LayerAsset Layer(LayerAsset layer) =>
+            layer with {
+                Anchor = Moved(layer.Anchor),
+                Inputs = Ports(layer.Inputs),
+                Mask = layer.Mask with {
+                    Anchor = Moved(layer.Mask.Anchor),
+                    GeneratorInputs = Ports(layer.Mask.GeneratorInputs),
+                    Layers = [
+                        .. layer.Mask.Layers.Select(entry => entry with {
+                                Anchor = Moved(entry.Anchor),
+                                GeneratorInputs = Ports(entry.GeneratorInputs)
+                            }
+                        )
+                    ],
+                    Effects = [.. layer.Mask.Effects.Select(effect => effect with { Inputs = Ports(effect.Inputs) })]
+                },
+                Children = [.. layer.Children.Select(Layer)]
+            };
+
+        return [.. layers.Select(Layer)];
+    }
+
+    /// <summary>Whether a group can be flattened into a canvas that composites the picture it composites now.</summary>
+    /// <param name="set">The set.</param>
+    /// <param name="id">The group's id.</param>
+    /// <param name="backdrop">
+    ///     Whether its canvas has to hold what is beneath it: a pass-through group at the bottom of the set whose
+    ///     children read what is beneath them, which is what the whole stack flattened is.
+    /// </param>
+    /// <param name="reason">Why not, or empty.</param>
+    /// <returns>Whether it can.</returns>
+    /// <exception cref="ArgumentNullException">An argument is null.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Exact or refused, never approximately right.</b> A group under any mode but
+    ///         <see cref="LayerBlendMode.Copy" /> is isolated, so its children's composite over transparency is all it
+    ///         ever contributes and the canvas is that. A pass-through group's children composite straight onto what is
+    ///         beneath — and as long as each covers it with <see cref="LayerBlendMode.Copy" /> over, that equals their own
+    ///         composite laid over it afterwards, because source-over is associative. A filter or any other operator
+    ///         <em>reads</em> what is beneath, which a canvas cannot hold without holding the backdrop too; that is
+    ///         allowed only where the backdrop is the set's channel defaults, at the bottom of the stack.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>An anchor point inside is refused when anything outside reads it</b>, since a flattened group's
+    ///         children are not built and the reference would have no picture.
+    ///     </para>
+    /// </remarks>
+    public static bool CanFlatten(TextureSetAsset set, string id, out bool backdrop, out string reason) {
+        ArgumentNullException.ThrowIfNull(set);
+        ArgumentNullException.ThrowIfNull(id);
+
+        backdrop = false;
+        reason = "";
+
+        if (!Walk(set.Layers, id, out var parent, out var index)) {
+            reason = $"This stack has no layer '{id}'.";
+
+            return false;
+        }
+
+        var group = parent[index];
+
+        if (group.Kind != LayerKind.Group) {
+            reason = $"'{Named(group)}' is a {group.Kind.ToString().ToLowerInvariant()} layer, and only a group flattens.";
+
+            return false;
+        }
+
+        if (group.Flattened) {
+            reason = $"'{Named(group)}' is flattened already.";
+
+            return false;
+        }
+
+        HashSet<string> inside = new(StringComparer.Ordinal);
+        HashSet<string> within = new(StringComparer.Ordinal);
+
+        foreach (var child in Everything(group.Children)) {
+            within.Add(child.Id);
+
+            if (child.AnchorPoint.Length > 0) {
+                inside.Add(child.AnchorPoint);
+            }
+        }
+
+        foreach (var use in AnchorUses(set)) {
+            if (inside.Contains(use.Reference.Anchor) && !within.Contains(use.Layer)) {
+                reason = $"'{use.Layer}' reads the anchor point '{use.Reference.Anchor}' inside '{Named(group)}', which "
+                    + "a flattened group would no longer build. Point it elsewhere first.";
+
+                return false;
+            }
+        }
+
+        if (group.Blend != LayerBlendMode.Copy || Associative(group.Children)) {
+            return true;
+        }
+
+        if (ReferenceEquals(parent, set.Layers) && Beneath(parent, index)) {
+            backdrop = true;
+
+            return true;
+        }
+
+        reason = $"'{Named(group)}' passes through, and a layer inside it reads what is beneath the group — a filter, or "
+            + "a blend other than Copy — so no canvas could hold its picture without holding that too. Give the group a "
+            + "blend mode of its own, or flatten the whole stack.";
+
+        return false;
+
+        static bool Associative(List<LayerAsset> layers) =>
+            layers.TrueForAll(static layer => !layer.Enabled
+                || (layer.Kind != LayerKind.Filter
+                    && layer.Blend == LayerBlendMode.Copy
+                    && (layer.Kind != LayerKind.Group || layer.Flattened || Associative(layer.Children))));
+
+        // Nothing enabled beneath it, so what it composites over is the channel defaults.
+        static bool Beneath(List<LayerAsset> layers, int index) {
+            for (var below = 0; below < index; below++) {
+                if (layers[below].Enabled) {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+    }
+
+    static string Named(LayerAsset layer) => layer.Name.Length > 0 ? layer.Name : layer.Id;
+
+    /// <summary>Every layer of a list, groups walked into, in the file's order.</summary>
+    static IEnumerable<LayerAsset> Everything(IEnumerable<LayerAsset> layers) {
+        foreach (var layer in layers) {
+            yield return layer;
+
+            foreach (var child in Everything(layer.Children)) {
+                yield return child;
+            }
+        }
     }
 
     static bool Walk(

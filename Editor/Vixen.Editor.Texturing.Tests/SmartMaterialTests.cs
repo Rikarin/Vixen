@@ -47,6 +47,7 @@ public class SmartMaterialTests {
                     Layers = [
                         new() {
                             Id = "paint-base",
+                            AnchorPoint = "paint-base",
                             Name = "Rust Strokes",
                             Kind = LayerKind.Paint,
                             Paint = "Hull.Body.paint-base.vxpaint"
@@ -77,7 +78,7 @@ public class SmartMaterialTests {
                             Values = { ["baseColor"] = [0.9f, 0.9f, 0.9f, 1f] },
 
                             // Not portable either, and only because of what it points at.
-                            Mask = new() { Source = LayerMaskSource.Anchor, Anchor = "paint-base" }
+                            Mask = new() { Source = LayerMaskSource.Anchor, Anchor = new() { Anchor = "paint-base", Channel = "baseColor" } }
                         }
                     ]
                 }
@@ -176,7 +177,7 @@ public class SmartMaterialTests {
 
         Assert.Equal(LayerMaskSource.Constant, follows.Mask.Source);
         Assert.Equal(0f, follows.Mask.Value);
-        Assert.Equal("", follows.Mask.Anchor);
+        Assert.Equal("", follows.Mask.Anchor.Anchor);
     }
 
     /// <summary>The extract is a copy, so editing the stack afterwards does not edit the material.</summary>
@@ -237,7 +238,7 @@ public class SmartMaterialTests {
             .Where(property => !property.PropertyType.IsValueType && property.PropertyType != typeof(string))
 
             // Nothing but init members, so sharing one cannot carry an edit across.
-            .Where(property => property.PropertyType != typeof(LayerPlacement))
+            .Where(property => property.PropertyType != typeof(LayerPlacement) && property.PropertyType != typeof(AnchorReference))
             .ToArray();
 
         Assert.True(mutable.Length >= 6, $"only {mutable.Length} reference members: the walk has lost its subject.");
@@ -332,11 +333,11 @@ public class SmartMaterialTests {
                     Name = "Body",
                     Channels = [new() { Usage = "baseColor" }],
                     Layers = [
-                        new() { Id = "under", Kind = LayerKind.Fill },
+                        new() { Id = "under", AnchorPoint = "under", Kind = LayerKind.Fill },
                         new() {
                             Id = "over",
                             Kind = LayerKind.Fill,
-                            Mask = new() { Source = LayerMaskSource.Anchor, Anchor = "under" }
+                            Mask = new() { Source = LayerMaskSource.Anchor, Anchor = new() { Anchor = "under", Channel = "baseColor" } }
                         }
                     ]
                 }
@@ -353,7 +354,8 @@ public class SmartMaterialTests {
 
         var over = Assert.Single(target.Layers, layer => layer.Id == "over-2");
 
-        Assert.Equal("under-2", over.Mask.Anchor);
+        Assert.Equal("under 2", over.Mask.Anchor.Anchor);
+        Assert.Equal("under 2", Assert.Single(target.Layers, layer => layer.Id == "under-2").AnchorPoint);
     }
 
     /// <summary><see cref="SmartMaterial.Prepare" /> reads the target and does not change it.</summary>

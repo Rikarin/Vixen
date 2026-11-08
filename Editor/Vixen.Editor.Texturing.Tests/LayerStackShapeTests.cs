@@ -187,7 +187,7 @@ public class LayerStackShapeTests {
         var anchored = read.Sets[0].Layers.Single(layer => layer.Id == "anchored");
 
         Assert.Equal(LayerMaskSource.Anchor, anchored.Mask.Source);
-        Assert.Equal("base", anchored.Mask.Anchor);
+        Assert.Equal(new AnchorReference { Anchor = "base", Channel = "baseColor" }, anchored.Mask.Anchor);
     }
 
     /// <summary>A new stack is one fill layer over the seven default channels.</summary>

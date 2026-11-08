@@ -102,8 +102,8 @@ public class SplatCoverageDeviceTests(ITestOutputHelper output) {
     [Fact]
     public void An_anchor_that_a_coverage_cannot_resolve_says_which_verb_cannot_resolve_it() {
         var stack = Stack(
-            Fill("rock", 1f),
-            Fill("moss", 1f) with { Mask = new() { Source = LayerMaskSource.Anchor, Anchor = "rock" } }
+            Fill("rock", 1f) with { AnchorPoint = "rock" },
+            Fill("moss", 1f) with { Mask = new() { Source = LayerMaskSource.Anchor, Anchor = new() { Anchor = "rock", Channel = "baseColor" } } }
         );
 
         var build = LayerStackGraph.Weights(stack, LayerStackSplat.Coverage(stack.Sets[0], stack.Sets[0].Layers[1]));

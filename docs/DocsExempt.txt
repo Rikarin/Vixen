@@ -2933,9 +2933,11 @@ T:Vixen.Shaders.ShaderComposition sweep-pending
 T:Vixen.Shaders.ShaderConstants sweep-pending
 T:Vixen.Shaders.ShaderValueKind sweep-pending
 T:Vixen.Texturing.Layers.AddLayerCommand sweep-pending
+T:Vixen.Texturing.Layers.AnchorReference sweep-pending
 T:Vixen.Texturing.Layers.ApplySmartMaterialCommand sweep-pending
 T:Vixen.Texturing.Layers.ChannelAsset sweep-pending
 T:Vixen.Texturing.Layers.ILayerStackDocument sweep-pending
+T:Vixen.Texturing.Layers.LayerAnchorUse sweep-pending
 T:Vixen.Texturing.Layers.LayerAsset sweep-pending
 T:Vixen.Texturing.Layers.LayerAxis sweep-pending
 T:Vixen.Texturing.Layers.LayerBlendMode sweep-pending

@@ -336,6 +336,61 @@ public static class LayerStackGraph {
         return builder.Run();
     }
 
+    /// <summary>
+    ///     The same stack, built so that every channel's output is one group's own composite — what that group is
+    ///     flattened into (Patina #107).
+    /// </summary>
+    /// <param name="stack">The document.</param>
+    /// <param name="set">Which of its sets.</param>
+    /// <param name="group">The <see cref="LayerAsset.Id" /> of the group.</param>
+    /// <param name="backdrop">
+    ///     Whether a pass-through group keeps what is beneath it rather than being isolated —
+    ///     <see cref="LayerStackEdit.CanFlatten" /> says which a group needs.
+    /// </param>
+    /// <param name="registry">The node types, as <see cref="Build" /> takes them.</param>
+    /// <param name="draft">As <see cref="Build" /> takes it.</param>
+    /// <param name="subGraphs">As <see cref="Build" /> takes them.</param>
+    /// <returns>The graph and what building it had to say.</returns>
+    /// <exception cref="ArgumentNullException">The stack or the set is null.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Before the group's own mask, opacity and blend</b>, which stay on the flattened group and apply to its
+    ///         canvas exactly as they applied to its children's composite. So a flattened group composites the same
+    ///         picture, up to the eight bits a canvas holds.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The whole stack is built, and only the outputs change.</b> A child's mask may read an anchor point
+    ///         anywhere beneath it, and that picture has to exist; the layers above the group feed nothing.
+    ///     </para>
+    /// </remarks>
+    public static LayerStackBuild Capture(
+        LayerStackAsset stack,
+        TextureSetAsset set,
+        string group,
+        bool backdrop,
+        NodeTypeRegistry? registry = null,
+        bool draft = false,
+        ISubGraphSource? subGraphs = null
+    ) {
+        ArgumentNullException.ThrowIfNull(stack);
+        ArgumentNullException.ThrowIfNull(set);
+        ArgumentException.ThrowIfNullOrEmpty(group);
+
+        if (registry is null) {
+            registry = LayerStackCompiler.Library(out var published);
+            subGraphs ??= published;
+        }
+
+        Builder builder = new(stack, set, registry) {
+            Drafting = draft,
+            SubGraphs = subGraphs,
+            Capturing = group,
+            Backdrop = backdrop
+        };
+
+        return builder.Run();
+    }
+
     /// <summary>The port a filter's numbers may name, per filter kind.</summary>
     /// <param name="filter">Which adjustment.</param>
     /// <returns>The node type, and the scalar ports it takes.</returns>
@@ -420,8 +475,14 @@ public static class LayerStackGraph {
         /// </remarks>
         readonly List<(string Channel, string Anchor, string Layer, PortRef To)> anchors = [];
 
-        /// <summary>Each layer's composite result, per channel, for an anchor to read.</summary>
-        readonly Dictionary<(string Channel, string Layer), PortRef> results = [];
+        /// <summary>Each anchor point's picture, per channel, by its name — the stack as it stood just above it.</summary>
+        readonly Dictionary<(string Channel, string Anchor), PortRef> results = [];
+
+        /// <summary>Every anchor point the set declares, which is what tells a misspelt name from an unreached one.</summary>
+        readonly HashSet<string> declared = new(StringComparer.Ordinal);
+
+        /// <summary>What <see cref="Capturing" /> composited, per channel, before its own mask and opacity.</summary>
+        readonly Dictionary<string, PortRef> captures = new(StringComparer.Ordinal);
 
         // ⚠ Both false, because every image in a stack is an atlas: the far edge is another island
         // whether or not a mesh map appears in the graph.
@@ -451,6 +512,15 @@ public static class LayerStackGraph {
 
         /// <summary>Where the registry's compounds come from, which is what says whether one measures its input.</summary>
         public ISubGraphSource? SubGraphs { get; init; }
+
+        /// <summary>
+        ///     The group whose own composite is the output of every channel, or empty for the stack's picture — see
+        ///     <see cref="LayerStackGraph.Capture" />.
+        /// </summary>
+        public string Capturing { get; init; } = "";
+
+        /// <summary>Whether a pass-through <see cref="Capturing" /> keeps what is beneath it, rather than isolating.</summary>
+        public bool Backdrop { get; init; }
 
         /// <summary>Says a slot is empty, which refuses unless this is a draft.</summary>
         void Unfilled(string layer, string message) =>
@@ -553,6 +623,16 @@ public static class LayerStackGraph {
 
             void Walk(List<LayerAsset> layers) {
                 foreach (var layer in layers) {
+                    if (layer.AnchorPoint.Length > 0 && !declared.Add(layer.AnchorPoint)) {
+                        problems.Add(
+                            LayerStackProblem.Refusal(
+                                layer.Id,
+                                $"Two layers publish the anchor point '{layer.AnchorPoint}'. A reference names an anchor "
+                                + "point, so a second one of that name is a picture nobody could choose. Rename one."
+                            )
+                        );
+                    }
+
                     if (ambiguous.Contains(layer.Id) && reported.Add(layer.Id)) {
                         problems.Add(
                             LayerStackProblem.Refusal(
@@ -594,6 +674,11 @@ public static class LayerStackGraph {
                 return cursor;
             }
 
+            // A capture's output is the group's own composite, and transparency where the group writes nothing.
+            if (Capturing.Length > 0) {
+                cursor = captures.TryGetValue(channel.Usage, out var captured) ? captured : Transparent();
+            }
+
             var output = Add("Output/Output");
 
             output.SetText("Usage", channel.Usage);
@@ -605,7 +690,8 @@ public static class LayerStackGraph {
         }
 
         /// <summary>Whether the set's height reaches its normal, which it does for a picture and not for coverage.</summary>
-        bool Relieved => !Weighing && set.Channels.Exists(static channel => channel.Usage == HeightUsage);
+        bool Relieved =>
+            !Weighing && Capturing.Length == 0 && set.Channels.Exists(static channel => channel.Usage == HeightUsage);
 
         /// <summary>The set's <c>normal</c> output: the height's slope, over the normal channel when there is one.</summary>
         /// <param name="height">The end of the height channel's chain.</param>
@@ -707,7 +793,16 @@ public static class LayerStackGraph {
             owner = layer.Id;
 
             try {
-                return Composite(layer, channel, cursor, depth);
+                var result = Composite(layer, channel, cursor, depth);
+
+                // ⚠ In every channel, and whether or not the layer wrote this one — Patina #111. The picture at an anchor
+                // point is the stack as it stands there; a layer that leaves roughness alone has a roughness above it
+                // all the same, and refusing the stack because it wrote nothing was a refusal of a correct file.
+                if (layer.AnchorPoint.Length > 0) {
+                    results[(channel.Usage, layer.AnchorPoint)] = result;
+                }
+
+                return result;
             } finally {
                 owner = outer;
             }
@@ -741,6 +836,10 @@ public static class LayerStackGraph {
                 foreground = stacked;
             }
 
+            if (Capturing.Length > 0 && layer.Id == Capturing) {
+                captures[channel.Usage] = foreground;
+            }
+
             var opacity = Opacity(layer, channel);
             var folded = Folds(layer.Mask, opacity);
 
@@ -772,10 +871,6 @@ public static class LayerStackGraph {
 
             PortRef result = new(blend.Id, "Out");
 
-            if (layer.Id.Length > 0) {
-                results[(channel.Usage, layer.Id)] = result;
-            }
-
             notes.Add(
                 new(
                     blend.Id,
@@ -801,6 +896,10 @@ public static class LayerStackGraph {
                 // reads what is under it — and a filter layer taken as a fill would claim the whole
                 // surface, so a stack with a Levels layer on top would weigh as one layer everywhere.
                 LayerKind.Filter => Weighing ? null : Adjustment(layer, cursor),
+                // ⚠ A flattened group is its canvas, exactly as a paint layer is, and its children are not walked: that
+                // is the whole of what flattening buys. Except while it is being captured, which is how the canvas is made.
+                LayerKind.Group when layer.Flattened && layer.Id != Capturing =>
+                    Weighing ? Covered(Paint(layer, channel)) : Paint(layer, channel),
                 LayerKind.Group => Group(layer, channel, cursor, depth),
                 LayerKind.Paint => Weighing ? Covered(Paint(layer, channel)) : Paint(layer, channel),
                 _ => throw new ArgumentOutOfRangeException(
@@ -918,7 +1017,11 @@ public static class LayerStackGraph {
         }
 
         PortRef? Group(LayerAsset layer, ChannelAsset channel, PortRef cursor, int depth) {
-            if (layer.Blend == LayerBlendMode.Copy) {
+            // A captured pass-through group is isolated unless it keeps its backdrop: the canvas it is flattened into is
+            // composited over that backdrop again, and holding it twice would be the backdrop over itself.
+            var isolating = layer.Id == Capturing && Capturing.Length > 0 && !Backdrop;
+
+            if (layer.Blend == LayerBlendMode.Copy && !isolating) {
                 var passed = Stack(layer.Children, channel, cursor, depth + 1);
 
                 // Every child was disabled, restricted to other channels, or refused. Blending the
@@ -934,8 +1037,10 @@ public static class LayerStackGraph {
             PortRef transparent = new(empty.Id, "Out");
             var inner = Stack(layer.Children, channel, transparent, depth + 1);
 
-            if (inner != transparent) {
-                return inner;
+            // ⚠ Kept when an anchor point inside is that transparency: an anchored child that wrote nothing here still
+            // publishes the picture at its point, and that picture is this node.
+            if (inner != transparent || results.ContainsValue(transparent)) {
+                return inner == transparent ? null : inner;
             }
 
             // Nothing composited onto it, so the backdrop this group would have blended is a
@@ -1346,6 +1451,10 @@ public static class LayerStackGraph {
 
                     var node = Add(path);
 
+                    // A graph's image inputs are fed from anchor points, and one nothing feeds is a refusal of the
+                    // compiler's own. ⚠ "The channel being written" is allowed here: a fill writes each channel itself.
+                    Fed(node, type, path, layer.Inputs, layer.Id, true);
+
                     foreach (var (port, value) in layer.Settings) {
                         if (HasInput(type, port)) {
                             node.SetValue(port, value);
@@ -1370,6 +1479,25 @@ public static class LayerStackGraph {
                     }
 
                     return new(node.Id, output.Name);
+                }
+
+                case LayerFillSource.Anchor: {
+                    if (Read(layer.Anchor, layer.Id, true) is not { } read) {
+                        return null;
+                    }
+
+                    // A shuffle that passes everything through, so the fill has a port now and the anchor's picture
+                    // arrives on it when every layer's has been built — the same deferral a mask's anchor takes.
+                    var node = Add("Colour/Channel Shuffle");
+
+                    node.SetText("Red From", "FirstRed");
+                    node.SetText("Green From", "FirstGreen");
+                    node.SetText("Blue From", "FirstBlue");
+                    node.SetText("Alpha From", "FirstAlpha");
+
+                    anchors.Add((read, layer.Anchor.Anchor, layer.Id, new(node.Id, "First")));
+
+                    return new(node.Id, "Out");
                 }
 
                 default:
@@ -1474,14 +1602,15 @@ public static class LayerStackGraph {
                 return null;
             }
 
-            var input = OnlyImage(type, PortDirection.Input);
+            var input = Unfed(type, layer.Inputs);
             var output = OnlyImage(type, PortDirection.Output);
 
             if (input is null || output is null) {
                 problems.Add(
                     LayerStackProblem.Refusal(
                         layer.Id,
-                        $"'{path}' is not a single-input graph: doc 48 § D10 says a filter layer's fourth kind is a "
+                        $"'{path}' is not a single-input graph once its anchored inputs are fed: doc 48 § D10 says a "
+                        + "filter layer's fourth kind is a "
                         + "graph with one image in and one image out, and this type has "
                         + $"{Images(type, PortDirection.Input).ToString(CultureInfo.InvariantCulture)} in and "
                         + $"{Images(type, PortDirection.Output).ToString(CultureInfo.InvariantCulture)} out. "
@@ -1496,6 +1625,7 @@ public static class LayerStackGraph {
             var node = Add(path);
 
             graph.Connect(Greyed(path, cursor, false), new(node.Id, input.Name));
+            Fed(node, type, path, layer.Inputs, layer.Id, true);
 
             foreach (var (port, value) in layer.Settings) {
                 if (string.Equals(port, input.Name, StringComparison.Ordinal)
@@ -1685,6 +1815,7 @@ public static class LayerStackGraph {
                         Generator = mask.Generator,
                         GeneratorValues = mask.GeneratorValues,
                         GeneratorTexts = mask.GeneratorTexts,
+                        GeneratorInputs = mask.GeneratorInputs,
                         Map = mask.Map,
                         Paint = mask.Paint
                     }
@@ -1792,9 +1923,122 @@ public static class LayerStackGraph {
             return new(new PortRef(node.Id, "Out"), true);
         }
 
-        /// <summary>An anchored layer's result, as the opaque number a mask entry is.</summary>
-        /// <param name="anchor">The <see cref="LayerAsset.Id" /> being anchored.</param>
-        /// <param name="channel">Which channel's chain to read that layer's result from.</param>
+        /// <summary>
+        ///     The channel a reference reads, or <see langword="null" /> when it reads none it may — which is already
+        ///     reported.
+        /// </summary>
+        /// <param name="reference">The reference.</param>
+        /// <param name="layerId">The layer it belongs to, for a diagnostic.</param>
+        /// <param name="writing">
+        ///     Whether "the channel being built" is a choice it may make: a fill's or a filter's may, since that layer
+        ///     writes each channel itself; a mask's may not, or one mask would be another picture in every channel.
+        /// </param>
+        string? Read(AnchorReference reference, string layerId, bool writing) {
+            if (reference.Anchor.Length == 0) {
+                Unfilled(layerId, "This layer reads an anchor point and names none. Choose one, by its name.");
+
+                return null;
+            }
+
+            // A coverage set has a channel of its own and one layer in it, so the anchor cannot resolve whatever it names;
+            // `Missing` says why, once, and in the words for that verb.
+            if (Weighing) {
+                return usage;
+            }
+
+            if (reference.Channel.Length == 0) {
+                if (writing) {
+                    return usage;
+                }
+
+                Unfilled(
+                    layerId,
+                    $"This layer reads the anchor point '{reference.Anchor}' and names no channel. A mask is one picture "
+                    + "whatever channel it is applied to, so it says which of the set's channels it reads."
+                );
+
+                return null;
+            }
+
+            if (!set.Channels.Exists(channel => channel.Usage == reference.Channel)) {
+                Unfilled(
+                    layerId,
+                    $"This layer reads the anchor point '{reference.Anchor}' in '{reference.Channel}', which is not a "
+                    + $"channel of texture set '{set.Name}'."
+                );
+
+                return null;
+            }
+
+            return reference.Channel;
+        }
+
+        /// <summary>Feeds a node's image inputs from anchor points, by port name.</summary>
+        /// <param name="node">The node.</param>
+        /// <param name="type">Its type.</param>
+        /// <param name="path">Its type's path, for a diagnostic.</param>
+        /// <param name="inputs">The anchor point read by each port.</param>
+        /// <param name="layerId">The layer it belongs to, for a diagnostic.</param>
+        /// <param name="writing">As <see cref="Read" /> takes it.</param>
+        void Fed(
+            GraphNode node,
+            NodeTypeDefinition type,
+            string path,
+            Dictionary<string, AnchorReference> inputs,
+            string layerId,
+            bool writing
+        ) {
+            foreach (var (port, reference) in inputs) {
+                if (type.Port(port, PortDirection.Input) is not { Kind: PortKind.Image }) {
+                    problems.Add(
+                        LayerStackProblem.Warning(
+                            layerId,
+                            $"'{port}' is not an image input of '{path}', so the anchor point '{reference.Anchor}' "
+                            + "feeding it is dropped."
+                        )
+                    );
+
+                    continue;
+                }
+
+                PortRef to = new(node.Id, port);
+
+                if (Read(reference, layerId, writing) is { } read) {
+                    anchors.Add((read, reference.Anchor, layerId, to));
+                } else if (Drafting) {
+                    // Already said. White, as an unresolved anchor is in a draft, so the node still compiles.
+                    var nothing = Add("Source/Uniform");
+
+                    nothing.SetValue("Colour", 1f, 1f, 1f, 1f);
+                    graph.Connect(new(nothing.Id, "Out"), to);
+                }
+            }
+        }
+
+        /// <summary>The one image input of a type that no anchor point feeds, or null when there is not exactly one.</summary>
+        static PortDefinition? Unfed(NodeTypeDefinition type, Dictionary<string, AnchorReference> inputs) {
+            PortDefinition? found = null;
+
+            foreach (var port in type.Ports) {
+                if (port.Direction != PortDirection.Input
+                    || port.Kind != PortKind.Image
+                    || inputs.ContainsKey(port.Name)) {
+                    continue;
+                }
+
+                if (found is not null) {
+                    return null;
+                }
+
+                found = port;
+            }
+
+            return found;
+        }
+
+        /// <summary>An anchor point's picture, as the opaque number a mask entry is.</summary>
+        /// <param name="anchor">The <see cref="LayerAsset.AnchorPoint" /> read.</param>
+        /// <param name="channel">The channel it is read in, by usage — the reference's choice and not the chain's.</param>
         /// <param name="layerId">The layer the mask belongs to, for a diagnostic.</param>
         /// <returns>The port carrying <c>red · coverage</c>.</returns>
         /// <remarks>
@@ -1838,7 +2082,7 @@ public static class LayerStackGraph {
         ///         rather than multiplies; <see cref="Anchors" /> reports a refused anchor once.
         ///     </para>
         /// </remarks>
-        PortRef Anchored(string anchor, ChannelAsset channel, string layerId) {
+        PortRef Anchored(string anchor, string channel, string layerId) {
             var value = Add("Colour/Channel Shuffle");
 
             value.SetText("Red From", "FirstRed");
@@ -1853,8 +2097,8 @@ public static class LayerStackGraph {
             covered.SetText("Blue From", "FirstAlpha");
             covered.SetText("Alpha From", "One");
 
-            anchors.Add((channel.Usage, anchor, layerId, new(value.Id, "First")));
-            anchors.Add((channel.Usage, anchor, layerId, new(covered.Id, "First")));
+            anchors.Add((channel, anchor, layerId, new(value.Id, "First")));
+            anchors.Add((channel, anchor, layerId, new(covered.Id, "First")));
 
             var product = Add("Colour/Blend");
 
@@ -1926,14 +2170,15 @@ public static class LayerStackGraph {
                 return cursor;
             }
 
-            var input = OnlyImage(type, PortDirection.Input);
+            var input = Unfed(type, effect.Inputs);
             var output = OnlyImage(type, PortDirection.Output);
 
             if (input is null || output is null) {
                 problems.Add(
                     LayerStackProblem.Refusal(
                         layerId,
-                        $"'{path}' is not a single-input graph: doc 48 § 4.10 says a mask effect has one image in "
+                        $"'{path}' is not a single-input graph once its anchored inputs are fed: doc 48 § 4.10 says a "
+                        + "mask effect has one image in "
                         + "and one image out, and this type has "
                         + $"{Images(type, PortDirection.Input).ToString(CultureInfo.InvariantCulture)} in and "
                         + $"{Images(type, PortDirection.Output).ToString(CultureInfo.InvariantCulture)} out. "
@@ -1948,6 +2193,7 @@ public static class LayerStackGraph {
             var node = Add(path);
 
             graph.Connect(Greyed(path, cursor.Port, true), new(node.Id, input.Name));
+            Fed(node, type, path, effect.Inputs, layerId, false);
 
             foreach (var (port, value) in effect.Values) {
                 // ⚠ Derived from the type rather than from a list per effect, and what it is
@@ -2037,17 +2283,13 @@ public static class LayerStackGraph {
                 }
 
                 case LayerMaskSource.Anchor:
-                    if (entry.Anchor.Length == 0) {
-                        Unfilled(
-                            layerId,
-                            "This layer's mask is an anchor and names no layer. An anchor is a reference to another "
-                            + "layer's evaluated result, by its id."
-                        );
-
+                    // ⚠ A mask names its channel — Patina #111. Read in the channel being built, one anchor mask was a
+                    // different picture under every channel the layer writes.
+                    if (Read(entry.Anchor, layerId, false) is not { } read) {
                         return null;
                     }
 
-                    return new(Anchored(entry.Anchor, channel, layerId), true);
+                    return new(Anchored(entry.Anchor.Anchor, read, layerId), true);
 
                 case LayerMaskSource.Bake: {
                     if (Drafting && entry.Map.Trim().Length == 0) {
@@ -2110,6 +2352,8 @@ public static class LayerStackGraph {
                     }
 
                     var node = Add(path);
+
+                    Fed(node, type, path, entry.GeneratorInputs, layerId, false);
 
                     foreach (var (port, value) in entry.GeneratorValues) {
                         if (type.Port(port, PortDirection.Input) is not { Kind: not PortKind.Image }) {
@@ -2308,9 +2552,9 @@ public static class LayerStackGraph {
                 problems.Add(
                     LayerStackProblem.Refusal(
                         layer,
-                        $"The anchor onto layer '{anchor}' is refused: {GraphInvariants.Describe(error, from, to)} "
-                        + "⚠ An anchor onto a layer at or above its own is a loop, and the graph model is what says "
-                        + "so — the stack does not check for one itself."
+                        $"The anchor point '{anchor}' is refused: {GraphInvariants.Describe(error, from, to)} "
+                        + "⚠ Reading an anchor point at or above the layer that reads it is a loop, and the graph model "
+                        + "is what says so — the stack does not check for one itself."
                     )
                 );
             }
@@ -2341,13 +2585,15 @@ public static class LayerStackGraph {
         /// </remarks>
         string Missing(string channel, string anchor) =>
             Weighing
-                ? $"This layer's mask anchors onto layer '{anchor}', and a coverage is resolved one layer at a "
+                ? $"This layer reads the anchor point '{anchor}', and a coverage is resolved one layer at a "
                 + "time — so there is no other layer here for the anchor to read, whatever the stack holds. "
                 + "⚠ The stack itself is fine and its picture bakes: it is the weights that cannot be taken. "
                 + "Replace the anchor with a mask of its own, or group the two layers so the pair weighs as one."
-                : $"The anchor names layer '{anchor}', which writes nothing to channel '{channel}' — it "
-                + "is disabled, restricted to other channels, or not in this set. An anchor reads a "
-                + "layer's result, so there has to be one.";
+                : !declared.Contains(anchor)
+                    ? $"No layer of texture set '{set.Name}' publishes an anchor point named '{anchor}'."
+                    : $"The anchor point '{anchor}' is never reached in channel '{channel}': it is inside a group that "
+                    + "is disabled, flattened or restricted to other channels, so the stack has no picture at that "
+                    + "point to read.";
 
         /// <summary>
         ///     The opacity a whole constant mask folds into, or <see langword="null" /> when the mask

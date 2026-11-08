@@ -23,9 +23,10 @@ namespace Vixen.Editor.Texturing;
 /// <param name="Source">Which of the six a mask reads.</param>
 /// <param name="Value">The number, when it is <see cref="LayerMaskSource.Constant" />.</param>
 /// <param name="Asset">The imported image, when it is <see cref="LayerMaskSource.Texture" />.</param>
-/// <param name="Anchor">The layer read, when it is <see cref="LayerMaskSource.Anchor" />.</param>
+/// <param name="Anchor">The anchor point read, by name, when it is <see cref="LayerMaskSource.Anchor" />.</param>
 /// <param name="Generator">The published compound, when it is <see cref="LayerMaskSource.Generator" />.</param>
 /// <param name="Map">What the bake measures, when it is <see cref="LayerMaskSource.Bake" />.</param>
+/// <param name="AnchorChannel">The channel the anchor point is read in.</param>
 /// <remarks>
 ///     <para>
 ///         ⚠ <b>One shape for two records, which is what makes a single source editor possible</b>
@@ -48,7 +49,8 @@ readonly record struct MaskSourceEdit(
     string Asset,
     string Anchor,
     string Generator,
-    string Map
+    string Map,
+    string AnchorChannel
 );
 
 /// <summary>A layer stack, open: the rows in composite order, and the map they make.</summary>
@@ -2659,11 +2661,11 @@ sealed class LayerStackView : IDisposable {
 
     /// <summary>What a mask base reads, as the value a source editor writes back.</summary>
     static MaskSourceEdit Read(MaskAsset mask) =>
-        new(mask.Source, mask.Value, mask.Asset, mask.Anchor, mask.Generator, mask.Map);
+        new(mask.Source, mask.Value, mask.Asset, mask.Anchor.Anchor, mask.Generator, mask.Map, mask.Anchor.Channel);
 
     /// <summary>What one mask entry reads, as the value a source editor writes back.</summary>
     static MaskSourceEdit Read(MaskLayerAsset entry) =>
-        new(entry.Source, entry.Value, entry.Asset, entry.Anchor, entry.Generator, entry.Map);
+        new(entry.Source, entry.Value, entry.Asset, entry.Anchor.Anchor, entry.Generator, entry.Map, entry.Anchor.Channel);
 
     /// <summary>A mask whose base reads something else.</summary>
     static MaskAsset WithBase(MaskAsset mask, MaskSourceEdit value) =>
@@ -2671,7 +2673,7 @@ sealed class LayerStackView : IDisposable {
             Source = value.Source,
             Value = value.Value,
             Asset = value.Asset,
-            Anchor = value.Anchor,
+            Anchor = new() { Anchor = value.Anchor, Channel = value.AnchorChannel },
             Generator = value.Generator,
             Map = value.Map
         };
@@ -2693,7 +2695,7 @@ sealed class LayerStackView : IDisposable {
             Source = value.Source,
             Value = value.Value,
             Asset = value.Asset,
-            Anchor = value.Anchor,
+            Anchor = new() { Anchor = value.Anchor, Channel = value.AnchorChannel },
             Generator = value.Generator,
             Map = value.Map
         };
@@ -2899,8 +2901,10 @@ sealed class LayerStackView : IDisposable {
                     return;
                 }
 
-                if (layer.Id.Length > 0 && !ambiguous.Contains(layer.Id)) {
-                    before.Add(layer.Id);
+                // ⚠ An anchor point's name and not the layer's id (Patina #111): a reference names what a layer
+                // publishes, and a layer that publishes nothing is not offered.
+                if (layer.AnchorPoint.Length > 0 && layer.Id.Length > 0 && !ambiguous.Contains(layer.Id)) {
+                    before.Add(layer.AnchorPoint);
                 }
             }
         }
@@ -3007,7 +3011,13 @@ sealed class LayerStackView : IDisposable {
 
             var wanted = chosen is null || string.Equals(chosen, NoAnchor, StringComparison.Ordinal) ? "" : chosen;
 
-            write(current with { Anchor = wanted }, "Set Mask Anchor", "");
+            // A mask reads its anchor point in one channel (Patina #111); this panel has no channel picker, so a new
+            // anchor reads the set's first channel and one already chosen keeps its own.
+            var channel = wanted.Length == 0 || current.AnchorChannel.Length > 0
+                ? current.AnchorChannel
+                : set.Channels.FirstOrDefault()?.Usage ?? "";
+
+            write(current with { Anchor = wanted, AnchorChannel = channel }, "Set Mask Anchor", "");
         };
 
         var map = row.Add<Select>(null, null, "layer-stack-mask-map");
@@ -3196,13 +3206,13 @@ sealed class LayerStackView : IDisposable {
 
             return string.Create(
                 CultureInfo.InvariantCulture,
-                $"Mask — {Source(value.Source, value.Value, value.Asset, value.Anchor, value.Generator, value.Map)}, "
+                $"Mask — {Source(value.Source, value.Value, value.Asset, value.Anchor.Anchor, value.Generator, value.Map)}, "
                 + $"{value.Blend}, {value.Opacity:0.##}{(value.Enabled ? "" : ", off")}"
             );
         }
 
         return "Mask base — "
-            + Source(mask.Source, mask.Value, mask.Asset, mask.Anchor, mask.Generator, mask.Map);
+            + Source(mask.Source, mask.Value, mask.Asset, mask.Anchor.Anchor, mask.Generator, mask.Map);
     }
 
     /// <summary>What a mask source reads, said the way the source itself names it.</summary>

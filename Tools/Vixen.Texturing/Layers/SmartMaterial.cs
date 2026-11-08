@@ -492,15 +492,17 @@ public static class SmartMaterial {
 
         return Copy(layers);
 
-        void Collect(List<LayerAsset> list) {
+        // ⚠ By anchor point, which is what a reference names (Patina #111): a painted layer's own, and those of the
+        // effects it carries, go with it.
+        void Collect(List<LayerAsset> list, bool going = false) {
             foreach (var layer in list) {
-                if (layer.Kind == LayerKind.Paint) {
-                    gone.Add(layer.Id);
+                var dropping = going || layer.Kind == LayerKind.Paint;
 
-                    continue;
+                if (dropping && layer.AnchorPoint.Length > 0) {
+                    gone.Add(layer.AnchorPoint);
                 }
 
-                Collect(layer.Children);
+                Collect(layer.Children, dropping);
             }
         }
 
@@ -541,6 +543,13 @@ public static class SmartMaterial {
                         // `SmartMaterialTests` walks the record by reflection rather than by name.
                         Texts = new Dictionary<string, string>(layer.Texts, StringComparer.Ordinal),
 
+                        // A reference is a record nothing edits in place, so the dictionary is the thing to copy. One
+                        // naming an anchor point that did not come is dropped, as a stranded mask entry is switched off.
+                        Inputs = Inputs(layer, layer.Inputs, "an input"),
+                        Fill = layer is { Kind: LayerKind.Fill, Fill: LayerFillSource.Anchor } && gone.Contains(layer.Anchor.Anchor)
+                            ? Unanchored(layer)
+                            : layer.Fill,
+
                         // ⚠ A paint layer's own `Paint` is gone with the layer, but a *filter* or a
                         // *group* can carry a stale one off a hand-written file — and a reference to
                         // a `.vxpaint` that names another stack is the thing this whole pass is for.
@@ -566,10 +575,12 @@ public static class SmartMaterial {
                                 entry => entry.Value.ToArray(),
                                 StringComparer.Ordinal
                             ),
-                            Texts = new Dictionary<string, string>(effect.Texts, StringComparer.Ordinal)
+                            Texts = new Dictionary<string, string>(effect.Texts, StringComparer.Ordinal),
+                            Inputs = Inputs(layer, effect.Inputs, "a mask effect's input")
                         }
                     )
-                ]
+                ],
+                GeneratorInputs = Inputs(layer, mask.GeneratorInputs, "its mask generator's input")
             };
 
             if (Stranded(mask.Source, mask.Anchor)) {
@@ -585,13 +596,15 @@ public static class SmartMaterial {
                     Source = LayerMaskSource.Constant,
                     Value = 0f,
                     Paint = "",
-                    Anchor = ""
+                    Anchor = new()
                 };
             }
 
             foreach (var entry in mask.Layers) {
                 if (!Stranded(entry.Source, entry.Anchor)) {
-                    carried.Layers.Add(entry);
+                    carried.Layers.Add(
+                        entry with { GeneratorInputs = Inputs(layer, entry.GeneratorInputs, "a mask entry's input") }
+                    );
 
                     continue;
                 }
@@ -606,15 +619,47 @@ public static class SmartMaterial {
                 // "cover nothing" under `Multiply` and "cover nothing, and throw away everything
                 // under me" under `Copy`; a disabled entry is skipped and is neutral under all
                 // sixteen.
-                carried.Layers.Add(entry with { Enabled = false, Paint = "", Anchor = "" });
+                carried.Layers.Add(entry with { Enabled = false, Paint = "", Anchor = new() });
             }
 
             return carried;
         }
 
-        bool Stranded(LayerMaskSource source, string anchor) =>
+        bool Stranded(LayerMaskSource source, AnchorReference anchor) =>
             source == LayerMaskSource.Paint
-            || (source == LayerMaskSource.Anchor && gone.Contains(anchor));
+            || (source == LayerMaskSource.Anchor && gone.Contains(anchor.Anchor));
+
+        Dictionary<string, AnchorReference> Inputs(
+            LayerAsset layer,
+            Dictionary<string, AnchorReference> inputs,
+            string what
+        ) {
+            Dictionary<string, AnchorReference> kept = new(StringComparer.Ordinal);
+
+            foreach (var (port, reference) in inputs) {
+                if (gone.Contains(reference.Anchor)) {
+                    dropped.Add(
+                        $"Layer '{Named(layer)}' read the anchor point '{reference.Anchor}' as {what} ('{port}'), and "
+                        + "that anchor point was on a painted layer that did not come, so the input is left unfed."
+                    );
+
+                    continue;
+                }
+
+                kept[port] = reference;
+            }
+
+            return kept;
+        }
+
+        LayerFillSource Unanchored(LayerAsset layer) {
+            dropped.Add(
+                $"Layer '{Named(layer)}' filled from the anchor point '{layer.Anchor.Anchor}', which was on a painted "
+                + "layer that did not come, so it came as a constant fill with nothing to write."
+            );
+
+            return LayerFillSource.Constant;
+        }
     }
 
     /// <summary>Why a mask source could not come.</summary>
@@ -634,9 +679,10 @@ public static class SmartMaterial {
     ///     <c>LayerStackEdit.FreeId</c>'s own remark is that a readable counted id is what makes
     ///     <c>anchor: rust-1</c> a line somebody can resolve a merge conflict in; re-minting every id
     ///     on every apply would trade that away to solve a problem only the second apply has.
-    ///     ⚠ And the anchors are rewritten through the same map, because an anchor is a reference
-    ///     <em>into the smart material</em> — one left pointing at the old id would either dangle or,
-    ///     worse, silently resolve to the target's own layer of that name.
+    ///     ⚠ An anchor names an anchor point and not an id (Patina #111), so ids move without touching
+    ///     a reference; an anchor point whose <em>name</em> the target already publishes is renamed instead,
+    ///     and the material's references follow it — one left alone would silently read the target's own
+    ///     picture of that name.
     /// </remarks>
     static void Rename(TextureSetAsset target, List<LayerAsset> layers, List<string> renamed) {
         HashSet<string> taken = new(StringComparer.Ordinal);
@@ -671,26 +717,53 @@ public static class SmartMaterial {
             Rewrite(layers);
         }
 
-        void Rewrite(List<LayerAsset> list) {
+        // ⚠ An anchor point is named, and the name is what collides now (Patina #111): one already published in the
+        // target is renamed, and the material's own references follow it, so neither reads the other's picture.
+        var points = LayerStackEdit.AnchorPoints(target);
+        HashSet<string> published = new(points.Keys, StringComparer.Ordinal);
+        List<(string From, string To)> moves = [];
+
+        // Every name the material has is taken as well, so a new name is never one a later move would read as its own.
+        published.UnionWith(LayerStackEdit.AnchorPoints(new() { Layers = layers }).Keys);
+        Points(layers);
+
+        foreach (var (from, to) in moves) {
+            var moved = LayerStackEdit.Reanchored(layers, from, to);
+
+            layers.Clear();
+            layers.AddRange(moved);
+        }
+
+        void Points(List<LayerAsset> list) {
             for (var at = 0; at < list.Count; at++) {
-                var layer = list[at];
-                var mask = layer.Mask;
+                var point = list[at].AnchorPoint;
 
-                if (mask.Source == LayerMaskSource.Anchor && map.TryGetValue(mask.Anchor, out var moved)) {
-                    mask = mask with { Anchor = moved };
-                }
+                if (point.Length > 0 && points.ContainsKey(point)) {
+                    for (var number = 2; ; number++) {
+                        var wanted = point + " " + number.ToString(CultureInfo.InvariantCulture);
 
-                for (var entry = 0; entry < mask.Layers.Count; entry++) {
-                    if (mask.Layers[entry] is { Source: LayerMaskSource.Anchor } anchored
-                        && map.TryGetValue(anchored.Anchor, out var also)) {
-                        mask.Layers[entry] = anchored with { Anchor = also };
+                        if (published.Add(wanted)) {
+                            moves.Add((point, wanted));
+                            list[at] = list[at] with { AnchorPoint = wanted };
+                            renamed.Add(
+                                $"The anchor point '{point}' was already published in '{target.Name}', so it came in as "
+                                + $"'{wanted}'."
+                            );
+
+                            break;
+                        }
                     }
                 }
 
-                list[at] = layer with {
-                    Id = map.TryGetValue(layer.Id, out var renamedTo) ? renamedTo : layer.Id,
-                    Mask = mask
-                };
+                Points(list[at].Children);
+            }
+        }
+
+        void Rewrite(List<LayerAsset> list) {
+            for (var at = 0; at < list.Count; at++) {
+                var layer = list[at];
+
+                list[at] = layer with { Id = map.TryGetValue(layer.Id, out var renamedTo) ? renamedTo : layer.Id };
 
                 Rewrite(list[at].Children);
             }
