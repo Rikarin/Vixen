@@ -94,8 +94,8 @@ public class TextureTilingConformanceDeviceTests(ITestOutputHelper output) {
     static string StimulusFor(string path, string port) =>
         (path, port) switch {
             // Distance spreads its Source's colour, so a mask there would spread one value everywhere.
-            ("Analysis/Distance", "Source") => Colour,
-            ("Analysis/Distance", _) or ("Analysis/Flood Fill", _) => Mask,
+            ("Analysis/Distance Colour", "Source") => Colour,
+            ("Analysis/Distance", _) or ("Analysis/Distance Colour", _) or ("Analysis/Flood Fill", _) => Mask,
             // A smooth field has no staircase, so an anti-alias leaves it alone and is examined on nothing.
             // A median keeps a smooth field to rounding, so it is examined on edges with corners to round.
             ("Filters/Anti-Alias", _) or ("Filters/Median", _) => Mask,

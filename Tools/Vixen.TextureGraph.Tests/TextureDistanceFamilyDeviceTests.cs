@@ -76,10 +76,10 @@ public class TextureDistanceFamilyDeviceTests(ITestOutputHelper output) {
 
         Wire[] wires = [new("Mask", mask, Grey: true), new("Source", colour)];
 
-        var spread = Bake(device, "Analysis/Distance", Side, Side, wires, node => node.SetValue("Max Distance", MaxDistance), tiling: false);
+        var spread = Bake(device, "Analysis/Distance Colour", Side, Side, wires, node => node.SetValue("Max Distance", MaxDistance), tiling: false);
         var faded = Bake(
             device,
-            "Analysis/Distance",
+            "Analysis/Distance Colour",
             Side,
             Side,
             wires,

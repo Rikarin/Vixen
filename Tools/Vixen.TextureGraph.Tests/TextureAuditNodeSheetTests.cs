@@ -87,8 +87,8 @@ public class TextureAuditNodeSheetTests(ITestOutputHelper output) {
             node.SetText("Metric", "Chebyshev");
             node.SetValue("Max Distance", 0.15f);
         }, true),
-        ("distance source colour", "Analysis/Distance", [new("Mask", Blobs, Grey: true), new("Source", Rainbow)], node => node.SetValue("Max Distance", 0.1f), true),
-        ("distance source faded", "Analysis/Distance", [new("Mask", Blobs, Grey: true), new("Source", Rainbow)], node => {
+        ("distance colour", "Analysis/Distance Colour", [new("Mask", Blobs, Grey: true), new("Source", Rainbow)], node => node.SetValue("Max Distance", 0.1f), true),
+        ("distance colour faded", "Analysis/Distance Colour", [new("Mask", Blobs, Grey: true), new("Source", Rainbow)], node => {
             node.SetValue("Max Distance", 0.1f);
             node.SetValue("Fade", 1f);
         }, true),

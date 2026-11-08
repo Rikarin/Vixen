@@ -127,6 +127,8 @@ public class TextureNodeLibraryTests {
         [("SelectInput", "wired")] = "Not a default: one bit per slot that has a wire, and the fixture wires two.",
         [("HistogramPlot", "mode")] = "Not a default: Analysis/Histogram and Analysis/Histogram Render are the same "
             + "kernel, and the fixture's render draws bars where the kernel's own nought is the density strip.",
+        [("Distance", "coloured")] = "Not a default: Analysis/Distance Colour is the same kernel read at the seed, and "
+            + "it sets the flag its name says.",
         [("VolumeShape", "kind")] = "Not a default: Source/Volume Mask and Source/Volume Gradient are the same kernel, "
             + "and the gradient sets the kind its name says.",
         [("VolumeShape", "ay")] = "Source/Volume Gradient starts at the bottom of the model, where the kernel's own "
@@ -768,6 +770,13 @@ public class TextureNodeLibraryTests {
         var colourSelect = graph.Add("Analysis/Colour Select");
 
         graph.Connect(invert, "Out", colourSelect, "Input");
+
+        // Patina #174's colour spread: the same flood as Distance, read at the seed. Its source is on the
+        // colour side, so no promotion is inserted for it — a grey there would be a third ChannelShuffle.
+        var spread = graph.Add("Analysis/Distance Colour");
+
+        graph.Connect(blur, "Out", spread, "Mask");
+        graph.Connect(invert, "Out", spread, "Source");
 
         // ⚠ § 4.9's named-metal lookup, placed and wired to nothing, because it *reads* nothing: it
         // is the one node in the library with no input port at all. An op still reaches the plan
