@@ -57,6 +57,18 @@ public class TextureAuditNodeSheetTests(ITestOutputHelper output) {
         }
     );
 
+    static readonly Wire Disc = new(
+        "Pattern",
+        Grey(Side, Side, (x, y) => Math.Clamp((Side * 0.45f) - MathF.Sqrt(((x - (Side / 2f)) * (x - (Side / 2f))) + ((y - (Side / 2f)) * (y - (Side / 2f)))), 0f, 1f))
+    );
+
+    static readonly Wire Square = new("Pattern", Solid(Side, Side, 1f, 1f, 1f));
+
+    static readonly Wire Triangle = new(
+        "Pattern",
+        Grey(Side, Side, (x, y) => Math.Abs(x - (Side / 2f)) < (y * 0.5f) ? 1f : 0f)
+    );
+
     static readonly byte[] Rainbow = Picture(Side, Side, (x, y) => (x / (float)Side, y / (float)Side, 1f - (x / (float)Side), 1f));
 
     static readonly byte[] TiltRight = Solid(Side, Side, 0.8f, 0.5f, 0.9f);
@@ -96,6 +108,39 @@ public class TextureAuditNodeSheetTests(ITestOutputHelper output) {
             node.SetValue("Elevation", 0.6f);
         }, true),
         ("normal blend ramp", "Surface/Normal Blend", [new("Background", TiltRight), new("Foreground", TiltDown), new("Mask", Ramp, Grey: true)], null, false),
+        ("tile sampler random", "Placement/Tile Sampler", [Disc], node => {
+            node.SetText("Output", "Random");
+            node.SetValue("Scale", 0.8f);
+            node.SetValue("Scale Jitter", 0.4f);
+        }, true),
+        ("tile sampler colour", "Placement/Tile Sampler", [Disc], node => {
+            node.SetText("Output", "Colour");
+            node.SetValue("Scale", 0.9f);
+        }, true),
+        ("tile sampler uv", "Placement/Tile Sampler", [Square], node => {
+            node.SetText("Output", "Uv");
+            node.SetValue("Scale", 0.9f);
+            node.SetValue("Rotation Jitter", 0.6f);
+        }, true),
+        ("tile sampler running bond", "Placement/Tile Sampler", [Square], node => {
+            node.SetText("Output", "Index");
+            node.SetValue("Grid X", 4f);
+            node.SetValue("Grid Y", 8f);
+            node.SetValue("Scale", 0.92f);
+            node.SetValue("Row Offset", 0.5f);
+        }, true),
+        ("splatter ring follow", "Placement/Splatter", [Triangle], node => {
+            node.SetText("Distribution", "Ring");
+            node.SetValue("Count", 12f);
+            node.SetValue("Scale", 0.1f);
+            node.SetValue("Follow Ring", 1f);
+        }, true),
+        ("splatter 2000 colour", "Placement/Splatter", [Disc], node => {
+            node.SetText("Output", "Colour");
+            node.SetValue("Count", 2000f);
+            node.SetValue("Scale", 0.04f);
+            node.SetValue("Scale Jitter", 0.5f);
+        }, true),
         ("volume gradient noise", "Source/Volume Noise", [new("Position", Position)], null, false),
         ("volume simplex ridged", "Source/Volume Noise", [new("Position", Position)], node => {
             node.SetText("Basis", "Simplex");

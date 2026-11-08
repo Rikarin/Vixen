@@ -1,9 +1,26 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Collections.Immutable;
 using Vixen.NodeGraph;
 
 namespace Vixen.TextureGraph.Nodes;
+
+/// <summary>What the two placement nodes share.</summary>
+static class Placements {
+    /// <summary>The output image, in colour when an instance draws a colour or a UV whatever the pattern is.</summary>
+    /// <param name="emitter">Where to write.</param>
+    /// <param name="draws">What each instance draws.</param>
+    /// <returns>The image.</returns>
+    /// <remarks>
+    ///     ⚠ A grey pattern resolves the node to grey, and a grey target keeps one lane of three: a random
+    ///     colour per instance written there is a random grey, and a UV is its red alone.
+    /// </remarks>
+    public static int Target(TextureEmitter emitter, TexturePlacementOutput draws) =>
+        draws is TexturePlacementOutput.Colour or TexturePlacementOutput.Uv
+            ? emitter.Write("Out", TextureChannels.Colour)
+            : emitter.Write("Out");
+}
 
 /// <summary>A grid of cells with one instance of a pattern in each.</summary>
 /// <remarks>
@@ -37,12 +54,25 @@ namespace Vixen.TextureGraph.Nodes;
 ///         nothing on either to say so and a difference of 2π between them. No node converts, so what
 ///         makes them agree is the kernels agreeing.
 ///     </para>
+///     <para>
+///         <b><c>Output</c> draws each instance's own numbers instead of the pattern</b> (Patina #170): a
+///         random grey or colour per instance, its number over the count, or its own UV, each shaped by the
+///         pattern's coverage. They are what a tint per tile, a mask from a range of instances
+///         (<c>Index</c> through a <c>Utility/Histogram Select</c>) or a ramp across every instance is made of.
+///     </para>
 /// </remarks>
 [Node("Placement/Tile Sampler", Preview = true, Summary = "A grid of cells with one jittered instance of a pattern in each.")]
 sealed partial class TileSamplerNode : TextureNode {
     /// <summary>How overlapping instances combine: <c>Max</c>, <c>Add</c> or <c>Blend</c>.</summary>
     [Setting(AcceptedFrom = typeof(TexturePlacementAccumulation))]
     public string Accumulation = "Max";
+
+    /// <summary>
+    ///     What each instance draws: <c>Pattern</c>, or one of its own numbers — <c>Random</c> grey,
+    ///     <c>Colour</c>, <c>Index</c> over the count or its <c>Uv</c> — shaped by the pattern's coverage.
+    /// </summary>
+    [Setting(AcceptedFrom = typeof(TexturePlacementOutput))]
+    public string Output = "Pattern";
 
     /// <summary>The stamp, read as an atlas of <c>Pattern Count</c> equal-width columns.</summary>
     [Input(Name = "Pattern")]
@@ -79,6 +109,10 @@ sealed partial class TileSamplerNode : TextureNode {
     /// <summary>How far it may randomly move inside its cell, 0–1.</summary>
     [Input(Name = "Position Jitter", Minimum = 0f, Maximum = 1f)]
     public Scalar PositionJitter = 0f;
+
+    /// <summary>How far odd rows are shifted along x, as a fraction of a cell: a half is a running bond.</summary>
+    [Input(Name = "Row Offset", Minimum = 0f, Maximum = 1f)]
+    public Scalar RowOffset = 0f;
 
     /// <summary>The rotation every instance starts at, in radians.</summary>
     [Input(SoftMinimum = -MathF.PI, SoftMaximum = MathF.PI)]
@@ -139,11 +173,12 @@ sealed partial class TileSamplerNode : TextureNode {
         ArgumentNullException.ThrowIfNull(emitter);
 
         var accumulation = TextureSettings.Enum(emitter, nameof(Accumulation), TexturePlacementAccumulation.Max);
+        var draws = TextureSettings.Enum(emitter, nameof(Output), TexturePlacementOutput.Pattern);
         var pattern = emitter.Read("Pattern");
         var mask = TexturePorts.Optional(this, emitter, "Mask", pattern);
         var sizeMap = TexturePorts.Optional(this, emitter, "Size Map", pattern);
         var rotationMap = TexturePorts.Optional(this, emitter, "Rotation Map", pattern);
-        var target = emitter.Write("Out");
+        var target = Placements.Target(emitter, draws);
 
         if (pattern < 0 || mask < 0 || sizeMap < 0 || rotationMap < 0) {
             return;
@@ -171,7 +206,9 @@ sealed partial class TileSamplerNode : TextureNode {
                     emitter.Number("Size Map Amount"),
                     emitter.Number("Rotation Map Amount"),
                     accumulation,
-                    emitter.Number(nameof(Opacity))
+                    emitter.Number(nameof(Opacity)),
+                    draws,
+                    emitter.Number("Row Offset")
                 )
             );
         } catch (ArgumentException refusal) {
@@ -192,15 +229,23 @@ sealed partial class TileSamplerNode : TextureNode {
 ///         whose own <c>…Amount</c> at zero is what says nothing reads it.
 ///     </para>
 ///     <para>
-///         ⚠ <b>At most 256 instances, refused rather than truncated.</b> A splatter asked for more
-///         would draw the first 256 with no warning: a picture that is right in every respect except
-///         how many things are in it, which is precisely the parameter the artist was turning. A
-///         graph that wants more places several of these and blends them.
+///         ⚠ <b>At most 4 096 instances, in batches of 256, refused rather than truncated</b> (Patina
+///         #170). Every texel examines every instance of a batch, so a batch is one dispatch of the
+///         kernel's own bounded loop and a splatter of a thousand is four of them, each starting from
+///         what the one before it left. Past 4 096 the node refuses rather than drawing fewer: a picture
+///         that is right in every respect except how many things are in it, which is precisely the
+///         parameter the artist was turning.
 ///     </para>
 ///     <para>
 ///         <b>The placement map moves instances rather than placing them</b> — red and green read as
 ///         a signed offset, under <c>Placement Amount</c> — so at zero the scatter is the seed's
 ///         alone, which is what makes the node reproducible.
+///     </para>
+///     <para>
+///         <b><c>Output</c> draws each instance's own numbers instead of the pattern</b> (Patina #170): a
+///         random grey or colour per instance, its number over the count, or its own UV, each shaped by the
+///         pattern's coverage. They are what a tint per tile, a mask from a range of instances
+///         (<c>Index</c> through a <c>Utility/Histogram Select</c>) or a ramp across every instance is made of.
 ///     </para>
 /// </remarks>
 [Node("Placement/Splatter", Preview = true, Summary = "A bounded free scatter of one pattern, seeded from the plan.")]
@@ -208,6 +253,17 @@ sealed partial class SplatterNode : TextureNode {
     /// <summary>How overlapping instances combine: <c>Max</c>, <c>Add</c> or <c>Blend</c>.</summary>
     [Setting(AcceptedFrom = typeof(TexturePlacementAccumulation))]
     public string Accumulation = "Max";
+
+    /// <summary>
+    ///     What each instance draws: <c>Pattern</c>, or one of its own numbers — <c>Random</c> grey,
+    ///     <c>Colour</c>, <c>Index</c> over the count or its <c>Uv</c> — shaped by the pattern's coverage.
+    /// </summary>
+    [Setting(AcceptedFrom = typeof(TexturePlacementOutput))]
+    public string Output = "Pattern";
+
+    /// <summary>Where the instances go: <c>Scatter</c>, anywhere, or <c>Ring</c>, evenly round a circle.</summary>
+    [Setting(AcceptedFrom = typeof(TextureSplatterDistribution))]
+    public string Distribution = "Scatter";
 
     /// <summary>The stamp, read as an atlas of <c>Pattern Count</c> equal-width columns.</summary>
     [Input(Name = "Pattern")]
@@ -229,8 +285,8 @@ sealed partial class SplatterNode : TextureNode {
     [Input(Name = "Placement")]
     public Image Placement;
 
-    /// <summary>How many instances. ⚠ At most 256, and past that the node refuses.</summary>
-    [Input(Minimum = 1f, Maximum = TexturePlacement.MaxInstances)]
+    /// <summary>How many instances. ⚠ At most 4 096, and past that the node refuses.</summary>
+    [Input(Minimum = 1f, Maximum = TexturePlacement.MaxBatchedInstances)]
     public Int Count = 16;
 
     /// <summary>An instance's size as a fraction of the image.</summary>
@@ -285,6 +341,14 @@ sealed partial class SplatterNode : TextureNode {
     [Input(Name = "Placement Amount", SoftMinimum = 0f, SoftMaximum = 1f)]
     public Scalar PlacementAmount = 0f;
 
+    /// <summary>Under <c>Ring</c>, the ring's radius as a fraction of the image, about its centre.</summary>
+    [Input(Name = "Ring Radius", SoftMinimum = 0f, SoftMaximum = 0.5f)]
+    public Scalar RingRadius = 0.3f;
+
+    /// <summary>Under <c>Ring</c>, whether each instance turns with its angle round the ring, so it faces along it.</summary>
+    [Input(Name = "Follow Ring")]
+    public Bool FollowRing = false;
+
     /// <summary>How much of each instance reaches the result.</summary>
     [Input(Minimum = 0f, Maximum = 1f)]
     public Scalar Opacity = 1f;
@@ -298,27 +362,37 @@ sealed partial class SplatterNode : TextureNode {
         ArgumentNullException.ThrowIfNull(emitter);
 
         var accumulation = TextureSettings.Enum(emitter, nameof(Accumulation), TexturePlacementAccumulation.Max);
+        var draws = TextureSettings.Enum(emitter, nameof(Output), TexturePlacementOutput.Pattern);
+        var distribution = TextureSettings.Enum(emitter, nameof(Distribution), TextureSplatterDistribution.Scatter);
         var pattern = emitter.Read("Pattern");
         var mask = TexturePorts.Optional(this, emitter, "Mask", pattern);
         var sizeMap = TexturePorts.Optional(this, emitter, "Size Map", pattern);
         var rotationMap = TexturePorts.Optional(this, emitter, "Rotation Map", pattern);
         var placement = TexturePorts.Optional(this, emitter, "Placement", pattern);
-        var target = emitter.Write("Out");
+        var target = Placements.Target(emitter, draws);
 
         if (pattern < 0 || mask < 0 || sizeMap < 0 || rotationMap < 0 || placement < 0) {
             return;
         }
 
+        var count = emitter.Integer(nameof(Count));
+        var scratch = ImmutableArray.CreateBuilder<int>();
+
+        // ⚠ Four lanes whatever the node's own channels: a batch hands the next its coverage as well as its
+        // colour, and a grey image would drop it.
+        for (var batch = 1; batch < TexturePlacement.SplatterBatches(count); batch++) {
+            scratch.Add(emitter.Scratch(emitter.FormatOf(TextureChannels.Colour)));
+        }
+
         try {
-            emitter.Dispatch(
-                TexturePlacement.Splatter(
+            var single = TexturePlacement.Splatter(
                     target,
                     pattern,
                     mask,
                     sizeMap,
                     rotationMap,
                     placement,
-                    emitter.Integer(nameof(Count)),
+                    Math.Clamp(count, 1, TexturePlacement.MaxInstances),
                     emitter.Number(nameof(Scale)),
                     emitter.Number("Scale Jitter"),
                     emitter.Number(nameof(Rotation)),
@@ -331,9 +405,14 @@ sealed partial class SplatterNode : TextureNode {
                     emitter.Number("Rotation Map Amount"),
                     emitter.Number("Placement Amount"),
                     accumulation,
-                    emitter.Number(nameof(Opacity))
-                )
-            );
+                    emitter.Number(nameof(Opacity)),
+                    draws,
+                    distribution,
+                    emitter.Number("Ring Radius"),
+                    emitter.Flag("Follow Ring")
+                );
+
+            emitter.Dispatch(TexturePlacement.SplatterChain(target, scratch.ToImmutable(), single, count));
         } catch (ArgumentException refusal) {
             emitter.Report(TextureDiagnostics.BuilderRefusedTheNumbers, refusal.Message, nameof(Count));
         }

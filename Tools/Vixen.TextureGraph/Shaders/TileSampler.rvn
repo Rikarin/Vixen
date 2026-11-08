@@ -143,6 +143,14 @@ shader TileSampler {
     /// How much of each instance reaches the result.
     var opacity: float = 1f
 
+    /// What each instance draws: 0 the pattern · 1 a random grey · 2 a random colour · 3 its number over
+    /// the count · 4 its own UV. The last four are what a per-instance mask, tint or ramp is made of.
+    var output: int = 0
+
+    /// How far odd rows are shifted along x, as a fraction of a cell: a half is a running bond. ⚠ On a
+    /// graph that tiles, an odd `gridY` puts two even rows either side of the seam.
+    var rowOffset: float = 0f
+
     /// The op's own seed, already mixed. See `TexturePlan.SeedFor`.
     var seed: float = 0f
 
@@ -188,6 +196,36 @@ shader TileSampler {
     /// of one instance uncorrelated — a single hash reused for all five would put big instances only
     /// where the rotation was also large, which reads as a pattern nobody authored.
     func Draw(cell: uint, lane: uint): float => Random.ToFloat01(Random.Combine(Random.Combine(cell, lane), Seeded()))
+
+    /// What one instance draws under `output`, and its coverage beside it.
+    ///
+    /// ⚠ **Under a luminance coverage the value is multiplied by it**, which is `Coverage`'s model: with no
+    /// alpha the image is an energy, so a texel half covered by an instance is half as bright whatever the
+    /// instance carries. With an alpha the value stays straight and the alpha says how much of it there is.
+    /// Patina #170.
+    func Instance(id: uint, number: float, local: float2, colour: float3, texel: float4): float3 {
+        if (output == 0) {
+            return colour
+        }
+
+        var value = float3(local.x + 0.5f, local.y + 0.5f, 0f)
+
+        if (output == 1) {
+            val grey = Draw(id, 7u)
+
+            value = float3(grey, grey, grey)
+        } else if (output == 2) {
+            value = float3(Draw(id, 7u), Draw(id, 8u), Draw(id, 9u))
+        } else if (output == 3) {
+            value = float3(number, number, number)
+        }
+
+        if (alphaCoverage == 0) {
+            return value * Coverage(texel)
+        }
+
+        return value
+    }
 
     /// The identity of one cell, folded so that the border repeats rather than inventing.
     func CellOf(x: int, y: int): uint => Random.Combine(uint(Fold(x, gridX) + 1), uint(Fold(y, gridY) + 1))
@@ -381,7 +419,8 @@ shader TileSampler {
                 // of 1 lets it be anywhere in its own cell and no further.
                 val jitterX = (Draw(id, 1u) - 0.5f) * saturate(positionJitter)
                 val jitterY = (Draw(id, 2u) - 0.5f) * saturate(positionJitter)
-                val centre = float2(float(cellX) + 0.5f + jitterX, float(cellY) + 0.5f + jitterY)
+                val shifted = saturate(rowOffset) * float(Fold(cellY, gridY) % 2)
+                val centre = float2(float(cellX) + 0.5f + jitterX + shifted, float(cellY) + 0.5f + jitterY)
 
                 // The maps are read at the instance's centre, in the image's own normalised space —
                 // and **wrapped**, because the cell index was.
@@ -419,7 +458,9 @@ shader TileSampler {
                         val texel = Stamp(slot, local)
                         val tint = 1f - saturate(colourJitter) * Draw(id, 6u)
 
-                        carried = Accumulate(carried, texel.xyz * tint, Coverage(texel))
+                        val number = (float(Fold(cellX, gridX) + Fold(cellY, gridY) * max(gridX, 1)) + 0.5f) / float(max(gridX, 1) * max(gridY, 1))
+
+                        carried = Accumulate(carried, Instance(id, number, local, texel.xyz * tint, texel), Coverage(texel))
                     }
                 }
             }
@@ -441,7 +482,7 @@ shader TileSampler {
 
         // How far an instance can reach out of its own cell: half its rotated diagonal plus half the
         // position jitter. Uniform across the dispatch, so the loops below never diverge.
-        val reach = max(scale, 0f) * HalfDiagonal + saturate(positionJitter) * 0.5f
+        val reach = max(scale, 0f) * HalfDiagonal + saturate(positionJitter) * 0.5f + saturate(rowOffset)
         val radius = clamp(int(ceil(reach)), 1, MaxSearch)
 
         // How many pattern texels one output texel covers, so a minified stamp is boxed rather than

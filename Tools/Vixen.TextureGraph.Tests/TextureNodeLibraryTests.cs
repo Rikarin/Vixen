@@ -513,7 +513,7 @@ public class TextureNodeLibraryTests {
         // Nothing is wired to either node's maps, so every slot is the pattern. The lengths are
         // asserted first because `All` over one element is true of anything.
         Assert.Equal(4, sampler.Inputs.Length);
-        Assert.Equal(5, splatter.Inputs.Length);
+        Assert.Equal(6, splatter.Inputs.Length);
         Assert.All(sampler.Inputs, input => Assert.Equal(sampler.Inputs[0], input));
         Assert.All(splatter.Inputs, input => Assert.Equal(splatter.Inputs[0], input));
 
