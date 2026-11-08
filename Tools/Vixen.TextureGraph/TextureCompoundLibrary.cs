@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Collections.Immutable;
+using System.Reflection;
 using Vixen.Core.Yaml;
 using Vixen.NodeGraph;
 
@@ -96,19 +97,84 @@ public static class TextureCompoundLibrary {
     /// <summary>The folder inside this assembly the shipped compounds are embedded from.</summary>
     const string Root = "Vixen.TextureGraph.Compounds.";
 
-    /// <summary>The names of the compounds this assembly ships, as node-type paths.</summary>
+    /// <summary>Where every shipped compound is embedded: this assembly's own folder first, then each bundle.</summary>
+    static ImmutableArray<(Assembly Assembly, string Root)> roots = [(typeof(TextureCompoundLibrary).Assembly, Root)];
+
+    /// <summary>The bundles' compounds by path, and the root each came from; rebuilt when one is added.</summary>
+    static ImmutableDictionary<string, (Assembly Assembly, string Resource)> index = Index(roots);
+
+    static readonly Lock Gate = new();
+
+    /// <summary>The names of the compounds that ship, as node-type paths — this assembly's and every bundle's.</summary>
     /// <remarks>
-    ///     ⚠ <b>Derived from the manifest rather than listed.</b> A compound exists because a file
+    ///     ⚠ <b>Derived from the manifests rather than listed.</b> A compound exists because a file
     ///     ships, exactly as a kernel does — so a list would be a second opinion about the folder,
     ///     and the roll call that counts them would be counting the list.
     /// </remarks>
-    public static ImmutableArray<string> Shipped { get; } = [
-        .. typeof(TextureCompoundLibrary).Assembly.GetManifestResourceNames()
-            .Where(name => name.StartsWith(Root, StringComparison.Ordinal)
-                && name.EndsWith(Extension, StringComparison.Ordinal))
-            .Select(PathOfResource)
-            .Order(StringComparer.Ordinal)
-    ];
+    public static ImmutableArray<string> Shipped => [.. index.Keys.Order(StringComparer.Ordinal)];
+
+    /// <summary>Ships a host's own compounds beside these, as if this assembly embedded them.</summary>
+    /// <param name="assembly">The assembly that embeds them.</param>
+    /// <param name="root">
+    ///     The resource-name prefix they sit under, ending in a dot: a compound at
+    ///     <c><paramref name="root" />Grunges.Dirt.vxtexgraph</c> is published as <c>Grunges/Dirt</c>.
+    /// </param>
+    /// <returns>The paths the bundle adds, which leaves out any a shipped compound already has.</returns>
+    /// <exception cref="ArgumentNullException">The assembly is null.</exception>
+    /// <exception cref="ArgumentException">The root is empty or does not end in a dot.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         <b>A product's factory content is shipped content</b> — Patina's CC0 grunges, for one. Every
+    ///         reader of the shipped set sees a bundle the moment it is added: <see cref="Shipped" />,
+    ///         <see cref="Source" /> and <see cref="Publish" />, and so the graph panel, the layer stack
+    ///         and a command line alike, which is the reason it is a registration here rather than a
+    ///         second folder each caller passes. Adding the same bundle twice is adding it once.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A bundled compound whose path this assembly already ships is left out</b>, for the
+    ///         reason a project's colliding compound is refused: a host's file that silently replaced
+    ///         <c>Generators/Dirt</c> would change every material that reads it.
+    ///     </para>
+    /// </remarks>
+    public static ImmutableArray<string> Bundle(Assembly assembly, string root) {
+        ArgumentNullException.ThrowIfNull(assembly);
+        ArgumentException.ThrowIfNullOrEmpty(root);
+
+        if (!root.EndsWith('.')) {
+            throw new ArgumentException($"A bundle's root is a resource-name prefix ending in a dot, and '{root}' does not.", nameof(root));
+        }
+
+        lock (Gate) {
+            if (!roots.Contains((assembly, root))) {
+                var before = index;
+
+                roots = roots.Add((assembly, root));
+                index = Index(roots);
+
+                return [.. index.Keys.Where(path => !before.ContainsKey(path)).Order(StringComparer.Ordinal)];
+            }
+
+            return [];
+        }
+    }
+
+    /// <summary>Every embedded compound of every root, by path; the first root to name a path keeps it.</summary>
+    static ImmutableDictionary<string, (Assembly Assembly, string Resource)> Index(
+        ImmutableArray<(Assembly Assembly, string Root)> from
+    ) {
+        var found = ImmutableDictionary.CreateBuilder<string, (Assembly, string)>(StringComparer.Ordinal);
+
+        foreach (var (assembly, prefix) in from) {
+            foreach (var resource in assembly.GetManifestResourceNames()
+                .Where(name => name.StartsWith(prefix, StringComparison.Ordinal)
+                    && name.EndsWith(Extension, StringComparison.Ordinal))
+                .Order(StringComparer.Ordinal)) {
+                found.TryAdd(PathOfResource(resource, prefix), (assembly, resource));
+            }
+        }
+
+        return found.ToImmutable();
+    }
 
     /// <summary>The text of one shipped compound.</summary>
     /// <param name="path">Its node-type path, as <see cref="Shipped" /> holds it.</param>
@@ -121,11 +187,11 @@ public static class TextureCompoundLibrary {
     public static string? Source(string path) {
         ArgumentException.ThrowIfNullOrEmpty(path);
 
-        var assembly = typeof(TextureCompoundLibrary).Assembly;
+        if (!index.TryGetValue(path, out var found)) {
+            return null;
+        }
 
-        using var stream = assembly.GetManifestResourceStream(
-            Root + path.Replace('/', '.') + Extension
-        );
+        using var stream = found.Assembly.GetManifestResourceStream(found.Resource);
 
         if (stream is null) {
             return null;
@@ -156,12 +222,8 @@ public static class TextureCompoundLibrary {
 
         TextureGraphLibrary library = new();
         var found = ImmutableArray.CreateBuilder<TextureCompoundProblem>();
-        var assembly = typeof(TextureCompoundLibrary).Assembly;
 
-        foreach (var resource in assembly.GetManifestResourceNames()
-            .Where(name => name.StartsWith(Root, StringComparison.Ordinal)
-                && name.EndsWith(Extension, StringComparison.Ordinal))
-            .Order(StringComparer.Ordinal)) {
+        foreach (var (path, (assembly, resource)) in index.OrderBy(static entry => entry.Key, StringComparer.Ordinal)) {
             using var stream = assembly.GetManifestResourceStream(resource);
 
             if (stream is null) {
@@ -170,7 +232,7 @@ public static class TextureCompoundLibrary {
 
             using StreamReader reader = new(stream);
 
-            Add(library, registry, found, PathOfResource(resource), resource, reader.ReadToEnd());
+            Add(library, registry, found, path, resource, reader.ReadToEnd());
         }
 
         if (folder is { Length: > 0 } && Directory.Exists(folder)) {
@@ -242,8 +304,8 @@ public static class TextureCompoundLibrary {
     ///     may not contain one — <c>TextureCompoundLibraryTests</c> holds that, because the failure
     ///     is a node published under a path with a phantom folder in it rather than an error.
     /// </remarks>
-    static string PathOfResource(string resource) =>
-        resource[Root.Length..^Extension.Length].Replace('.', '/');
+    static string PathOfResource(string resource, string root) =>
+        resource[root.Length..^Extension.Length].Replace('.', '/');
 
     /// <summary>The node-type path a project's compound is published under.</summary>
     static string PathOfFile(string folder, string file) =>

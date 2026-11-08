@@ -725,4 +725,36 @@ public sealed class TextureCompoundLibraryTests : IDisposable {
           - { name: Out, direction: Output, kind: Image }
         settings: { baseWidth: '512', baseHeight: '512', seed: '3' }
         """;
+
+    /// <summary>
+    ///     A host's bundle is shipped content, and a bundled compound that collides with one this assembly
+    ///     ships is left out rather than allowed to replace it — Patina #169's grunges arrive this way.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>The bundle here adds nothing on purpose.</b> A registration is process-wide, and a test that
+    ///     added a node type would change what every other case in this assembly reads as shipped — so the
+    ///     fixture's one compound collides with <c>Surface/Bevel</c>, which proves the refusal, the
+    ///     idempotence and that the shipped text survives, and Patina's content tests prove the adding.
+    /// </remarks>
+    [Fact]
+    public void A_bundle_cannot_replace_a_shipped_compound_and_adding_it_twice_is_adding_it_once() {
+        var before = TextureCompoundLibrary.Shipped;
+        var shipped = TextureCompoundLibrary.Source("Surface/Bevel");
+
+        var added = TextureCompoundLibrary.Bundle(typeof(TextureCompoundLibraryTests).Assembly, "Tests.Bundled.");
+
+        Assert.Empty(added);
+        Assert.Equal(before, TextureCompoundLibrary.Shipped);
+        Assert.Equal(shipped, TextureCompoundLibrary.Source("Surface/Bevel"));
+        Assert.Contains("Distance", shipped, StringComparison.Ordinal);
+        Assert.Empty(TextureCompoundLibrary.Bundle(typeof(TextureCompoundLibraryTests).Assembly, "Tests.Bundled."));
+        Assert.Throws<ArgumentException>(() => TextureCompoundLibrary.Bundle(typeof(TextureCompoundLibraryTests).Assembly, "Tests.Bundled"));
+
+        // The instrument: the fixture really is a compound under that root, so an empty answer is the
+        // collision and not a root that matched nothing.
+        Assert.Contains(
+            "Tests.Bundled.Surface.Bevel.vxtexgraph",
+            typeof(TextureCompoundLibraryTests).Assembly.GetManifestResourceNames()
+        );
+    }
 }
