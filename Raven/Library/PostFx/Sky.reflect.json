@@ -27,6 +27,22 @@
               "DefaultValue": "1"
             },
             {
+              "Name": "softness",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 1,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 4,
+              "Size": 4,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": "0.66"
+            },
+            {
               "Name": "inverseViewProjection",
               "Type": {
                 "Scalar": "Float",
@@ -139,6 +155,24 @@
       "ArrayStride": 0,
       "MatrixStride": 0,
       "DefaultValue": "1"
+    },
+    {
+      "Name": "softness",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 4,
+      "Size": 4,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": "0.66"
     },
     {
       "Name": "inverseViewProjection",

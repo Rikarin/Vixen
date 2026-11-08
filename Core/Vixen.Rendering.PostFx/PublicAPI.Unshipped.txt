@@ -1960,6 +1960,7 @@ Vixen.Shaders.Generated.SkyConstants.EnvironmentMipCount -> float
 Vixen.Shaders.Generated.SkyConstants.Intensity -> float
 Vixen.Shaders.Generated.SkyConstants.InverseViewProjection -> Vixen.Core.Mathematics.Matrix4x4
 Vixen.Shaders.Generated.SkyConstants.SkyConstants() -> void
+Vixen.Shaders.Generated.SkyConstants.Softness -> float
 Vixen.Shaders.Generated.SkyKeys -> static class
 Vixen.Shaders.Generated.SmaaConstants -> struct
 Vixen.Shaders.Generated.SmaaConstants.AreaMaxDistance -> float
@@ -2709,6 +2710,7 @@ static readonly Vixen.Shaders.Generated.SkyKeys.EnvironmentSampler -> Vixen.Shad
 static readonly Vixen.Shaders.Generated.SkyKeys.Intensity -> Vixen.Shaders.ParameterKey<float>
 static readonly Vixen.Shaders.Generated.SkyKeys.InverseViewProjection -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Matrix4x4>
 static readonly Vixen.Shaders.Generated.SkyKeys.Soften -> Vixen.Shaders.PermutationKey<bool>
+static readonly Vixen.Shaders.Generated.SkyKeys.Softness -> Vixen.Shaders.ParameterKey<float>
 static readonly Vixen.Shaders.Generated.SkyKeys.UsedPermutationKeys -> Vixen.Shaders.ParameterKey[]
 static readonly Vixen.Shaders.Generated.SmaaKeys.Area -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
 static readonly Vixen.Shaders.Generated.SmaaKeys.AreaMaxDistance -> Vixen.Shaders.ParameterKey<float>
