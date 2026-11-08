@@ -1,0 +1,77 @@
+version: 1
+name: Fractal Cells
+nodes:
+  - id: 1
+    type: Source/Noise
+    x: -960
+    y: 0
+    values: {}
+    texts:
+      Basis: Worley
+      Metric: $Metric
+      '=Gain': roughness
+  - id: 2
+    type: Colour/Grayscale
+    x: -640
+    y: 0
+    values:
+      Weight R: [1]
+      Weight G: [0]
+      Weight B: [0]
+    texts: {}
+  - id: 3
+    type: Colour/Auto Levels
+    x: -320
+    y: 0
+    values: {}
+    texts: {}
+  - id: 4
+    type: Sub-graph/Output
+    x: 0
+    y: 0
+    values: {}
+    texts: {}
+  - id: 5
+    type: Sub-graph/Input
+    x: -1280
+    y: 0
+    values: {}
+    texts: {}
+edges:
+  - { fromNode: 5, fromPort: Cells, toNode: 1, toPort: Scale }
+  - { fromNode: 5, fromPort: Octaves, toNode: 1, toPort: Octaves }
+  - { fromNode: 1, fromPort: Out, toNode: 2, toPort: Input }
+  - { fromNode: 2, fromPort: Out, toNode: 3, toPort: Input }
+  - { fromNode: 3, fromPort: Out, toNode: 4, toPort: Out }
+groups: []
+comments: []
+interface:
+  - name: Cells
+    direction: Input
+    kind: Float
+    default: [4]
+    summary: How many of the largest cells across the image.
+  - name: Octaves
+    direction: Input
+    kind: Int
+    default: [4]
+    summary: How many scales of cells are summed, each twice as fine as the last.
+  - name: Out
+    direction: Output
+    kind: Image
+    default: []
+    summary: The distance to the nearest cell point, summed over octaves and stretched onto the full range.
+settings: { baseWidth: '1024', baseHeight: '1024', seed: '1' }
+parameters:
+  - name: roughness
+    default: '0.5'
+    summary: How much each finer octave of cells adds.
+    kind: Float
+    minimum: 0
+    maximum: 1
+    group: Cells
+  - name: Metric
+    default: Euclidean
+    summary: The cell shape. Euclidean is round, Chebyshev square, Manhattan diamond.
+    kind: Text
+    accepted: [Euclidean, Chebyshev, Manhattan]

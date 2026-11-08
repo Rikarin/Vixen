@@ -33,6 +33,17 @@ authored, and what it cost to author the things that could**.
 | | Scratches | a `Shape Disc` stretched forty times by `Transform 2D`, scattered by `Splatter` |
 | | Wood Grain | `Gradient` → `Mirror` → `Tile` for the rings, `Warp` for the wander, `Directional Warp` for the fibre |
 | | Cells | one `Worley` noise read three times: F1, F2 and the cell index |
+| | Stripes | a `Gradient` sweep → `Tile` across → `Threshold` at one less the width |
+| | Weave | two `Reflected` sweeps tiled into threads each way, a `Checker` choosing which is on top through `Colour/Mix` |
+| | Hex Cells | a six-sided `Shape` widened by √3 in `Transform 2D`, laid again half a tile on, `Lighten`, `Tile` — a whole number of rows, so as regular as that allows |
+| | Triangle Grid | a point-up and a point-down `Triangle` stretched by 2/√3, `Tile` with a half shift per row and an even row count |
+| | Brick, per brick | ⚠ the existing `Brick` gained `variation`: two `White` noises with a lattice of `Columns` × `Rows`, the second shifted half a cell, picked per course by a row-parity `Checker`, through `Levels` and a `Multiply`. At its default of nought the picture is the one it was |
+| `Noise` | Clouds | seven octaves of `Gaussian` noise → `Auto Levels` |
+| | Cell Walls | `Worley` F2 − F1 through `Grayscale` weights, `Levels` to a width, `Invert` |
+| | Fractal Cells | `Worley` summed over octaves, its F1 → `Auto Levels` |
+| | Streaks | `Gradient` noise with `Scale Y` the stretch → `Auto Levels` |
+| | Spots | `Worley` F1 → `Levels` to a radius → `Invert`: a cone about every point, a half at the radius |
+| | Liquid | a noise through `Warp` along a coarser noise's slopes |
 | `Generators` | Dirt · Curvature Edge Wear · Grunge Rough Dirty | mesh maps, by usage |
 | | Mask Editor | curvature, occlusion and noise under four sliders |
 | | Metal Edge Wear | curvature, broken away by a noise through `Colour/Mix`, gated by occlusion |
@@ -349,6 +360,30 @@ straight onto a `Colour/Blend` `Mode` — so its `values` are *factors*: 1.2 is 
 "leave metalness alone". A reader checking a smart material's channels against 0…1 will file an issue
 about both, and it will be wrong. The range a layer's value is in is decided by its blend mode and
 nowhere else.
+
+### 8 · The fourth round: twelve rows, and what Patina #167 and #168 found authoring them
+
+Eleven new files and a knob on `Brick`, over a `Noise` and a `Shape` that had just widened. Three
+findings, each of which cost a wrong picture before it cost a line here.
+
+⚠ **A per-axis lattice is what made per-brick variation authorable at all.** A brick's tone is one
+value per brick, which is white noise with one cell per brick — `Columns` across and `Rows` down —
+and the odd courses' cells half a cell along. `Scale X` and `Scale Y` take the two interface ports as
+wires, and an `Offset X` *in cells* is the half a cell with no arithmetic; an offset in image units
+would have needed `0.5 / Columns`, which an interface port cannot compute and a parameter could not
+then be wired. That is why the offset counts cells.
+
+⚠ **A parameter expression is folded, and a call is not.** *"Even rows"* wanted
+`2 · round(columns / √3)` and the compiler refused `round` by name (TG0014). `Triangle Grid` exposes
+the half instead — `bands`, two rows each — and derives the columns from it, which an `Int` port
+rounds on its own. The rule is old; the lesson is that a pattern which needs a parity exposes the
+quotient rather than the count.
+
+⚠ **`Transform 2D` shrinking under `Wrap` repeats the image**, so a hexagon squashed by 1/√3 came back
+as three hexagons in a column and a honeycomb with no vertical joints — the first picture of
+`Hex Cells`. Widening by √3 reads only the middle of the source, so the hexagon is drawn a third the
+size and widened instead. `TextureCompoundFamilyDeviceTests` holds every centre lit and every joint
+dark, which is what that first picture failed.
 
 ### What a compound costs the roll call
 

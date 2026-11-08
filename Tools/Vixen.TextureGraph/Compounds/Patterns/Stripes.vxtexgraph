@@ -1,0 +1,77 @@
+version: 1
+name: Stripes
+nodes:
+  - id: 1
+    type: Source/Gradient
+    x: -960
+    y: 0
+    values: {}
+    texts: {}
+  - id: 2
+    type: Colour/Grayscale
+    x: -640
+    y: 0
+    values: {}
+    texts: {}
+  - id: 3
+    type: Space/Tile
+    x: -320
+    y: 0
+    values:
+      Repeat Y: [1]
+    texts: {}
+  - id: 4
+    type: Colour/Threshold
+    x: 0
+    y: 0
+    values: {}
+    texts:
+      '=Level': 1f - width
+      '=Softness': softness
+  - id: 5
+    type: Sub-graph/Output
+    x: 320
+    y: 0
+    values: {}
+    texts: {}
+  - id: 6
+    type: Sub-graph/Input
+    x: -1280
+    y: 0
+    values: {}
+    texts: {}
+edges:
+  - { fromNode: 1, fromPort: Out, toNode: 2, toPort: Input }
+  - { fromNode: 2, fromPort: Out, toNode: 3, toPort: Input }
+  - { fromNode: 6, fromPort: Count, toNode: 3, toPort: Repeat X }
+  - { fromNode: 3, fromPort: Out, toNode: 4, toPort: Input }
+  - { fromNode: 4, fromPort: Out, toNode: 5, toPort: Out }
+groups: []
+comments: []
+interface:
+  - name: Count
+    direction: Input
+    kind: Int
+    default: [8]
+    summary: How many stripes across the image.
+  - name: Out
+    direction: Output
+    kind: Image
+    default: []
+    summary: Vertical stripes, one where a stripe is and nought between them. A quarter turn makes them horizontal.
+settings: { baseWidth: '1024', baseHeight: '1024', seed: '1' }
+parameters:
+  - name: width
+    default: '0.5'
+    summary: How much of each period a stripe takes.
+    kind: Float
+    minimum: 0
+    maximum: 1
+    group: Stripes
+  - name: softness
+    default: '0.02'
+    summary: How soft a stripe's edge is, as a share of a period.
+    kind: Float
+    minimum: 0
+    maximum: 0.5
+    group: Stripes

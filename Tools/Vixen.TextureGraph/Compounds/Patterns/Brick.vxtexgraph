@@ -29,11 +29,66 @@ nodes:
     y: 240
     values: {}
     texts: {}
+  - id: 5
+    type: Source/Noise
+    x: -320
+    y: 480
+    values:
+      Scale: [1]
+    texts:
+      Basis: White
+  - id: 6
+    type: Source/Noise
+    x: -320
+    y: 720
+    values:
+      Scale: [1]
+      Offset X: [0.5]
+    texts:
+      Basis: White
+  - id: 7
+    type: Source/Checker
+    x: -320
+    y: 960
+    values:
+      Scale X: [0]
+    texts: {}
+  - id: 8
+    type: Colour/Mix
+    x: 0
+    y: 600
+    values: {}
+    texts: {}
+  - id: 9
+    type: Colour/Levels
+    x: 160
+    y: 600
+    values: {}
+    texts:
+      '=Output Black': 1f - variation
+  - id: 10
+    type: Colour/Blend
+    x: 160
+    y: 0
+    values: {}
+    texts:
+      Mode: Multiply
 edges:
   - { fromNode: 1, fromPort: Out, toNode: 2, toPort: Input }
   - { fromNode: 4, fromPort: Columns, toNode: 2, toPort: Repeat X }
   - { fromNode: 4, fromPort: Rows, toNode: 2, toPort: Repeat Y }
-  - { fromNode: 2, fromPort: Out, toNode: 3, toPort: Out }
+  - { fromNode: 4, fromPort: Columns, toNode: 5, toPort: Scale X }
+  - { fromNode: 4, fromPort: Rows, toNode: 5, toPort: Scale Y }
+  - { fromNode: 4, fromPort: Columns, toNode: 6, toPort: Scale X }
+  - { fromNode: 4, fromPort: Rows, toNode: 6, toPort: Scale Y }
+  - { fromNode: 4, fromPort: Rows, toNode: 7, toPort: Scale Y }
+  - { fromNode: 5, fromPort: Out, toNode: 8, toPort: Background }
+  - { fromNode: 6, fromPort: Out, toNode: 8, toPort: Foreground }
+  - { fromNode: 7, fromPort: Out, toNode: 8, toPort: Mask }
+  - { fromNode: 8, fromPort: Out, toNode: 9, toPort: Input }
+  - { fromNode: 2, fromPort: Out, toNode: 10, toPort: Background }
+  - { fromNode: 9, fromPort: Out, toNode: 10, toPort: Foreground }
+  - { fromNode: 10, fromPort: Out, toNode: 3, toPort: Out }
 groups: []
 comments: []
 interface:
@@ -51,7 +106,7 @@ interface:
     direction: Output
     kind: Image
     default: []
-    summary: The bond, as a height — one inside a brick, zero in the mortar.
+    summary: The bond, as a height — one inside a brick, or one less up to the variation, and zero in the mortar.
 settings: { baseWidth: '1024', baseHeight: '1024', seed: '1' }
 parameters:
   - name: mortar
@@ -66,5 +121,12 @@ parameters:
     summary: How soft a brick's edge is, in units of its half width.
     kind: Float
     minimum: 0.001
+    maximum: 1
+    group: Bond
+  - name: variation
+    default: '0'
+    summary: How much darker one brick may be than the next. Each brick is one tone, drawn per brick.
+    kind: Float
+    minimum: 0
     maximum: 1
     group: Bond

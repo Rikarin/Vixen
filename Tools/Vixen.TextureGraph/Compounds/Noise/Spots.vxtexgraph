@@ -1,0 +1,80 @@
+version: 1
+name: Spots
+nodes:
+  - id: 1
+    type: Source/Noise
+    x: -960
+    y: 0
+    values: {}
+    texts:
+      Basis: Worley
+  - id: 2
+    type: Colour/Grayscale
+    x: -640
+    y: 0
+    values:
+      Weight R: [1]
+      Weight G: [0]
+      Weight B: [0]
+    texts: {}
+  - id: 3
+    type: Colour/Levels
+    x: -320
+    y: 0
+    values: {}
+    texts:
+      '=Input White': radius
+      '=Gamma': softness
+  - id: 4
+    type: Colour/Invert
+    x: 0
+    y: 0
+    values: {}
+    texts: {}
+  - id: 5
+    type: Sub-graph/Output
+    x: 320
+    y: 0
+    values: {}
+    texts: {}
+  - id: 6
+    type: Sub-graph/Input
+    x: -1280
+    y: 0
+    values: {}
+    texts: {}
+edges:
+  - { fromNode: 6, fromPort: Cells, toNode: 1, toPort: Scale }
+  - { fromNode: 1, fromPort: Out, toNode: 2, toPort: Input }
+  - { fromNode: 2, fromPort: Out, toNode: 3, toPort: Input }
+  - { fromNode: 3, fromPort: Out, toNode: 4, toPort: Input }
+  - { fromNode: 4, fromPort: Out, toNode: 5, toPort: Out }
+groups: []
+comments: []
+interface:
+  - name: Cells
+    direction: Input
+    kind: Float
+    default: [12]
+    summary: How many spots across the image — one per Worley cell, so the square of this in all.
+  - name: Out
+    direction: Output
+    kind: Image
+    default: []
+    summary: A scatter of round spots, one about each cell's point, one at its centre and nought at its rim.
+settings: { baseWidth: '1024', baseHeight: '1024', seed: '1' }
+parameters:
+  - name: radius
+    default: '0.12'
+    summary: How big a spot is, in cells. At a softness of one the spot is a half at this radius, so it covers π r² of a cell.
+    kind: Float
+    minimum: 0.001
+    maximum: 0.5
+    group: Spots
+  - name: softness
+    default: '1'
+    summary: The profile. One is a cone; above one is a flat top with a sharp rim, below one a sharp point.
+    kind: Float
+    minimum: 0.1
+    maximum: 4
+    group: Spots
