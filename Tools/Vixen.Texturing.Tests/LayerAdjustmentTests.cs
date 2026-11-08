@@ -17,7 +17,13 @@ public sealed class LayerAdjustmentTests {
     [InlineData("Filters/Warp", true)]
     [InlineData("Filters/Slope Blur", true)]
     [InlineData("Colour/Image Ramp", true)]
+    [InlineData("Adjust/Colour Correct", true)]
+    [InlineData("Adjust/Drop Shadow", true)]
+    [InlineData("Adjust/PBR Validate", true)]
+    [InlineData("Finishes/Brushed", true)]
     [InlineData("Colour/Blend", false)]
+    [InlineData("Colour/Mix", false)]
+    [InlineData("Colour/Dissolve", false)]
     [InlineData("Colour/Select Input", false)]
     [InlineData("Placement/Tile Sampler", false)]
     [InlineData("Placement/Splatter", false)]
@@ -29,6 +35,23 @@ public sealed class LayerAdjustmentTests {
 
         Assert.True(library.TryGet(path, out var type), $"'{path}' is not in the library.");
         Assert.Equal(offered, LayerStackGraph.IsAdjustment(type!));
+    }
+
+    /// <summary>
+    ///     A filter whose outputs are named after channels writes those channels of a layer, and a mask is one picture
+    ///     in no channel, so it is no mask step. One that writes a picture is both.
+    /// </summary>
+    [Theory]
+    [InlineData("Adjust/PBR Validate", false)]
+    [InlineData("Finishes/Brushed", false)]
+    [InlineData("Adjust/Drop Shadow", true)]
+    [InlineData("Filters/Warp", true)]
+    public void A_filter_that_writes_channels_is_no_mask_step(string path, bool step) {
+        var library = LayerStackCompiler.Library(out _);
+
+        Assert.True(library.TryGet(path, out var type), $"'{path}' is not in the library.");
+        Assert.True(LayerStackGraph.IsAdjustment(type!));
+        Assert.Equal(step, LayerStackGraph.IsMaskStep(type!));
     }
 
     /// <summary>

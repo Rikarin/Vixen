@@ -1,0 +1,73 @@
+version: 1
+name: PBR Validate
+nodes:
+  - id: 1
+    type: Sub-graph/Input
+    x: -320
+    y: 0
+    values: {}
+    texts: {}
+  - id: 2
+    type: Filters/Pixel Processor
+    x: 0
+    y: 0
+    values: {}
+    texts:
+      Expression: '(b.x > 0.5f ? (dot(a.xyz, float3(0.2126f, 0.7152f, 0.0722f)) < pow(z / 255f, 2.2f) ? 1f : 0f) : ((dot(a.xyz, float3(0.2126f, 0.7152f, 0.0722f)) < pow(x / 255f, 2.2f) ? 1f : 0f) + (dot(a.xyz, float3(0.2126f, 0.7152f, 0.0722f)) > pow(y / 255f, 2.2f) ? 1f : 0f))) > 0.5f ? float4(1f, 0f, 1f, 1f) : a'
+      '=X': darkest
+      '=Y': brightest
+      '=Z': metal
+  - id: 3
+    type: Sub-graph/Output
+    x: 320
+    y: 0
+    values: {}
+    texts: {}
+edges:
+  - { fromNode: 1, fromPort: baseColor, toNode: 2, toPort: A }
+  - { fromNode: 1, fromPort: metalness, toNode: 2, toPort: B }
+  - { fromNode: 2, fromPort: Out, toNode: 3, toPort: baseColor }
+groups: []
+comments: []
+interface:
+  - name: baseColor
+    direction: Input
+    kind: Image
+    default: []
+    summary: The base colour to check, read from the layers beneath.
+  - name: metalness
+    direction: Input
+    kind: Image
+    default: []
+    summary: Which texels are metal, read from the layers beneath. Without one every texel is checked as a non-metal.
+  - name: baseColor
+    direction: Output
+    kind: Image
+    default: []
+    summary: The base colour, with every value a physically based renderer would not expect painted magenta.
+settings: { baseWidth: '1024', baseHeight: '1024', seed: '1', summary: 'Paints magenta where a base colour is too dark or too bright for what the metalness says it is.' }
+parameters:
+  - name: darkest
+    label: Darkest Non-Metal
+    default: '30'
+    summary: The darkest a non-metal's base colour may be, in sRGB from 0 to 255. Charcoal is about 30.
+    kind: Float
+    minimum: 0
+    maximum: 255
+    group: Non-Metal
+  - name: brightest
+    label: Brightest Non-Metal
+    default: '240'
+    summary: The brightest a non-metal's base colour may be, in sRGB from 0 to 255. Fresh snow is about 240.
+    kind: Float
+    minimum: 0
+    maximum: 255
+    group: Non-Metal
+  - name: metal
+    label: Darkest Metal
+    default: '180'
+    summary: The darkest a metal's base colour may be, in sRGB from 0 to 255. Most metals reflect above 180.
+    kind: Float
+    minimum: 0
+    maximum: 255
+    group: Metal

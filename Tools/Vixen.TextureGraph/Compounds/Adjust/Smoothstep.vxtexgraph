@@ -1,0 +1,58 @@
+version: 1
+name: Smoothstep
+nodes:
+  - id: 1
+    type: Sub-graph/Input
+    x: -320
+    y: 0
+    values: {}
+    texts: {}
+  - id: 2
+    type: Filters/Pixel Processor
+    x: 0
+    y: 0
+    values: {}
+    texts:
+      Expression: float4(smoothstep(x, max(y, x + 0.0001f), a.x), smoothstep(x, max(y, x + 0.0001f), a.y), smoothstep(x, max(y, x + 0.0001f), a.z), a.w)
+      '=X': low
+      '=Y': high
+  - id: 3
+    type: Sub-graph/Output
+    x: 320
+    y: 0
+    values: {}
+    texts: {}
+edges:
+  - { fromNode: 1, fromPort: Input, toNode: 2, toPort: A }
+  - { fromNode: 2, fromPort: Out, toNode: 3, toPort: Out }
+groups: []
+comments: []
+interface:
+  - name: Input
+    direction: Input
+    kind: Image
+    default: []
+    summary: The picture whose values are eased.
+  - name: Out
+    direction: Output
+    kind: Image
+    default: []
+    summary: Black below Low, white above High, and an S-curve between.
+settings: { baseWidth: '1024', baseHeight: '1024', seed: '1', summary: 'Black below one value, white above another, and a smooth S-curve between them.' }
+parameters:
+  - name: low
+    label: Low
+    default: '0.25'
+    summary: The value at and below which the result is black.
+    kind: Float
+    minimum: 0
+    maximum: 1
+    group: Range
+  - name: high
+    label: High
+    default: '0.75'
+    summary: The value at and above which the result is white.
+    kind: Float
+    minimum: 0
+    maximum: 1
+    group: Range

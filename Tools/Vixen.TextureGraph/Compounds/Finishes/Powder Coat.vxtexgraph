@@ -1,0 +1,131 @@
+version: 1
+name: Powder Coat
+nodes:
+  - id: 1
+    type: Sub-graph/Input
+    x: -960
+    y: 0
+    values: {}
+    texts: {}
+  - id: 2
+    type: Source/Noise
+    x: -960
+    y: 320
+    values:
+      Octaves: [3]
+    texts:
+      Basis: Gradient
+      '=Scale': grain
+  - id: 3
+    type: Colour/Auto Levels
+    x: -640
+    y: 320
+    values: {}
+    texts: {}
+  - id: 4
+    type: Source/Noise
+    x: -960
+    y: 480
+    values:
+      Octaves: [1]
+    texts:
+      Basis: White
+      '=Scale': grain * 4f
+  - id: 5
+    type: Filters/Pixel Processor
+    x: 0
+    y: 0
+    values: {}
+    texts:
+      Expression: float4(lerp(a.xyz, saturate(float3(x, x, x) + (b.xxx - 0.5f) * y), z), 1f)
+      '=X': roughness
+      '=Y': variation
+      '=Z': amount
+  - id: 6
+    type: Filters/Pixel Processor
+    x: 0
+    y: 160
+    values: {}
+    texts:
+      Expression: float4(a.xyz + (b.xxx - 0.5f) * x * 0.05f * y, 1f)
+      '=X': peel
+      '=Y': amount
+  - id: 7
+    type: Sub-graph/Output
+    x: 320
+    y: 0
+    values: {}
+    texts: {}
+edges:
+  - { fromNode: 2, fromPort: Out, toNode: 3, toPort: Input }
+  - { fromNode: 1, fromPort: roughness, toNode: 5, toPort: A }
+  - { fromNode: 4, fromPort: Out, toNode: 5, toPort: B }
+  - { fromNode: 1, fromPort: height, toNode: 6, toPort: A }
+  - { fromNode: 3, fromPort: Out, toNode: 6, toPort: B }
+  - { fromNode: 5, fromPort: Out, toNode: 7, toPort: roughness }
+  - { fromNode: 6, fromPort: Out, toNode: 7, toPort: height }
+groups: []
+comments: []
+interface:
+  - name: roughness
+    direction: Input
+    kind: Image
+    default: []
+    summary: The roughness beneath, which the coat replaces by Amount.
+  - name: height
+    direction: Input
+    kind: Image
+    default: []
+    summary: The height beneath, which the coat covers.
+  - name: roughness
+    direction: Output
+    kind: Image
+    default: []
+    summary: An even satin roughness with a fine grain in it.
+  - name: height
+    direction: Output
+    kind: Image
+    default: []
+    summary: The height beneath under the soft ripple of a sprayed and baked coat.
+settings: { baseWidth: '1024', baseHeight: '1024', seed: '1', summary: 'A sprayed and baked coat: an even satin roughness with a fine grain, over a soft orange-peel ripple.' }
+parameters:
+  - name: grain
+    label: Ripple Size
+    default: '24'
+    summary: How many ripples of the orange peel lie across the map. The grain in the roughness is four times finer.
+    kind: Float
+    minimum: 4
+    maximum: 128
+    group: Pattern
+  - name: roughness
+    label: Roughness
+    default: '0.55'
+    summary: The roughness of the coat. Gloss coats are lower, matt ones higher.
+    kind: Float
+    minimum: 0
+    maximum: 1
+    group: Surface
+  - name: variation
+    label: Grain
+    default: '0.08'
+    summary: How much the roughness varies from one speck of powder to the next.
+    kind: Float
+    minimum: 0
+    maximum: 1
+    group: Surface
+  - name: peel
+    label: Orange Peel
+    default: '0.4'
+    summary: How deep the coat's ripple is. One is a twentieth of the height's range.
+    kind: Float
+    minimum: 0
+    maximum: 1
+    group: Surface
+  - name: amount
+    label: Amount
+    default: '1'
+    summary: How much of the coat shows over what is beneath.
+    kind: Float
+    minimum: 0
+    maximum: 1
+    group: Surface

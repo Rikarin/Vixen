@@ -1,0 +1,49 @@
+version: 1
+name: Histogram Shift
+nodes:
+  - id: 1
+    type: Sub-graph/Input
+    x: -320
+    y: 0
+    values: {}
+    texts: {}
+  - id: 2
+    type: Filters/Pixel Processor
+    x: 0
+    y: 0
+    values: {}
+    texts:
+      Expression: float4(frac(a.x + x), frac(a.y + x), frac(a.z + x), a.w)
+      '=X': shift
+  - id: 3
+    type: Sub-graph/Output
+    x: 320
+    y: 0
+    values: {}
+    texts: {}
+edges:
+  - { fromNode: 1, fromPort: Input, toNode: 2, toPort: A }
+  - { fromNode: 2, fromPort: Out, toNode: 3, toPort: Out }
+groups: []
+comments: []
+interface:
+  - name: Input
+    direction: Input
+    kind: Image
+    default: []
+    summary: The picture whose values move.
+  - name: Out
+    direction: Output
+    kind: Image
+    default: []
+    summary: Every value moved up by Shift, and what passes white starting again from black.
+settings: { baseWidth: '1024', baseHeight: '1024', seed: '1', summary: 'Moves every value up and wraps what passes white round to black, so a gradient cycles.' }
+parameters:
+  - name: shift
+    label: Shift
+    default: '0.5'
+    summary: How far every value moves up. A whole turn is 1, which is no change.
+    kind: Float
+    minimum: 0
+    maximum: 1
+    group: Shift

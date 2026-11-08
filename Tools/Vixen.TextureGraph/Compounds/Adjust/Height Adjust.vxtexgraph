@@ -1,0 +1,58 @@
+version: 1
+name: Height Adjust
+nodes:
+  - id: 1
+    type: Sub-graph/Input
+    x: -320
+    y: 0
+    values: {}
+    texts: {}
+  - id: 2
+    type: Filters/Pixel Processor
+    x: 0
+    y: 0
+    values: {}
+    texts:
+      Expression: float4(saturate((a.x - 0.5f) * y + 0.5f + x), saturate((a.y - 0.5f) * y + 0.5f + x), saturate((a.z - 0.5f) * y + 0.5f + x), a.w)
+      '=X': position
+      '=Y': contrast
+  - id: 3
+    type: Sub-graph/Output
+    x: 320
+    y: 0
+    values: {}
+    texts: {}
+edges:
+  - { fromNode: 1, fromPort: Input, toNode: 2, toPort: A }
+  - { fromNode: 2, fromPort: Out, toNode: 3, toPort: Out }
+groups: []
+comments: []
+interface:
+  - name: Input
+    direction: Input
+    kind: Image
+    default: []
+    summary: The height to raise, lower or flatten.
+  - name: Out
+    direction: Output
+    kind: Image
+    default: []
+    summary: The height scaled about mid-grey by Contrast, then moved by Position, kept within 0 to 1.
+settings: { baseWidth: '1024', baseHeight: '1024', seed: '1', summary: 'Raises or lowers a height, and makes its relief deeper or flatter about mid-grey.' }
+parameters:
+  - name: position
+    label: Position
+    default: '0'
+    summary: How far the whole height moves up, or down below zero.
+    kind: Float
+    minimum: -1
+    maximum: 1
+    group: Height
+  - name: contrast
+    label: Contrast
+    default: '1'
+    summary: How deep the relief is about mid-grey. One leaves it, zero flattens it, and above one deepens it.
+    kind: Float
+    minimum: 0
+    maximum: 4
+    group: Height

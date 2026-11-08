@@ -688,7 +688,7 @@ public class TextureCompoundBakeDeviceTests(ITestOutputHelper output) {
         var used = graph.Add(path);
         var output = graph.Add("Output/Output");
 
-        graph.Connect(new(used.Id, "Out"), new(output.Id, "Input"));
+        graph.Connect(new(used.Id, TextureCompoundLibraryTests.FirstPictureOut(registry, path)), new(output.Id, "Input"));
 
         foreach (var port in registry.Types.Single(type => type.Path == path).Ports) {
             if (port is { Direction: PortDirection.Input, Kind: PortKind.Image }) {

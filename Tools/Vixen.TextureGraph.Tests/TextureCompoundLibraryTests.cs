@@ -67,6 +67,12 @@ public sealed class TextureCompoundLibraryTests : IDisposable {
         return registry;
     }
 
+    /// <summary>A compound's first image output: <c>Out</c>, or a material filter's first channel.</summary>
+    internal static string FirstPictureOut(NodeTypeRegistry registry, string path) =>
+        registry.Types.Single(type => type.Path == path)
+            .Ports.First(static port => port is { Direction: PortDirection.Output, Kind: PortKind.Image })
+            .Name;
+
     /// <summary>A graph containing one published compound, wired into an output.</summary>
     static (TextureGraphCompiler Compiler, NodeGraphModel Graph, GraphNode Used) Containing(
         string path,
@@ -77,7 +83,8 @@ public sealed class TextureCompoundLibraryTests : IDisposable {
         var used = graph.Add(path);
         var output = graph.Add("Output/Output");
 
-        graph.Connect(new(used.Id, "Out"), new(output.Id, "Input"));
+        // The first picture out, which is `Out` for all but a material filter, whose outputs are named after channels.
+        graph.Connect(new(used.Id, FirstPictureOut(registry, path)), new(output.Id, "Input"));
 
         // Whatever image inputs the compound declares get a source, because an unwired one is a
         // TG0002 about the containing graph rather than about the compound — and the point of these
@@ -196,6 +203,15 @@ public sealed class TextureCompoundLibraryTests : IDisposable {
         // refusal comes out of the list below and into § 4.9's prose with its number, so that the
         // one row where the plan and the folder legitimately disagree says why in both places.
         var rows = new (string Folder, string[] Marked, string Why)[] {
+                ("Adjust/", [
+                    "Colour Balance", "Colour Correct", "Drop Shadow", "Height Adjust", "Histogram Shift",
+                    "PBR Validate", "Smoothstep"
+                ], "§ 4.9's Adjust row marks these seven ● — Patina #115's tone and colour filters and #116's "
+                    + "shape and validation ones, the filters a layer reaches for daily"),
+                ("Finishes/", [
+                    "Brushed", "Hammered", "Powder Coat"
+                ], "§ 4.9's Finishes row marks these three ● — Patina #117's surface finishes, each writing a "
+                    + "layer's roughness and height through outputs named after those channels"),
                 ("Utility/", [
                     "Contrast Luminosity", "Equalize", "Glow", "Highpass", "Histogram Range", "Histogram Scan",
                     "Histogram Select", "Make It Tile", "Safe Transform"

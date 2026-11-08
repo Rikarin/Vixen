@@ -472,7 +472,7 @@ public static class LayerStackGraph {
     /// <param name="type">The node type or published compound.</param>
     /// <returns>Whether <see cref="MaskEffectAsset.Node" /> can name it.</returns>
     public static bool IsMaskStep(NodeTypeDefinition type) =>
-        IsAdjustment(type) && Builder.Images(type, PortDirection.Output) == 1;
+        IsAdjustment(type) && Builder.Images(type, PortDirection.Output) == 1 && !PerChannel(type);
 
     /// <summary>A filter's image inputs, its subject first, each with what it asks of what feeds it.</summary>
     /// <param name="type">The node type or published compound.</param>
@@ -1740,7 +1740,7 @@ public static class LayerStackGraph {
             }
 
             // ⚠ A material filter writes the channels it has an output for and leaves the rest as they were.
-            if ((outputs == 1 ? OnlyImage(type, PortDirection.Output) : ByUsage(type, channel.Usage))
+            if ((PerChannel(type) ? ByUsage(type, channel.Usage) : OnlyImage(type, PortDirection.Output))
                 is not { } output) {
                 return null;
             }
@@ -2212,8 +2212,10 @@ public static class LayerStackGraph {
                 if (TextureImageInputs.Measures(Library, SubGraphs, path, port.Name)) {
                     var grey = Add("Colour/Grayscale");
 
-                    // A mask is read for its red, as every mask source is; a picture for its luminance.
-                    if (mask) {
+                    // A mask is read for its red, as every mask source is; a picture for its luminance. ⚠ And a generator
+                    // or a mesh map for its red too: most are one channel already, and `Grayscale` reads one channel as
+                    // (r, 0, 0) and weighs it down to a fifth of itself under the luminance weights.
+                    if (mask || input?.Source is LayerInputSource.Generator or LayerInputSource.Bake) {
                         grey.SetValue("Weight R", 1f);
                         grey.SetValue("Weight G", 0f);
                         grey.SetValue("Weight B", 0f);

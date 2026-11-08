@@ -55,6 +55,25 @@ authored, and what it cost to author the things that could**.
 | | Curvature Smooth | `Blur HQ` → `Height to Normal` → `Curvature` |
 | | Height to AO | `Ambient Occlusion` → `Blur` → `Levels` |
 | | Metal Reflectance | `Colour/Metal Reflectance` on a `Metal` name port, mixed over a base by a mask through `Colour/Mix` — the row that was blocked on [#1096](https://github.com/Rikarin/Vixen/issues/1096) until the atomic node landed |
+| `Adjust` | Colour Correct | `Levels` for brightness, contrast and gamma (the gamma inverted, so above one brightens as photo tools do) → `HSL` |
+| | Colour Balance | three `Pixel Processor`s, each adding a tint weighted to the shadows, the midtones or the highlights by the luminance |
+| | Smoothstep · Histogram Shift · Height Adjust | one `Pixel Processor` each, its numbers from the graph's parameters |
+| | Drop Shadow | a second image, the shape, through `Transform 2D` and `Blur HQ`, multiplied in by a `Pixel Processor` |
+| | PBR Validate | a `Pixel Processor` reading `baseColor` and `metalness` by usage and writing `baseColor` alone — a *material filter*, which a layer runs in the channels it has an output named for |
+| `Finishes` | Brushed | `Noise` stretched along one axis → `Transform 2D` → `Auto Levels`, into a roughness and a height `Pixel Processor` |
+| | Hammered | a `Worley` noise → `Auto Levels`, its square the dents and its value the polish |
+| | Powder Coat | a fine `White` noise for the grain in the roughness, a coarse `Gradient` one for the orange peel in the height |
+
+⚠ **Adjust and Finishes use `Pixel Processor`, which the rest of this folder deliberately does not** (Patina #115 to
+#117). The library's other compounds measure whether the atomic set is complete, and an escape hatch there would hide a
+gap. These are the filters a layer stack offers, and a per-texel expression *is* what a smoothstep, a colour balance or
+a range check is: a kernel for each would be four lines of Raven behind four files of plumbing. Every one is a filter in
+Patina's sense — a first image input, its subject — and the finishes and the validator name their ports after
+channels, so a layer reads its roughness and height beneath it and writes them back.
+
+⚠ **`Grayscale` reads a one-channel image as `(r, 0, 0)`**, so under its luminance weights a grey shape comes out at a
+fifth of itself. Drop Shadow read its shape through one and cast a shadow a fifth as dark as it said; a compound that
+wants the value of a grey reads its red.
 
 The five `.vxsmartmat` smart materials live one assembly over, in
 `Vixen.Editor.Texturing/SmartMaterials/`, and `Leather` — § 4.9's sixth, listed there without a ● —

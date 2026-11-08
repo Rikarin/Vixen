@@ -403,7 +403,7 @@ sealed partial class ReplaceColourRangeNode : TextureNode {
 ///     colour per texel and this one chooses: every texel is exactly one of the two inputs. The draw is the
 ///     plan's seed and the texel's position, so it repeats across bakes.
 /// </remarks>
-[Node("Colour/Dissolve", Preview = true, Summary = "Shows the foreground in a random scatter of texels.")]
+[Node("Colour/Dissolve", Preview = true, Adjustment = false, Summary = "Shows the foreground in a random scatter of texels.")]
 sealed partial class DissolveNode : TextureNode {
     /// <summary>What shows where the foreground does not.</summary>
     [Input(Name = "Background")]

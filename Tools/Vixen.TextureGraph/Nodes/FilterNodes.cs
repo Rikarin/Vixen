@@ -104,6 +104,7 @@ sealed partial class BlendNode : TextureNode {
 [Node(
     "Colour/Mix",
     Preview = true,
+    Adjustment = false,
     Summary = "Two images composited through a per-texel mask, under one of sixteen operators."
 )]
 sealed partial class MixNode : TextureNode {

@@ -156,6 +156,13 @@ public class FilterInputTests {
 
         Assert.Equal("Colour/Grayscale", grey.Type);
 
+        // ⚠ A generator or a mesh map is mostly one channel, which `Grayscale` reads as (r, 0, 0) and would weigh down to
+        // a fifth under the luminance weights: it is read for its red. An image is a picture, read for its luminance.
+        Assert.Equal(
+            source == LayerInputSource.Texture ? (float?)null : 0f,
+            grey.Values.TryGetValue("Weight G", out var green) ? green[0] : (float?)null
+        );
+
         var read = Assert.Single(build.Graph.Edges, edge => edge.To.Node == grey.Id);
 
         Assert.Equal(node, build.Graph.Nodes.Single(candidate => candidate.Id == read.From.Node).Type);
