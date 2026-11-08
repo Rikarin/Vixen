@@ -343,6 +343,48 @@ public sealed class IblTests {
     }
 
     /// <summary>
+    ///     <para>
+    ///         A sun a few texels wide reaches every texel of a rough level that faces it, and about
+    ///         equally. Reading level zero, nearest, made this a lottery: a lobe a radian wide took
+    ///         few dozen samples and a small sun was in the path of none of them for most texels, so
+    ///         a rough metal showed the sun as speckle, and the viewport that used this clamped every
+    ///         sun to 64 to hide it and lost most of its light.
+    ///     </para>
+    ///     <para>
+    ///         The four texels round the centre of the sun's face are the same distance from it, so
+    ///         a filter that spreads the sun gives them the same light; one that samples it gives
+    ///         them whatever their samples hit.
+    ///     </para>
+    /// </summary>
+    [Fact]
+    public void ASmallBrightSourceLightsARoughLevelEvenly() {
+        const int size = 32;
+        var cube = Uniform(size, Vector3.Zero);
+        CubeMap.WriteTexel(cube, 0, 2, size / 2, size / 2, new(2000f));
+        CubeMap.WriteTexel(cube, 0, 2, (size / 2) - 1, size / 2, new(2000f));
+        CubeMap.WriteTexel(cube, 0, 2, size / 2, (size / 2) - 1, new(2000f));
+        CubeMap.WriteTexel(cube, 0, 2, (size / 2) - 1, (size / 2) - 1, new(2000f));
+
+        var prefiltered = EnvironmentPrefilter.Specular(cube, levelCount: 6, samples: 64);
+
+        for (var level = 2; level < 5; level++) {
+            var half = prefiltered.Levels[level].Width / 2;
+            float[] near = [
+                CubeMap.ReadTexel(prefiltered, level, 2, half - 1, half - 1).X,
+                CubeMap.ReadTexel(prefiltered, level, 2, half, half - 1).X,
+                CubeMap.ReadTexel(prefiltered, level, 2, half - 1, half).X,
+                CubeMap.ReadTexel(prefiltered, level, 2, half, half).X
+            ];
+
+            Assert.True(near.Min() > 0f, $"Level {level} missed the sun: {string.Join(", ", near)}.");
+            Assert.True(
+                near.Max() < near.Min() * 1.2f,
+                $"Level {level} saw the sun unevenly: {string.Join(", ", near)}."
+            );
+        }
+    }
+
+    /// <summary>
     ///     Roughness runs from zero at the largest level to one at the smallest, and a shader picks
     ///     its level from a material's roughness by inverting exactly this.
     /// </summary>

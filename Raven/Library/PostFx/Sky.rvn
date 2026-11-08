@@ -44,6 +44,12 @@ shader Sky {
     /// How many mip levels the prefiltered chain has, so `Soften` can name one.
     var environmentMipCount: float = 1f
 
+    /// How far down the chain `Soften` reads: 0 is the sharpest level and 1 the last.
+    ///
+    /// Two thirds unless a host says otherwise, which loses the sun's disc and keeps the gradient. A
+    /// look-dev viewport that lets someone blur the background behind a model sets it.
+    var softness: float = 0.66f
+
     /// Clip back to world, which is the whole of the ray reconstruction.
     ///
     /// The node's own, not the per-view block: a full-screen pass has no view — it has a camera
@@ -94,9 +100,9 @@ shader Sky {
         var level = 0f
 
         if (Soften) {
-            // Two thirds down the chain: enough to lose the sun's disc and keep the gradient, and
-            // expressed against the count so it means the same thing whatever the chain's depth.
-            level = max(environmentMipCount - 1f, 0f) * 0.66f
+            // A share of the chain rather than a level, so it means the same thing whatever the
+            // chain's depth.
+            level = max(environmentMipCount - 1f, 0f) * saturate(softness)
         }
 
         return environment.SampleLevel(environmentSampler, direction, level).rgb * intensity

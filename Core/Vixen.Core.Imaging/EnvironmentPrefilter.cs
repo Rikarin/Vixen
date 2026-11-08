@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Mathematics;
+using Vixen.Graphics;
 
 namespace Vixen.Core.Imaging;
 
@@ -23,9 +24,16 @@ namespace Vixen.Core.Imaging;
 ///     <para>
 ///         <b>This is the reference form, and it is slow.</b> Doc 03 asks for a CPU and a compute
 ///         version of this because reflection probes update at run time; what is here is the CPU one,
-///         written to be read and checked rather than to be fast. It samples the source with nearest
-///         filtering inside one face, so a high-roughness level wants a high sample count to stay
-///         smooth — the saving grace being that high-roughness levels are the small ones.
+///         written to be read and checked rather than to be fast.
+///     </para>
+///     <para>
+///         ⚠ <b>Each sample reads a box-filtered mip of the source as wide as the sample stands
+///         for</b>, which is Křivánek and Colbert's filtered importance sampling (GPU Gems 3, ch. 20).
+///         It used to read level zero, nearest, and that is a lottery for anything small and bright:
+///         a sun one texel wide was hit by a few of a texel's samples and missed by its neighbour's,
+///         so a rough metal showed it as speckle, and a caller clamped the sun to stop the speckle
+///         and threw away most of its light. A mip as wide as the sample's share of the lobe spreads
+///         the sun over every sample that should see it, and keeps its energy.
 ///     </para>
 /// </remarks>
 public static class EnvironmentPrefilter {
@@ -55,22 +63,76 @@ public static class EnvironmentPrefilter {
             }
         }
 
+        var pyramid = prefiltered.LevelCount > 1 ? Pyramid(cube) : cube;
+
         for (var level = 1; level < prefiltered.LevelCount; level++) {
             // A single level would be a mirror and nothing else, so there is no step to divide by.
             var roughness = prefiltered.LevelCount == 1 ? 0f : (float)level / (prefiltered.LevelCount - 1);
             var size = prefiltered.Levels[level].Width;
 
+            // Rows in parallel: each writes its own texels and reads only the pyramid, which is finished.
+            Parallel.For(
+                0,
+                CubeMap.Faces * size,
+                row => {
+                    var (face, y) = Math.DivRem(row, size);
+                    for (var x = 0; x < size; x++) {
+                        var normal = CubeMap.DirectionOfTexel(face, x, y, size);
+                        CubeMap.WriteTexel(
+                            prefiltered,
+                            level,
+                            face,
+                            x,
+                            y,
+                            Convolve(pyramid, normal, roughness, samples)
+                        );
+                    }
+                }
+            );
+        }
+
+        return prefiltered;
+    }
+
+    /// <summary>
+    ///     The source's level zero with every level below it, each texel the mean of the four above
+    ///     it in its own face. A box rather than a solid-angle weight: the four texels of a quad cover
+    ///     nearly the same sky, and what a level is for is how wide it is, not its last per cent.
+    /// </summary>
+    static TextureData Pyramid(TextureData cube) {
+        var pyramid = new TextureData(PixelFormat.Rgba32Float, cube.Width, cube.Height, faceCount: CubeMap.Faces);
+
+        for (var face = 0; face < CubeMap.Faces; face++) {
+            for (var y = 0; y < cube.Height; y++) {
+                for (var x = 0; x < cube.Width; x++) {
+                    CubeMap.WriteTexel(pyramid, 0, face, x, y, CubeMap.ReadTexel(cube, 0, face, x, y));
+                }
+            }
+        }
+
+        for (var level = 1; level < pyramid.LevelCount; level++) {
+            var above = pyramid.Levels[level - 1].Width;
+            var size = pyramid.Levels[level].Width;
+
             for (var face = 0; face < CubeMap.Faces; face++) {
                 for (var y = 0; y < size; y++) {
                     for (var x = 0; x < size; x++) {
-                        var normal = CubeMap.DirectionOfTexel(face, x, y, size);
-                        CubeMap.WriteTexel(prefiltered, level, face, x, y, Convolve(cube, normal, roughness, samples));
+                        var left = Math.Min(2 * x, above - 1);
+                        var right = Math.Min((2 * x) + 1, above - 1);
+                        var top = Math.Min(2 * y, above - 1);
+                        var bottom = Math.Min((2 * y) + 1, above - 1);
+                        var mean = (CubeMap.ReadTexel(pyramid, level - 1, face, left, top)
+                                + CubeMap.ReadTexel(pyramid, level - 1, face, right, top)
+                                + CubeMap.ReadTexel(pyramid, level - 1, face, left, bottom)
+                                + CubeMap.ReadTexel(pyramid, level - 1, face, right, bottom))
+                            * 0.25f;
+                        CubeMap.WriteTexel(pyramid, level, face, x, y, mean);
                     }
                 }
             }
         }
 
-        return prefiltered;
+        return pyramid;
     }
 
     /// <summary>What roughness a prefiltered level stands for.</summary>
@@ -86,9 +148,11 @@ public static class EnvironmentPrefilter {
     ///     makes a prefiltered cube possible at all, and the reason a grazing reflection off a rough
     ///     surface is stretched in reality and round here.
     /// </summary>
-    static Vector3 Convolve(TextureData cube, Vector3 normal, float roughness, int samples) {
+    static Vector3 Convolve(TextureData pyramid, Vector3 normal, float roughness, int samples) {
         var total = Vector3.Zero;
         var weight = 0f;
+        var alpha = roughness * roughness;
+        var texel = 4f * MathF.PI / (CubeMap.Faces * pyramid.Width * pyramid.Width);
 
         for (var sample = 0; sample < samples; sample++) {
             var half = ImportanceSampleGgx(Hammersley(sample, samples), roughness, normal);
@@ -99,11 +163,65 @@ public static class EnvironmentPrefilter {
                 continue;
             }
 
-            total += CubeMap.Sample(cube, 0, light) * cosine;
+            // The density of this direction is D(h)·(n·h) / (4·(v·h)), and with n = v the two dots
+            // cancel. A sample stands for a solid angle of one over its density and the count, and
+            // the level whose texels are that wide is half the log of the ratio, plus Křivánek's one
+            // level of bias, which trades a little blur for no aliasing.
+            var density = Ggx(Vector3.Dot(normal, half), alpha) * 0.25f;
+            var share = 1f / (samples * Math.Max(density, 1e-6f));
+            var level = Math.Clamp((0.5f * MathF.Log2(share / texel)) + 1f, 0f, pyramid.LevelCount - 1);
+
+            total += Sample(pyramid, level, light) * cosine;
             weight += cosine;
         }
 
-        return weight > 0f ? total / weight : CubeMap.Sample(cube, 0, normal);
+        return weight > 0f ? total / weight : CubeMap.Sample(pyramid, 0, normal);
+    }
+
+    /// <summary>The GGX distribution, for the density of the sample <see cref="ImportanceSampleGgx" /> drew.</summary>
+    static float Ggx(float cosine, float alpha) {
+        var squared = alpha * alpha;
+        var denominator = (cosine * cosine * (squared - 1f)) + 1f;
+        return squared / (MathF.PI * denominator * denominator);
+    }
+
+    /// <summary>
+    ///     A direction read between two levels and between four texels, so neither the level a sample
+    ///     wants nor where it lands need be whole. Nearest would undo the filter: at a coarse level a
+    ///     sample just off the sun's texel reads nothing and one just on it reads all of it.
+    /// </summary>
+    static Vector3 Sample(TextureData pyramid, float level, Vector3 direction) {
+        var below = (int)level;
+        var part = level - below;
+        var (face, u, v) = CubeMap.FaceOf(direction);
+        var near = Bilinear(pyramid, below, face, u, v);
+        return part <= 0f || below + 1 >= pyramid.LevelCount
+            ? near
+            : Vector3.Lerp(near, Bilinear(pyramid, below + 1, face, u, v), part);
+    }
+
+    /// <summary>Four texels of one face, clamped at its edges, as <see cref="CubeMap.Sample" /> is.</summary>
+    static Vector3 Bilinear(TextureData pyramid, int level, int face, float u, float v) {
+        var size = pyramid.Levels[level].Width;
+        var x = Math.Clamp(((u + 1f) * 0.5f * size) - 0.5f, 0f, size - 1);
+        var y = Math.Clamp(((v + 1f) * 0.5f * size) - 0.5f, 0f, size - 1);
+        var left = (int)x;
+        var top = (int)y;
+        var right = Math.Min(left + 1, size - 1);
+        var bottom = Math.Min(top + 1, size - 1);
+        var across = x - left;
+        var down = y - top;
+        var upper = Vector3.Lerp(
+            CubeMap.ReadTexel(pyramid, level, face, left, top),
+            CubeMap.ReadTexel(pyramid, level, face, right, top),
+            across
+        );
+        var lower = Vector3.Lerp(
+            CubeMap.ReadTexel(pyramid, level, face, left, bottom),
+            CubeMap.ReadTexel(pyramid, level, face, right, bottom),
+            across
+        );
+        return Vector3.Lerp(upper, lower, down);
     }
 
     /// <summary>
