@@ -72,6 +72,9 @@ public class ShaderGraphSourceTests : IDisposable {
     ///     compile. The digest was captured on master at 5f03c9b80, before <c>ShaderGraphSources</c>
     ///     left <c>Vixen.Editor.Assets</c>; a change to the emitter changes it, and says so in the same
     ///     commit.
+    ///     ⚠ <b>Hashed with its line endings as <c>\n</c>.</b> The emitter writes
+    ///     <c>Environment.NewLine</c>, and the digest first pinned here was Windows' CRLF text, so the
+    ///     test was red on every Linux and macOS run from the day it landed.
     /// </remarks>
     [Fact]
     public void The_raven_a_surface_graph_compiles_to_is_pinned() {
@@ -85,13 +88,13 @@ public class ShaderGraphSourceTests : IDisposable {
         });
 
         var compiled = Assert.Single(ShaderGraphSources.All(root));
-        var digest = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(compiled.Text)));
+        var digest = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(compiled.Text.ReplaceLineEndings("\n"))));
 
         Assert.True(compiled.Compiled, string.Join("; ", compiled.Diagnostics));
         Assert.True(digest == PaintedDigest, $"Painted compiled to {digest}, and to {PaintedDigest} before the move.\n{compiled.Text}");
     }
 
-    const string PaintedDigest = "D2DBA6CF094F670EEA8C6B4F2D25EF8F3F5CB053D89C6C57A0341326DC583A11";
+    const string PaintedDigest = "0F17BE7633A306DF38867614EA20E63BF675455A8129F2CD9F9868A02EEF2006";
 
     /// <summary>A standalone graph is skipped rather than refused.</summary>
     /// <remarks>
