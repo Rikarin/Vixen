@@ -70,8 +70,12 @@ public static class EnvironmentPrefilter {
             var roughness = prefiltered.LevelCount == 1 ? 0f : (float)level / (prefiltered.LevelCount - 1);
             var size = prefiltered.Levels[level].Width;
 
-            for (var face = 0; face < CubeMap.Faces; face++) {
-                for (var y = 0; y < size; y++) {
+            // Rows in parallel: each writes its own texels and reads only the pyramid, which is finished.
+            Parallel.For(
+                0,
+                CubeMap.Faces * size,
+                row => {
+                    var (face, y) = Math.DivRem(row, size);
                     for (var x = 0; x < size; x++) {
                         var normal = CubeMap.DirectionOfTexel(face, x, y, size);
                         CubeMap.WriteTexel(
@@ -84,7 +88,7 @@ public static class EnvironmentPrefilter {
                         );
                     }
                 }
-            }
+            );
         }
 
         return prefiltered;
