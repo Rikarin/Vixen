@@ -77,7 +77,13 @@ public sealed class TextureCompoundLibraryTests : IDisposable {
         var used = graph.Add(path);
         var output = graph.Add("Output/Output");
 
-        graph.Connect(new(used.Id, "Out"), new(output.Id, "Input"));
+        // The first image output, which is "Out" for every compound but one with several: Utility/Frequency
+        // Split's are Low and High, and a compound is read by what it hands on first.
+        var first = registry.Types.Single(type => type.Path == path)
+            .Ports.First(static port => port is { Direction: PortDirection.Output, Kind: PortKind.Image })
+            .Name;
+
+        graph.Connect(new(used.Id, first), new(output.Id, "Input"));
 
         // Whatever image inputs the compound declares get a source, because an unwired one is a
         // TG0002 about the containing graph rather than about the compound — and the point of these
@@ -197,9 +203,9 @@ public sealed class TextureCompoundLibraryTests : IDisposable {
         // one row where the plan and the folder legitimately disagree says why in both places.
         var rows = new (string Folder, string[] Marked, string Why)[] {
                 ("Utility/", [
-                    "Contrast Luminosity", "Equalize", "Glow", "Highpass", "Histogram Range", "Histogram Scan",
-                    "Histogram Select", "Make It Tile", "Safe Transform"
-                ], "§ 4.9's Utility row marks nine ●. ⚠ `Equalize` is the one written there as "
+                    "Contrast Luminosity", "Equalize", "Frequency Split", "Glow", "Highpass", "Histogram Range",
+                    "Histogram Scan", "Histogram Select", "Make It Tile", "Safe Transform"
+                ], "§ 4.9's Utility row marks ten ●, Frequency Split Patina #176's. ⚠ `Equalize` is the one written there as "
                     + "'Delight / Equalize' — one compound under both of doc 40 § D2's names, not two"),
                 ("Patterns/", [
                     "Brick", "Cells", "Hex Cells", "Panels", "Rivets", "Scratches", "Stripes", "Tile Random",
@@ -215,9 +221,9 @@ public sealed class TextureCompoundLibraryTests : IDisposable {
                 ], "§ 4.9's Grunges row is the one that used to be a single ● 'family of eight' — it now "
                     + "names them, so the glyph count and the compound count cannot drift apart again"),
                 ("Surface/", [
-                    "Bevel", "Curvature Smooth", "Height Blend", "Height to AO", "Metal Reflectance"
-                ], "§ 4.9's Surface row marks five ●, and Metal Reflectance stopped being refused on "
-                    + "2026-09-09 when #1096's atomic node landed"),
+                    "Bevel", "Bevel Height", "Curvature Smooth", "Height Blend", "Height to AO", "Metal Reflectance"
+                ], "§ 4.9's Surface row marks six ●, and Metal Reflectance stopped being refused on "
+                    + "2026-09-09 when #1096's atomic node landed; Bevel Height is Patina #176's"),
                 ("Generators/", [
                     "Curvature Edge Wear", "Dirt", "Dust", "Grunge Rough Dirty", "Mask Editor",
                     "Metal Edge Wear", "Position Gradient"

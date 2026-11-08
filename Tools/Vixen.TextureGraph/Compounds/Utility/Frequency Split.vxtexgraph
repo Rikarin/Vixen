@@ -1,0 +1,67 @@
+version: 1
+name: Frequency Split
+nodes:
+  - id: 1
+    type: Sub-graph/Input
+    x: -640
+    y: 0
+    values: {}
+    texts: {}
+  - id: 2
+    type: Filters/Blur HQ
+    x: -320
+    y: -160
+    values: {}
+    texts: {}
+  - id: 3
+    type: Colour/Invert
+    x: 0
+    y: 160
+    values: {}
+    texts: {}
+  - id: 4
+    type: Colour/Blend
+    x: 320
+    y: 160
+    values:
+      Opacity: [0.5]
+    texts: { Mode: Copy }
+  - id: 5
+    type: Sub-graph/Output
+    x: 640
+    y: 0
+    values: {}
+    texts: {}
+edges:
+  - { fromNode: 1, fromPort: Input, toNode: 2, toPort: Input }
+  - { fromNode: 1, fromPort: Sigma, toNode: 2, toPort: Sigma }
+  - { fromNode: 2, fromPort: Out, toNode: 3, toPort: Input }
+  - { fromNode: 1, fromPort: Input, toNode: 4, toPort: Background }
+  - { fromNode: 3, fromPort: Out, toNode: 4, toPort: Foreground }
+  - { fromNode: 2, fromPort: Out, toNode: 5, toPort: Low }
+  - { fromNode: 4, fromPort: Out, toNode: 5, toPort: High }
+groups: []
+comments: []
+interface:
+  - name: Input
+    direction: Input
+    kind: Image
+    default: []
+    summary: The picture to split into its broad shapes and its detail.
+  - name: Sigma
+    direction: Input
+    kind: Float
+    default: [8]
+    summary: Where the split falls — the blur's sigma, in texels at the base resolution. Larger moves more of the picture into the detail.
+  - name: Low
+    direction: Output
+    kind: Image
+    default: []
+    summary: The broad shapes — the picture blurred.
+  - name: High
+    direction: Output
+    kind: Image
+    default: []
+    summary: The detail about a mid grey — half the picture less half its blur, plus a half. Low plus twice High less one is the picture again.
+settings: { baseWidth: '1024', baseHeight: '1024', seed: '1' }
+parameters: []

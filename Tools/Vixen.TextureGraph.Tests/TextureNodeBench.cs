@@ -42,6 +42,7 @@ static class TextureNodeBench {
     /// <param name="configure">Sets the node's numbers and texts.</param>
     /// <param name="seed">The graph's seed.</param>
     /// <param name="tiling">Whether the graph tiles, which is what a graph that says nothing does.</param>
+    /// <param name="output">Which of the subject's outputs is read.</param>
     /// <returns>The output, as floats.</returns>
     public static Lanes Bake(
         VulkanDevice device,
@@ -51,7 +52,8 @@ static class TextureNodeBench {
         Wire[] wires,
         Action<GraphNode>? configure = null,
         int seed = 7717,
-        bool tiling = true
+        bool tiling = true,
+        string output = "Out"
     ) {
         NodeGraphModel graph = new();
 
@@ -90,7 +92,7 @@ static class TextureNodeBench {
         var sink = graph.Add("Output/Output");
 
         sink.SetText("Usage", "baseColor");
-        graph.Connect(new(subject.Id, "Out"), new(sink.Id, "Input"));
+        graph.Connect(new(subject.Id, output), new(sink.Id, "Input"));
 
         NodeTypeRegistry registry = new();
 
@@ -126,7 +128,7 @@ static class TextureNodeBench {
         using var evaluator = new TexturePlanEvaluator(device);
         using var bake = evaluator.Evaluate(plan, uploads.Externals);
 
-        return new(bake.ReadRaw(compiler.Outputs.Single(output => output.Usage == "baseColor").Image));
+        return new(bake.ReadRaw(compiler.Outputs.Single(kept => kept.Usage == "baseColor").Image));
     }
 
     /// <summary>An RGBA8 picture from a function of the texel.</summary>

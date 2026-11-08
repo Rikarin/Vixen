@@ -1,0 +1,64 @@
+version: 1
+name: Bevel Height
+nodes:
+  - id: 1
+    type: Sub-graph/Input
+    x: -640
+    y: 0
+    values: {}
+    texts: {}
+  - id: 2
+    type: Analysis/Distance
+    x: -320
+    y: 0
+    values:
+      Threshold: [0.5]
+    texts:
+      Mode: Inside
+      '=Max Distance': 0.004f + width * 0.2f
+  - id: 3
+    type: Colour/Levels
+    x: 0
+    y: 0
+    values: {}
+    texts:
+      '=Gamma': 0.3f + profile * 1.7f
+  - id: 4
+    type: Sub-graph/Output
+    x: 320
+    y: 0
+    values: {}
+    texts: {}
+edges:
+  - { fromNode: 1, fromPort: Mask, toNode: 2, toPort: Mask }
+  - { fromNode: 2, fromPort: Out, toNode: 3, toPort: Input }
+  - { fromNode: 3, fromPort: Out, toNode: 4, toPort: Out }
+groups: []
+comments: []
+interface:
+  - name: Mask
+    direction: Input
+    kind: Image
+    default: []
+    summary: The shape to bevel. A single channel — above the threshold is inside.
+  - name: Out
+    direction: Output
+    kind: Image
+    default: []
+    summary: The bevel as a height — nought outside the shape, rising over the bevel's width to one inside it. Surface/Bevel's normal is this through Height to Normal.
+settings: { baseWidth: '1024', baseHeight: '1024', seed: '1' }
+parameters:
+  - name: width
+    default: '0.15'
+    summary: How far in from the shape's edge the rise reaches, as a fraction of the image — Surface/Bevel's own.
+    kind: Float
+    minimum: 0
+    maximum: 1
+    group: Bevel
+  - name: profile
+    default: '0.5'
+    summary: The rise's shape — low is a rounded lip, high is a long ramp. Surface/Bevel's own.
+    kind: Float
+    minimum: 0
+    maximum: 1
+    group: Bevel
