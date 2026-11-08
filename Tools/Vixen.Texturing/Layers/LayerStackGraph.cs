@@ -278,7 +278,9 @@ public static class LayerStackGraph {
         }
 
         Builder builder = new(stack, LayerStackInstances.Resolve(stack, set, out var found), registry) {
-            Drafting = draft, SubGraphs = subGraphs, Found = found
+            Drafting = draft,
+            SubGraphs = subGraphs,
+            Found = found
         };
 
         return builder.Run();
@@ -334,7 +336,9 @@ public static class LayerStackGraph {
         }
 
         Builder builder = new(stack, LayerStackInstances.Resolve(stack, set, out var found), registry) {
-            Weighing = true, SubGraphs = subGraphs, Found = found
+            Weighing = true,
+            SubGraphs = subGraphs,
+            Found = found
         };
 
         return builder.Run();

@@ -94,7 +94,7 @@ public static class LayerStackInstances {
         }
 
         foreach (var instance in Walk([layer])) {
-            if (Reaches(stack, Key(at.Set, instance.Instance), [..seen], depth + 1)) {
+            if (Reaches(stack, Key(at.Set, instance.Instance), [.. seen], depth + 1)) {
                 return true;
             }
         }
@@ -125,7 +125,7 @@ public static class LayerStackInstances {
         List<LayerAsset> layers,
         List<(string, string)> path,
         List<LayerStackProblem> problems
-    ) => [..layers.Select(layer => Layer(stack, set, layer, path, problems))];
+    ) => [.. layers.Select(layer => Layer(stack, set, layer, path, problems))];
 
     static LayerAsset Layer(
         LayerStackAsset stack,
@@ -168,7 +168,7 @@ public static class LayerStackInstances {
         }
 
         // The source as it compiles, instances inside it resolved in its own set.
-        var resolved = Layer(stack, key.Set, source, [..path, key], problems);
+        var resolved = Layer(stack, key.Set, source, [.. path, key], problems);
 
         return Prefixed(resolved, layer.Id) with {
             Id = layer.Id,
