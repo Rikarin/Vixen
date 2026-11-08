@@ -253,7 +253,7 @@ public class PaintMeshSurfaceTests {
         var view = Facing(4f, 512);
         PaintImage image = new(Side, Side);
 
-        Stroke(image, surface, surface.Through(view, PaintSymmetry.X), 0).MoveTo(new(150f, 256f));
+        Stroke(image, surface, surface.Through(view, PaintSymmetryGroup.Mirror(PaintSymmetry.X)), 0).MoveTo(new(150f, 256f));
 
         var left = Columns(image, 89, 0, 128);
         var right = Columns(image, 89, 128, Side);
