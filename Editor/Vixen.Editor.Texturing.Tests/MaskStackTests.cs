@@ -286,6 +286,7 @@ public class MaskStackTests(ITestOutputHelper output) {
                     Layers = [
                         new() {
                             Id = "under",
+                            AnchorPoint = "under",
                             Kind = LayerKind.Fill,
                             Values = { ["baseColor"] = [1f, 1f, 1f, 1f] },
                             Mask = new() {
@@ -294,7 +295,7 @@ public class MaskStackTests(ITestOutputHelper output) {
                                 Layers = [
                                     new() {
                                         Source = LayerMaskSource.Anchor,
-                                        Anchor = "over",
+                                        Anchor = new() { Anchor = "over", Channel = "baseColor" },
                                         Blend = LayerBlendMode.Multiply
                                     }
                                 ]
@@ -302,6 +303,7 @@ public class MaskStackTests(ITestOutputHelper output) {
                         },
                         new() {
                             Id = "over",
+                            AnchorPoint = "over",
                             Kind = LayerKind.Fill,
                             Values = { ["baseColor"] = [1f, 0f, 0f, 1f] }
                         }
@@ -343,11 +345,13 @@ public class MaskStackTests(ITestOutputHelper output) {
                     Layers = [
                         new() {
                             Id = "under",
+                            AnchorPoint = "under",
                             Kind = LayerKind.Fill,
                             Values = { ["baseColor"] = [1f, 0f, 0f, 1f] }
                         },
                         new() {
                             Id = "over",
+                            AnchorPoint = "over",
                             Kind = LayerKind.Fill,
                             Values = { ["baseColor"] = [1f, 1f, 1f, 1f] },
                             Mask = new() {
@@ -356,7 +360,7 @@ public class MaskStackTests(ITestOutputHelper output) {
                                 Layers = [
                                     new() {
                                         Source = LayerMaskSource.Anchor,
-                                        Anchor = "under",
+                                        Anchor = new() { Anchor = "under", Channel = "baseColor" },
                                         Blend = LayerBlendMode.Multiply
                                     }
                                 ]

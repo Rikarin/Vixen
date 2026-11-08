@@ -19,6 +19,12 @@ public enum LayerKind {
     Filter = 2,
 
     /// <summary>A stack with one mask, which is how twenty layers stay legible.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A group whose <see cref="LayerAsset.Paint" /> names a canvas is <em>flattened</em></b> (Patina #107):
+    ///     it composites that canvas, per channel, where its children's composite would go, and its children are kept,
+    ///     unread, as the way back. The canvas is a cache of what <see cref="LayerStackGraph.Capture" /> evaluated when
+    ///     it was flattened, so editing a child of a flattened group changes nothing until it is unflattened.
+    /// </remarks>
     Group = 3
 }
 
@@ -159,7 +165,13 @@ public enum LayerFillSource {
     ///     this is worth a line rather than a deletion: the next author who wants a graph fill reads
     ///     it, believes the feature is owed, and builds a second path to it.
     /// </remarks>
-    Graph = 2
+    Graph = 2,
+
+    /// <summary>
+    ///     A named anchor point, read through <see cref="LayerAsset.Anchor" />: the stack as it stood at that point, in
+    ///     the channel <see cref="AnchorReference.Channel" /> names or, when it names none, in the channel being written.
+    /// </summary>
+    Anchor = 3
 }
 
 /// <summary>Which adjustment a filter layer applies to everything under it.</summary>
@@ -240,9 +252,14 @@ public enum LayerMaskSource {
     Texture = 2,
 
     /// <summary>
-    ///     Another layer's evaluated result, by <see cref="LayerAsset.Id" /> — what makes the stack a
-    ///     DAG rather than a list.
+    ///     A named anchor point — <see cref="LayerAsset.AnchorPoint" /> — read in one channel the reference chooses, so a
+    ///     mask is one picture whatever channel is being built. What makes the stack a DAG rather than a list.
     /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>It named a layer by id and read it in the channel being built</b> (Patina #111), so one mask was a
+    ///     different picture under every channel — under roughness it was the stack's roughness — and a layer that
+    ///     wrote nothing to one channel refused the whole compile. A reference now names an anchor point and a channel.
+    /// </remarks>
     Anchor = 3,
 
     /// <summary>
@@ -345,6 +362,31 @@ public enum LayerBlendMode {
     SignedAdd = 15
 }
 
+/// <summary>A reference to a named anchor point, in one of the set's channels.</summary>
+/// <remarks>
+///     <para>
+///         <b>What an anchor point is.</b> A layer whose <see cref="LayerAsset.AnchorPoint" /> names one publishes the
+///         stack as it stands just above that layer — the composite of everything up to and including it, in its own
+///         group — in every channel of the set, whether or not that layer writes the channel. A reference reads that
+///         picture in <see cref="Channel" />.
+///     </para>
+///     <para>
+///         ⚠ <b>The name and never the layer's id</b> (Patina #111). An id is stable and unreadable; a name is what an
+///         artist chose and what a list of references can show, and it travels with a copy of the layer into another
+///         stack, where ids are re-minted.
+///     </para>
+/// </remarks>
+public sealed record AnchorReference {
+    /// <summary>The <see cref="LayerAsset.AnchorPoint" /> read.</summary>
+    public string Anchor { get; init; } = "";
+
+    /// <summary>
+    ///     The channel read, by usage. Empty means the channel being built, which only a fill or a filter layer's
+    ///     input may say: a mask, a generator or a mask effect reading it would be another picture in every channel.
+    /// </summary>
+    public string Channel { get; init; } = "";
+}
+
 /// <summary>One entry in a mask's own small stack.</summary>
 /// <remarks>
 ///     <para>
@@ -368,8 +410,8 @@ public sealed record MaskLayerAsset {
     /// <summary>The imported image, for <see cref="LayerMaskSource.Texture" />.</summary>
     public string Asset { get; init; } = "";
 
-    /// <summary>The <see cref="LayerAsset.Id" /> read, for <see cref="LayerMaskSource.Anchor" />.</summary>
-    public string Anchor { get; init; } = "";
+    /// <summary>The anchor point read, and in which channel, for <see cref="LayerMaskSource.Anchor" />.</summary>
+    public AnchorReference Anchor { get; init; } = new();
 
     /// <summary>
     ///     The published compound's node-type path, for <see cref="LayerMaskSource.Generator" /> —
@@ -382,6 +424,9 @@ public sealed record MaskLayerAsset {
 
     /// <summary>The generator's settings, by the setting name its compound exposes.</summary>
     public Dictionary<string, string> GeneratorTexts { get; init; } = [];
+
+    /// <summary>The generator's image inputs, by port name, each read from an anchor point.</summary>
+    public Dictionary<string, AnchorReference> GeneratorInputs { get; init; } = [];
 
     /// <summary>What the map measures, for <see cref="LayerMaskSource.Bake" />.</summary>
     /// <remarks>
@@ -436,6 +481,11 @@ public sealed record MaskEffectAsset {
 
     /// <summary>Its settings, by the setting name the node declares.</summary>
     public Dictionary<string, string> Texts { get; init; } = [];
+
+    /// <summary>
+    ///     Its other image inputs, by port name, each read from an anchor point. The mask goes into the one input left.
+    /// </summary>
+    public Dictionary<string, AnchorReference> Inputs { get; init; } = [];
 }
 
 /// <summary>One layer's mask: a base, a small stack over it, and the effects on the result.</summary>
@@ -464,8 +514,8 @@ public sealed record MaskAsset {
     /// <summary>The imported image, for <see cref="LayerMaskSource.Texture" />.</summary>
     public string Asset { get; init; } = "";
 
-    /// <summary>The <see cref="LayerAsset.Id" /> read, for <see cref="LayerMaskSource.Anchor" />.</summary>
-    public string Anchor { get; init; } = "";
+    /// <summary>The anchor point read, and in which channel, for <see cref="LayerMaskSource.Anchor" />.</summary>
+    public AnchorReference Anchor { get; init; } = new();
 
     /// <summary>
     ///     The <c>.vxpaint</c> holding this mask's painted pixels, relative to the stack. Empty for a
@@ -489,6 +539,9 @@ public sealed record MaskAsset {
 
     /// <summary>The generator's settings, by the setting name its compound exposes.</summary>
     public Dictionary<string, string> GeneratorTexts { get; init; } = [];
+
+    /// <summary>The generator's image inputs, by port name, each read from an anchor point.</summary>
+    public Dictionary<string, AnchorReference> GeneratorInputs { get; init; } = [];
 
     /// <summary>What the map measures, for a base of <see cref="LayerMaskSource.Bake" />.</summary>
     public string Map { get; init; } = "";
@@ -522,16 +575,22 @@ public sealed record MaskAsset {
 ///     </para>
 /// </remarks>
 public sealed record LayerAsset {
-    /// <summary>A stable identity, unique in the stack. What an anchor names.</summary>
+    /// <summary>A stable identity, unique in the stack. What every editing command names.</summary>
     /// <remarks>
     ///     ⚠ <b>Stable across renames and across reorders, which is why it is not the name and not
-    ///     the index.</b> An anchor is a reference into the same file, and both of the obvious keys
-    ///     move when an artist drags a layer.
+    ///     the index.</b> ⚠ An anchor used to name a layer by this id; it names an <see cref="AnchorPoint" /> now
+    ///     (Patina #111), which is what an artist can read and what survives a copy into another stack.
     /// </remarks>
     public string Id { get; init; } = "";
 
     /// <summary>What the artist calls it.</summary>
     public string Name { get; init; } = "";
+
+    /// <summary>
+    ///     The name of the anchor point this layer publishes, or empty for none. Unique in the set. See
+    ///     <see cref="AnchorReference" /> for what a reference reads.
+    /// </summary>
+    public string AnchorPoint { get; init; } = "";
 
     /// <summary>Which of the four kinds.</summary>
     public LayerKind Kind { get; init; } = LayerKind.Fill;
@@ -597,6 +656,15 @@ public sealed record LayerAsset {
 
     /// <summary>The published graph a <see cref="LayerFillSource.Graph" /> fill reads.</summary>
     public string Graph { get; init; } = "";
+
+    /// <summary>The anchor point a <see cref="LayerFillSource.Anchor" /> fill reads.</summary>
+    public AnchorReference Anchor { get; init; } = new();
+
+    /// <summary>
+    ///     Image inputs of a graph fill or a <see cref="FilterNode" /> filter, by port name, each read from an anchor
+    ///     point. A filter's own input is the one image input left, which reads the stack beneath it.
+    /// </summary>
+    public Dictionary<string, AnchorReference> Inputs { get; init; } = [];
 
     /// <summary>Which adjustment a <see cref="LayerKind.Filter" /> layer applies.</summary>
     /// <remarks>
@@ -701,9 +769,12 @@ public sealed record LayerAsset {
 
     /// <summary>
     ///     The <c>.vxpaint</c> holding a <see cref="LayerKind.Paint" /> layer's pixels, relative to
-    ///     the stack.
+    ///     the stack — or, on a <see cref="LayerKind.Group" />, the canvas that group is flattened into.
     /// </summary>
     public string Paint { get; init; } = "";
+
+    /// <summary>Whether this is a group flattened into a canvas, whose children are kept and not read.</summary>
+    public bool Flattened => Kind == LayerKind.Group && Paint.Trim().Length > 0;
 
     /// <summary>A group's layers, bottom first.</summary>
     public List<LayerAsset> Children { get; init; } = [];

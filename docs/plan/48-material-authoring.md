@@ -531,6 +531,24 @@ discarded on save.
 `NodeGraphModel` already refuses one as it is made. The stack compiles *through* the graph model, which
 is where that check lives, rather than growing its own.
 
+⚠ **An anchor is a named point and a channel, not a layer's id** (Patina #111). It used to read the
+anchored layer's result in the channel being built, so one mask was another picture under every channel
+— under roughness it was the stack's roughness — and a layer that wrote nothing to a channel refused the
+whole compile. A layer now publishes an `AnchorPoint` by name: the stack as it stands just above that
+layer, in every channel. An `AnchorReference` names the point and the channel it reads; a mask, a
+generator's input and a mask effect's input must name one, and a fill or a filter's input may leave it
+empty to mean the channel being written. Fills (`LayerFillSource.Anchor`), the image inputs of graph
+fills, filter nodes, generators and mask effects all read one. `LayerStackEdit.AnchorUses` is the list of
+who reads what, and `Reanchored` is what a rename rewrites. `AnchorReference` and `LayerAnchorUse` are
+exempt from the guide for now, as `LayerPlacement` is.
+
+⚠ **A group can be flattened, keeping its children** (Patina #107). A group whose `Paint` names a
+canvas composites that canvas where its children's composite would go, under its own mask, opacity and
+blend; its children stay, unread, as the way back. `LayerStackGraph.Capture` is the build that makes the
+canvas: every output is the group's own composite, isolated, or with its backdrop for a pass-through
+group at the bottom of a set whose children read beneath them. `LayerStackEdit.CanFlatten` refuses any
+other group whose picture no canvas could hold, and a group whose anchor points something outside reads.
+
 ### D11. Texture sets, channels, and the write
 
 A **texture set** is a material slot on the mesh. A **channel** is one output map; the default set is

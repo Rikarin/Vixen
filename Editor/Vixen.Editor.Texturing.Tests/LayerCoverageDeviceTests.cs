@@ -447,6 +447,7 @@ public class LayerCoverageDeviceTests(ITestOutputHelper output) {
                 Children = [
                     new() {
                         Id = "inner",
+                        AnchorPoint = "inner",
                         Kind = LayerKind.Fill,
                         Values = { ["baseColor"] = [1f, 1f, 1f, 1f] },
                         Mask = new() { Source = LayerMaskSource.Constant, Value = coverage }
@@ -457,7 +458,7 @@ public class LayerCoverageDeviceTests(ITestOutputHelper output) {
                 Id = "ink",
                 Kind = LayerKind.Fill,
                 Values = { ["baseColor"] = [0f, 0f, 0f, 1f] },
-                Mask = new() { Source = LayerMaskSource.Anchor, Anchor = "inner" }
+                Mask = new() { Source = LayerMaskSource.Anchor, Anchor = new() { Anchor = "inner", Channel = "baseColor" } }
             }
         );
 

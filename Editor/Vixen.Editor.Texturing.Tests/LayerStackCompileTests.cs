@@ -327,6 +327,7 @@ public class LayerStackCompileTests {
     public void A_mask_multiplies_into_the_foregrounds_alpha() {
         var stack = One(new() {
             Id = "l",
+            AnchorPoint = "l",
             Kind = LayerKind.Fill,
             Values = { ["baseColor"] = Opaque },
             Mask = new() { Source = LayerMaskSource.Bake, Map = "curvature" }
@@ -376,6 +377,7 @@ public class LayerStackCompileTests {
     public void A_constant_fills_alpha_folds_into_the_opacity() {
         var stack = One(new() {
             Id = "l",
+            AnchorPoint = "l",
             Kind = LayerKind.Fill,
             Opacity = 0.5f,
             Values = { ["baseColor"] = [1f, 1f, 1f, 0.4f] },
@@ -422,6 +424,7 @@ public class LayerStackCompileTests {
     public void A_constant_mask_costs_five_ops_and_folds_to_none_of_them() {
         var masked = One(new() {
             Id = "l",
+            AnchorPoint = "l",
             Kind = LayerKind.Fill,
             Values = { ["baseColor"] = Opaque },
             Mask = new() { Source = LayerMaskSource.Constant, Value = 0.25f }
@@ -446,6 +449,7 @@ public class LayerStackCompileTests {
         // is exactly what a constant mask used to cost.
         var kept = One(new() {
             Id = "l",
+            AnchorPoint = "l",
             Kind = LayerKind.Fill,
             Values = { ["baseColor"] = Opaque },
             Mask = new() { Source = LayerMaskSource.Bake, Map = "curvature" }
@@ -470,6 +474,7 @@ public class LayerStackCompileTests {
         foreach (var (opacity, mask) in new[] { (2f, 0.5f), (0.5f, 2f), (-1f, 0.5f) }) {
             var stack = One(new() {
                 Id = "l",
+                AnchorPoint = "l",
                 Kind = LayerKind.Fill,
                 Opacity = opacity,
                 Values = { ["baseColor"] = Opaque },
@@ -498,12 +503,12 @@ public class LayerStackCompileTests {
     [Fact]
     public void An_anchor_reads_a_layer_beneath_it() {
         var stack = Stack(
-            new() { Id = "under", Kind = LayerKind.Fill, Values = { ["baseColor"] = Opaque } },
+            new() { Id = "under", AnchorPoint = "under", Kind = LayerKind.Fill, Values = { ["baseColor"] = Opaque } },
             new() {
                 Id = "over",
                 Kind = LayerKind.Fill,
                 Values = { ["baseColor"] = Opaque },
-                Mask = new() { Source = LayerMaskSource.Anchor, Anchor = "under" }
+                Mask = new() { Source = LayerMaskSource.Anchor, Anchor = new() { Anchor = "under", Channel = "baseColor" } }
             }
         );
 
@@ -549,9 +554,9 @@ public class LayerStackCompileTests {
                 Id = "under",
                 Kind = LayerKind.Fill,
                 Values = { ["baseColor"] = Opaque },
-                Mask = new() { Source = LayerMaskSource.Anchor, Anchor = "over" }
+                Mask = new() { Source = LayerMaskSource.Anchor, Anchor = new() { Anchor = "over", Channel = "baseColor" } }
             },
-            new() { Id = "over", Kind = LayerKind.Fill, Values = { ["baseColor"] = Opaque } }
+            new() { Id = "over", AnchorPoint = "over", Kind = LayerKind.Fill, Values = { ["baseColor"] = Opaque } }
         );
 
         var compilation = LayerStackCompiler.Compile(stack, stack.Sets[0]);
@@ -569,9 +574,10 @@ public class LayerStackCompileTests {
     public void A_layer_anchored_to_itself_is_refused() {
         var stack = One(new() {
             Id = "self",
+            AnchorPoint = "self",
             Kind = LayerKind.Fill,
             Values = { ["baseColor"] = Opaque },
-            Mask = new() { Source = LayerMaskSource.Anchor, Anchor = "self" }
+            Mask = new() { Source = LayerMaskSource.Anchor, Anchor = new() { Anchor = "self", Channel = "baseColor" } }
         });
 
         var compilation = LayerStackCompiler.Compile(stack, stack.Sets[0]);
@@ -639,6 +645,7 @@ public class LayerStackCompileTests {
     public void A_triplanar_fill_projects_through_the_position_and_world_bakes() {
         var stack = One(new() {
             Id = "l",
+            AnchorPoint = "l",
             Kind = LayerKind.Fill,
             Fill = LayerFillSource.Texture,
             Textures = { ["baseColor"] = "Assets/Rust.png" },
@@ -674,6 +681,7 @@ public class LayerStackCompileTests {
     public void A_planar_fill_reaches_the_kernel_as_one_axis_rather_than_a_blend() {
         var stack = One(new() {
             Id = "l",
+            AnchorPoint = "l",
             Kind = LayerKind.Fill,
             Fill = LayerFillSource.Texture,
             Textures = { ["baseColor"] = "Assets/Rust.png" },
@@ -724,6 +732,7 @@ public class LayerStackCompileTests {
     public void A_planar_layer_projects_along_the_axis_it_names(string axis, float expected) {
         var stack = One(new() {
             Id = "l",
+            AnchorPoint = "l",
             Kind = LayerKind.Fill,
             Fill = LayerFillSource.Texture,
             Textures = { ["baseColor"] = "Assets/Rust.png" },
@@ -753,6 +762,7 @@ public class LayerStackCompileTests {
     ) {
         var stack = One(new() {
             Id = "l",
+            AnchorPoint = "l",
             Kind = LayerKind.Fill,
             Fill = LayerFillSource.Texture,
             Textures = { ["baseColor"] = "Assets/Rust.png" },
@@ -779,6 +789,7 @@ public class LayerStackCompileTests {
     public void A_uv_layer_is_placed_only_when_it_says_so() {
         LayerAsset layer = new() {
             Id = "l",
+            AnchorPoint = "l",
             Kind = LayerKind.Fill,
             Fill = LayerFillSource.Texture,
             Textures = { ["baseColor"] = "Assets/Rust.png" }
@@ -797,6 +808,7 @@ public class LayerStackCompileTests {
     public void A_placement_on_a_constant_is_warned_about() {
         var stack = One(new() {
             Id = "l",
+            AnchorPoint = "l",
             Kind = LayerKind.Fill,
             Fill = LayerFillSource.Constant,
             Values = { ["baseColor"] = [1f, 0f, 0f, 1f] },
@@ -834,6 +846,7 @@ public class LayerStackCompileTests {
     public void An_axis_that_cannot_mean_anything_is_a_warning(bool triplanar, string axis) {
         var stack = One(new() {
             Id = "l",
+            AnchorPoint = "l",
             Kind = LayerKind.Fill,
             Fill = LayerFillSource.Texture,
             Textures = { ["baseColor"] = "Assets/Rust.png" },
@@ -874,6 +887,7 @@ public class LayerStackCompileTests {
     public void A_projection_that_cannot_mean_anything_is_a_warning(bool paint) {
         var stack = One(new() {
             Id = "l",
+            AnchorPoint = "l",
             Kind = paint ? LayerKind.Paint : LayerKind.Fill,
             Values = { ["baseColor"] = Opaque },
             Paint = "Body.paint.vxpaint",
@@ -902,6 +916,7 @@ public class LayerStackCompileTests {
     public void A_projected_layer_writes_its_own_scale_and_sharpness() {
         var stack = One(new() {
             Id = "l",
+            AnchorPoint = "l",
             Kind = LayerKind.Fill,
             Fill = LayerFillSource.Texture,
             Textures = { ["baseColor"] = "Assets/Rust.png" },
@@ -931,6 +946,7 @@ public class LayerStackCompileTests {
     public void A_number_no_projection_port_answers_to_is_dropped_and_reported() {
         var stack = One(new() {
             Id = "l",
+            AnchorPoint = "l",
             Kind = LayerKind.Fill,
             Fill = LayerFillSource.Texture,
             Textures = { ["baseColor"] = "Assets/Rust.png" },
@@ -953,6 +969,7 @@ public class LayerStackCompileTests {
     public void A_texture_fill_compiles_into_an_external() {
         var stack = One(new() {
             Id = "l",
+            AnchorPoint = "l",
             Kind = LayerKind.Fill,
             Fill = LayerFillSource.Texture,
             Textures = { ["baseColor"] = "Assets/Rust.png" }
@@ -989,13 +1006,14 @@ public class LayerStackCompileTests {
             new() { Source = LayerMaskSource.Anchor },
             new() { Source = LayerMaskSource.Generator },
             new() { Source = LayerMaskSource.Bake },
-            new() { Source = LayerMaskSource.Anchor, Anchor = "gone" }
+            new() { Source = LayerMaskSource.Anchor, Anchor = new() { Anchor = "gone", Channel = "baseColor" } }
         ];
         LayerAsset[] layers = [
             new() { Id = "l", Kind = LayerKind.Fill, Fill = LayerFillSource.Texture },
             new() { Id = "l", Kind = LayerKind.Fill, Fill = LayerFillSource.Graph },
             ..masks.Select(static mask => new LayerAsset {
                     Id = "l",
+                    AnchorPoint = "l",
                     Kind = LayerKind.Fill,
                     Values = { ["baseColor"] = [1f, 0f, 0f, 1f] },
                     Mask = mask
@@ -1019,9 +1037,10 @@ public class LayerStackCompileTests {
         var stack = One(
             new() {
                 Id = "l",
+                AnchorPoint = "l",
                 Kind = LayerKind.Fill,
                 Values = { ["baseColor"] = [1f, 0f, 0f, 1f] },
-                Mask = new() { Source = LayerMaskSource.Anchor, Anchor = "l" }
+                Mask = new() { Source = LayerMaskSource.Anchor, Anchor = new() { Anchor = "l", Channel = "baseColor" } }
             }
         );
 
@@ -1038,6 +1057,7 @@ public class LayerStackCompileTests {
     public void A_setting_a_filter_does_not_take_is_dropped_with_a_warning() {
         var stack = One(new() {
             Id = "l",
+            AnchorPoint = "l",
             Kind = LayerKind.Filter,
             Filter = LayerFilterKind.Blur,
             Settings = { ["Radius"] = [2f], ["Input"] = [0f] }

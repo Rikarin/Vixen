@@ -731,7 +731,7 @@ public class LayerStackEditingTests {
 
         var document = fixture.Project.Documents.OfType<LayerStackDocument>().Single();
 
-        Assert.Equal("", document.Document.Sets[0].Layers[1].Mask.Anchor);
+        Assert.Equal("", document.Document.Sets[0].Layers[1].Mask.Anchor.Anchor);
     }
 
     /// <summary>⚠ And the bottom layer of a stack is offered nothing to anchor onto.</summary>
@@ -1953,6 +1953,7 @@ public class LayerStackEditingTests {
             Fill("bottom", "Bottom", 0.25f),
             new LayerAsset {
                 Id = "top",
+                AnchorPoint = "top",
                 Name = "Top",
                 Kind = LayerKind.Fill,
                 Values = { ["baseColor"] = [1f, 1f, 1f, 1f] },
@@ -2362,7 +2363,7 @@ public class LayerStackEditingTests {
                 Name = "Middle",
                 Kind = LayerKind.Fill,
                 Values = { ["baseColor"] = [0.5f, 0.5f, 0.5f, 1f] },
-                Mask = new() { Source = LayerMaskSource.Anchor, Anchor = "bottom" }
+                Mask = new() { Source = LayerMaskSource.Anchor, Anchor = new() { Anchor = "bottom", Channel = "baseColor" } }
             },
             Fill("top", "Top", 0.75f)
         );
@@ -2377,10 +2378,11 @@ public class LayerStackEditingTests {
             [new() { Usage = "baseColor", Default = [0f, 0f, 0f, 1f] }],
             new LayerAsset {
                 Id = "bottom",
+                AnchorPoint = "bottom",
                 Name = "Bottom",
                 Kind = LayerKind.Fill,
                 Values = { ["baseColor"] = [0.25f, 0.25f, 0.25f, 1f] },
-                Mask = new() { Source = LayerMaskSource.Anchor, Anchor = "top" }
+                Mask = new() { Source = LayerMaskSource.Anchor, Anchor = new() { Anchor = "top", Channel = "baseColor" } }
             },
             Fill("top", "Top", 0.75f)
         );
@@ -2646,16 +2648,18 @@ public class LayerStackEditingTests {
             Fill("bottom", "Bottom", 0.2f),
             new LayerAsset {
                 Id = "g",
+                AnchorPoint = "g",
                 Name = "Group",
                 Kind = LayerKind.Group,
                 Children = [
                     Fill("inner", "Inner", 0.4f),
                     new LayerAsset {
                         Id = "child",
+                        AnchorPoint = "child",
                         Name = "Child",
                         Kind = LayerKind.Fill,
                         Values = { ["baseColor"] = [0.6f, 0.6f, 0.6f, 1f] },
-                        Mask = new() { Source = LayerMaskSource.Anchor, Anchor = "inner" }
+                        Mask = new() { Source = LayerMaskSource.Anchor, Anchor = new() { Anchor = "inner", Channel = "baseColor" } }
                     }
                 ]
             },
@@ -2676,6 +2680,7 @@ public class LayerStackEditingTests {
             Fill("bottom", "Bottom", 0.25f),
             new LayerAsset {
                 Id = "g",
+                AnchorPoint = "g",
                 Name = "Group",
                 Kind = LayerKind.Group,
                 Children = [Fill("lower", "Lower", 0.4f), Fill("upper", "Upper", 0.6f)]
@@ -2688,6 +2693,7 @@ public class LayerStackEditingTests {
             [new() { Usage = "baseColor", Default = [0f, 0f, 0f, 1f] }],
             new LayerAsset {
                 Id = "g",
+                AnchorPoint = "g",
                 Name = "Group",
                 Kind = LayerKind.Group,
                 Children = [Fill("lower", "Lower", 0.25f), Fill("upper", "Upper", 0.75f)]
@@ -2728,6 +2734,7 @@ public class LayerStackEditingTests {
     static LayerAsset Fill(string id, string name, float grey) =>
         new() {
             Id = id,
+            AnchorPoint = id,
             Name = name,
             Kind = LayerKind.Fill,
             Values = { ["baseColor"] = [grey, grey, grey, 1f] }

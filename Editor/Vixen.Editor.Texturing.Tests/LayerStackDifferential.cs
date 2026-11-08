@@ -82,6 +82,7 @@ static class LayerStackDifferential {
                     Layers = [
                         new() {
                             Id = "base",
+                            AnchorPoint = "base",
                             Name = "Base",
                             Kind = LayerKind.Fill,
                             Blend = LayerBlendMode.Copy,
@@ -170,7 +171,7 @@ static class LayerStackDifferential {
                             Blend = LayerBlendMode.Add,
                             Opacity = 0.35f,
                             Values = { ["baseColor"] = [0.2f, 0.2f, 0.2f, 1f] },
-                            Mask = new() { Source = LayerMaskSource.Anchor, Anchor = "base" }
+                            Mask = new() { Source = LayerMaskSource.Anchor, Anchor = new() { Anchor = "base", Channel = "baseColor" } }
                         },
                         new() {
                             Id = "hsl",
