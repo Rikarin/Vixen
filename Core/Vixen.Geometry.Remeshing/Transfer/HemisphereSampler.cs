@@ -46,15 +46,50 @@ static class HemisphereSampler {
     ///     <c>√(1 − u)</c> because the lift keeps the point on the sphere — which together are
     ///     exactly the cosine density, with no rejection and no transcendental inverse.
     /// </remarks>
-    public static Vector3 Local(int index, int count, float turn) {
+    public static Vector3 Local(int index, int count, float turn) => Local(index, count, turn, 1f, uniform: false);
+
+    /// <summary>One direction within a cone about the normal, cosine-weighted or uniform over it.</summary>
+    /// <param name="index">Which sample, in <c>[0, count)</c>.</param>
+    /// <param name="count">How many there are in total.</param>
+    /// <param name="turn">A rotation about <c>z</c>, in turns rather than radians.</param>
+    /// <param name="spread">
+    ///     The square of the sine of the cone's half-angle: one is the whole hemisphere, zero is the
+    ///     normal alone. The square because that is what both densities are linear in.
+    /// </param>
+    /// <param name="uniform">Whether every direction in the cone is as likely, rather than the cosine density.</param>
+    /// <returns>A unit direction with <c>z ≥ 0</c>.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>At a spread of one and the cosine density this is <see cref="Local(int, int, float)" />
+    ///         bit for bit</b>, which is what keeps every bake made before the cone existed the same
+    ///         bytes: the disc's radius is <c>√(u·1)</c> and its height <c>√(1 − u·1)</c>.
+    ///     </para>
+    ///     <para>
+    ///         The cosine density over a cone of half-angle <c>θ</c> is Malley's disc shrunk to radius
+    ///         <c>sin θ</c>. The uniform one is uniform in <c>cos θ</c> between one and the cone's
+    ///         edge, which is Archimedes' hat-box theorem — equal heights of a sphere have equal area.
+    ///     </para>
+    /// </remarks>
+    public static Vector3 Local(int index, int count, float turn, float spread, bool uniform) {
         var u = (index + 0.5f) / count;
         var angle = MathF.Tau * (RadicalInverse(index) + turn);
+        float height;
+        float radius;
 
-        // ⚠ Clamped rather than trusted. `u` reaches 1 − ½/count and not 1, so the argument is
-        // positive in exact arithmetic; the clamp is what keeps a rounding of the division from
-        // handing MathF.Sqrt a negative and writing a NaN direction into every downstream map.
-        var height = MathF.Sqrt(MathF.Max(0f, 1f - u));
-        var radius = MathF.Sqrt(MathF.Min(1f, u));
+        if (uniform) {
+            var edge = MathF.Sqrt(MathF.Max(0f, 1f - spread));
+
+            height = 1f - (u * (1f - edge));
+            radius = MathF.Sqrt(MathF.Max(0f, 1f - (height * height)));
+        } else {
+            var reach = u * spread;
+
+            // ⚠ Clamped rather than trusted. `u` reaches 1 − ½/count and not 1, so the argument is
+            // positive in exact arithmetic; the clamp is what keeps a rounding of the division from
+            // handing MathF.Sqrt a negative and writing a NaN direction into every downstream map.
+            height = MathF.Sqrt(MathF.Max(0f, 1f - reach));
+            radius = MathF.Sqrt(MathF.Min(1f, reach));
+        }
 
         return new(radius * MathF.Cos(angle), radius * MathF.Sin(angle), height);
     }

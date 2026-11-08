@@ -53,7 +53,7 @@ public enum MeshMaps {
     /// <summary>Mean curvature, interpolated from the source's cotangent Laplacian.</summary>
     Curvature = 4,
 
-    /// <summary>The occluded fraction of the same hemisphere, inverted through the surface.</summary>
+    /// <summary>The mean depth through the surface, along the same hemisphere inverted.</summary>
     Thickness = 8,
 
     /// <summary>The surface point, normalised into the source's bounding box.</summary>
@@ -67,6 +67,82 @@ public enum MeshMaps {
 
     /// <summary>All seven.</summary>
     All = AmbientOcclusion | BentNormal | Curvature | Thickness | Position | WorldNormal | Id
+}
+
+/// <summary>What the bake's distances are measured in.</summary>
+public enum BakeUnits : byte {
+    /// <summary>Fractions of the source's bounding-box diagonal, which mean the same at any model scale.</summary>
+    Relative,
+
+    /// <summary>The model's own units, for a studio that knows its scale and sets a cage distance in it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A claim about how big the model is</b>, which is the claim the relative default
+    ///     exists to avoid: the same bake on the same model exported in centimetres finds nothing.
+    ///     Offered because an artist working at a fixed scale thinks in it, not as the default.
+    /// </remarks>
+    Absolute
+}
+
+/// <summary>How much an occluder counts for by how far away it is.</summary>
+public enum OcclusionFalloff : byte {
+    /// <summary>Anything within reach blocks the ray completely.</summary>
+    None,
+
+    /// <summary>A block counts for less the further it is, falling straight to nothing at the reach.</summary>
+    Linear,
+
+    /// <summary>As <see cref="Linear" />, but along a smoothstep, so near contact stays dark longer.</summary>
+    Smooth
+}
+
+/// <summary>How the occlusion rays are spread over the hemisphere.</summary>
+public enum OcclusionDistribution : byte {
+    /// <summary>By the cosine of the angle from the normal, which is the occlusion a diffuse surface sees.</summary>
+    Cosine,
+
+    /// <summary>Evenly over the solid angle, which darkens grazing occluders more.</summary>
+    Uniform
+}
+
+/// <summary>What an id map labels each source face with.</summary>
+public enum BakeIdSource : byte {
+    /// <summary>The face groups when somebody assigned more than one, and the connected shells otherwise.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A file with one material is read as one assigned group</b>, so an id map of its
+    ///     groups is one flat colour and every shell in it is lost. The shells are the only thing
+    ///     on such a source that tells parts apart.
+    /// </remarks>
+    Automatic,
+
+    /// <summary>The face groups as they are, guessed or assigned.</summary>
+    Groups,
+
+    /// <summary>The connected shells, whatever the groups say.</summary>
+    Shells
+}
+
+/// <summary>How an id map turns labels into colours.</summary>
+public enum IdPalette : byte {
+    /// <summary>A hue per id stepped by the golden ratio, the same colour for the same id in every bake.</summary>
+    Random,
+
+    /// <summary>The ids that occur, spread evenly round the hue wheel in order.</summary>
+    HueShift,
+
+    /// <summary>The ids that occur, as evenly spaced greys from dark to white, with black kept for none.</summary>
+    Grey
+}
+
+/// <summary>What a height map's stored range is.</summary>
+public enum HeightRange : byte {
+    /// <summary>The largest displacement the bake found, so the map uses its whole range.</summary>
+    Measured,
+
+    /// <summary>The longer of the two ray distances, which is the same for every bake made with them.</summary>
+    RayDistance,
+
+    /// <summary><see cref="BakeSettings.HeightScale" />, for maps that must agree with each other.</summary>
+    Custom
 }
 
 /// <summary>What to bake, at what size, and how far to look for the source.</summary>
@@ -96,8 +172,31 @@ public sealed record BakeSettings {
     /// <summary>Which frame the normals come back in.</summary>
     public BakeSpace Space { get; init; } = BakeSpace.Tangent;
 
-    /// <summary>How far a ray looks for the source, as a fraction of its bounding-box diagonal.</summary>
+    /// <summary>How far a ray looks for the source in front of the target, in <see cref="Units" />.</summary>
+    /// <remarks>
+    ///     In front is outward, along the target's normal: a source standing proud of the target.
+    ///     It is also how far a ray looks behind, unless <see cref="RearDistance" /> says otherwise.
+    /// </remarks>
     public float SearchRadius { get; init; } = 0.05f;
+
+    /// <summary>How far a ray looks behind the target, or null for <see cref="SearchRadius" />.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Apart because the two sides are different questions.</b> A target modelled inside its
+    ///     source wants a long front and a short rear, and one distance for both made the rear reach
+    ///     through a thin part to the far side of it.
+    /// </remarks>
+    public float? RearDistance { get; init; }
+
+    /// <summary>What <see cref="SearchRadius" />, <see cref="RearDistance" /> and the occlusion distances are in.</summary>
+    public BakeUnits Units { get; init; } = BakeUnits.Relative;
+
+    /// <summary>Whether a ray passes through a source face turned away from the target's own facing.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The answer to a ray striking the inside of a neighbouring part.</b> A source face the
+    ///     ray meets turned the wrong way is the back of something — the far wall of a thin plate, the
+    ///     underside of a strap — and baking its normal is a dent where there is none.
+    /// </remarks>
+    public bool IgnoreBackfaces { get; init; }
 
     /// <summary>Which of the mesh maps to measure beyond the normal and the displacement.</summary>
     /// <remarks>
@@ -115,16 +214,72 @@ public sealed record BakeSettings {
     /// </remarks>
     public int OcclusionSamples { get; init; } = 64;
 
-    /// <summary>How far an occlusion ray reaches, as a fraction of the source's diagonal.</summary>
+    /// <summary>How far an occlusion ray reaches, in <see cref="Units" />.</summary>
     /// <remarks>
-    ///     ⚠ <b>A fraction, for the reason <see cref="SearchRadius" /> is one</b> — and a different
-    ///     fraction, because the two answer different questions. The search radius is how far the
-    ///     cage strayed from the surface and is small; this is how far away an occluder still counts
-    ///     and is a large part of the model. ⚠ <b><see cref="BakedMaps.Thickness" /> saturates at
-    ///     it</b>: a part thicker than this reads as fully enclosed, which is why measuring the
-    ///     inside of a closed shape wants it at or above one.
+    ///     ⚠ <b>A fraction by default, for the reason <see cref="SearchRadius" /> is one</b> — and a
+    ///     different fraction, because the two answer different questions. The search radius is how
+    ///     far the cage strayed from the surface and is small; this is how far away an occluder still
+    ///     counts and is a large part of the model. ⚠ <b><see cref="BakedMaps.Thickness" /> is
+    ///     measured in it</b>: a depth of this or more reads one, which is why measuring the inside of
+    ///     a closed shape wants it at or above the shape's widest part.
     /// </remarks>
     public float OcclusionRadius { get; init; } = 0.5f;
+
+    /// <summary>The half-angle of the cone the occlusion rays fill, in degrees: ninety is the hemisphere.</summary>
+    /// <remarks>
+    ///     Narrower ignores occluders near the horizon, which keeps a large flat floor from going grey
+    ///     beside every wall; the same rays answer the bent normal and thickness.
+    /// </remarks>
+    public float OcclusionSpread { get; init; } = 90f;
+
+    /// <summary>How an occluder counts for less the further away it is.</summary>
+    public OcclusionFalloff OcclusionFalloff { get; init; } = OcclusionFalloff.None;
+
+    /// <summary>How the occlusion rays are spread over the cone.</summary>
+    public OcclusionDistribution OcclusionDistribution { get; init; } = OcclusionDistribution.Cosine;
+
+    /// <summary>How near an occluder may be and still not count, in <see cref="Units" />.</summary>
+    /// <remarks>
+    ///     A ray starts this far out, so a hit closer than it is ignored and anything beyond still
+    ///     counts — which is what keeps a dense source's own neighbouring triangles from darkening it.
+    /// </remarks>
+    public float OcclusionMinimum { get; init; }
+
+    /// <summary>Whether an occlusion ray passes through the back of a face rather than stopping at it.</summary>
+    public bool OcclusionIgnoresBackfaces { get; init; }
+
+    /// <summary>Whether only the texel's own part occludes it, rather than the whole source.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Needs <see cref="Parts" />, and without them it is the whole source.</b> It is the
+    ///     exploded bake for occlusion: a bolt's occlusion without the plate it sits on.
+    /// </remarks>
+    public bool OcclusionWithinPart { get; init; }
+
+    /// <summary>Whether a ground plane under the source occludes as well, as if the model stood on a floor.</summary>
+    /// <remarks>⚠ <b>Y is up.</b> The plane is at the source's lowest Y plus <see cref="GroundOffset" />.</remarks>
+    public bool GroundPlane { get; init; }
+
+    /// <summary>How far above the source's lowest point the ground plane is, in <see cref="Units" />.</summary>
+    public float GroundOffset { get; init; }
+
+    /// <summary>Whether thickness is divided by its largest value, so the thickest texel reads one.</summary>
+    /// <remarks>
+    ///     Without it, thickness is the mean depth through the surface as a fraction of
+    ///     <see cref="OcclusionRadius" />, which is the same scale in every bake made with that radius.
+    /// </remarks>
+    public bool ThicknessNormalised { get; init; }
+
+    /// <summary>What the id map labels source faces by.</summary>
+    public BakeIdSource IdSource { get; init; } = BakeIdSource.Automatic;
+
+    /// <summary>How the id map colours its labels, when they are not colours already.</summary>
+    public IdPalette IdPalette { get; init; } = IdPalette.Random;
+
+    /// <summary>What the height map's stored range is.</summary>
+    public HeightRange HeightRange { get; init; } = HeightRange.Measured;
+
+    /// <summary>The height map's range for <see cref="HeightRange.Custom" />, in <see cref="Units" />.</summary>
+    public float HeightScale { get; init; }
 
     /// <summary>How many samples a texel is divided into along each side, so the total is the square.</summary>
     /// <remarks>
@@ -215,7 +370,7 @@ public sealed record BakeMask(int Resolution, IReadOnlyList<float> Values) {
 ///     </para>
 ///     <para>
 ///         ⚠ <b>Numbers rather than names, because a name is a file's idea.</b> This assembly has no
-///         file in it. <see cref="ByName" /> is the usual way of getting these.
+///         file in it. <c>ByName</c> is the usual way of getting these.
 ///     </para>
 /// </remarks>
 public sealed record BakeParts(IReadOnlyList<int> Source, IReadOnlyList<int> Target) {
@@ -224,8 +379,16 @@ public sealed record BakeParts(IReadOnlyList<int> Source, IReadOnlyList<int> Tar
     /// <summary>The name two parts have in common, once what says which end they are is gone.</summary>
     /// <param name="name">A mesh's name: <c>Bolt_high</c>, <c>bolt_low.001</c>.</param>
     /// <returns>The part's own name, lower case: <c>bolt</c>.</returns>
-    public static string Key(string name) {
+    public static string Key(string name) => Key(name, Suffixes);
+
+    /// <summary>The name two parts have in common, once one of the given endings is gone.</summary>
+    /// <param name="name">A mesh's name: <c>Bolt_high</c>, <c>bolt_low.001</c>.</param>
+    /// <param name="suffixes">The endings that say which end a part is, compared without case.</param>
+    /// <returns>The part's own name, lower case.</returns>
+    /// <remarks>The longest ending that fits wins, so <c>_high</c> is taken before <c>_hi</c> would leave a <c>gh</c>.</remarks>
+    public static string Key(string name, IReadOnlyList<string> suffixes) {
         ArgumentNullException.ThrowIfNull(name);
+        ArgumentNullException.ThrowIfNull(suffixes);
 
         var key = name.Trim().ToLowerInvariant();
         var dot = key.LastIndexOf('.');
@@ -235,8 +398,8 @@ public sealed record BakeParts(IReadOnlyList<int> Source, IReadOnlyList<int> Tar
             key = key[..dot];
         }
 
-        foreach (var suffix in Suffixes) {
-            if (key.EndsWith(suffix, StringComparison.Ordinal)) {
+        foreach (var suffix in suffixes.Select(static s => s.Trim().ToLowerInvariant()).OrderByDescending(static s => s.Length)) {
+            if (suffix.Length > 0 && key.Length > suffix.Length && key.EndsWith(suffix, StringComparison.Ordinal)) {
                 return key[..^suffix.Length];
             }
         }
@@ -251,16 +414,35 @@ public sealed record BakeParts(IReadOnlyList<int> Source, IReadOnlyList<int> Tar
     public static BakeParts ByName(
         IReadOnlyList<(string Name, int Faces)> source,
         IReadOnlyList<(string Name, int Faces)> target
+    ) => ByName(source, target, Suffixes, Suffixes);
+
+    /// <summary>Numbers named meshes, with the endings each side's names carry.</summary>
+    /// <param name="source">Each source mesh's name and face count, in merge order.</param>
+    /// <param name="target">Each target mesh's name and face count, in merge order.</param>
+    /// <param name="sourceSuffixes">What the source's names end in: <c>_high</c>.</param>
+    /// <param name="targetSuffixes">What the target's names end in: <c>_low</c>.</param>
+    /// <returns>The parts. A target mesh whose name no source shares is <c>-1</c>.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Apart, because a studio's convention is a pair.</b> A source called <c>bolt_low</c> is
+    ///     not the low end of anything, and stripping either ending from either side matched it.
+    /// </remarks>
+    public static BakeParts ByName(
+        IReadOnlyList<(string Name, int Faces)> source,
+        IReadOnlyList<(string Name, int Faces)> target,
+        IReadOnlyList<string> sourceSuffixes,
+        IReadOnlyList<string> targetSuffixes
     ) {
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(target);
+        ArgumentNullException.ThrowIfNull(sourceSuffixes);
+        ArgumentNullException.ThrowIfNull(targetSuffixes);
 
         Dictionary<string, int> numbers = new(StringComparer.Ordinal);
         List<int> sources = [];
         List<int> targets = [];
 
         foreach (var (name, faces) in source) {
-            var key = Key(name);
+            var key = Key(name, sourceSuffixes);
 
             if (!numbers.TryGetValue(key, out var number)) {
                 number = numbers.Count;
@@ -271,7 +453,7 @@ public sealed record BakeParts(IReadOnlyList<int> Source, IReadOnlyList<int> Tar
         }
 
         foreach (var (name, faces) in target) {
-            targets.AddRange(Enumerable.Repeat(numbers.GetValueOrDefault(Key(name), -1), faces));
+            targets.AddRange(Enumerable.Repeat(numbers.GetValueOrDefault(Key(name, targetSuffixes), -1), faces));
         }
 
         return new(sources, targets);
@@ -361,12 +543,19 @@ public sealed record BakedMaps {
     /// </remarks>
     public IReadOnlyList<float>? Curvature { get; init; }
 
-    /// <summary>How enclosed the inside is per texel, or null if it was not asked for.</summary>
+    /// <summary>How deep the surface goes per texel, or null if it was not asked for.</summary>
     /// <remarks>
-    ///     ⚠ <b>A fraction and not a distance.</b> It is the occluded fraction of the same hemisphere
-    ///     turned through the surface — zero on a single sheet with nothing behind it, one inside a
-    ///     closed shape — and it saturates at <see cref="BakeSettings.OcclusionRadius" />, so a
-    ///     distance read off it would be a distance clamped to a setting.
+    ///     <para>
+    ///         ⚠ <b>The mean depth along the same hemisphere turned through the surface, over
+    ///         <see cref="BakeSettings.OcclusionRadius" /></b>: <c>4r/3</c> of the reach inside a sphere
+    ///         of radius <i>r</i>, and zero on a single sheet with nothing behind it, because a ray that
+    ///         finds no far wall counts nothing.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It was the fraction of inward rays that hit anything</b>, which is one inside every
+    ///         closed shape whatever its size — and a real model is all closed shapes, so the map was
+    ///         white. <see cref="BakeSettings.ThicknessNormalised" /> divides it by its largest value.
+    ///     </para>
     /// </remarks>
     public IReadOnlyList<float>? Thickness { get; init; }
 
@@ -402,7 +591,14 @@ public sealed record BakedMaps {
     public IReadOnlyList<int>? Ids { get; init; }
 
     /// <summary>Whether <see cref="Ids" /> are colours packed as RGB rather than labels.</summary>
+    /// <remarks>
+    ///     ⚠ Only when the ids are the groups. Shells numbered 0, 1, 2 read as packed colours are three
+    ///     shades of black.
+    /// </remarks>
     public bool IdsAreColours { get; init; }
+
+    /// <summary>How labels are coloured when <see cref="Ids" /> are not colours already.</summary>
+    public IdPalette IdPalette { get; init; }
 
     /// <summary>The largest absolute curvature, which is what a caller quantizes with.</summary>
     public float CurvatureRange { get; init; }
@@ -534,6 +730,11 @@ public static class MapBaker {
         ArgumentOutOfRangeException.ThrowIfNegative(settings.Threads);
         ArgumentOutOfRangeException.ThrowIfNegative(settings.Skew);
         ArgumentOutOfRangeException.ThrowIfGreaterThan(settings.Skew, 1f);
+        ArgumentOutOfRangeException.ThrowIfNegative(settings.RearDistance ?? 0f);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(settings.OcclusionSpread);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(settings.OcclusionSpread, 90f);
+        ArgumentOutOfRangeException.ThrowIfNegative(settings.OcclusionMinimum);
+        ArgumentOutOfRangeException.ThrowIfNegative(settings.HeightScale);
 
         if (target.TexCoords.Length != target.CornerCount) {
             throw new ArgumentException(
@@ -570,12 +771,16 @@ public static class MapBaker {
         }
 
         if (buffers.Ids is not null) {
-            buffers.Labels = Labels(source, warnings);
+            (buffers.Labels, buffers.LabelsAreColours) = Labels(source, settings, warnings);
         }
 
-        var radius = surface.Diagonal * MathF.Max(settings.SearchRadius, 0f);
+        // ⚠ One length for every distance in the settings, so the units are decided in one place and a
+        // distance cannot be read as a fraction in one call and as a length in the next.
+        var unit = settings.Units is BakeUnits.Absolute ? 1f : surface.Diagonal;
+        var radius = unit * MathF.Max(settings.SearchRadius, 0f);
+        var rear = unit * MathF.Max(settings.RearDistance ?? settings.SearchRadius, 0f);
 
-        if (radius <= 0f) {
+        if (radius <= 0f && rear <= 0f) {
             warnings.Add("The source has no extent, so the search radius is zero and every ray misses.");
         }
 
@@ -584,7 +789,7 @@ public static class MapBaker {
         // expensive half is already built" is about — the tree is built once for the same reason.
         var curvature = settings.Maps.HasFlag(MeshMaps.Curvature) ? MeanCurvature.Build(surface) : null;
         var rays = BakeRays.Build(surface, source, target, settings.Parts, warnings);
-        var bake = new TexelBake(surface, rays, settings, radius, curvature, buffers);
+        var bake = new TexelBake(surface, rays, settings, new(radius, rear, unit), curvature, buffers);
         var options = new ParallelOptions { MaxDegreeOfParallelism = settings.Threads > 0 ? settings.Threads : -1 };
         var charts = BakeCharts.Build(target, settings, options, cancellationToken);
 
@@ -612,13 +817,44 @@ public static class MapBaker {
         cancellationToken.ThrowIfCancellationRequested();
         cast.Done();
 
+        // ⚠ Before the dilation, so the gutter grows from the normalised values and agrees with them.
+        if (settings.ThicknessNormalised && buffers.Thickness is { } thickness) {
+            Normalise(thickness, buffers.Coverage);
+        }
+
         var dilated = Dilate(settings, buffers, options);
 
         if (buffers.Covered == 0) {
             warnings.Add("No chart covered any texel — the target's coordinates are outside the unit square.");
         }
 
+        buffers.DisplacementRange = settings.HeightRange switch {
+            HeightRange.RayDistance => MathF.Max(radius, rear),
+            HeightRange.Custom when settings.HeightScale > 0f => settings.HeightScale * unit,
+            _ => buffers.DisplacementRange
+        };
+
         return Assemble(settings, buffers, dilated, warnings);
+    }
+
+    /// <summary>Divides a channel by its largest covered value, so that one reads one.</summary>
+    /// <remarks>A channel that is zero everywhere stays zero: there is nothing to scale and no ratio to keep.</remarks>
+    static void Normalise(float[] channel, bool[] coverage) {
+        var largest = 0f;
+
+        for (var index = 0; index < channel.Length; index++) {
+            if (coverage[index]) {
+                largest = MathF.Max(largest, channel[index]);
+            }
+        }
+
+        if (largest <= 0f) {
+            return;
+        }
+
+        for (var index = 0; index < channel.Length; index++) {
+            channel[index] /= largest;
+        }
     }
 
     /// <summary>Whether two meshes have the same faces in the same order.</summary>
@@ -638,8 +874,9 @@ public static class MapBaker {
 
     /// <summary>Which id each source face bakes as: the group somebody assigned, or its shell.</summary>
     /// <param name="source">The mesh being baked from.</param>
+    /// <param name="settings">Which source the ids come from, and whether groups are colours.</param>
     /// <param name="warnings">What the bake could not do, appended to when the groups are a guess.</param>
-    /// <returns>An id per face.</returns>
+    /// <returns>An id per face, and whether the ids are packed colours.</returns>
     /// <remarks>
     ///     <para>
     ///         ⚠ <b>A face group is a material boundary only where somebody assigned it, and reading it
@@ -660,16 +897,29 @@ public static class MapBaker {
     ///         surface with no material boundaries on it rather than a hole in the output. A caller
     ///         that knows the real assignment sets <c>EditMesh.GroupSource</c> and gets its own ids.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And one assigned group is no more use than a guessed one.</b> A model file's reader
+    ///         assigns every face its material, so a prop with one material arrives as one assigned
+    ///         group, and an id map of it was a single flat colour with every shell in it lost.
+    ///         <see cref="BakeIdSource.Automatic" /> reads that as the shells; asking for
+    ///         <see cref="BakeIdSource.Groups" /> still gets the one colour.
+    ///     </para>
     /// </remarks>
-    static int[] Labels(EditMesh source, List<string> warnings) {
+    static (int[] Labels, bool Colours) Labels(EditMesh source, BakeSettings settings, List<string> warnings) {
         var labels = new int[source.FaceCount];
+        var assigned = source.GroupSource is MeshGroupSource.Assigned;
+        var groups = settings.IdSource switch {
+            BakeIdSource.Groups => true,
+            BakeIdSource.Shells => false,
+            _ => assigned && Distinct(source) > 1
+        };
 
-        if (source.GroupSource is MeshGroupSource.Assigned) {
+        if (groups) {
             for (var face = 0; face < labels.Length; face++) {
                 labels[face] = source.Faces[face].Group;
             }
 
-            return labels;
+            return (labels, settings.GroupsAreColours);
         }
 
         List<int> shells = [];
@@ -677,14 +927,27 @@ public static class MapBaker {
 
         shells.CopyTo(labels);
 
-        warnings.Add(
-            $"The source's face groups came from EditMesh.Regroup's coplanarity guess rather than from "
-            + $"an assignment, so they are not material boundaries — on a faceted surface they are one "
-            + $"group per triangle. The id map holds the {count} connected shell(s) instead. Set "
-            + "EditMesh.GroupSource to Assigned on a mesh whose groups are materials somebody chose."
-        );
+        if (settings.IdSource is BakeIdSource.Automatic && !assigned) {
+            warnings.Add(
+                $"The source's face groups came from EditMesh.Regroup's coplanarity guess rather than from "
+                + $"an assignment, so they are not material boundaries — on a faceted surface they are one "
+                + $"group per triangle. The id map holds the {count} connected shell(s) instead. Set "
+                + "EditMesh.GroupSource to Assigned on a mesh whose groups are materials somebody chose."
+            );
+        }
 
-        return labels;
+        return (labels, false);
+    }
+
+    /// <summary>How many different groups a mesh's faces carry, stopping at two.</summary>
+    static int Distinct(EditMesh mesh) {
+        for (var face = 1; face < mesh.FaceCount; face++) {
+            if (mesh.Faces[face].Group != mesh.Faces[0].Group) {
+                return 2;
+            }
+        }
+
+        return Math.Min(mesh.FaceCount, 1);
     }
 
     /// <summary>The colour an id packed as RGB stands for, in <c>[0, 1]³</c>, black for <c>-1</c>.</summary>
@@ -705,12 +968,55 @@ public static class MapBaker {
     ///     never to a blend of two of them — the map that gets filtered is the one that grows a
     ///     fourth material along every border.
     /// </remarks>
-    public static Vector3 IdColour(int id) {
-        if (id < 0) {
-            return Vector3.Zero;
+    public static Vector3 IdColour(int id) => id < 0 ? Vector3.Zero : Hue((id * 0.6180339887f) % 1f);
+
+    /// <summary>Colours every texel's id as a palette says, black where there is none.</summary>
+    /// <param name="ids">An id per texel, <c>-1</c> for none.</param>
+    /// <param name="colours">Whether the ids are packed colours already, which every palette leaves alone.</param>
+    /// <param name="palette">How labels become colours.</param>
+    /// <returns>A colour per texel, in <c>[0, 1]³</c>.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="ids" /> is null.</exception>
+    /// <remarks>
+    ///     ⚠ <b><see cref="IdPalette.HueShift" /> and <see cref="IdPalette.Grey" /> rank the ids that
+    ///     occur, so they depend on the whole map and not on the id alone.</b> That is the point of
+    ///     them — three ids get three far-apart colours rather than wherever the golden ratio puts
+    ///     them — and the reason <see cref="IdColour" /> stays the default: the same id is the same
+    ///     colour in every bake only there.
+    /// </remarks>
+    public static Vector3[] IdColours(IReadOnlyList<int> ids, bool colours, IdPalette palette) {
+        ArgumentNullException.ThrowIfNull(ids);
+
+        var made = new Vector3[ids.Count];
+
+        if (colours || palette is IdPalette.Random) {
+            for (var index = 0; index < made.Length; index++) {
+                made[index] = colours ? PackedColour(ids[index]) : IdColour(ids[index]);
+            }
+
+            return made;
         }
 
-        var hue = ((id * 0.6180339887f) % 1f) * 6f;
+        var ranks = ids.Where(static id => id >= 0).Distinct().Order().Select(static (id, rank) => (id, rank))
+            .ToDictionary(static pair => pair.id, static pair => pair.rank);
+        var count = Math.Max(ranks.Count, 1);
+
+        for (var index = 0; index < made.Length; index++) {
+            if (!ranks.TryGetValue(ids[index], out var rank)) {
+                continue;
+            }
+
+            made[index] = palette is IdPalette.Grey
+                ? new Vector3((rank + 1f) / count)
+                : Hue((float) rank / count);
+        }
+
+        return made;
+    }
+
+    /// <summary>A bright, well-saturated colour at a point round the hue wheel.</summary>
+    /// <param name="turn">Where on the wheel, in turns, <c>[0, 1)</c>.</param>
+    static Vector3 Hue(float turn) {
+        var hue = turn * 6f;
         var sector = (int) hue;
         var fraction = hue - sector;
 
@@ -956,7 +1262,8 @@ public static class MapBaker {
             Position = buffers.Position,
             WorldNormal = buffers.WorldNormal,
             Ids = buffers.Ids,
-            IdsAreColours = settings.GroupsAreColours,
+            IdsAreColours = buffers.Ids is not null && buffers.LabelsAreColours,
+            IdPalette = settings.IdPalette,
             CurvatureRange = buffers.CurvatureRange,
             Warnings = warnings
         };

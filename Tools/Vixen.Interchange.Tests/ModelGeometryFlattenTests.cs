@@ -82,6 +82,21 @@ public sealed class ModelGeometryFlattenTests {
         Assert.Equal(0xFF0000, flat.Mesh.Faces[1].Group);
     }
 
+    /// <summary>
+    ///     Several files go together in order, each file's materials numbered after the last file's, and a point two
+    ///     files share is not welded: they are two objects.
+    /// </summary>
+    [Fact]
+    public void Several_files_go_together_in_order_with_their_materials_kept_apart() {
+        var flat = ModelGeometry.Flatten([Model(), Model()]);
+
+        Assert.Equal([("bolt_low", 2), ("bolt_low", 2)], flat.Parts);
+        Assert.Equal([3, 7], flat.Materials);
+        Assert.Equal([3, 3, 7, 7], flat.Mesh.Faces.ToArray().Select(static face => face.Group));
+        Assert.Equal(8, flat.Mesh.PositionCount);
+        Assert.Equal(MeshGroupSource.Assigned, flat.Mesh.GroupSource);
+    }
+
     [Fact]
     public void A_colour_reads_as_the_artist_saw_it() =>
         Assert.Equal(0xBCBCBC, ModelGeometry.PackedColour(new(0.5f, 0.5f, 0.5f, 1f)));

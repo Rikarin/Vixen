@@ -85,11 +85,17 @@ sealed class BakeRays {
     }
 }
 
+/// <summary>How far a bake's rays reach, as lengths in the model's units.</summary>
+/// <param name="Front">How far a ray looks outward, along the target's normal.</param>
+/// <param name="Rear">How far it looks inward.</param>
+/// <param name="Unit">What one of the settings' distances is as a length: the diagonal, or one.</param>
+readonly record struct BakeReach(float Front, float Rear, float Unit);
+
 /// <summary>What one texel's bake does, which is all the work that runs on many threads.</summary>
 /// <param name="surface">The source.</param>
 /// <param name="rays">The trees.</param>
 /// <param name="settings">The bake.</param>
-/// <param name="radius">How far a ray looks, as a length.</param>
+/// <param name="distances">How far a ray looks each way, as lengths.</param>
 /// <param name="curvature">The source's curvature per position, or null.</param>
 /// <param name="buffers">The atlas.</param>
 /// <remarks>
@@ -101,7 +107,7 @@ sealed class TexelBake(
     SourceSurface surface,
     BakeRays rays,
     BakeSettings settings,
-    float radius,
+    BakeReach distances,
     float[]? curvature,
     BakeBuffers buffers
 ) {
@@ -121,8 +127,21 @@ sealed class TexelBake(
     readonly int resolution = settings.Resolution;
     readonly bool wantsRays = BakeBuffers.NeedsRays(settings.Maps);
     readonly bool thicknessWanted = settings.Maps.HasFlag(MeshMaps.Thickness);
-    readonly float reach = surface.Diagonal * MathF.Max(settings.OcclusionRadius, 0f);
+    readonly float reach = distances.Unit * MathF.Max(settings.OcclusionRadius, 0f);
+    readonly float minimum = distances.Unit * settings.OcclusionMinimum;
     readonly float bias = surface.Diagonal * SelfHitBias;
+    readonly float ground = surface.Bounds.Minimum.Y + (distances.Unit * settings.GroundOffset);
+
+    /// <summary>The square of the sine of the occlusion cone's half-angle, exactly one for the hemisphere.</summary>
+    readonly float spread = settings.OcclusionSpread >= 90f
+        ? 1f
+        : MathF.Pow(MathF.Sin(settings.OcclusionSpread * (MathF.PI / 180f)), 2f);
+
+    /// <summary>Which source faces a probe may stop at: any, or only those facing the way the target does.</summary>
+    readonly bool culling = settings.IgnoreBackfaces;
+
+    /// <summary>Which faces an occlusion ray may stop at.</summary>
+    readonly RayFacing blocking = settings.OcclusionIgnoresBackfaces ? RayFacing.Front : RayFacing.Any;
 
     /// <summary>Bakes every claimed texel in a row of the atlas.</summary>
     /// <param name="row">The row.</param>
@@ -154,8 +173,8 @@ sealed class TexelBake(
         public float Curve;
         public Vector3 Position;
         public Vector3 World;
-        public int Clear;
-        public int Enclosed;
+        public float Clear;
+        public float Enclosed;
         public int Cast;
         public Vector3 Bent;
     }
@@ -284,7 +303,7 @@ sealed class TexelBake(
         sum.Height += sample.Distance;
 
         if (settings.Maps != MeshMaps.None) {
-            Measure(index, at, sample, basis, ids, ref sum);
+            Measure(index, at, triangle.Part, sample, basis, ids, ref sum);
         }
     }
 
@@ -314,7 +333,7 @@ sealed class TexelBake(
         var tree = rays.For(triangle.Part);
 
         if (triangle.Cage is not { } cage) {
-            return Probe(tree, point, direction, radius);
+            return Probe(tree, point, direction);
         }
 
         var outer = Blend(cage, weights);
@@ -322,15 +341,17 @@ sealed class TexelBake(
         var gap = offset.Length();
 
         if (gap <= 0f) {
-            return Probe(tree, point, direction, radius);
+            return Probe(tree, point, direction);
         }
 
         // From the cage, towards the target, and on past it. With no skew this is the line the two
         // ends of the pair define, which is what an artist moved the cage to change; a leaned ray
         // leaves from as far out and at its own angle.
         var inward = settings.Skew <= 0f ? offset / -gap : -direction;
-        var length = gap + radius;
-        var hit = tree.Raycast(point - (inward * gap), inward * length);
+        // ⚠ Behind the target is the rear distance: the cage is the front, so the front distance has
+        // nothing left to say once there is one.
+        var length = gap + distances.Rear;
+        var hit = tree.Raycast(point - (inward * gap), inward * length, culling ? RayFacing.Front : RayFacing.Any);
 
         return hit.Triangle >= 0
             ? new(
@@ -346,31 +367,47 @@ sealed class TexelBake(
 
     /// <summary>Casts along the direction both ways and takes the nearer source surface.</summary>
     /// <remarks>
-    ///     ⚠ <b>The direction handed to the tree has the search radius as its <i>length</i></b>, so
-    ///     the hit comes back as a fraction in <c>(0, 1]</c> and there is no second limit that could
-    ///     disagree with it. That is also why the radius is relative: it is a fraction of the
-    ///     source's diagonal, computed once, rather than a distance somebody has to keep in step with
-    ///     the model's units.
+    ///     <para>
+    ///         ⚠ <b>The direction handed to the tree has the distance as its <i>length</i></b>, so the
+    ///         hit comes back as a fraction in <c>(0, 1]</c> and there is no second limit that could
+    ///         disagree with it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The two hits are compared as lengths, not as those fractions.</b> With one radius
+    ///         both ways the fractions compared the same; with a front and a rear distance apart, a
+    ///         fraction of a long front is a longer way than the same fraction of a short rear.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Ignoring backfaces keeps only source faces turned the target's way.</b> Outward,
+    ///         that is a face the ray leaves through, met from behind; inward, one it runs into, met
+    ///         from the front. Both are a surface whose normal agrees with the target's.
+    ///     </para>
     /// </remarks>
-    SourceSample Probe(BakeTree tree, Vector3 point, Vector3 along, float reachOut) {
-        if (reachOut > 0f) {
-            var outward = tree.Raycast(point, along * reachOut);
-            var inward = tree.Raycast(point, -along * reachOut);
+    SourceSample Probe(BakeTree tree, Vector3 point, Vector3 along) {
+        var front = distances.Front;
+        var rear = distances.Rear;
+        var outward = front > 0f
+            ? tree.Raycast(point, along * front, culling ? RayFacing.Back : RayFacing.Any)
+            : default;
+        var inward = rear > 0f
+            ? tree.Raycast(point, -along * rear, culling ? RayFacing.Front : RayFacing.Any)
+            : default;
+        var outHit = front > 0f && outward.Triangle >= 0;
+        var inHit = rear > 0f && inward.Triangle >= 0;
 
-            var hit = outward.Triangle >= 0 && (inward.Triangle < 0 || outward.Distance <= inward.Distance)
-                ? (Hit: outward, Sign: 1f)
-                : (Hit: inward, Sign: -1f);
+        if (outHit || inHit) {
+            var outer = !inHit || (outHit && outward.Distance * front <= inward.Distance * rear);
+            var hit = outer ? outward : inward;
+            var length = outer ? front : -rear;
 
-            if (hit.Hit.Triangle >= 0) {
-                return new(
-                    true,
-                    hit.Hit.Triangle,
-                    hit.Hit.Barycentric,
-                    hit.Hit.Point,
-                    surface.NormalAt(hit.Hit.Triangle, hit.Hit.Barycentric),
-                    hit.Hit.Distance * reachOut * hit.Sign
-                );
-            }
+            return new(
+                true,
+                hit.Triangle,
+                hit.Barycentric,
+                hit.Point,
+                surface.NormalAt(hit.Triangle, hit.Barycentric),
+                hit.Distance * length
+            );
         }
 
         return Nearest(tree, point, along);
@@ -411,7 +448,7 @@ sealed class TexelBake(
     ///     cage — which is the failure mode that makes a baked AO map look like a smoothed version of
     ///     the thing it was supposed to capture.
     /// </remarks>
-    void Measure(int index, int at, SourceSample sample, in Basis basis, int[]? ids, ref Sum sum) {
+    void Measure(int index, int at, int part, SourceSample sample, in Basis basis, int[]? ids, ref Sum sum) {
         if (buffers.Position is not null) {
             sum.Position += Normalised(surface.Bounds, sample.Point);
         }
@@ -442,7 +479,7 @@ sealed class TexelBake(
             return;
         }
 
-        var unoccluded = Occlude(index, at, sample.Point, sample.Normal, ref sum);
+        var unoccluded = Occlude(index, at, part, sample.Point, sample.Normal, ref sum);
 
         if (buffers.Bent is not null) {
             sum.Bent += settings.Space == BakeSpace.Object ? unoccluded : basis.Measure(unoccluded);
@@ -479,23 +516,25 @@ sealed class TexelBake(
     ///         reason every other tolerance here is.
     ///     </para>
     /// </remarks>
-    Vector3 Occlude(int texel, int at, Vector3 point, Vector3 normal, ref Sum sum) {
+    Vector3 Occlude(int texel, int at, int part, Vector3 point, Vector3 normal, ref Sum sum) {
         var count = settings.OcclusionSamples;
-        var whole = rays.Whole;
+        var whole = settings.OcclusionWithinPart ? rays.For(part) : rays.Whole;
+        var uniform = settings.OcclusionDistribution is OcclusionDistribution.Uniform;
         var (tangent, bitangent) = HemisphereSampler.Basis(normal);
         var turn = HemisphereSampler.Turn(texel);
         var total = Vector3.Zero;
+        var span = reach - minimum;
 
         for (var sample = at; sample < count; sample += samples) {
-            var local = HemisphereSampler.Local(sample, count, turn);
+            var local = HemisphereSampler.Local(sample, count, turn, spread, uniform);
             var direction = (tangent * local.X) + (bitangent * local.Y) + (normal * local.Z);
 
             sum.Cast++;
 
-            if (reach <= 0f || !whole.Occluded(point + (normal * bias), direction * reach)) {
-                sum.Clear++;
-                total += direction;
-            }
+            var open = 1f - Blocked(whole, point + (normal * bias), direction, span);
+
+            sum.Clear += open;
+            total += direction * open;
 
             if (!thicknessWanted) {
                 continue;
@@ -505,9 +544,7 @@ sealed class TexelBake(
             // same hemisphere seen from the other side rather than a second set of samples.
             var inward = direction - (normal * (2f * local.Z));
 
-            if (reach > 0f && whole.Occluded(point - (normal * bias), inward * reach)) {
-                sum.Enclosed++;
-            }
+            sum.Enclosed += Depth(whole, point - (normal * bias), inward);
         }
 
         var unit = ScaleSafe.Unit(total);
@@ -515,6 +552,82 @@ sealed class TexelBake(
         // Every ray blocked leaves nothing to average, and a zero vector is not a direction. The
         // surface normal is the honest answer for a texel that can see nothing at all.
         return unit.LengthSquared() > 0f ? unit : normal;
+    }
+
+    /// <summary>How much one occlusion ray is blocked, from nothing to all of it.</summary>
+    /// <param name="tree">What may occlude.</param>
+    /// <param name="origin">Where the ray leaves the surface.</param>
+    /// <param name="direction">A unit direction.</param>
+    /// <param name="span">How far it reaches past the minimum distance.</param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The minimum distance moves the start, not the test.</b> The ray leaves that far out,
+    ///         so a hit nearer than it is never seen and anything beyond still counts — and a falloff
+    ///         is measured from the surface, not from the moved start.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Without a falloff this is the any-hit query and stops at the first triangle</b>,
+    ///         which is most of why occlusion is affordable. A falloff needs the nearest hit, which is
+    ///         dearer, and is only asked for when it is wanted.
+    ///     </para>
+    /// </remarks>
+    float Blocked(BakeTree tree, Vector3 origin, Vector3 direction, float span) {
+        if (span <= 0f) {
+            return 0f;
+        }
+
+        var start = origin + (direction * minimum);
+        var distance = float.PositiveInfinity;
+
+        if (settings.OcclusionFalloff is OcclusionFalloff.None) {
+            if (tree.Occluded(start, direction * span, blocking)) {
+                return 1f;
+            }
+        } else {
+            var hit = tree.Raycast(start, direction * span, blocking);
+
+            if (hit.Triangle >= 0) {
+                distance = minimum + (hit.Distance * span);
+            }
+        }
+
+        if (settings.GroundPlane && direction.Y < 0f && origin.Y > ground) {
+            var down = (origin.Y - ground) / -direction.Y;
+
+            if (down >= minimum && down < reach) {
+                distance = MathF.Min(distance, down);
+            }
+        }
+
+        if (float.IsPositiveInfinity(distance)) {
+            return 0f;
+        }
+
+        var near = 1f - Math.Clamp(distance / reach, 0f, 1f);
+
+        return settings.OcclusionFalloff switch {
+            OcclusionFalloff.Linear => near,
+            OcclusionFalloff.Smooth => near * near * (3f - (2f * near)),
+            _ => 1f
+        };
+    }
+
+    /// <summary>How deep one inward ray finds the surface to be, as a fraction of the reach.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A ray that finds no far wall counts nothing, not the whole reach.</b> A single sheet
+    ///     has nothing behind it and is as thin as a surface gets; reading an escaped ray as the reach
+    ///     would make an open sheet the thickest thing on the model.
+    /// </remarks>
+    float Depth(BakeTree tree, Vector3 origin, Vector3 inward) {
+        if (reach <= 0f) {
+            return 0f;
+        }
+
+        // ⚠ The far wall is met from inside, so it is a back face: ignoring backfaces here keeps only
+        // those, where the occlusion rays keep only the front ones. The same flag either side.
+        var hit = tree.Raycast(origin, inward * reach, settings.OcclusionIgnoresBackfaces ? RayFacing.Back : RayFacing.Any);
+
+        return hit.Triangle >= 0 ? hit.Distance : 0f;
     }
 
     /// <summary>A point as a fraction of the source's bounding box, on each axis.</summary>

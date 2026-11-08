@@ -8,6 +8,22 @@ using Vixen.Core.Mathematics;
 
 namespace Vixen.Geometry.Remeshing;
 
+/// <summary>Which faces of the source a ray may stop at.</summary>
+/// <remarks>
+///     A face is met from the front when the ray runs against its normal — the winding is
+///     anticlockwise seen from the side it faces.
+/// </remarks>
+enum RayFacing : byte {
+    /// <summary>Either side, which is what every ray did before the bake could choose.</summary>
+    Any,
+
+    /// <summary>Only a face the ray runs against the normal of.</summary>
+    Front,
+
+    /// <summary>Only a face the ray runs along the normal of.</summary>
+    Back
+}
+
 /// <summary>The bake's own ray tree: a surface-area-heuristic hierarchy, four children wide.</summary>
 /// <remarks>
 ///     <para>
@@ -101,7 +117,8 @@ sealed class BakeTree {
     /// <summary>Whether anything lies along a ray.</summary>
     /// <param name="origin">Where it starts.</param>
     /// <param name="direction">Where it ends, relative to the origin: its length is the reach.</param>
-    /// <returns>Whether it strikes a triangle on either face.</returns>
+    /// <param name="facing">Which faces count: any, only those the ray meets from the front, or from behind.</param>
+    /// <returns>Whether it strikes a triangle that counts.</returns>
     /// <remarks>
     ///     ⚠ <b>The first hit ends it, which is most of why an occlusion ray is cheap.</b> A visibility
     ///     question does not care which triangle answered, so no box is tested against a nearer bound
@@ -109,7 +126,7 @@ sealed class BakeTree {
     ///     kind and the reason <see cref="TraversalCost" /> matters.
     /// </remarks>
     [SkipLocalsInit]
-    public bool Occluded(Vector3 origin, Vector3 direction) {
+    public bool Occluded(Vector3 origin, Vector3 direction, RayFacing facing = RayFacing.Any) {
         if (TriangleCount == 0) {
             return false;
         }
@@ -129,7 +146,7 @@ sealed class BakeTree {
             if (child < 0) {
                 ref var block = ref Unsafe.Add(ref firstBlock, ~child);
 
-                if (Occludes(ref block, in ray)) {
+                if (Occludes(ref block, in ray, facing)) {
                     return true;
                 }
 
@@ -169,9 +186,10 @@ sealed class BakeTree {
     /// <summary>The nearest hit along a ray, on either face.</summary>
     /// <param name="origin">Where it starts.</param>
     /// <param name="direction">Where it ends, relative to the origin: its length is the reach.</param>
+    /// <param name="facing">Which faces count. One that does not is passed through, not stopped at.</param>
     /// <returns>The hit, with its distance as a fraction of <paramref name="direction" />, or a miss.</returns>
     [SkipLocalsInit]
-    public TriangleHit Raycast(Vector3 origin, Vector3 direction) {
+    public TriangleHit Raycast(Vector3 origin, Vector3 direction, RayFacing facing = RayFacing.Any) {
         var best = new TriangleHit(-1, origin, float.PositiveInfinity, Vector3.Zero, false);
 
         if (TriangleCount == 0) {
@@ -205,7 +223,7 @@ sealed class BakeTree {
             if (child < 0) {
                 ref var block = ref Unsafe.Add(ref firstBlock, ~child);
 
-                Nearest(ref block, in ray, ref nearest, ref best);
+                Nearest(ref block, in ray, facing, ref nearest, ref best);
 
                 continue;
             }
@@ -399,7 +417,7 @@ sealed class BakeTree {
     }
 
     /// <summary>Whether a ray strikes anything in a block.</summary>
-    static bool Occludes(ref TriangleBlock block, in Ray ray) {
+    static bool Occludes(ref TriangleBlock block, in Ray ray, RayFacing facing) {
         var mask = Candidates(ref block, in ray, Vector128<float>.One);
 
         while (mask != 0) {
@@ -407,7 +425,7 @@ sealed class BakeTree {
 
             mask &= mask - 1;
 
-            if (Strikes(ref block, slot, in ray, 1f, out _, out _, out _)) {
+            if (Strikes(ref block, slot, in ray, 1f, out _, out var backface, out _) && Counts(facing, backface)) {
                 return true;
             }
         }
@@ -416,7 +434,7 @@ sealed class BakeTree {
     }
 
     /// <summary>Records the nearest hit in a block, shrinking the bound.</summary>
-    static void Nearest(ref TriangleBlock block, in Ray ray, ref float nearest, ref TriangleHit best) {
+    static void Nearest(ref TriangleBlock block, in Ray ray, RayFacing facing, ref float nearest, ref TriangleHit best) {
         var mask = Candidates(ref block, in ray, Vector128.Create(nearest));
 
         while (mask != 0) {
@@ -424,7 +442,8 @@ sealed class BakeTree {
 
             mask &= mask - 1;
 
-            if (!Strikes(ref block, slot, in ray, nearest, out var distance, out var backface, out var weights)) {
+            if (!Strikes(ref block, slot, in ray, nearest, out var distance, out var backface, out var weights)
+                || !Counts(facing, backface)) {
                 continue;
             }
 
@@ -432,6 +451,19 @@ sealed class BakeTree {
             best = new(block.Triangle(slot), ray.Origin + (ray.Direction * distance), distance, weights, backface);
         }
     }
+
+    /// <summary>Whether a hit on a face the ray met from the front, or from behind, is one that counts.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A face that does not count is passed through rather than stopping the ray</b>, so a
+    ///     traversal that drops one keeps looking for the next. Stopping at it would be the old answer
+    ///     with the hit thrown away — a miss where the surface behind it was there to be found.
+    /// </remarks>
+    static bool Counts(RayFacing facing, bool backface) =>
+        facing switch {
+            RayFacing.Front => !backface,
+            RayFacing.Back => backface,
+            _ => true
+        };
 
     /// <summary>The scalar test: the same rules <see cref="TriangleTree" /> applies, in the same order.</summary>
     /// <remarks>
