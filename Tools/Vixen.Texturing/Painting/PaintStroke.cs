@@ -81,6 +81,9 @@ public sealed class PaintStroke {
     float pressed = 1f;
     bool started;
 
+    /// <summary>Where the last stamp was on the path, before any jitter: which way the path runs, for scatter.</summary>
+    Vector2? previous;
+
     /// <summary>Begins a stroke on a paint layer.</summary>
     /// <param name="image">The layer's pixels, written in place.</param>
     /// <param name="coverage">Which texels belong to an island.</param>
@@ -132,7 +135,13 @@ public sealed class PaintStroke {
         distance = new(image.Width, image.Height);
         placed = new(image.Width, image.Height) {
             Reached = reached,
-            FullReach = Math.Clamp(brush.Opacity, 0f, 1f) - (0.5f / byte.MaxValue)
+            // A stroke that does not accumulate is full at the most one stamp lays, which is the flow.
+            FullReach = Math.Clamp(
+                    brush.Blend == PaintStampBlend.Maximum ? Math.Min(brush.Opacity, brush.Flow) : brush.Opacity,
+                    0f,
+                    1f
+                )
+                - (0.5f / byte.MaxValue)
         };
 
         this.image = image;
@@ -311,8 +320,8 @@ public sealed class PaintStroke {
     /// <remarks>
     ///     ⚠ <b>From a hash of the stamp's index, not from a generator</b> — <c>BrushStroke</c>'s
     ///     rule, and the reason is the same one: undo and redo have to reproduce the stroke, and a
-    ///     jitter drawn from shared state repaints something else the second time. Each of the three
-    ///     jitters takes its own stream so that turning one off does not shift the others.
+    ///     jitter drawn from shared state repaints something else the second time. Each jitter
+    ///     takes its own stream so that turning one off does not shift the others.
     /// </remarks>
     PaintStamp Jittered(BrushStamp stamp, int index, float pressure) {
         var radius = brush.Radius
@@ -320,14 +329,32 @@ public sealed class PaintStroke {
             * Pressed(brush.PressureSize, pressure);
         var angle = stamp.Rotation + (((Unit(index, 1) * 2f) - 1f) * brush.AngleJitter);
         var centre = stamp.Centre;
+        var path = previous is { } last ? stamp.Centre - last : Vector2.Zero;
+
+        previous = stamp.Centre;
 
         if (brush.PositionJitter > 0f) {
-            var direction = Unit(index, 2) * MathF.Tau;
-            var distance = MathF.Sqrt(Unit(index, 4)) * Math.Clamp(brush.PositionJitter, 0f, 1f) * brush.Radius;
-            var (sin, cos) = MathF.SinCos(direction);
+            var scatter = Math.Clamp(brush.PositionJitter, 0f, 1f) * brush.Radius;
 
-            centre += new Vector2(cos, sin) * distance;
+            if (brush.ScatterAxis == PaintScatterAxis.Across) {
+                // ⚠ Along the path's normal only, so the spacing along it stays what the brush says. The first stamp
+                // has no path yet and stays on it.
+                var length = path.Length();
+
+                if (length > 0f) {
+                    centre += new Vector2(-path.Y, path.X) / length * (((Unit(index, 2) * 2f) - 1f) * scatter);
+                }
+            } else {
+                var direction = Unit(index, 2) * MathF.Tau;
+                var distance = MathF.Sqrt(Unit(index, 4)) * scatter;
+                var (sin, cos) = MathF.SinCos(direction);
+
+                centre += new Vector2(cos, sin) * distance;
+            }
         }
+
+        // Its own stream, so turning flow jitter on moves no stamp and resizes none.
+        var flow = Math.Clamp(brush.Flow, 0f, 1f) * (1f - (Unit(index, 5) * Math.Clamp(brush.FlowJitter, 0f, 1f)));
 
         // ⚠ The shape travels with every stamp, jittered or not — #1064. It is the brush's for the
         // whole stroke (the hit triangle at pointer-down is what measured it, and re-measuring per
@@ -337,7 +364,7 @@ public sealed class PaintStroke {
             centre,
             angle,
             MathF.Max(radius, 1e-3f),
-            Math.Clamp(brush.Flow, 0f, 1f) * stamp.Flow * Pressed(brush.PressureFlow, pressure),
+            flow * stamp.Flow * Pressed(brush.PressureFlow, pressure),
             brush.Aspect,
             brush.AspectAngle
         );
@@ -428,7 +455,10 @@ public sealed class PaintStroke {
 
         reached.TryGet(index, out var already);
 
-        var reach = Math.Min(cap, already + (weight * (1f - already)));
+        // Over what the stroke laid, or the strongest single stamp: see `PaintStampBlend`.
+        var reach = brush.Blend == PaintStampBlend.Maximum
+            ? Math.Min(cap, weight)
+            : Math.Min(cap, already + (weight * (1f - already)));
 
         if (reach <= already) {
             return;

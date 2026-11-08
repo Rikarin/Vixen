@@ -50,6 +50,7 @@ public sealed class PaintMeshSurface {
     readonly int height;
     readonly Lazy<Topology> topology;
     readonly Lazy<TriangleTree> layout;
+    readonly Lazy<float> texelsPerUnit;
 
     /// <summary>Lays a mesh over an atlas.</summary>
     /// <param name="projection">The mesh.</param>
@@ -66,6 +67,7 @@ public sealed class PaintMeshSurface {
         Coverage = PaintCoverage.FromTriangles(width, height, Soup(projection));
         topology = new(() => Topology.Of(projection));
         layout = new(() => Layout(projection));
+        texelsPerUnit = new(() => MeanDensity(projection, width, height));
     }
 
     /// <summary>The mesh.</summary>
@@ -84,14 +86,93 @@ public sealed class PaintMeshSurface {
 
     /// <summary>A brush seen through a camera, whose stamps are positions on its picture.</summary>
     /// <param name="view">The camera.</param>
-    /// <param name="mirror">A plane the stroke is mirrored through as well, or nothing.</param>
+    /// <param name="symmetry">The copies the stroke makes of itself, or nothing.</param>
     /// <returns>What a stroke places its stamps with.</returns>
-    public IPaintPlacement Through(PaintView view, PaintSymmetry? mirror = null) =>
-        new ViewPlacement(this, view, mirror is { } plane ? view.Mirrored(plane) : null);
+    /// <remarks>
+    ///     Each copy is the camera moved with it: the picture of a point through a moved camera is the picture of
+    ///     the point moved, so a stamp at one position on the picture lands on every copy at once.
+    /// </remarks>
+    public IPaintPlacement Through(PaintView view, PaintSymmetryGroup? symmetry = null) =>
+        new ViewPlacement(this, [view, .. symmetry?.Copies.Select(view.Moved) ?? []]);
 
     /// <summary>A brush in the atlas, which carries on over the seams its surface crosses.</summary>
+    /// <param name="symmetry">
+    ///     The copies the stroke makes of itself on the mesh, or nothing. Each stands where the stamp's place on the
+    ///     surface goes, on whichever island that is.
+    /// </param>
     /// <returns>What a stroke places its stamps with.</returns>
-    public IPaintPlacement AcrossSeams() => new SeamPlacement(this);
+    public IPaintPlacement AcrossSeams(PaintSymmetryGroup? symmetry = null) => new SeamPlacement(this, symmetry);
+
+    /// <summary>A brush's radius in the units of a camera's picture, measured where a position on it lands.</summary>
+    /// <param name="view">The camera.</param>
+    /// <param name="position">Where on its picture, which is where a stroke starts.</param>
+    /// <param name="radius">The radius, in <paramref name="space" />.</param>
+    /// <param name="space">What the radius is measured in.</param>
+    /// <returns>The radius on the picture: the radius itself for <see cref="PaintSizeSpace.Picture" />.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Measured once, where the stroke starts, and the stroke keeps it.</b> A radius worked out again per
+    ///         stamp is a brush whose spacing and footprint change as it crosses a chart or a slope, which is
+    ///         <c>PaintProjector</c>'s reason for deciding the radius at pointer-down.
+    ///     </para>
+    ///     <para>
+    ///         A position that misses the mesh is measured at the depth of the mesh's centre and at its mean texel
+    ///         density, so a stroke started just off the silhouette is still about the size asked for.
+    ///     </para>
+    /// </remarks>
+    public float PictureRadius(PaintView view, Vector2 position, float radius, PaintSizeSpace space) {
+        if (space == PaintSizeSpace.Picture) {
+            return radius;
+        }
+
+        var ray = view.RayAt(position);
+        var hit = Projection.TryHit(ray, out var found);
+        var depth = hit ? view.Depth(found.Point) : view.Depth(Projection.Bounds.Center);
+        var perPixel = view.PerPixel(MathF.Max(depth, 1e-6f));
+        var units = space == PaintSizeSpace.Model ? radius : radius / TexelsPerUnit(hit ? found.Triangle : -1);
+
+        return units / perPixel;
+    }
+
+    /// <summary>A brush's radius in texels, for a stroke in the atlas that starts at a texel.</summary>
+    /// <param name="texel">Where the stroke starts.</param>
+    /// <param name="radius">The radius, in <paramref name="space" />.</param>
+    /// <param name="space">
+    ///     What the radius is measured in. An atlas has no camera, so <see cref="PaintSizeSpace.Picture" /> is the
+    ///     atlas itself, as for <see cref="PaintSizeSpace.Texels" />.
+    /// </param>
+    /// <returns>The radius in texels.</returns>
+    public float AtlasRadius(Vector2 texel, float radius, PaintSizeSpace space) {
+        if (space != PaintSizeSpace.Model) {
+            return radius;
+        }
+
+        return radius * TexelsPerUnit(Locate(texel, out var triangle, out _, out _) ? triangle : -1);
+    }
+
+    /// <summary>How many texels one unit of the mesh spans on a triangle, or on the mesh as a whole.</summary>
+    float TexelsPerUnit(int triangle) {
+        if (triangle >= 0 && Projection.Density(triangle, width, height) is { IsMeasurable: true } density) {
+            return density.Area;
+        }
+
+        return texelsPerUnit.Value;
+    }
+
+    /// <summary>The atlas area the mesh covers over its surface area, as a length: one for a mesh with none.</summary>
+    static float MeanDensity(PaintProjection projection, int width, int height) {
+        double atlas = 0;
+        double surface = 0;
+
+        for (var triangle = 0; triangle < projection.Triangles; triangle++) {
+            projection.Triangle(triangle, out var a, out var b, out var c, out var ua, out var ub, out var uc);
+
+            surface += Vector3.Cross(b - a, c - a).Length();
+            atlas += MathF.Abs(Edge(ua * new Vector2(width, height), ub * new Vector2(width, height), uc * new Vector2(width, height)));
+        }
+
+        return surface > 0 && atlas > 0 ? (float)Math.Sqrt(atlas / surface) : 1f;
+    }
 
     /// <summary>Finds the triangle under a position in the atlas.</summary>
     /// <param name="texel">The position.</param>
@@ -372,16 +453,15 @@ public sealed class PaintMeshSurface {
         }
     }
 
-    sealed class ViewPlacement(PaintMeshSurface surface, PaintView view, PaintView? mirrored) : IPaintPlacement {
+    sealed class ViewPlacement(PaintMeshSurface surface, PaintView[] views) : IPaintPlacement {
         readonly List<int> near = [];
 
         public bool ReplacesStamp => true;
 
         public void Place(PaintStamp stamp, in PaintBrush brush, in TerrainBrush kernel, PaintStampTexels into) {
-            One(view, stamp, brush, kernel, into, 0);
-
-            if (mirrored is { } other) {
-                One(other, stamp, brush, kernel, into, surface.Charts);
+            // Each camera's pieces apart from the others', so a copy on the same island dilates on its own.
+            for (var at = 0; at < views.Length; at++) {
+                One(views[at], stamp, brush, kernel, into, surface.Charts * at);
             }
         }
 
@@ -402,7 +482,10 @@ public sealed class PaintMeshSurface {
 
             var density = projection.Density(hit.Triangle, surface.width, surface.height);
             var depth = camera.Depth(hit.Point);
-            var radius = stamp.Radius * Corner * camera.PerPixel(depth);
+            // ⚠ The long semi-axis: an author's stretched stamp reaches √aspect radii along it, and a square on the
+            // picture only a radius across clipped it to a disc's width.
+            var across = stamp.Radius * MathF.Sqrt(stamp.Stretch);
+            var radius = across * Corner * camera.PerPixel(depth);
             var facing = Vector3.Dot(density.Normal, ray.Direction);
             var slope = MathF.Max(MathF.Abs(facing), PaintFootprint.GrazingFloor);
             var reach = radius * MathF.Max(DepthReach, 1f / slope);
@@ -411,7 +494,7 @@ public sealed class PaintMeshSurface {
 
             Span<Vector3> sides = stackalloc Vector3[4];
 
-            Pyramid(camera, stamp.Centre, stamp.Radius, ray.Direction, sides);
+            Pyramid(camera, stamp.Centre, across, ray.Direction, sides);
             projection.Overlapping(hit.Point, sphere, near);
 
             foreach (var triangle in near) {
@@ -458,7 +541,7 @@ public sealed class PaintMeshSurface {
         }
     }
 
-    sealed class SeamPlacement(PaintMeshSurface surface) : IPaintPlacement {
+    sealed class SeamPlacement(PaintMeshSurface surface, PaintSymmetryGroup? symmetry) : IPaintPlacement {
         readonly Queue<int> waiting = new();
         readonly HashSet<int> seen = [];
 
@@ -487,10 +570,56 @@ public sealed class PaintMeshSurface {
 
             var centre = (a * corners.X) + (b * corners.Y) + (c * corners.Z);
             var distance = reach / density.Minor;
+            var weigher = new SeamWeigher(centre, density, nearest, kernel, stamp, brush.Alpha);
+
+            // The stamp's own island is the stamp's, painted under it in the atlas; this carries on past its edges.
+            Walk(start, centre, distance, surface.topology.Value.Chart[start], 0, ref weigher, into);
+
+            if (symmetry is null) {
+                return;
+            }
+
+            var copies = symmetry.Copies;
+
+            for (var at = 0; at < copies.Count; at++) {
+                var copy = copies[at];
+                var moved = copy.Point(centre);
+                var landed = projection.Nearest(moved);
+
+                // Nothing within reach is a mesh that is not symmetric here. The walk would weigh every texel of it
+                // at nothing, since a weight is measured from the copy's place and not from the surface found, so
+                // this only saves the walk.
+                if (!landed.Found || landed.Distance > distance) {
+                    continue;
+                }
+
+                // ⚠ The frame turned rather than the point turned back: the copy weighs a point by where the
+                // stroke's own stamp would have it, which keeps a mirrored alpha mirrored.
+                var turned = density with {
+                    Tangent = copy.Direction(density.Tangent),
+                    Bitangent = copy.Direction(density.Bitangent)
+                };
+                var mirrored = new SeamWeigher(moved, turned, nearest, kernel, stamp, brush.Alpha);
+
+                Walk(landed.Triangle, moved, distance, -1, surface.Charts * (at + 1), ref mirrored, into);
+            }
+        }
+
+        /// <summary>
+        ///     Scans the triangles joined to one within a distance of a point, every chart but <paramref name="home" />.
+        /// </summary>
+        void Walk(
+            int start,
+            Vector3 centre,
+            float distance,
+            int home,
+            int offset,
+            ref SeamWeigher weigher,
+            PaintStampTexels into
+        ) {
+            var projection = surface.Projection;
             var limit = distance * distance;
             var topology = surface.topology.Value;
-            var home = topology.Chart[start];
-            var weigher = new SeamWeigher(centre, density, nearest, kernel, stamp, brush.Alpha);
 
             seen.Clear();
             waiting.Clear();
@@ -502,7 +631,7 @@ public sealed class PaintMeshSurface {
                     surface.Scan(
                         triangle,
                         surface.Reach(triangle, centre, distance),
-                        topology.Chart[triangle],
+                        topology.Chart[triangle] + offset,
                         ref weigher,
                         into
                     );
@@ -515,7 +644,7 @@ public sealed class PaintMeshSurface {
                         continue;
                     }
 
-                    projection.Triangle(next, out a, out b, out c, out _, out _, out _);
+                    projection.Triangle(next, out var a, out var b, out var c, out _, out _, out _);
 
                     if (Vector3.DistanceSquared(centre, TriangleTree.ClosestPointOnTriangle(centre, a, b, c)) <= limit) {
                         waiting.Enqueue(next);
@@ -655,4 +784,16 @@ public sealed class PaintMeshSurface {
                 && Vector2.DistanceSquared(High, other.High) < Tolerance * Tolerance;
         }
     }
+}
+
+/// <summary>What a brush's radius is measured in.</summary>
+public enum PaintSizeSpace {
+    /// <summary>The units of the picture the stroke is made on: a camera's, or the atlas's for a stroke with none.</summary>
+    Picture,
+
+    /// <summary>Texels of the atlas, whatever the camera: the same brush paints the same number of texels at any zoom.</summary>
+    Texels,
+
+    /// <summary>The mesh's own units: the same brush covers the same part of the model at any zoom or density.</summary>
+    Model
 }

@@ -4,7 +4,7 @@ slug: editor/paint-tile-store
 kind: guide
 area: Editor
 summary: How a paint layer's pixels are held as sparse tiles, what a stroke costs, how a host evaluates a stack without an editor, and what a .vxpaint pack holds.
-api: [T:Vixen.Texturing.Painting.PaintImageSnapshot, T:Vixen.Texturing.Painting.PaintMeshSurface, T:Vixen.Texturing.Painting.PaintTransfer, T:Vixen.Texturing.Painting.PaintView, T:Vixen.Texturing.Painting.IPaintPlacement, T:Vixen.Texturing.Painting.PaintStampTexels, T:Vixen.Texturing.Painting.PaintTexelMap`1, T:Vixen.Texturing.Painting.PaintTileCache, T:Vixen.Texturing.Layers.LayerStackEvaluator, T:Vixen.Texturing.Layers.LayerStackPictures, T:Vixen.TextureGraph.TextureRect, T:Vixen.TextureGraph.TextureRegions, T:Vixen.TextureGraph.TextureTileWrite, T:Vixen.TextureGraph.TextureImageChange, T:Vixen.TextureGraph.TextureLocality]
+api: [T:Vixen.Texturing.Painting.PaintImageSnapshot, T:Vixen.Texturing.Painting.PaintMeshSurface, T:Vixen.Texturing.Painting.PaintTransfer, T:Vixen.Texturing.Painting.PaintView, T:Vixen.Texturing.Painting.PaintSymmetryGroup, T:Vixen.Texturing.Painting.PaintIsometry, T:Vixen.Texturing.Painting.PaintSizeSpace, T:Vixen.Texturing.Painting.PaintScatterAxis, T:Vixen.Texturing.Painting.PaintStampBlend, T:Vixen.Texturing.Painting.IPaintPlacement, T:Vixen.Texturing.Painting.PaintStampTexels, T:Vixen.Texturing.Painting.PaintTexelMap`1, T:Vixen.Texturing.Painting.PaintTileCache, T:Vixen.Texturing.Layers.LayerStackEvaluator, T:Vixen.Texturing.Layers.LayerStackPictures, T:Vixen.TextureGraph.TextureRect, T:Vixen.TextureGraph.TextureRegions, T:Vixen.TextureGraph.TextureTileWrite, T:Vixen.TextureGraph.TextureImageChange, T:Vixen.TextureGraph.TextureLocality]
 tags: [editor, painting, material-authoring, texture-graph]
 since: 0.1
 status: preview
@@ -93,7 +93,7 @@ var texels = bake.ReadTexels(map, [new(0, 0, 256, 256)]);
 `PaintStroke` given one of its placements measures each texel by where it is on the mesh rather than in the atlas, which
 is what makes a seam nothing special: both sides of one are the same place.
 
-`Through(view, mirror)` is a brush seen through a camera. A stamp's centre is a position on the picture, `PaintView`
+`Through(view, symmetry)` is a brush seen through a camera. A stamp's centre is a position on the picture, `PaintView`
 turns it into a ray, each triangle near the hit is clipped to the square the stamp makes on the picture, and a texel
 weighs what the brush weighs where it projects. So the disc on the screen stays a disc on any island, and a separate
 shell under the brush takes paint with the rest. A face turned away is skipped, and depth is a limit and not an
@@ -102,6 +102,22 @@ occlusion test, so a texel hidden behind other geometry close under the brush is
 `AcrossSeams()` is a brush in the atlas. It paints the disc as it always did, then floods from the triangle under the
 stamp across edges the mesh really shares, carrying the stamp on to the other islands by distance along the surface. It
 does not reach a surface it is only near, such as the far side of a thin wall.
+
+Both take a `PaintSymmetryGroup`: a mirror through a plane, or two to 64 turns round an axis, each a `PaintIsometry`,
+through whatever point the host names, so a model off its own origin mirrors onto itself. Through a camera, each copy is
+the camera moved with it, so a copy is never hidden behind the model. In the atlas, a copy finds the stamp's place on the
+surface, moves it, starts from the nearest surface there, and weighs each texel in the copy's turned frame, so a
+mirrored alpha stays mirrored. A copy whose place is off the mesh paints nothing.
+
+`PictureRadius` and `AtlasRadius` turn a radius in texels or in the model's units (`PaintSizeSpace`) into the stroke's
+own, measured on the triangle under where it starts; the stroke keeps that radius, as a projector keeps the one it
+measures at pointer-down.
+
+A brush's `Aspect` and `AspectAngle` make an elliptical stamp of the same area. Through a camera that is the author's,
+stretched in the picture, and the square a stamp is clipped to reaches its long semi-axis. `FlowJitter` takes from a
+stamp's flow on a hash stream of its own, `PaintScatterAxis.Across` scatters only across the path, and
+`PaintStampBlend.Maximum` keeps the strongest stamp at a texel rather than laying each over the last, so a stroke at a
+quarter flow is a quarter however slowly it is dragged.
 
 Either way a stroke dilates each island it reached separately, into the gutter of `PaintCoverage`, and reports one
 rectangle per island, since the union of two is everything between them.

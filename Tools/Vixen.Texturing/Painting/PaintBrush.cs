@@ -127,12 +127,18 @@ public readonly record struct PaintBrush {
 
     /// <summary>How much longer the stamp is along one atlas direction than across it. One is a disc.</summary>
     /// <remarks>
-    ///     ⚠ <b>Written by the 3D surface at pointer-down and by nothing else</b> —
-    ///     <a href="https://github.com/Rikarin/Vixen/issues/1064">#1064</a>. It is not a brush setting
-    ///     an artist authors: it is what the hit triangle's layout does to a disc, measured by
-    ///     <c>PaintFootprint.Ellipse</c>. The 2D view leaves it at one, and correctly — there a
-    ///     radius is already in texels and there is nothing between the pointer and the atlas to
-    ///     stretch it.
+    ///     <para>
+    ///         ⚠ <b>Two writers, and a host uses one of them, never both</b> —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1064">#1064</a>. A projector that turns
+    ///         a disc on the screen into texels writes what the hit triangle's layout does to that disc,
+    ///         measured by <c>PaintFootprint.Ellipse</c>, at pointer-down. A placement that weighs each
+    ///         stamp on the picture itself — <c>PaintMeshSurface.Through</c> — needs no such measure,
+    ///         and there it is the author's: an elliptical brush, stretched in the picture.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Equal area whichever writes it</b>, see <see cref="Circularised" />: a brush made
+    ///         four times longer is half as wide, and its radius still means what it did.
+    ///     </para>
     /// </remarks>
     public float Aspect { get; init; }
 
@@ -182,6 +188,19 @@ public readonly record struct PaintBrush {
     /// </remarks>
     public float SizeJitter { get; init; }
 
+    /// <summary>How much a stamp's flow may drop, as a fraction. 0…1.</summary>
+    /// <remarks>
+    ///     Down only, for <see cref="SizeJitter" />'s reason in another form: <see cref="Flow" /> stays the most
+    ///     a stamp deposits, which is what a stroke that does not accumulate stops at.
+    /// </remarks>
+    public float FlowJitter { get; init; }
+
+    /// <summary>Which way <see cref="PositionJitter" /> moves a stamp.</summary>
+    public PaintScatterAxis ScatterAxis { get; init; }
+
+    /// <summary>What a stamp does where the stroke has already painted.</summary>
+    public PaintStampBlend Blend { get; init; }
+
     /// <summary>
     ///     The brush alpha, or <see langword="null" /> for a plain disc.
     /// </summary>
@@ -215,6 +234,9 @@ public readonly record struct PaintBrush {
             PositionJitter = 0f,
             AngleJitter = 0f,
             SizeJitter = 0f,
+            FlowJitter = 0f,
+            ScatterAxis = PaintScatterAxis.Both,
+            Blend = PaintStampBlend.Accumulate,
             Alpha = null
         };
 
@@ -336,4 +358,34 @@ public readonly record struct PaintBrush {
 
         return PaintRect.Covering(footprint.Minimum, footprint.Maximum).Clip(width, height);
     }
+}
+
+/// <summary>Which way a scattered stamp strays from the stroke's path.</summary>
+public enum PaintScatterAxis {
+    /// <summary>Any way, as far as the jitter allows.</summary>
+    Both,
+
+    /// <summary>
+    ///     Only across the path, so the stamps keep their spacing along it: a stroke that frays at its edges
+    ///     rather than one that clumps.
+    /// </summary>
+    Across
+}
+
+/// <summary>What a stamp does where the stroke it belongs to has already painted.</summary>
+/// <remarks>
+///     ⚠ <b>Either way the stroke stops at <see cref="PaintBrush.Opacity" />.</b> This is how the stamps of one
+///     stroke combine under that cap, never how the stroke combines with the layer, which is the layer's blend.
+/// </remarks>
+public enum PaintStampBlend {
+    /// <summary>
+    ///     Each stamp lays its flow over what the stroke laid before, so a slow drag builds up to the opacity.
+    /// </summary>
+    Accumulate,
+
+    /// <summary>
+    ///     A texel keeps the strongest single stamp to reach it, so overlapping stamps never build up: a stroke at a
+    ///     quarter flow is a quarter however slowly it is dragged.
+    /// </summary>
+    Maximum
 }

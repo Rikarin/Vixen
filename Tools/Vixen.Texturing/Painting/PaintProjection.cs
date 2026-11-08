@@ -426,6 +426,40 @@ public sealed class PaintProjection {
     /// <param name="into">Cleared, then given the triangles.</param>
     public void Overlapping(Vector3 centre, float radius, List<int> into) => tree.Overlapping(centre, radius, into);
 
+    /// <summary>The place on the mesh nearest a point, and the coordinate there.</summary>
+    /// <param name="point">The point, in the mesh's own space.</param>
+    /// <returns>
+    ///     The place, whose <see cref="PaintHit.Distance" /> is how far the point is from it;
+    ///     <see cref="PaintHit.None" /> for a mesh with no triangles.
+    /// </returns>
+    /// <remarks>
+    ///     What a symmetry copy of an atlas stroke stands on: the stroke's place on the surface, moved, is a point that
+    ///     a symmetric mesh has a surface at, and nothing else says which triangle that is.
+    /// </remarks>
+    public PaintHit Nearest(Vector3 point) {
+        if (Triangles == 0) {
+            return PaintHit.None;
+        }
+
+        var found = tree.Closest(point);
+
+        if (found.Triangle < 0) {
+            return PaintHit.None;
+        }
+
+        Layout(found.Triangle, out var ua, out var ub, out var uc);
+
+        var weights = found.Barycentric;
+
+        return new(
+            found.Triangle,
+            weights,
+            (ua * weights.X) + (ub * weights.Y) + (uc * weights.Z),
+            found.Point,
+            MathF.Sqrt(found.DistanceSquared)
+        );
+    }
+
     /// <summary>Where a coordinate lands in an atlas of a size.</summary>
     /// <param name="coordinate">The coordinate, in the unit square.</param>
     /// <param name="width">The atlas width in texels.</param>

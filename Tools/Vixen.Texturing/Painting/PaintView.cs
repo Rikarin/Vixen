@@ -91,4 +91,15 @@ public readonly record struct PaintView(
             Up = plane.MirrorDirection(Up),
             Forward = plane.MirrorDirection(Forward)
         };
+
+    /// <summary>This camera moved with the mesh: the picture of a point here is the picture of where it goes.</summary>
+    /// <param name="copy">The motion, a symmetry's turn or reflection.</param>
+    /// <returns>The moved camera.</returns>
+    public PaintView Moved(PaintIsometry copy) =>
+        this with {
+            Eye = copy.Point(Eye),
+            Right = copy.Direction(Right),
+            Up = copy.Direction(Up),
+            Forward = copy.Direction(Forward)
+        };
 }
