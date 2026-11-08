@@ -812,7 +812,7 @@ public class TextureNodeLibraryTests {
         // Patina #171's colour and blend operators, every one on the colour side or, where a port
         // measures, on the grey. Like `mix` above they end in no Output node, and their ops are still
         // in the plan, which is what this file reads.
-        foreach (var path in (string[]) [
+        foreach (var path in (string[])[
                      "Colour/Clamp", "Colour/Quantise", "Colour/Channel Mix", "Colour/Replace Colour",
                      "Colour/Colour Match", "Colour/Replace Colour Range", "Colour/sRGB to Linear",
                      "Colour/Linear to sRGB", "Colour/Premultiply", "Colour/Unpremultiply", "Colour/Palette"
@@ -839,7 +839,7 @@ public class TextureNodeLibraryTests {
 
         // Patina #173's smoothing filters and #175's remaps, each over one image. Rotate by Map is the
         // one with a second port, and its map measures.
-        foreach (var path in (string[]) [
+        foreach (var path in (string[])[
                      "Filters/Median", "Filters/Edge-Preserving Blur", "Filters/Painterly Smooth",
                      "Filters/Spin Blur", "Filters/Anti-Alias", "Space/Cartesian to Polar",
                      "Space/Polar to Cartesian", "Space/Four-Corner Warp", "Space/Swirl", "Space/Wedge Symmetry",
