@@ -370,13 +370,30 @@ public static class LayerStackGraph {
     ///     ⚠ <b>The compile's own rule, for a host that wants to offer the list.</b> <c>Published</c> and
     ///     <c>Effect</c> refuse whatever this says no to, so a menu built from anything else offers
     ///     refusals. A second image in is a composite, and which of its inputs the stack beneath would
-    ///     be is not something a stack file can decide.
+    ///     be is not something a stack file can decide. The one narrowing the other way is
+    ///     <see cref="IdentityOnAStack" />: nodes the compile takes and that cannot change any picture a
+    ///     stack hands them, so offering them would offer nothing.
     /// </remarks>
     public static bool IsAdjustment(NodeTypeDefinition type) {
         ArgumentNullException.ThrowIfNull(type);
 
-        return Builder.Images(type, PortDirection.Input) == 1 && Builder.Images(type, PortDirection.Output) == 1;
+        return Builder.Images(type, PortDirection.Input) == 1
+            && Builder.Images(type, PortDirection.Output) == 1
+            && !IdentityOnAStack.Contains(type.Path);
     }
+
+    /// <summary>One-image nodes the compile would take and that cannot change a stack's picture.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Left off the list a host offers, and still accepted by name</b> (Patina #171). Every
+    ///     picture a filter layer or a mask step reads is opaque — a channel beneath is composited over its
+    ///     default, and a mask is greyed — so multiplying or dividing colour by an alpha of one is the
+    ///     picture it was handed. Offering them would be two menu entries that do nothing, which is the
+    ///     defect a menu read off the registry is supposed to make impossible.
+    /// </remarks>
+    static readonly HashSet<string> IdentityOnAStack = new(StringComparer.Ordinal) {
+        "Colour/Premultiply",
+        "Colour/Unpremultiply"
+    };
 
     /// <summary>The walk, with the graph it is filling and the problems it is collecting.</summary>
     sealed class Builder(LayerStackAsset stack, TextureSetAsset set, NodeTypeRegistry library) {
