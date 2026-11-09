@@ -27,6 +27,12 @@ public interface IModelReadOptions {
     /// <summary>Whether to keep the first vertex colour set, which only a bake's id map reads.</summary>
     bool ImportVertexColours => false;
 
+    /// <summary>
+    ///     Whether to keep every texture coordinate set in <c>ReadModel.TexCoordSets</c>, which only a host that
+    ///     paints or bakes on a second layout reads. The first set is always read.
+    /// </summary>
+    bool ImportAllTexCoords => false;
+
     /// <summary>The smallest displacement a blend shape keeps for a vertex.</summary>
     float BlendShapeThreshold { get; }
 }

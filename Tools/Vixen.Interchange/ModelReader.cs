@@ -42,6 +42,23 @@ public sealed record ReadModel(
     /// <summary>The images each of <see cref="ModelData.Materials" /> names, in the same order.</summary>
     /// <remarks>Beside the factors, and for the same reader: a viewer with no material assets.</remarks>
     public ModelMaterialTextures[] MaterialTextures { get; init; } = [];
+
+    /// <summary>
+    ///     Every texture coordinate set of each of <see cref="Meshes" />, in the same order, when
+    ///     <see cref="IModelReadOptions.ImportAllTexCoords" /> asked for them; otherwise empty.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Set zero is the mesh's own <see cref="MeshData.TexCoords" />. A set the file does not fill is an empty
+    ///         array in its place, so an index is the file's channel number.
+    ///     </para>
+    ///     <para>
+    ///         Beside the meshes rather than on <see cref="MeshData" />, which is a serialized record: a host that
+    ///         paints on a second set, or bakes into a lightmap layout, swaps the set into <c>TexCoords</c> itself,
+    ///         and nothing the engine draws or stores changes shape.
+    ///     </para>
+    /// </remarks>
+    public Vector2[][][] TexCoordSets { get; init; } = [];
 }
 
 /// <summary>One image a material names: a file beside the model, or bytes inside it.</summary>
@@ -168,6 +185,11 @@ public static class ModelReader {
     /// <param name="name">What to call the model and to name its parts after.</param>
     /// <param name="settings">How to import it.</param>
     /// <param name="report">Where to say things worth knowing. May be <see langword="null" />.</param>
+    /// <param name="sideFiles">
+    ///     Reads a file the model names beside itself, such as an OBJ's material library or a glTF's buffers, given
+    ///     the path as the model spells it, relative to the model's own folder. It answers <see langword="null" /> for
+    ///     a file that is not there. <see langword="null" /> reads a model that names nothing beside it.
+    /// </param>
     /// <returns>The model and its parts.</returns>
     /// <exception cref="ModelFormatException">Assimp would not read it.</exception>
     public static unsafe ReadModel Read(
@@ -175,7 +197,8 @@ public static class ModelReader {
         string extension,
         string name,
         IModelReadOptions settings,
-        Action<ImportSeverity, string>? report = null
+        Action<ImportSeverity, string>? report = null,
+        Func<string, byte[]?>? sideFiles = null
     ) {
         ArgumentNullException.ThrowIfNull(settings);
 
@@ -187,16 +210,28 @@ public static class ModelReader {
         var hint = extension.TrimStart('.').ToLowerInvariant();
         AssimpScene* scene;
         string reason;
+        IReadOnlyList<string> unread;
+        var file = ModelFileName(name, hint);
 
         lock (AssimpGate) {
-            fixed (byte* data = bytes) {
-                scene = assimp.ImportFileFromMemory(data, (uint)bytes.Length, Flags(settings), hint);
-            }
+            // Opened by a name of its own, so that what it names beside itself is asked for relative to it.
+            // ModelFiles says why this is not aiImportFileFromMemory.
+            (var opened, unread) = ModelFiles.Run(
+                file,
+                bytes,
+                sideFiles,
+                io => (IntPtr)assimp.ImportFileEx(file, Flags(settings), (FileIO*)io)
+            );
+            scene = (AssimpScene*)opened;
 
             // Read inside the section that produced it, because it is a global buffer the next
             // failing parse overwrites — see AssimpGate. Read even when nothing failed, so that the
             // section has one exit and the failure path does not have to re-enter it.
             reason = scene is null || scene->MRootNode is null ? assimp.GetErrorStringS() : string.Empty;
+        }
+
+        foreach (var problem in unread) {
+            report?.Invoke(ImportSeverity.Warning, problem);
         }
 
         if (scene is null || scene->MRootNode is null) {
@@ -212,7 +247,7 @@ public static class ModelReader {
         }
 
         try {
-            return Convert(assimp, scene, name, settings, report);
+            return Convert(assimp, scene, name, file, settings, report);
         } finally {
             // Always, including on the way out of an exception. The scene is native memory Assimp
             // allocated; an import that threw halfway and leaked it would lose a few megabytes per
@@ -220,6 +255,13 @@ public static class ModelReader {
             assimp.ReleaseImport(scene);
         }
     }
+
+    /// <summary>
+    ///     The name Assimp opens the model by: its own when that is a plain file name, so an OBJ that names no material
+    ///     library still finds the one called after it, as Assimp's reader looks for.
+    /// </summary>
+    static string ModelFileName(string name, string hint) =>
+        name.Length > 0 && name.IndexOfAny(['/', '\\', '\0', ':']) < 0 ? $"{name}.{hint}" : $"model.{hint}";
 
     static uint Flags(IModelReadOptions settings) {
         var flags = PostProcessSteps.Triangulate
@@ -248,6 +290,7 @@ public static class ModelReader {
         AssimpApi assimp,
         AssimpScene* scene,
         string name,
+        string file,
         IModelReadOptions settings,
         Action<ImportSeverity, string>? report
     ) {
@@ -255,7 +298,7 @@ public static class ModelReader {
         var parts = new List<ModelPart>();
         var world = new List<Matrix4x4>();
 
-        Flatten(scene->MRootNode, parent: -1, name, settings.Scale, nodes, world, parts, scene);
+        Flatten(scene->MRootNode, parent: -1, name, file, settings.Scale, nodes, world, parts, scene);
 
         var materials = new string[scene->MNumMaterials];
         var factors = new ModelMaterialFactors[scene->MNumMaterials];
@@ -300,7 +343,40 @@ public static class ModelReader {
             Bounds = Bounds(meshes, parts, world)
         };
 
-        return new(model, meshes, skeleton, animations) { MaterialFactors = factors, MaterialTextures = textures };
+        var sets = settings.ImportAllTexCoords ? new Vector2[scene->MNumMeshes][][] : [];
+
+        for (var index = 0; index < sets.Length; index++) {
+            sets[index] = TexCoordSets(scene->MMeshes[index]);
+        }
+
+        return new(model, meshes, skeleton, animations) {
+            MaterialFactors = factors, MaterialTextures = textures, TexCoordSets = sets
+        };
+    }
+
+    /// <summary>Every coordinate set of one mesh, by the file's channel number, with an empty one where it has none.</summary>
+    static unsafe Vector2[][] TexCoordSets(AssimpMesh* mesh) {
+        var count = (int)mesh->MNumVertices;
+        var last = -1;
+
+        for (var channel = 0; channel < 8; channel++) {
+            if (mesh->MTextureCoords[channel] is not null) {
+                last = channel;
+            }
+        }
+
+        var sets = new Vector2[last + 1][];
+
+        for (var channel = 0; channel < sets.Length; channel++) {
+            var source = mesh->MTextureCoords[channel];
+            sets[channel] = source is null ? [] : new Vector2[count];
+
+            for (var vertex = 0; vertex < sets[channel].Length; vertex++) {
+                sets[channel][vertex] = new(source[vertex].X, source[vertex].Y);
+            }
+        }
+
+        return sets;
     }
 
     /// <summary>The images inside the file, encoded as they are there.</summary>
@@ -426,6 +502,7 @@ public static class ModelReader {
         AssimpNode* node,
         int parent,
         string modelName,
+        string file,
         float scale,
         List<ModelNode> nodes,
         List<Matrix4x4> world,
@@ -437,10 +514,11 @@ public static class ModelReader {
 
         nodes.Add(
             new() {
-                // Assimp names the root of a memory import `$$$___magic___$$$`, which is an artefact
-                // of how it was handed the bytes rather than anything in the file. Nobody wants to
-                // see that in an inspector.
-                Name = parent < 0 && node->MName.AsString.StartsWith("$$$", StringComparison.Ordinal)
+                // Some readers name the root after the file they were opened by, which is how the bytes
+                // were handed over rather than anything in the file (a memory import's was
+                // `$$$___magic___$$$`). Nobody wants to see that in an inspector.
+                Name = parent < 0
+                    && (node->MName.AsString == file || node->MName.AsString.StartsWith("$$$", StringComparison.Ordinal))
                     ? modelName
                     : Name(node->MName, $"Node{index}"),
                 Parent = parent,
@@ -463,7 +541,7 @@ public static class ModelReader {
         }
 
         for (var child = 0u; child < node->MNumChildren; child++) {
-            Flatten(node->MChildren[child], index, modelName, scale, nodes, world, parts, scene);
+            Flatten(node->MChildren[child], index, modelName, file, scale, nodes, world, parts, scene);
         }
     }
 
@@ -562,10 +640,11 @@ public static class ModelReader {
             uvs[index] = new(coordinate.X, coordinate.Y);
         }
 
-        // ⚠ Assimp's second coordinate set is deliberately not read, and its colours only on request.
+        // ⚠ Assimp's second coordinate set is deliberately not on MeshData, and its colours only on request.
         // MeshData carried both for a while and nothing ever drew either — SurfaceGeometry.Pack
         // dropped them on the way to the only vertex layout the engine has. Colours came back for the
-        // one thing that reads them, a bake's id map, which is why they cost nothing unless asked for.
+        // one thing that reads them, a bake's id map, which is why they cost nothing unless asked for;
+        // the other sets come back beside the meshes, in ReadModel.TexCoordSets, for the same reason.
         var colours = settings.ImportVertexColours && mesh->MColors[0] is not null ? new Vector4[count] : [];
 
         for (var index = 0; index < colours.Length; index++) {

@@ -24,5 +24,8 @@ public sealed record ModelReadOptions : IModelReadOptions {
     public bool ImportVertexColours { get; init; }
 
     /// <inheritdoc />
+    public bool ImportAllTexCoords { get; init; }
+
+    /// <inheritdoc />
     public float BlendShapeThreshold { get; init; } = 1e-4f;
 }
