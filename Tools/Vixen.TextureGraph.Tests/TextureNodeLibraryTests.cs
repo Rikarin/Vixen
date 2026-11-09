@@ -125,6 +125,8 @@ public class TextureNodeLibraryTests {
         [("Polar", "toPolar")] = "Not a default: Space/Cartesian to Polar and Space/Polar to Cartesian are the same "
             + "kernel either way, and each node sets the direction its name says.",
         [("SelectInput", "wired")] = "Not a default: one bit per slot that has a wire, and the fixture wires two.",
+        [("Bitmap", "srgb")] = "Not a default: Source/Bitmap says what its asset is encoded in, and Source/Vector "
+            + "always decodes, because an SVG writes its colours in sRGB.",
         [("HistogramPlot", "mode")] = "Not a default: Analysis/Histogram and Analysis/Histogram Render are the same "
             + "kernel, and the fixture's render draws bars where the kernel's own nought is the density strip.",
         [("Distance", "coloured")] = "Not a default: Analysis/Distance Colour is the same kernel read at the seed, and "
@@ -809,6 +811,15 @@ public class TextureNodeLibraryTests {
         // would be the silent failure the node refuses. Every number below is still a declared
         // default, which is what keeps the defaults roll call an assertion about the library.
         bitmap.SetText("Source", "Assets/Textures/fixture.png");
+
+        // Patina #139's two drawings, pictures a host fills like the bitmap's. Text draws in the bundled face
+        // when it names none, so its defaults compile; a vector with no file is refused as a bitmap with no
+        // asset is, and is given one.
+        var vector = graph.Add("Source/Vector");
+
+        vector.SetText("File", "Assets/Textures/fixture.svg");
+        graph.Connect(graph.Add("Source/Text"), "Out", graph.Add("Colour/Invert"), "Input");
+        graph.Connect(vector, "Out", graph.Add("Colour/Invert"), "Input");
 
         // ⚠ The fifth image no op writes, and the only one whose reference names no file: a mesh map
         // is bound by what it measures, so what crosses is `meshmap:curvature` and the *bake* decides

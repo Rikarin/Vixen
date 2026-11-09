@@ -664,6 +664,7 @@
     <Project Path="Tools/Vixen.NodeGraph.Generator/Vixen.NodeGraph.Generator.csproj" />
     <Project Path="Editor/Vixen.Editor.ShaderGraph/Vixen.Editor.ShaderGraph.csproj" />
     <Project Path="Tools/Vixen.TextureGraph/Vixen.TextureGraph.csproj" />
+    <Project Path="Tools/Vixen.TextureGraph.Drawing/Vixen.TextureGraph.Drawing.csproj" />
     <Project Path="Tools/Vixen.Texturing/Vixen.Texturing.csproj" />
     <Project Path="Editor/Vixen.Editor.TextureGraph/Vixen.Editor.TextureGraph.csproj" />
     <Project Path="Editor/Vixen.Editor.Texturing/Vixen.Editor.Texturing.csproj" />
@@ -701,6 +702,7 @@
     <Project Path="Tools/Vixen.Texturing.Tests/Vixen.Texturing.Tests.csproj" />
     <Project Path="Editor/Vixen.Editor.TextureGraph.Tests/Vixen.Editor.TextureGraph.Tests.csproj" />
     <Project Path="Tools/Vixen.TextureGraph.Tests/Vixen.TextureGraph.Tests.csproj" />
+    <Project Path="Tools/Vixen.TextureGraph.Drawing.Tests/Vixen.TextureGraph.Drawing.Tests.csproj" />
     <Project Path="Editor/Vixen.Editor.Texturing.Tests/Vixen.Editor.Texturing.Tests.csproj" />
     <Project Path="Editor/Vixen.Editor.VfxGraph.Tests/Vixen.Editor.VfxGraph.Tests.csproj" />
     <Project Path="Editor/Vixen.Editor.Ai.Tests/Vixen.Editor.Ai.Tests.csproj" />

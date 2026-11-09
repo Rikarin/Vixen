@@ -1,0 +1,40 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.TextureGraph.Drawing</RootNamespace>
+        <Description>
+            The pictures a texture graph's host draws rather than a kernel: a Source/Text node's string, shaped
+            and filled in a font, and a Source/Vector node's SVG, filled at the bake's own size. Beside the
+            evaluator rather than in it, because a font and a path are interface assemblies' and the evaluator
+            links none.
+        </Description>
+        <PackageTags>texture-graph;text;svg;material-authoring;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+
+        <!-- The face a Source/Text that names none draws with: the editor's own UI face, OFL-1.1, linked so
+             there is one copy of it in the tree. NOTICE lists it. -->
+        <EmbeddedResource Include="..\..\Editor\Vixen.Editor.App\Fonts\OpenSans-Regular.ttf"
+                          Link="Fonts\OpenSans-Regular.ttf"
+                          LogicalName="Vixen.TextureGraph.Drawing.Fonts.OpenSans-Regular.ttf" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Vixen.TextureGraph\Vixen.TextureGraph.csproj" />
+
+        <!-- Fonts, shaping and the scanline fill, which takes an even-odd rule for an SVG's sake. -->
+        <ProjectReference Include="..\..\Core\Vixen.Ui.Text\Vixen.Ui.Text.csproj" />
+
+        <!-- SVG path data, and the flattener and tessellator a stroke goes through. -->
+        <ProjectReference Include="..\..\Core\Vixen.Ui\Vixen.Ui.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.TextureGraph.Drawing.Tests" />
+    </ItemGroup>
+
+</Project>

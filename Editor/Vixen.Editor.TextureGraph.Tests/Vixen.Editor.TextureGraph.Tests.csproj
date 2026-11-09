@@ -24,10 +24,4 @@
         <ProjectReference Include="..\..\Platform\Vixen.Graphics.Null\Vixen.Graphics.Null.csproj" />
     </ItemGroup>
 
-    <ItemGroup>
-        <!-- The editor's own UI font, linked so no second copy of the face can drift. -->
-        <EmbeddedResource Include="..\Vixen.Editor.App\Fonts\OpenSans-Regular.ttf"
-                          Link="Fonts\OpenSans-Regular.ttf"
-                          LogicalName="Fonts.OpenSans-Regular.ttf" />
-    </ItemGroup>
 </Project>
