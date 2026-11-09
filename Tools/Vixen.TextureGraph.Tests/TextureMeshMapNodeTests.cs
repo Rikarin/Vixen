@@ -119,10 +119,14 @@ public class TextureMeshMapNodeTests {
 
             Assert.Equal(usage == "id" ? 0f : 1f, filter.Value);
 
-            // ⚠ And never decoded. Every one of the nine is a measurement rather than a picture, so
-            // running the sRGB curve over one would bend a direction or a distance into a plausible
-            // wrong number — the failure `Bitmap.rvn` spends a section on, in its other direction.
-            Assert.Equal(0f, Assert.Single(op.Parameters, parameter => parameter.Name == "srgb").Value);
+            // ⚠ And never decoded but the colour map. Every other one is a measurement rather than a
+            // picture, so running the sRGB curve over one would bend a direction or a distance into a
+            // plausible wrong number — the failure `Bitmap.rvn` spends a section on, in its other
+            // direction. The colour map is a picture the bake writes in sRGB, so it alone is decoded.
+            Assert.Equal(
+                usage == TextureMeshMaps.Colour ? 1f : 0f,
+                Assert.Single(op.Parameters, parameter => parameter.Name == "srgb").Value
+            );
         }
     }
 
@@ -147,6 +151,7 @@ public class TextureMeshMapNodeTests {
     [InlineData("position", TextureFormat.Rgba16Float)]
     [InlineData("world", TextureFormat.Rgba16Float)]
     [InlineData("id", TextureFormat.Rgba16Float)]
+    [InlineData("colour", TextureFormat.Rgba16Float)]
     public void A_scalar_map_is_grey_and_a_vector_map_is_colour(string usage, TextureFormat format) {
         var compiler = Compiler();
         var compilation = compiler.Compile(Graph(usage, out _));
@@ -154,7 +159,7 @@ public class TextureMeshMapNodeTests {
 
         Assert.Equal(format, compilation.Value.Images[op.Output].Format);
 
-        // The nine rows above are the whole of the node's vocabulary, so the split cannot quietly
+        // The ten rows above are the whole of the node's vocabulary, so the split cannot quietly
         // stop covering a usage somebody added.
         Assert.Contains(usage, TextureMeshMaps.Known);
     }

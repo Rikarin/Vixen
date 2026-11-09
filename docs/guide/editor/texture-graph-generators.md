@@ -60,8 +60,8 @@ var node = graph.Add("Source/Mesh Map");
 node.SetText("Map", "curvature");
 ```
 
-The `Map` setting takes one of nine names — `normal`, `height`, `ao`, `bent`, `curvature`,
-`thickness`, `position`, `world`, `id` — which are the suffixes
+The `Map` setting takes one of ten names — `normal`, `height`, `ao`, `bent`, `curvature`,
+`thickness`, `position`, `world`, `id`, `colour` — which are the suffixes
 [mesh maps as project assets](editor/mesh-map-assets) writes into each map's sidecar. A name that is
 not one of them is a `TG0010` naming the node and the setting, and **not** a fallback to the first:
 every mesh map looks like a mesh map, so a generator wired to the wrong measurement produces a
@@ -70,12 +70,15 @@ plausible picture nobody would question.
 Two things the node decides that no setting exposes:
 
 - **Grey or colour.** `height`, `ao`, `curvature` and `thickness` are one measurement per texel and
-  come back grey; the other five are directions, positions or indices and come back colour. A bent
+  come back grey; the other six are directions, positions, indices or a colour and come back colour. A bent
   normal read as grey loses two thirds of itself at the first node that touches it, and a curvature
   read as colour is a type error at any port that measures — both are silent, in opposite directions.
 - ⚠ **`id` is point-sampled and everything else is interpolated.** Interpolating two material indices
   produces a third that belongs to no material, so a bilinearly resampled id map grows a hairline of a
   fourth material along every boundary. It looks like an antialiased edge.
+- ⚠ **`colour` alone is decoded from sRGB.** Every other map is a measurement the bake writes linear,
+  and the sRGB curve would bend it into a plausible wrong number; the colour map is a picture, vertex
+  colours or a material's base colour or a picture carried across layouts, written as a picture is.
 
 ⚠ **A quantized map arrives quantized.** Displacement and curvature are stored as `0.5 + 0.5·v/range`
 with the range in the sidecar, so `curvature` is a map whose **0.5 is zero curvature** — edges above

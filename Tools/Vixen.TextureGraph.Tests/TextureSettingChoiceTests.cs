@@ -40,7 +40,7 @@ public class TextureSettingChoiceTests {
     /// <summary>How many settings the sweep must find before its silence means anything.</summary>
     /// <remarks>
     ///     Twenty-three <c>TextureSettings.Enum</c> call sites, plus the two nodes that refuse by
-    ///     walking a list of their own — <c>Source/Mesh Map</c>'s nine measurements and
+    ///     walking a list of their own — <c>Source/Mesh Map</c>'s ten measurements and
     ///     <c>Output/Output</c>'s nine usages. Both of those lists are now read off the declaration,
     ///     so for them the comparison is an identity and they are here to be counted rather than
     ///     compared.

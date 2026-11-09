@@ -41,12 +41,12 @@ static class TextureMeshMaps {
     /// </remarks>
     public const string Scheme = "meshmap:";
 
-    /// <summary>The nine a <c>Mesh Map</c> node may name.</summary>
+    /// <summary>The ten a <c>Mesh Map</c> node may name.</summary>
     /// <remarks>
     ///     <para>
     ///         ⚠ <b>Read off the node's own declaration rather than written here —
     ///         <a href="https://github.com/Rikarin/Vixen/issues/964">#964</a>.</b> Until
-    ///         <c>SettingDefinition.Accepted</c> existed the nine were written down twice inside this
+    ///         <c>SettingDefinition.Accepted</c> existed the list was written down twice inside this
     ///         one file: as this array, and as the <c>Summary</c> prose a node inspector shows. A
     ///         plugin that wanted to <em>offer</em> them could reach neither and drew a text box, and
     ///         the two lists were free to disagree because nothing compared them. The
@@ -55,14 +55,14 @@ static class TextureMeshMaps {
     ///     </para>
     ///     <para>
     ///         ⚠ <b>It throws rather than answering empty when the setting cannot be found.</b> A
-    ///         renamed setting would otherwise make <see cref="Canonical" /> refuse all nine, which
+    ///         renamed setting would otherwise make <see cref="Canonical" /> refuse all ten, which
     ///         is every mesh-map node in every graph failing to compile with a message about the
     ///         author's spelling.
     ///     </para>
     /// </remarks>
     public static IReadOnlyList<string> Known => Declared.Accepted;
 
-    /// <summary>The <c>[Setting]</c> the nine are declared on.</summary>
+    /// <summary>The <c>[Setting]</c> the ten are declared on.</summary>
     /// <remarks>
     ///     ⚠ <b>The declaration itself and no longer just its list, because
     ///     <see cref="Canonical" /> is now the declaration's own answer</b> —
@@ -90,7 +90,16 @@ static class TextureMeshMaps {
     /// </remarks>
     public static IReadOnlyList<string> Grey { get; } = ["height", "ao", "curvature", "thickness"];
 
-    /// <summary>The canonical spelling of a usage, or empty when it is not one of the nine.</summary>
+    /// <summary>The one that is a picture rather than a measurement: the high mesh's colour, written in sRGB.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Decoded, where every other map is not.</b> A colour map carries vertex colours, a material's base
+    ///     colour or a picture moved from another layout, and the bake writes it as a picture is written, in sRGB.
+    ///     Read raw it would reach a graph a step too light in the midtones, which nothing downstream could tell
+    ///     from an artist's choice.
+    /// </remarks>
+    public const string Colour = "colour";
+
+    /// <summary>The canonical spelling of a usage, or empty when it is not one of the ten.</summary>
     /// <param name="usage">What the author typed.</param>
     /// <returns>The spelling <see cref="Known" /> holds, or an empty string.</returns>
     /// <remarks>
@@ -170,7 +179,7 @@ sealed partial class MeshMapInputNode : TextureNode {
 
     /// <summary>Which map: one of <c>TextureMeshMaps.Known</c>.</summary>
     /// <remarks>
-    ///     ⚠ <b>The nine live in <c>Accepted</c> and nowhere else — #964.</b> They used to be in the
+    ///     ⚠ <b>The ten live in <c>Accepted</c> and nowhere else — #964.</b> They used to be in the
     ///     summary prose as well as in <c>TextureMeshMaps.Known</c>, which is two transcriptions of a
     ///     known set inside one file. What reads this now: the refusal below, the picker a plugin
     ///     draws, and the node inspector's dropdown.
@@ -178,7 +187,7 @@ sealed partial class MeshMapInputNode : TextureNode {
     [Setting(
         Name = Setting,
         Summary = "What the map measures — the bake's own vocabulary, and a name nothing bakes binds nothing.",
-        Accepted = ["normal", "height", "ao", "bent", "curvature", "thickness", "position", "world", "id"]
+        Accepted = ["normal", "height", "ao", "bent", "curvature", "thickness", "position", "world", "id", "colour"]
     )]
     public string Map = "curvature";
 
@@ -221,12 +230,12 @@ sealed partial class MeshMapInputNode : TextureNode {
             TextureSources.Bitmap(
                 target,
                 source,
-                // ⚠ Never. Every one of the nine is a measurement rather than a picture — a direction,
-                // a distance, an occluded fraction, an index — and running the sRGB curve over one
-                // would bend it into a plausible wrong number. `Source/Bitmap` has the setting
+                // ⚠ Only for the colour map. Every other one is a measurement rather than a picture —
+                // a direction, a distance, an occluded fraction, an index — and running the sRGB curve
+                // over one would bend it into a plausible wrong number. `Source/Bitmap` has the setting
                 // because an imported asset's space is a fact about the asset; a mesh map's is a fact
-                // about the bake, and the bake writes linear.
-                srgb: false,
+                // about the bake, which writes measurements linear and the colour map in sRGB.
+                srgb: string.Equals(usage, TextureMeshMaps.Colour, StringComparison.Ordinal),
                 // ⚠ Point for the id map, and this is § D12's own sentence made mechanical: an id is
                 // "nearest-sampled and never filtered", because interpolating two material indices
                 // produces a third that belongs to no material — the same hairline the gutter

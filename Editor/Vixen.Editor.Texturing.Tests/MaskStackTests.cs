@@ -522,7 +522,7 @@ public class MaskStackTests(ITestOutputHelper output) {
     /// <remarks>
     ///     ⚠ <b>The refusal is a <em>node</em> diagnostic and not a layer problem</b>, which is the
     ///     evidence that <c>LayerStackGraph</c> writes the usage through instead of checking it. A
-    ///     list of the nine in the layer stack could disagree with <c>TextureMeshMaps.Known</c>, and
+    ///     list of its own in the layer stack could disagree with <c>TextureMeshMaps.Known</c>, and
     ///     the way it would disagree is by silently accepting a name the bake never writes.
     /// </remarks>
     [Fact]
