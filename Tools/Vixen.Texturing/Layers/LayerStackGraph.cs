@@ -468,7 +468,7 @@ public static class LayerStackGraph {
         return outputs == 1 || (outputs > 1 && PerChannel(type));
     }
 
-    /// <summary>Whether a node type can be a step on a mask: a filter with one image out, since a mask is one picture.</summary>
+    /// <summary>Whether a node type can be a step on a mask: a filter with one picture out, named after no channel.</summary>
     /// <param name="type">The node type or published compound.</param>
     /// <returns>Whether <see cref="MaskEffectAsset.Node" /> can name it.</returns>
     public static bool IsMaskStep(NodeTypeDefinition type) =>

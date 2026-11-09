@@ -4,7 +4,7 @@ slug: editor/texture-graph-compiling
 kind: guide
 area: Editor
 summary: The compiler that turns a node graph into a texture plan, and the four things it hands back besides the plan — the outputs by usage, the pictures a host still owes it, the parameters an author exposed, and the per-node images a preview draws.
-api: [T:Vixen.TextureGraph.TextureGraphCompiler, T:Vixen.TextureGraph.TextureGraphOutput, T:Vixen.TextureGraph.TextureGraphCheck, T:Vixen.TextureGraph.TextureGraphExternal, T:Vixen.TextureGraph.TextureGraphExternals, T:Vixen.Editor.TextureGraph.TextureProjectImages, T:Vixen.TextureGraph.TextureGraphKernel, T:Vixen.TextureGraph.TextureGraphNodeImage, T:Vixen.TextureGraph.TextureGraphParameter, T:Vixen.TextureGraph.TextureGraphParameters, T:Vixen.TextureGraph.TextureGraphParameterKind, T:Vixen.TextureGraph.TextureGraphSettings, T:Vixen.TextureGraph.TextureRamp, T:Vixen.TextureGraph.TextureGraphExpressions, T:Vixen.TextureGraph.TextureMeasuredInputs]
+api: [T:Vixen.TextureGraph.TextureGraphCompiler, T:Vixen.TextureGraph.TextureGraphOutput, T:Vixen.TextureGraph.TextureGraphCheck, T:Vixen.TextureGraph.TextureGraphExternal, T:Vixen.TextureGraph.TextureGraphExternals, T:Vixen.Editor.TextureGraph.TextureProjectImages, T:Vixen.TextureGraph.TextureGraphKernel, T:Vixen.TextureGraph.TextureGraphNodeImage, T:Vixen.TextureGraph.TextureGraphParameter, T:Vixen.TextureGraph.TextureGraphParameters, T:Vixen.TextureGraph.TextureGraphParameterKind, T:Vixen.TextureGraph.TextureGraphSettings, T:Vixen.TextureGraph.TextureRamp, T:Vixen.TextureGraph.TextureGraphExpressions, T:Vixen.TextureGraph.TextureMeasuredInputs, T:Vixen.TextureGraph.TextureImageInputs]
 tags: [editor, texture-graph, material-authoring, node-graph, compiler]
 since: 0.1
 status: preview
@@ -154,6 +154,13 @@ included, is one of these, by compiling it once over a colour and caching the an
 A layer stack is the caller: a filter layer or a mask effect has no wire for an author to put a
 Grayscale on, so `LayerStackGraph` inserts one — the luminance under a filter layer, and the red of a
 mask, which is what every mask source reads.
+
+`TextureImageInputs` asks the same per port, for a node with more than one image in: `Measures` whether
+one input refuses a colour, and `Optional` whether the node compiles with that input left unwired. A
+filter's second image — a warp's field, a slope blur's slope — is fed from whatever the layer names, so
+the stack greys it where the port measures, and leaves it unwired rather than refusing when the node does
+without it. ⚠ A one-channel picture is read by `Grayscale` as `(r, 0, 0)`, so a grey source is greyed
+by its red, not by the luminance weights, which would leave a fifth of it.
 
 ## Examples
 

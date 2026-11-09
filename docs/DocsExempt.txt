@@ -2942,7 +2942,10 @@ T:Vixen.Texturing.Layers.LayerAsset sweep-pending
 T:Vixen.Texturing.Layers.LayerAxis sweep-pending
 T:Vixen.Texturing.Layers.LayerBlendMode sweep-pending
 T:Vixen.Texturing.Layers.LayerFillSource sweep-pending
+T:Vixen.Texturing.Layers.LayerFilterInput sweep-pending
 T:Vixen.Texturing.Layers.LayerFilterKind sweep-pending
+T:Vixen.Texturing.Layers.LayerInputAsset sweep-pending
+T:Vixen.Texturing.Layers.LayerInputSource sweep-pending
 T:Vixen.Texturing.Layers.LayerKind sweep-pending
 T:Vixen.Texturing.Layers.LayerMaskSource sweep-pending
 T:Vixen.Texturing.Layers.LayerNote sweep-pending
