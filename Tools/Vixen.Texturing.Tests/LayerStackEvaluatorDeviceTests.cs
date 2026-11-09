@@ -386,7 +386,7 @@ public sealed class LayerStackEvaluatorDeviceTests : IDisposable {
                     _ => new() {
                         Id = $"f{index}",
                         Kind = LayerKind.Fill,
-                        Blend = (LayerBlendMode)((mode + index) % 30),
+                        Blend = (LayerBlendMode)((mode + index) % 31),
                         Opacity = 0.4f,
                         Values = { [Usage] = [0.1f * index, 0.3f, 0.7f, 0.9f] }
                     }

@@ -3,6 +3,7 @@
 
 package Vixen.TextureGraph.Shaders
 
+import Vixen.Shaders.Core
 import Vixen.Shaders.Material
 
 // Two images composited into one, under a mode and an opacity.
@@ -62,7 +63,8 @@ shader Blend {
     /// 8 divide · 9 hard light · 10 soft light · 11 difference · 12 exclusion · 13 colour dodge ·
     /// 14 colour burn · 15 signed add · 16 replace · 17 inverse divide · 18 inverse subtract ·
     /// 19 linear burn · 20 vivid light · 21 linear light · 22 pin light · 23 hue · 24 saturation ·
-    /// 25 colour · 26 value · 27 normal map combine · 28 normal map detail · 29 normal map inverse detail.
+    /// 25 colour · 26 value · 27 normal map combine · 28 normal map detail · 29 normal map inverse detail ·
+    /// 30 luminosity.
     ///
     /// ⚠ **The numbers are appended rather than reordered into doc 48 § 4.2's own listing order**,
     /// which is a choice this comment has to record because nothing in the compilation would notice.
@@ -205,6 +207,33 @@ shader Blend {
         val tint = lerp(float3(1f, 1f, 1f), saturate(p - float3(1f, 1f, 1f)), float3(hsv.y, hsv.y, hsv.y))
 
         return tint * hsv.z
+    }
+
+    /// A colour carried to another luminance with its hue and saturation kept: the compositing
+    /// specification's `SetLum` and `ClipColor`, over Rec. 709 luminance because a graph computes in linear.
+    ///
+    /// ⚠ **A shift and then a pull towards the grey of the same luminance, never a scale.** Adding the
+    /// difference keeps the channels' spread, which is what a hue and a saturation are; a channel the
+    /// shift pushed below zero is what the pull answers, along the line to the grey, so the luminance
+    /// stays exactly the one asked for. ⚠ The top is pulled in only where the luminance asked for is
+    /// itself at most one: a graph computes in float and a value past white is an ordinary value, so
+    /// clipping a bright foreground's luminance to one would be a picture nobody asked for.
+    func WithLuminance(colour: float3, luminance: float): float3 {
+        val shifted = colour + float3(1f, 1f, 1f) * (luminance - ColorSpaces.Luminance(colour))
+        val low = min(shifted.x, min(shifted.y, shifted.z))
+        val high = max(shifted.x, max(shifted.y, shifted.z))
+        val grey = float3(luminance, luminance, luminance)
+        var result = shifted
+
+        if (low < 0f) {
+            result = grey + (result - grey) * (luminance / max(luminance - low, 0.000001f))
+        }
+
+        if (high > 1f && luminance <= 1f) {
+            result = grey + (result - grey) * ((1f - luminance) / max(high - luminance, 0.000001f))
+        }
+
+        return result
     }
 
     /// Vivid light in one lane: colour burn below mid-grey and colour dodge above, each over twice the
@@ -390,6 +419,13 @@ shader Blend {
             val under = Hsv(a.xyz)
 
             return Lift(Rgb(float3(under.x, under.y, Hsv(b.xyz).z)), b)
+        }
+
+        if (mode == 30) {
+            // Luminosity: the backdrop's hue and saturation at the layer's luminance. ⚠ Not Value under
+            // another name: value is the brightest channel, so a pure blue and a white share one, and a
+            // detail pass laid in Value bleaches a blue; a luminance weighs green seven times blue.
+            return Lift(WithLuminance(a.xyz, ColorSpaces.Luminance(b.xyz)), b)
         }
 
         if (mode == 27) {
