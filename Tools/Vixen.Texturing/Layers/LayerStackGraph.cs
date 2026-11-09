@@ -1061,9 +1061,9 @@ public static class LayerStackGraph {
                 // ⚠ A flattened group is its canvas, exactly as a paint layer is, and its children are not walked: that
                 // is the whole of what flattening buys. Except while it is being captured, which is how the canvas is made.
                 LayerKind.Group when layer.Flattened && layer.Id != Capturing =>
-                    Weighing ? Covered(Paint(layer, channel)) : Paint(layer, channel),
+                    Weighing ? Covered(Strokes(layer, channel)) : Paint(layer, channel),
                 LayerKind.Group => Group(layer, channel, cursor, depth),
-                LayerKind.Paint => Weighing ? Covered(Paint(layer, channel)) : Paint(layer, channel),
+                LayerKind.Paint => Weighing ? Covered(Strokes(layer, channel)) : Paint(layer, channel),
                 _ => throw new ArgumentOutOfRangeException(
                     nameof(layer),
                     layer.Kind,
@@ -1085,6 +1085,78 @@ public static class LayerStackGraph {
             node.SetValue("Colour", 1f, 1f, 1f, 1f);
 
             return new(node.Id, "Out");
+        }
+
+        /// <summary>What a canvas's strokes cover, for a coverage: its alpha in the channel weighed, or in all of them.</summary>
+        /// <remarks>
+        ///     <para>
+        ///         ⚠ <b>A coverage compiles one channel called <c>mask</c>, which no stroke on a layer ever
+        ///         writes</b> — <c>LayerStackSplat.Coverage</c>'s set has that one channel. Read under it, as
+        ///         <see cref="Paint" /> reads a canvas under the channel being compiled, a paint layer read an
+        ///         absent channel, which the upload fills with transparency, and weighed <b>zero</b> everywhere
+        ///         however much of the atlas its strokes covered (Patina's wave 5 found it through its Find Layer
+        ///         and the splat bake). So when the channel weighed is not one the stack's own set has, the
+        ///         coverage is the most any of that set's channels' strokes cover, texel by texel.
+        ///     </para>
+        ///     <para>
+        ///         <b>The most and not the union by <c>over</c></b>, because a stroke lays the same alpha into
+        ///         every channel it paints: over would weigh a stroke at half in two channels as three
+        ///         quarters. A walk that weighs one of the set's own channels, which is how Patina's Find asks,
+        ///         reads that channel alone, as before.
+        ///     </para>
+        /// </remarks>
+        PortRef? Strokes(LayerAsset layer, ChannelAsset channel) {
+            var usages = stack.Sets.Find(one => one.Name == set.Name)?.Channels ?? set.Channels;
+
+            if (layer.Paint.Trim().Length == 0 || usages.Exists(one => one.Usage == channel.Usage) || usages.Count == 0) {
+                return Paint(layer, channel);
+            }
+
+            PortRef? most = null;
+
+            foreach (var usage in usages) {
+                if (Paint(layer, usage) is not { } painted) {
+                    continue;
+                }
+
+                // Its alpha in red, opaque, so that a Lighten keeps the larger of two.
+                var alpha = Add("Colour/Channel Shuffle");
+
+                alpha.SetText("Red From", "FirstAlpha");
+                alpha.SetText("Green From", "Zero");
+                alpha.SetText("Blue From", "Zero");
+                alpha.SetText("Alpha From", "One");
+                graph.Connect(painted, new(alpha.Id, "First"));
+
+                PortRef red = new(alpha.Id, "Out");
+
+                if (most is { } before) {
+                    var lighten = Add("Colour/Blend");
+
+                    lighten.SetText("Mode", nameof(LayerBlendMode.Lighten));
+                    lighten.SetValue("Opacity", 1f);
+                    graph.Connect(before, new(lighten.Id, "Background"));
+                    graph.Connect(red, new(lighten.Id, "Foreground"));
+                    red = new(lighten.Id, "Out");
+                }
+
+                most = red;
+            }
+
+            if (most is not { } covered) {
+                return null;
+            }
+
+            // Back into alpha, which is where `Covered` and `Blend` read a coverage.
+            var back = Add("Colour/Channel Shuffle");
+
+            back.SetText("Red From", "One");
+            back.SetText("Green From", "One");
+            back.SetText("Blue From", "One");
+            back.SetText("Alpha From", "FirstRed");
+            graph.Connect(covered, new(back.Id, "First"));
+
+            return new(back.Id, "Out");
         }
 
         /// <summary>A painted canvas as a coverage: its alpha kept, its colour forced to one.</summary>
