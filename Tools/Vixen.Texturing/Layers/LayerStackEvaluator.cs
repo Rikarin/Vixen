@@ -102,6 +102,12 @@ public sealed class LayerStackEvaluator : IDisposable {
     /// </summary>
     public bool Weighing { get; init; }
 
+    /// <summary>
+    ///     The layer whose amount every output is, weighed in the picture it is part of, or empty —
+    ///     <see cref="LayerStackGraph.Amount" />. Patina's Find asks it of a layer whose mask reads the picture.
+    /// </summary>
+    public string Asked { get; init; } = "";
+
     /// <summary>Whether the last <see cref="Prepare" /> compiled, rather than only moving values.</summary>
     public bool Compiled { get; private set; }
 
@@ -132,7 +138,8 @@ public sealed class LayerStackEvaluator : IDisposable {
         ArgumentNullException.ThrowIfNull(set);
         ArgumentNullException.ThrowIfNull(registry);
 
-        var build = Weighing ? LayerStackGraph.Weights(stack, set, registry, subGraphs)
+        var build = Asked.Length > 0 ? LayerStackGraph.Amount(stack, set, Asked, registry, subGraphs)
+            : Weighing ? LayerStackGraph.Weights(stack, set, registry, subGraphs)
             : Capture.Length > 0 ? LayerStackGraph.Capture(stack, set, Capture, Backdrop, registry, Draft, subGraphs)
             : LayerStackGraph.Build(stack, set, registry, Draft, subGraphs);
 

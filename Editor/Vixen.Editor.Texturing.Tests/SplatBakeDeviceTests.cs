@@ -9,6 +9,7 @@ using Vixen.Editor.Assets.Materials;
 using Vixen.Editor.Texturing.Layers;
 using Vixen.Rendering.Materials;
 using Vixen.Texturing.Layers;
+using Vixen.Texturing.Painting;
 using Xunit;
 
 namespace Vixen.Editor.Texturing.Tests;
@@ -217,6 +218,86 @@ public class SplatBakeDeviceTests(ITestOutputHelper output) {
         // material is a fact about the project rather than about the host, so it is asked first.
         Assert.Contains(Name + MaterialImporter.Extension, Say(fixture), StringComparison.Ordinal);
     }
+
+    /// <summary>⚠ A paint layer weighs what its strokes cover, and it used to weigh nothing.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         Patina's wave 5 found it: <c>LayerStackSplat.Coverage</c> compiles one channel called
+    ///         <c>mask</c>, and a paint layer's content is its canvas read <em>under the channel being
+    ///         compiled</em> — so a coverage read the canvas's <c>mask</c> channel, which no stroke on a
+    ///         layer ever writes. An absent channel reads as transparency, and the layer weighed
+    ///         <b>zero</b> everywhere while painting perfectly in the picture.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Half alpha, so neither endpoint can pass.</b> The strokes cover half of every texel
+    ///         in base colour and nothing in roughness, so the layer weighs a half and the rock beneath
+    ///         the other half: 128 and 128 in green and red. The defect gave 0 and 255. Roughness is the
+    ///         second channel of the canvas so that a fix reading only the set's first usage is caught
+    ///         too, from the other side: the strokes are in base colour, which is listed second.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_paint_layer_weighs_what_its_strokes_cover() {
+        using var device = TexturingDevice.Open();
+        var adapter = TexturingDevice.Adapter(device);
+
+        using var fixture = new TexturingFixture(device);
+
+        fixture.Host.Activate(TexturingModule.ModuleId, TexturingModule.ModuleName, new TexturingModule());
+
+        PaintCanvas canvas = new(64, 64);
+        var strokes = new byte[64 * 64 * 4];
+
+        for (var at = 0; at < strokes.Length; at += 4) {
+            strokes[at] = strokes[at + 1] = strokes[at + 2] = 255;
+            strokes[at + 3] = 128;
+        }
+
+        canvas.Channel("baseColor").CopyFrom(strokes);
+
+        using (var file = File.Create(Path.Combine(fixture.Paths.Assets, "strokes.vxpaint"))) {
+            canvas.Write(file);
+        }
+
+        fixture.Project.Selection.Set(fixture.AddStack(Name, PaintedStack));
+        Assert.True(fixture.Shell.Commands.Execute(TexturingModule.OpenStackCommand));
+        Layered(fixture, layers: 2);
+
+        Assert.True(fixture.Shell.Commands.Execute(TexturingModule.BakeSplatCommand), $"{adapter}: {Say(fixture)}");
+
+        var splat = Texel(fixture, Name + "_splat");
+
+        output.WriteLine($"{adapter}: splat ({splat[0]}, {splat[1]}, {splat[2]}, {splat[3]}) · {Say(fixture)}");
+
+        Assert.InRange(splat[1], 125, 131);
+        Assert.InRange(splat[0], 124, 130);
+    }
+
+    /// <summary>A rock fill under a paint layer, over two channels, for the paint layer's weight.</summary>
+    const string PaintedStack = """
+        version: 1
+        name: Painted Stack
+        baseWidth: 64
+        baseHeight: 64
+        sets:
+          - name: Ground
+            channels:
+              - usage: roughness
+                default: [0, 0, 0, 1]
+              - usage: baseColor
+                default: [0, 0, 0, 1]
+            layers:
+              - id: rock
+                name: Rock
+                kind: Fill
+                values:
+                  baseColor: [0.5, 0.5, 0.5, 1]
+                  roughness: [0.5, 0.5, 0.5, 1]
+              - id: strokes
+                name: Strokes
+                kind: Paint
+                paint: strokes.vxpaint
+        """;
 
     /// <summary>Scans the committed fixture in and opens it through the verb.</summary>
     static LayerStackDocument Open(TexturingFixture fixture) {

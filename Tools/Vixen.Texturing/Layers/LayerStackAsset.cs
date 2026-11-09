@@ -616,6 +616,14 @@ public sealed record MaskLayerAsset {
 
     /// <summary>Whether it contributes at all.</summary>
     public bool Enabled { get; init; } = true;
+
+    /// <summary>Whether it still applies with its mask switched off (<see cref="MaskAsset.Enabled" />).</summary>
+    /// <remarks>
+    ///     For an entry a host adds that is not the artist's mask, such as Patina's limit of a layer to some of a model's
+    ///     meshes: switching the mask off to compare with and without it must not spill the layer onto the rest of the
+    ///     model. Such an entry composites as it would over an unmasked layer, which is white.
+    /// </remarks>
+    public bool Kept { get; init; }
 }
 
 /// <summary>One adjustment over a mask's composited result.</summary>
@@ -728,6 +736,13 @@ public sealed record MaskAsset {
 
     /// <summary>The adjustments over the composited result, in order.</summary>
     public List<MaskEffectAsset> Effects { get; init; } = [];
+
+    /// <summary>Whether the mask applies. Switched off, its layer composites unmasked but for its kept entries.</summary>
+    /// <remarks>
+    ///     A switch rather than taking the mask away, so that an artist comparing the layer with and without its mask
+    ///     keeps every source, entry and effect for when it comes back on (Patina #109).
+    /// </remarks>
+    public bool Enabled { get; init; } = true;
 }
 
 /// <summary>One layer of a texture set's stack.</summary>
