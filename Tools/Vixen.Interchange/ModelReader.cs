@@ -59,6 +59,16 @@ public sealed record ReadModel(
     ///     </para>
     /// </remarks>
     public Vector2[][][] TexCoordSets { get; init; } = [];
+
+    /// <summary>
+    ///     The <c>UnitScaleFactor</c> the file states, as Assimp reads it, or <see langword="null" /> for a file that
+    ///     states none. An FBX states it as centimetres per unit.
+    /// </summary>
+    /// <remarks>
+    ///     Said and not applied: <see cref="IModelReadOptions.Scale" /> is what changes the numbers, and a host that
+    ///     shows a model's units reads this to say what the file meant.
+    /// </remarks>
+    public double? UnitScaleFactor { get; init; }
 }
 
 /// <summary>One image a material names: a file beside the model, or bytes inside it.</summary>
@@ -350,8 +360,36 @@ public static class ModelReader {
         }
 
         return new(model, meshes, skeleton, animations) {
-            MaterialFactors = factors, MaterialTextures = textures, TexCoordSets = sets
+            MaterialFactors = factors, MaterialTextures = textures, TexCoordSets = sets, UnitScaleFactor = UnitScale(scene)
         };
+    }
+
+    /// <summary>The scene's <c>UnitScaleFactor</c> metadata, whichever number type the reader stored it as.</summary>
+    static unsafe double? UnitScale(AssimpScene* scene) {
+        var data = scene->MMetaData;
+
+        if (data is null) {
+            return null;
+        }
+
+        for (var at = 0u; at < data->MNumProperties; at++) {
+            if (data->MKeys[at].AsString != "UnitScaleFactor") {
+                continue;
+            }
+
+            var entry = data->MValues[at];
+
+            return entry.MData is null
+                ? null
+                : entry.MType switch {
+                    MetadataType.Float => *(float*)entry.MData,
+                    MetadataType.Double => *(double*)entry.MData,
+                    MetadataType.Int32 => *(int*)entry.MData,
+                    _ => null
+                };
+        }
+
+        return null;
     }
 
     /// <summary>Every coordinate set of one mesh, by the file's channel number, with an empty one where it has none.</summary>
