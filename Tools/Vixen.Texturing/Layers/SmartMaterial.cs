@@ -558,7 +558,22 @@ public static class SmartMaterial {
                         Children = Copy(layer.Children),
 
                         // An instance names its source by id, which a material carries with it or does not; Patina #108.
-                        Instance = layer.Instance with { }
+                        Instance = layer.Instance with { },
+
+                        // A decal's box and a path's points are arrays and a list, so each is the material's own (Patina
+                        // #133, #130). They come placed where they were on the model they were saved from.
+                        Decal = layer.Decal is { } decal
+                            ? decal with {
+                                Centre = [.. decal.Centre],
+                                Facing = [.. decal.Facing],
+                                Up = [.. decal.Up],
+                                Box = [.. decal.Box],
+                                Warp = [.. decal.Warp]
+                            }
+                            : null,
+                        SurfacePath = layer.SurfacePath is { } curve
+                            ? curve with { Points = [.. curve.Points], Box = [.. curve.Box] }
+                            : null
                     }
                 );
             }

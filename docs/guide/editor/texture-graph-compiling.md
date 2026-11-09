@@ -4,7 +4,7 @@ slug: editor/texture-graph-compiling
 kind: guide
 area: Editor
 summary: The compiler that turns a node graph into a texture plan, and the four things it hands back besides the plan — the outputs by usage, the pictures a host still owes it, the parameters an author exposed, and the per-node images a preview draws.
-api: [T:Vixen.TextureGraph.TextureGraphCompiler, T:Vixen.TextureGraph.TextureGraphOutput, T:Vixen.TextureGraph.TextureGraphCheck, T:Vixen.TextureGraph.TextureGraphExternal, T:Vixen.TextureGraph.TextureGraphExternals, T:Vixen.Editor.TextureGraph.TextureProjectImages, T:Vixen.TextureGraph.TextureGraphKernel, T:Vixen.TextureGraph.TextureGraphNodeImage, T:Vixen.TextureGraph.TextureGraphParameter, T:Vixen.TextureGraph.TextureGraphParameters, T:Vixen.TextureGraph.TextureGraphParameterKind, T:Vixen.TextureGraph.TextureGraphSettings, T:Vixen.TextureGraph.TextureRamp, T:Vixen.TextureGraph.TextureGraphExpressions, T:Vixen.TextureGraph.TextureMeasuredInputs, T:Vixen.TextureGraph.TextureImageInputs]
+api: [T:Vixen.TextureGraph.TextureGraphCompiler, T:Vixen.TextureGraph.TextureGraphOutput, T:Vixen.TextureGraph.TextureGraphCheck, T:Vixen.TextureGraph.TextureGraphExternal, T:Vixen.TextureGraph.TextureGraphExternals, T:Vixen.Editor.TextureGraph.TextureProjectImages, T:Vixen.TextureGraph.TextureGraphKernel, T:Vixen.TextureGraph.TextureGraphNodeImage, T:Vixen.TextureGraph.TextureGraphParameter, T:Vixen.TextureGraph.TextureGraphParameters, T:Vixen.TextureGraph.TextureGraphParameterKind, T:Vixen.TextureGraph.TextureGraphSettings, T:Vixen.TextureGraph.TextureRamp, T:Vixen.TextureGraph.TextureGraphExpressions, T:Vixen.TextureGraph.TextureMeasuredInputs, T:Vixen.TextureGraph.TextureImageInputs, T:Vixen.Texturing.Layers.LayerDecal, T:Vixen.Texturing.Layers.LayerSurfacePath, T:Vixen.Texturing.Layers.LayerSurfacePoint, T:Vixen.Texturing.Layers.LayerSampling]
 tags: [editor, texture-graph, material-authoring, node-graph, compiler]
 since: 0.1
 status: preview
@@ -161,6 +161,23 @@ filter's second image — a warp's field, a slope blur's slope — is fed from w
 the stack greys it where the port measures, and leaves it unwired rather than refusing when the node does
 without it. ⚠ A one-channel picture is read by `Grayscale` as `(r, 0, 0)`, so a grey source is greyed
 by its red, not by the luminance weights, which would leave a fifth of it.
+
+## Decals and paths: projections that decide coverage
+
+Two of `LayerProjection`'s members put a fill on the model by something placed there rather than by an axis
+(Patina #130, #131, #133, #134). `Decal` reads `LayerAsset.Decal`, a `LayerDecal`: a box with a centre, a facing,
+an up and a size in the model's own units, a backface angle, a fade through its depth, tiling, a `LayerSampling`,
+and a 3 × 3 warp grid that says where the picture's grid lands on the decal. `Path` reads `LayerAsset.SurfacePath`,
+a `LayerSurfacePath`: `LayerSurfacePoint`s clicked on the surface, each a place, a normal and a pressure, with a
+radius, a hardness, a normal angle and whether it is a ribbon.
+
+Both compile to one node each, `Space/Decal` and `Space/Surface Path`, over the same two bakes a triplanar fill
+reads. Unlike the other projections they decide *whether* a texel is covered, so a constant fill is meaningful
+under them — a constant along a path is a stroke — and they run while a coverage is weighed. A path's curve is
+`PaintPath`'s centripetal Catmull-Rom, sampled in space by `PaintPath.Sample` to a tenth of the radius, and reaches
+its node as a 32-bit table. ⚠ Both carry the box the `position` bake is normalised in, because that bake is 0 to 1
+along each axis of the mesh's bounds and a decal written in it would stretch along a long side. Neither is ever
+stamped into pixels: moving a decal or a point is an edit to the document.
 
 ## Examples
 

@@ -4,6 +4,7 @@
 using System.Collections.Immutable;
 using System.Globalization;
 using System.Numerics;
+using System.Text;
 using Vixen.Core;
 using Vixen.NodeGraph;
 using Vixen.TextureGraph;
@@ -1548,6 +1549,12 @@ public static class LayerStackGraph {
         ///     </para>
         /// </remarks>
         PortRef Project(LayerAsset layer, PortRef content) {
+            // ⚠ A decal and a path decide *whether* a fill covers a texel, and not only where its pixels land, so they
+            // run while weighing too: a coverage that took a decal as the whole mesh would find it under every click.
+            if (layer.Projection is LayerProjection.Decal or LayerProjection.Path) {
+                return Surfaced(layer, content);
+            }
+
             // ⚠ Skipped entirely while weighing, warnings included. A projection decides *where on
             // the mesh* a fill's pixels land, and a coverage has no pixels to land: the answer is one
             // wherever the layer is composited either way. Running it would emit two mesh-map
@@ -1666,6 +1673,174 @@ public static class LayerStackGraph {
 
             return new(node.Id, "Out");
         }
+
+        /// <summary>
+        ///     A fill through a decal's box or along a path on the model (Patina #130, #131, #133, #134): what it puts
+        ///     on top, transparent wherever the decal or the path does not reach.
+        /// </summary>
+        /// <remarks>
+        ///     <para>
+        ///         ⚠ <b>A constant fill is meaningful here, unlike under the other projections</b>: a decal or a path
+        ///         decides where the layer covers, so a constant colour along a path is a stroke. Under the other four a
+        ///         constant is the same number everywhere and is warned about.
+        ///     </para>
+        ///     <para>
+        ///         ⚠ <b>One without its box or its points composites nothing and says so</b>, rather than covering the
+        ///         whole mesh: a layer just switched to Decal has not been placed yet, and the whole mesh would be the
+        ///         one answer it certainly does not mean.
+        ///     </para>
+        /// </remarks>
+        PortRef Surfaced(LayerAsset layer, PortRef content) {
+            if (layer.Kind != LayerKind.Fill) {
+                if (!Weighs) {
+                    problems.Add(
+                        LayerStackProblem.Warning(
+                            layer.Id,
+                            $"Projection '{layer.Projection}' is set on a {layer.Kind} layer and does nothing there. A "
+                            + "decal or a path puts a fill on the mesh; a paint layer's pixels are already in the atlas. "
+                            + "The layer is composited through its UVs."
+                        )
+                    );
+                }
+
+                return content;
+            }
+
+            var decal = layer.Projection == LayerProjection.Decal;
+            var placed = decal ? layer.Decal is not null : layer.SurfacePath is { Points.Count: > 0 };
+
+            if (!placed) {
+                if (!Weighs) {
+                    problems.Add(
+                        LayerStackProblem.Warning(
+                            layer.Id,
+                            decal
+                                ? "This decal has not been placed on the mesh yet, so it covers nothing."
+                                : "This path has no points yet, so it covers nothing."
+                        )
+                    );
+                }
+
+                return Transparent();
+            }
+
+            var place = Add("Source/Mesh Map");
+            var facing = Add("Source/Mesh Map");
+            var node = Add(decal ? "Space/Decal" : "Space/Surface Path");
+
+            place.SetText("Map", "position");
+            facing.SetText("Map", "world");
+            graph.Connect(content, new(node.Id, "Input"));
+            graph.Connect(new(place.Id, "Out"), new(node.Id, "Position"));
+            graph.Connect(new(facing.Id, "Out"), new(node.Id, "Normal"));
+
+            if (decal) {
+                Decal(node, layer.Decal!);
+            } else {
+                SurfacePath(node, layer.SurfacePath!);
+            }
+
+            return new(node.Id, "Out");
+        }
+
+        /// <summary>A decal's numbers, onto its node.</summary>
+        static void Decal(GraphNode node, LayerDecal decal) {
+            Box(node, decal.Box);
+            Triple(node, "Centre", decal.Centre);
+            Triple(node, "Facing", decal.Facing);
+            Triple(node, "Up", decal.Up);
+            node.SetValue("Width", decal.Width);
+            node.SetValue("Height", decal.Height);
+            node.SetValue("Depth", decal.Depth);
+            node.SetValue("Angle", decal.Angle);
+            node.SetValue("Fade", decal.Fade);
+            node.SetText("Tiling", decal.Tiled ? "Tile" : "Clamp");
+            node.SetText("Sampling", decal.Sampling.ToString());
+            node.SetText("Warp", Written(decal.Warp));
+        }
+
+        /// <summary>
+        ///     A path's numbers onto its node, and its curve as the polyline the node reads, sampled through
+        ///     <see cref="PaintPath" />'s centripetal Catmull-Rom so the curve here is the one an atlas path draws.
+        /// </summary>
+        static void SurfacePath(GraphNode node, LayerSurfacePath path) {
+            Box(node, path.Box);
+            node.SetValue("Radius", path.Radius);
+            node.SetValue("Hardness", path.Hardness);
+            node.SetValue("Angle", path.Angle);
+            node.SetValue("Repeat", path.Repeat);
+            node.SetText("Mode", path.Ribbon ? "Ribbon" : "Stroke");
+            node.SetText("Points", Polyline(path));
+        }
+
+        /// <summary>
+        ///     A path's curve as the node's text: seven numbers to a point, each a place on the curve, the normal and the
+        ///     pressure lerped there from the two points either side.
+        /// </summary>
+        /// <remarks>
+        ///     ⚠ <b>Sampled to a tenth of the path's radius</b>, the distance at which a polyline's corner is past seeing
+        ///     at the stroke's own edge; coarser by halves until it fits the node's table, so a long path is a little
+        ///     faceted rather than refused.
+        /// </remarks>
+        static string Polyline(LayerSurfacePath path) {
+            List<Vixen.Core.Mathematics.Vector3> through = [
+                ..path.Points.Select(static point => new Vixen.Core.Mathematics.Vector3(point.X, point.Y, point.Z))
+            ];
+            List<Vixen.Core.Mathematics.Vector3> into = [];
+            List<float> along = [];
+            var tolerance = MathF.Max(path.Radius * 0.1f, 1e-6f);
+
+            PaintPath.Sample(through, tolerance, into, along);
+
+            while (into.Count > TextureSurfacePathLimit && tolerance < float.MaxValue / 4f) {
+                tolerance *= 2f;
+                PaintPath.Sample(through, tolerance, into, along);
+            }
+
+            StringBuilder text = new();
+
+            for (var index = 0; index < into.Count; index++) {
+                var segment = Math.Min((int)along[index], path.Points.Count - 1);
+                var next = Math.Min(segment + 1, path.Points.Count - 1);
+                var share = along[index] - segment;
+                var (from, to) = (path.Points[segment], path.Points[next]);
+
+                if (index > 0) {
+                    text.Append(';');
+                }
+
+                foreach (var number in (ReadOnlySpan<float>)[
+                             into[index].X, into[index].Y, into[index].Z,
+                             float.Lerp(from.NormalX, to.NormalX, share),
+                             float.Lerp(from.NormalY, to.NormalY, share),
+                             float.Lerp(from.NormalZ, to.NormalZ, share),
+                             float.Lerp(from.Pressure, to.Pressure, share)
+                         ]) {
+                    text.Append(' ').Append(number.ToString("R", CultureInfo.InvariantCulture));
+                }
+            }
+
+            return text.ToString();
+        }
+
+        /// <summary>The most points the path node's table holds: <c>TextureSurfacePaths.MaximumPoints</c>.</summary>
+        const int TextureSurfacePathLimit = 1024;
+
+        static void Box(GraphNode node, float[] box) {
+            float[] whole = box.Length == 6 ? box : [0f, 0f, 0f, 1f, 1f, 1f];
+
+            Triple(node, "Box Min", whole.AsSpan(0, 3));
+            Triple(node, "Box Max", whole.AsSpan(3, 3));
+        }
+
+        static void Triple(GraphNode node, string name, ReadOnlySpan<float> numbers) {
+            node.SetValue($"{name} X", numbers.Length > 0 ? numbers[0] : 0f);
+            node.SetValue($"{name} Y", numbers.Length > 1 ? numbers[1] : 0f);
+            node.SetValue($"{name} Z", numbers.Length > 2 ? numbers[2] : 0f);
+        }
+
+        static string Written(float[] numbers) =>
+            string.Join(' ', numbers.Select(static number => number.ToString("R", CultureInfo.InvariantCulture)));
 
         /// <summary>A UV fill's own scale, rotation and offset, through <c>Space/Transform 2D</c>.</summary>
         /// <remarks>
