@@ -28,8 +28,11 @@ namespace Vixen.Texturing.Painting;
 ///         Building the charts and neighbours reads the whole mesh once, on the first stroke.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Depth is a limit, not an occlusion test.</b> A texel behind other geometry but within the
-///         reach of the surface under the brush is painted. Doing better needs a depth test per texel.
+///         ⚠ <b>Depth is a limit and then an occlusion test.</b> The limit keeps a stamp near the surface under its
+///         centre, and <see cref="PaintOcclusion" /> keeps it off what the camera cannot see within that: a strap
+///         lying close over a face, a lip over a recess, the far side of a silhouette the disc straddles. The test
+///         is against the depth the camera sees along each line of sight, cast once per cell of the picture for
+///         the whole stroke, since a stroke keeps its camera.
 ///     </para>
 /// </remarks>
 public sealed class PaintMeshSurface {
@@ -87,13 +90,26 @@ public sealed class PaintMeshSurface {
     /// <summary>A brush seen through a camera, whose stamps are positions on its picture.</summary>
     /// <param name="view">The camera.</param>
     /// <param name="symmetry">The copies the stroke makes of itself, or nothing.</param>
+    /// <param name="occlusion">
+    ///     Whether a texel the camera cannot see is left alone, and how close in front of it something may be and
+    ///     not hide it; null is <see cref="PaintOcclusion.Default" />.
+    /// </param>
     /// <returns>What a stroke places its stamps with.</returns>
     /// <remarks>
     ///     Each copy is the camera moved with it: the picture of a point through a moved camera is the picture of
-    ///     the point moved, so a stamp at one position on the picture lands on every copy at once.
+    ///     the point moved, so a stamp at one position on the picture lands on every copy at once. Each copy sees
+    ///     the mesh through its own camera, so each tests what it hides on its own.
     /// </remarks>
-    public IPaintPlacement Through(PaintView view, PaintSymmetryGroup? symmetry = null) =>
-        new ViewPlacement(this, [view, .. symmetry?.Copies.Select(view.Moved) ?? []]);
+    public IPaintPlacement Through(
+        PaintView view,
+        PaintSymmetryGroup? symmetry = null,
+        PaintOcclusion? occlusion = null
+    ) =>
+        new ViewPlacement(
+            this,
+            [view, .. symmetry?.Copies.Select(view.Moved) ?? []],
+            occlusion ?? PaintOcclusion.Default
+        );
 
     /// <summary>A brush in the atlas, which carries on over the seams its surface crosses.</summary>
     /// <param name="symmetry">
@@ -413,15 +429,25 @@ public sealed class PaintMeshSurface {
         float reach,
         TerrainBrush kernel,
         PaintStamp stamp,
-        IBrushMask? alpha
+        IBrushMask? alpha,
+        DepthCells? seen
     ) : ITexelWeigher {
         readonly TerrainBrush kernel = kernel;
         readonly float tangent = view.Tangent;
 
-        public float Weigh(Vector3 point) =>
-            MathF.Abs(view.Depth(point) - depth) > reach
-                ? 0f
-                : PaintBrush.Weight(kernel, view.Project(point, tangent), stamp, alpha);
+        public float Weigh(Vector3 point) {
+            var at = view.Depth(point);
+
+            if (MathF.Abs(at - depth) > reach) {
+                return 0f;
+            }
+
+            var picture = view.Project(point, tangent);
+            var weight = PaintBrush.Weight(kernel, picture, stamp, alpha);
+
+            // Weighed first, since most of a stamp's square is outside its disc and the test costs more.
+            return weight > 0f && seen is not null && !seen.Sees(picture, at) ? 0f : weight;
+        }
     }
 
     /// <summary>
@@ -453,26 +479,31 @@ public sealed class PaintMeshSurface {
         }
     }
 
-    sealed class ViewPlacement(PaintMeshSurface surface, PaintView[] views) : IPaintPlacement {
+    sealed class ViewPlacement(PaintMeshSurface surface, PaintView[] views, PaintOcclusion occlusion)
+        : IPaintPlacement, IPaintRays {
         readonly List<int> near = [];
+        readonly DepthCells?[] cells = new DepthCells?[views.Length];
 
         public bool ReplacesStamp => true;
+
+        public long Rays => cells.Sum(static held => held?.Rays ?? 0L);
 
         public void Place(PaintStamp stamp, in PaintBrush brush, in TerrainBrush kernel, PaintStampTexels into) {
             // Each camera's pieces apart from the others', so a copy on the same island dilates on its own.
             for (var at = 0; at < views.Length; at++) {
-                One(views[at], stamp, brush, kernel, into, surface.Charts * at);
+                One(at, stamp, brush, kernel, into, surface.Charts * at);
             }
         }
 
         void One(
-            PaintView camera,
+            int index,
             PaintStamp stamp,
             in PaintBrush brush,
             in TerrainBrush kernel,
             PaintStampTexels into,
             int offset
         ) {
+            var camera = views[index];
             var projection = surface.Projection;
             var ray = camera.RayAt(stamp.Centre);
 
@@ -490,7 +521,11 @@ public sealed class PaintMeshSurface {
             var slope = MathF.Max(MathF.Abs(facing), PaintFootprint.GrazingFloor);
             var reach = radius * MathF.Max(DepthReach, 1f / slope);
             var sphere = MathF.Sqrt((radius * radius) + (reach * reach));
-            var weigher = new ViewWeigher(camera, depth, reach, kernel, stamp, brush.Alpha);
+            var seen = occlusion.Tests ? Cells(index, stamp.Radius) : null;
+
+            seen?.Cover(stamp.Centre, across * Corner);
+
+            var weigher = new ViewWeigher(camera, depth, reach, kernel, stamp, brush.Alpha, seen);
 
             Span<Vector3> sides = stackalloc Vector3[4];
 
@@ -508,20 +543,134 @@ public sealed class PaintMeshSurface {
                     continue;
                 }
 
-                var seen = surface.Seen(triangle, sides, camera.Eye, camera.Forward);
+                var visible = surface.Seen(triangle, sides, camera.Eye, camera.Forward);
 
-                if (seen.IsEmpty) {
+                if (visible.IsEmpty) {
                     continue;
                 }
 
                 surface.Scan(
                     triangle,
-                    seen,
+                    visible,
                     surface.ChartOf(triangle) + offset,
                     ref weigher,
                     into
                 );
             }
+        }
+
+        /// <summary>
+        ///     The depths a camera sees, made at the stroke's first stamp. ⚠ The cell is sized once, from that stamp's
+        ///     radius, and kept: a cell that changed with pressure would cast the same line again at another place.
+        ///     A replay starts at the same stamp, so it sizes the same cell and agrees with itself.
+        /// </summary>
+        DepthCells Cells(int index, float radius) {
+            var bounds = surface.Projection.Bounds;
+
+            return cells[index] ??= new(
+                surface.Projection,
+                views[index],
+                Math.Clamp(radius / DepthCells.CellsPerRadius, DepthCells.FinestCell, DepthCells.CoarsestCell),
+                occlusion.Tolerance * Vector3.Distance(bounds.Minimum, bounds.Maximum)
+            );
+        }
+    }
+
+    /// <summary>
+    ///     The depth of the nearest surface along the line of sight through each cell of a camera's picture, cast
+    ///     once per stroke for the cells its stamps reach.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A texel is seen when it is no deeper than the deepest of the four cells around it.</b> On one
+    ///         flat face the depth at a point lies between the depths at the cell centres around it, so the deepest
+    ///         of them is never in front of the face. Across a silhouette the four disagree, and the test lets the
+    ///         far side through within one cell of the edge, which is the cost of not casting a line per texel. The
+    ///         shallowest of the four instead would hide a slope's own texels behind itself.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Kept per stroke and not per stamp.</b> Stamps a sixth of a radius apart cover each cell a dozen
+    ///         times and the camera does not move during a stroke, so each line is cast once. A stamp's own square
+    ///         is copied into a dense grid, so a texel's four lookups are array reads.
+    ///     </para>
+    /// </remarks>
+    sealed class DepthCells(PaintProjection projection, PaintView view, float cell, float tolerance) {
+        /// <summary>How many cells a stamp's radius spans, so a small brush is tested as finely as a big one.</summary>
+        public const float CellsPerRadius = 16f;
+
+        /// <summary>The smallest cell, in picture units, below which the lines cost more than the edges gain.</summary>
+        public const float FinestCell = 0.25f;
+
+        /// <summary>The largest cell, so a big brush still holds a silhouette to a few picture units.</summary>
+        public const float CoarsestCell = 4f;
+
+        readonly Dictionary<long, float> cast = [];
+        float[] grid = [];
+        int left;
+        int top;
+        int columns;
+        int rows;
+
+        /// <summary>How many lines have been cast.</summary>
+        public long Rays { get; private set; }
+
+        /// <summary>Makes the cells under a square of the picture ready to read.</summary>
+        /// <param name="centre">The square's middle.</param>
+        /// <param name="half">Half its side.</param>
+        public void Cover(Vector2 centre, float half) {
+            left = (int)MathF.Floor(((centre.X - half) / cell) - 1.5f);
+            top = (int)MathF.Floor(((centre.Y - half) / cell) - 1.5f);
+            columns = (int)MathF.Ceiling(((centre.X + half) / cell) + 1.5f) - left + 1;
+            rows = (int)MathF.Ceiling(((centre.Y + half) / cell) + 1.5f) - top + 1;
+
+            if (grid.Length < columns * rows) {
+                grid = new float[columns * rows];
+            }
+
+            for (var row = 0; row < rows; row++) {
+                for (var column = 0; column < columns; column++) {
+                    grid[(row * columns) + column] = Depth(left + column, top + row);
+                }
+            }
+        }
+
+        /// <summary>Whether a point at a depth, at a place on the picture, is what the camera sees there.</summary>
+        /// <param name="picture">Where it lands on the picture.</param>
+        /// <param name="depth">How far along the camera's forward it is.</param>
+        /// <returns>Whether nothing but the tolerance is in front of it.</returns>
+        public bool Sees(Vector2 picture, float depth) {
+            // The four cell centres round the point: cell n's centre is half a cell into it.
+            var column = (int)MathF.Floor((picture.X / cell) - 0.5f) - left;
+            var row = (int)MathF.Floor((picture.Y / cell) - 0.5f) - top;
+
+            if (column < 0 || row < 0 || column + 1 >= columns || row + 1 >= rows) {
+                return true;
+            }
+
+            var at = (row * columns) + column;
+            var deepest = MathF.Max(
+                MathF.Max(grid[at], grid[at + 1]),
+                MathF.Max(grid[at + columns], grid[at + columns + 1])
+            );
+
+            return depth <= deepest + tolerance;
+        }
+
+        float Depth(int column, int row) {
+            var key = ((long)column << 32) | (uint)row;
+
+            if (cast.TryGetValue(key, out var held)) {
+                return held;
+            }
+
+            Rays++;
+
+            var ray = view.RayAt(new((column + 0.5f) * cell, (row + 0.5f) * cell));
+            var depth = projection.TryHit(ray, out var hit) ? view.Depth(hit.Point) : float.PositiveInfinity;
+
+            cast[key] = depth;
+
+            return depth;
         }
     }
 
@@ -784,6 +933,26 @@ public sealed class PaintMeshSurface {
                 && Vector2.DistanceSquared(High, other.High) < Tolerance * Tolerance;
         }
     }
+}
+
+/// <summary>How many lines of sight a placement has cast, which is what its occlusion test costs.</summary>
+internal interface IPaintRays {
+    /// <summary>The lines cast so far.</summary>
+    long Rays { get; }
+}
+
+/// <summary>Whether a stamp through a camera paints only what that camera sees, and how strictly.</summary>
+/// <param name="Tests">Whether a texel hidden behind other geometry is left alone.</param>
+/// <param name="Tolerance">
+///     How far in front of a texel something may be and still not hide it, as a share of the mesh's bounding diagonal:
+///     a decal floating a hair over a face, or two faces that touch, are not each other's occluders.
+/// </param>
+public readonly record struct PaintOcclusion(bool Tests, float Tolerance) {
+    /// <summary>What a stroke does unless asked otherwise: only what is seen, to a five-hundredth of the model's size.</summary>
+    public static PaintOcclusion Default { get; } = new(true, 0.002f);
+
+    /// <summary>Every texel within the depth under the brush, seen or not, which is what a stroke did before the test.</summary>
+    public static PaintOcclusion None { get; } = new(false, 0f);
 }
 
 /// <summary>What a brush's radius is measured in.</summary>

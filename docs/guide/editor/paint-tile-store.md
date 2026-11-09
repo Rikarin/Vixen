@@ -96,8 +96,11 @@ is what makes a seam nothing special: both sides of one are the same place.
 `Through(view, symmetry)` is a brush seen through a camera. A stamp's centre is a position on the picture, `PaintView`
 turns it into a ray, each triangle near the hit is clipped to the square the stamp makes on the picture, and a texel
 weighs what the brush weighs where it projects. So the disc on the screen stays a disc on any island, and a separate
-shell under the brush takes paint with the rest. A face turned away is skipped, and depth is a limit and not an
-occlusion test, so a texel hidden behind other geometry close under the brush is painted.
+shell under the brush takes paint with the rest. A face turned away is skipped, depth is a limit, and within it
+a texel the camera cannot see is left alone: `PaintOcclusion` tests it against the depth of the nearest surface along the
+lines of sight round it, cast once per cell of the picture for the whole stroke, with a tolerance for something lying a
+hair in front of it. Within a cell of a silhouette the far side is still let through; `PaintOcclusion.None` is the old
+behaviour.
 
 `AcrossSeams()` is a brush in the atlas. It paints the disc as it always did, then floods from the triangle under the
 stamp across edges the mesh really shares, carrying the stamp on to the other islands by distance along the surface. It

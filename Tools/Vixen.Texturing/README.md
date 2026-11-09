@@ -17,6 +17,6 @@ writes a layer and the plan is what shows it. See
 ## A stamp on a mesh
 
 `PaintMeshSurface` is the join between a mesh and an atlas, and [the guide](../../docs/guide/editor/paint-tile-store.md)
-says how a stamp uses it. ⚠ Two things it deliberately does not do: depth under the brush is a limit rather than an
-occlusion test, and a UV outside the unit square is not wrapped, so a mesh laid out across UDIM tiles paints only the
-first.
+says how a stamp uses it. A stamp through a camera paints only what the camera sees: depth under the brush is a limit, and within it each texel
+is tested against the depth along its line of sight (`PaintOcclusion`), cast once per cell of the picture per stroke. ⚠ A
+UV outside the unit square is not wrapped, so a mesh laid out across UDIM tiles paints only the first.
