@@ -70,6 +70,7 @@ internal static class TextureVolumes {
     /// <param name="lacunarity">How much finer each octave is.</param>
     /// <param name="gain">How much weaker each octave is.</param>
     /// <param name="offset">A shift of the lattice, in cells of the first octave.</param>
+    /// <param name="variation">Another draw of the same noise; nought is the op's own seed.</param>
     /// <returns>The op.</returns>
     public static TextureOp Noise(
         int output,
@@ -80,7 +81,8 @@ internal static class TextureVolumes {
         int octaves = 4,
         float lacunarity = 2f,
         float gain = 0.5f,
-        (float X, float Y, float Z) offset = default
+        (float X, float Y, float Z) offset = default,
+        int variation = 0
     ) =>
         new() {
             Kernel = TextureVolumeKernels.VolumeNoise,
@@ -95,7 +97,8 @@ internal static class TextureVolumes {
                 new("gain", gain),
                 new("offsetX", offset.X),
                 new("offsetY", offset.Y),
-                new("offsetZ", offset.Z)
+                new("offsetZ", offset.Z),
+                new("variation", variation)
             ]
         };
 
