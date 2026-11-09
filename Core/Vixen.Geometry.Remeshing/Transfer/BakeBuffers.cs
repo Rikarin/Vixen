@@ -51,6 +51,9 @@ sealed class BakeBuffers {
     /// <summary>The source normal unrotated, when it was asked for.</summary>
     public Vector3[]? WorldNormal { get; }
 
+    /// <summary>The source's colour per texel, carried as given.</summary>
+    public Vector4[]? Colour { get; }
+
     /// <summary>The source's face group per texel, or <c>-1</c> where there is none.</summary>
     public int[]? Ids { get; }
 
@@ -111,6 +114,8 @@ sealed class BakeBuffers {
         Thickness = maps.HasFlag(MeshMaps.Thickness) ? new float[texels] : null;
         Position = maps.HasFlag(MeshMaps.Position) ? new Vector3[texels] : null;
         WorldNormal = maps.HasFlag(MeshMaps.WorldNormal) ? new Vector3[texels] : null;
+
+        Colour = maps.HasFlag(MeshMaps.Colour) ? new Vector4[texels] : null;
 
         if (maps.HasFlag(MeshMaps.Id)) {
             // ⚠ Filled with −1 rather than left at zero. Zero is a real face group — the one every

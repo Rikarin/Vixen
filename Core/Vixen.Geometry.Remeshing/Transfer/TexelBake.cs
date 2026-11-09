@@ -143,6 +143,9 @@ sealed class TexelBake(
     /// <summary>Which faces an occlusion ray may stop at.</summary>
     readonly RayFacing blocking = settings.OcclusionIgnoresBackfaces ? RayFacing.Front : RayFacing.Any;
 
+    /// <summary>The source's edges to bake round, or null.</summary>
+    public EdgeRounding? Rounding { get; init; }
+
     /// <summary>Bakes every claimed texel in a row of the atlas.</summary>
     /// <param name="row">The row.</param>
     /// <param name="charts">Who owns what.</param>
@@ -177,6 +180,7 @@ sealed class TexelBake(
         public float Enclosed;
         public int Cast;
         public Vector3 Bent;
+        public Vector4 Colour;
     }
 
     void Texel(
@@ -217,6 +221,10 @@ sealed class TexelBake(
 
         if (buffers.WorldNormal is { } world) {
             world[index] = samples == 1 ? sum.World : Unit(sum.World);
+        }
+
+        if (buffers.Colour is { } colour) {
+            colour[index] = sum.Colour * share;
         }
 
         if (ids is not null) {
@@ -294,7 +302,15 @@ sealed class TexelBake(
 
         var basis = Basis.At(triangle, weights, along);
 
-        var sample = Cast(triangle, weights, point, Direction(triangle, weights, along, place), along);
+        // ⚠ A share of the set distances, two at the most: one half of the map is the distances as set.
+        var stretch = settings.DistanceMap is { } distanceMap ? 2f * distanceMap.At(place / resolution) : 1f;
+        var sample = Cast(triangle, weights, point, Direction(triangle, weights, along, place), along, stretch);
+
+        if (Rounding is { } rounding && sample.Triangle >= 0) {
+            sample = sample with {
+                Normal = rounding.Apply(sample.Point, surface.NormalOf(sample.Triangle), sample.Normal)
+            };
+        }
 
         sum.Struck += sample.Struck ? 1 : 0;
         sum.Normal += settings.Space == BakeSpace.Object
@@ -329,19 +345,26 @@ sealed class TexelBake(
         return leaned.LengthSquared() > 0f ? leaned : along;
     }
 
-    SourceSample Cast(ChartTriangle triangle, Vector3 weights, Vector3 point, Vector3 direction, Vector3 along) {
+    SourceSample Cast(
+        ChartTriangle triangle,
+        Vector3 weights,
+        Vector3 point,
+        Vector3 direction,
+        Vector3 along,
+        float stretch
+    ) {
         var tree = rays.For(triangle.Part);
 
         if (triangle.Cage is not { } cage) {
-            return Probe(tree, point, direction);
+            return Probe(tree, point, direction, stretch);
         }
 
-        var outer = Blend(cage, weights);
+        var outer = point + ((Blend(cage, weights) - point) * stretch);
         var offset = outer - point;
         var gap = offset.Length();
 
         if (gap <= 0f) {
-            return Probe(tree, point, direction);
+            return Probe(tree, point, direction, stretch);
         }
 
         // From the cage, towards the target, and on past it. With no skew this is the line the two
@@ -350,7 +373,7 @@ sealed class TexelBake(
         var inward = settings.Skew <= 0f ? offset / -gap : -direction;
         // ⚠ Behind the target is the rear distance: the cage is the front, so the front distance has
         // nothing left to say once there is one.
-        var length = gap + distances.Rear;
+        var length = gap + (distances.Rear * stretch);
         var hit = tree.Raycast(point - (inward * gap), inward * length, culling ? RayFacing.Front : RayFacing.Any);
 
         return hit.Triangle >= 0
@@ -383,9 +406,9 @@ sealed class TexelBake(
     ///         from the front. Both are a surface whose normal agrees with the target's.
     ///     </para>
     /// </remarks>
-    SourceSample Probe(BakeTree tree, Vector3 point, Vector3 along) {
-        var front = distances.Front;
-        var rear = distances.Rear;
+    SourceSample Probe(BakeTree tree, Vector3 point, Vector3 along, float stretch) {
+        var front = distances.Front * stretch;
+        var rear = distances.Rear * stretch;
         var outward = front > 0f
             ? tree.Raycast(point, along * front, culling ? RayFacing.Back : RayFacing.Any)
             : default;
@@ -457,6 +480,10 @@ sealed class TexelBake(
             sum.World += sample.Normal;
         }
 
+        if (buffers.Colour is not null) {
+            sum.Colour += ColourAt(sample);
+        }
+
         if (buffers.Ids is { } written && buffers.Labels is { } labels) {
             var id = sample.Triangle >= 0 ? labels[surface.FaceOf(sample.Triangle)] : -1;
 
@@ -484,6 +511,32 @@ sealed class TexelBake(
         if (buffers.Bent is not null) {
             sum.Bent += settings.Space == BakeSpace.Object ? unoccluded : basis.Measure(unoccluded);
         }
+    }
+
+    /// <summary>The source's colour where a probe landed: its corners' blend times its face's picture.</summary>
+    /// <remarks>White with nothing to read, and white with no source at all, which a warning has said.</remarks>
+    Vector4 ColourAt(SourceSample sample) {
+        if (settings.Colours is not { } colours || sample.Triangle < 0) {
+            return Vector4.One;
+        }
+
+        var colour = Vector4.One;
+
+        if (colours.Corners is { } corners) {
+            var slots = surface.CornersOf(sample.Triangle);
+
+            colour = (corners[slots[0]] * sample.Barycentric.X)
+                + (corners[slots[1]] * sample.Barycentric.Y)
+                + (corners[slots[2]] * sample.Barycentric.Z);
+        }
+
+        var image = colours.FaceImages is { } faces ? faces[surface.FaceOf(sample.Triangle)] : 0;
+
+        if (image >= 0 && image < colours.Images.Count) {
+            colour *= colours.Images[image].At(surface.TexCoordAt(sample.Triangle, sample.Barycentric));
+        }
+
+        return colour;
     }
 
     /// <summary>A sample's share of one hemisphere, answering occlusion, the bent normal and thickness.</summary>

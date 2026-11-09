@@ -251,7 +251,7 @@ sealed class BakeCharts {
     }
 
     /// <summary>Per-corner normals for a target that arrived without a layer.</summary>
-    static Vector3[] Geometric(EditMesh target) {
+    internal static Vector3[] Geometric(EditMesh target) {
         var normals = new Vector3[target.CornerCount];
 
         for (var face = 0; face < target.FaceCount; face++) {
@@ -275,7 +275,7 @@ sealed class BakeCharts {
     ///     ⚠ <b>A corner that agrees with its neighbours is left bit for bit as it was</b>, so a smooth
     ///     surface casts the rays it always cast.
     /// </remarks>
-    static Vector3[] Averaged(EditMesh target, Vector3[] shading) {
+    internal static Vector3[] Averaged(EditMesh target, Vector3[] shading) {
         Dictionary<Vector3, Vector3> sums = [];
         Dictionary<Vector3, bool> differ = [];
 

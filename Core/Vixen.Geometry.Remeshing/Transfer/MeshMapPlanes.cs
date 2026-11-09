@@ -32,7 +32,10 @@ public enum MeshMapKind {
     WorldNormal,
 
     /// <summary>The source's material or island, as a colour.</summary>
-    Id
+    Id,
+
+    /// <summary>The source's colour, carried as the caller gave it.</summary>
+    Colour
 }
 
 /// <summary>One baked map, ready to be written at any depth.</summary>
@@ -120,6 +123,17 @@ public static class MeshMapPlanes {
             var colours = MapBaker.IdColours(ids, maps.IdsAreColours, maps.IdPalette);
 
             planes.Add(new(MeshMapKind.Id, size, 3, Vectors(size, colours), 0f, false));
+        }
+
+        if (maps.Colour is { } colour) {
+            // Red, green and blue: the coverage says where the chart is, and alpha is not asked of a colour map.
+            var rgb = new Vector3[colour.Count];
+
+            for (var at = 0; at < rgb.Length; at++) {
+                rgb[at] = new(colour[at].X, colour[at].Y, colour[at].Z);
+            }
+
+            planes.Add(new(MeshMapKind.Colour, size, 3, Vectors(size, rgb), 0f, false));
         }
 
         return planes;
