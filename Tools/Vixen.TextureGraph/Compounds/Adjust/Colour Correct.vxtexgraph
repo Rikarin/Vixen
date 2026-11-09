@@ -1,0 +1,93 @@
+version: 1
+name: Colour Correct
+nodes:
+  - id: 1
+    type: Sub-graph/Input
+    x: -640
+    y: 0
+    values: {}
+    texts: {}
+  - id: 2
+    type: Colour/Levels
+    x: -320
+    y: 0
+    values: {}
+    texts:
+      '=Input Black': contrast * 0.5f
+      '=Input White': 1f - contrast * 0.5f
+      '=Gamma': 1f / gamma
+      '=Output Black': brightness
+      '=Output White': 1f + brightness
+  - id: 3
+    type: Colour/HSL
+    x: 0
+    y: 0
+    values: {}
+    texts:
+      '=Hue': hue
+      '=Saturation': saturation
+  - id: 4
+    type: Sub-graph/Output
+    x: 320
+    y: 0
+    values: {}
+    texts: {}
+edges:
+  - { fromNode: 1, fromPort: Input, toNode: 2, toPort: Input }
+  - { fromNode: 2, fromPort: Out, toNode: 3, toPort: Input }
+  - { fromNode: 3, fromPort: Out, toNode: 4, toPort: Out }
+groups: []
+comments: []
+interface:
+  - name: Input
+    direction: Input
+    kind: Image
+    default: []
+    summary: The picture to correct.
+  - name: Out
+    direction: Output
+    kind: Image
+    default: []
+    summary: The picture with its tone and then its colour corrected.
+settings: { baseWidth: '1024', baseHeight: '1024', seed: '1', summary: 'Brightness, contrast, gamma, hue and saturation in one step.' }
+parameters:
+  - name: brightness
+    label: Brightness
+    default: '0'
+    summary: Lifts or lowers blacks and whites together.
+    kind: Float
+    minimum: -1
+    maximum: 1
+    group: Tone
+  - name: contrast
+    label: Contrast
+    default: '0'
+    summary: Above zero pulls the values in about mid-grey into a stronger picture; below zero flattens it.
+    kind: Float
+    minimum: -1
+    maximum: 0.95
+    group: Tone
+  - name: gamma
+    label: Gamma
+    default: '1'
+    summary: Bends the midtones. Above one brightens them, below one darkens them, and the ends stay where they are.
+    kind: Float
+    minimum: 0.1
+    maximum: 4
+    group: Tone
+  - name: hue
+    label: Hue
+    default: '0'
+    summary: Turns every colour round the colour wheel, as a share of a turn.
+    kind: Float
+    minimum: -0.5
+    maximum: 0.5
+    group: Colour
+  - name: saturation
+    label: Saturation
+    default: '1'
+    summary: How strong the colours are. Zero is grey, one leaves them, and above one strengthens them.
+    kind: Float
+    minimum: 0
+    maximum: 2
+    group: Colour

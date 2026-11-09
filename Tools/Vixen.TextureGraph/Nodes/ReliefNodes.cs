@@ -88,8 +88,17 @@ sealed partial class HeightShadowNode : TextureNode {
 ///     <para>
 ///         <b><c>Mask</c> is optional</b>: wired, it scales <c>Opacity</c> per texel by its red channel.
 ///     </para>
+///     <para>
+///         <b>A composite, so no filter layer</b>, as <c>Colour/Mix</c> is none: a stack fades one normal map into
+///         another with a normal layer, its mask and a normal blend mode.
+///     </para>
 /// </remarks>
-[Node("Surface/Normal Blend", Preview = true, Summary = "One normal map faded into another as directions, by a mask.")]
+[Node(
+    "Surface/Normal Blend",
+    Preview = true,
+    Adjustment = false,
+    Summary = "One normal map faded into another as directions, by a mask."
+)]
 sealed partial class NormalBlendNode : TextureNode {
     /// <summary>The normal map where the mask is nought.</summary>
     [Input(Name = "Background")]

@@ -1,0 +1,97 @@
+version: 1
+name: Drop Shadow
+nodes:
+  - id: 1
+    type: Sub-graph/Input
+    x: -960
+    y: 0
+    values: {}
+    texts: {}
+  - id: 3
+    type: Space/Transform 2D
+    x: -320
+    y: 160
+    values: {}
+    texts:
+      Tiling: Wrap
+      '=Offset X': right
+      '=Offset Y': down
+  - id: 4
+    type: Filters/Blur HQ
+    x: 0
+    y: 160
+    values: {}
+    texts:
+      '=Sigma': softness
+  - id: 5
+    type: Filters/Pixel Processor
+    x: 320
+    y: 0
+    values: {}
+    texts:
+      Expression: float4(a.xyz * (1f - x * saturate(b.x)), a.w)
+      '=X': opacity
+  - id: 6
+    type: Sub-graph/Output
+    x: 640
+    y: 0
+    values: {}
+    texts: {}
+edges:
+  - { fromNode: 1, fromPort: Shape, toNode: 3, toPort: Input }
+  - { fromNode: 3, fromPort: Out, toNode: 4, toPort: Input }
+  - { fromNode: 1, fromPort: Input, toNode: 5, toPort: A }
+  - { fromNode: 4, fromPort: Out, toNode: 5, toPort: B }
+  - { fromNode: 5, fromPort: Out, toNode: 6, toPort: Out }
+groups: []
+comments: []
+interface:
+  - name: Input
+    direction: Input
+    kind: Image
+    default: []
+    summary: The picture the shadow falls on.
+  - name: Shape
+    direction: Input
+    kind: Image
+    default: []
+    summary: What casts the shadow, white where it stands. Read for its red, as a mask is.
+  - name: Out
+    direction: Output
+    kind: Image
+    default: []
+    summary: The picture darkened where the shape's shadow falls.
+settings: { baseWidth: '1024', baseHeight: '1024', seed: '1', summary: 'Darkens the picture under a soft copy of a shape, moved aside as a light would throw it.' }
+parameters:
+  - name: right
+    label: Right
+    default: '0.015'
+    summary: How far right the shadow falls from the shape, as a share of the map's width. Below zero is left.
+    kind: Float
+    minimum: -0.25
+    maximum: 0.25
+    group: Shadow
+  - name: down
+    label: Down
+    default: '0.015'
+    summary: How far down the shadow falls from the shape, as a share of the map's height. Below zero is up.
+    kind: Float
+    minimum: -0.25
+    maximum: 0.25
+    group: Shadow
+  - name: softness
+    label: Softness
+    default: '4'
+    summary: How soft the shadow's edge is, in texels of the map.
+    kind: Float
+    minimum: 0
+    maximum: 21
+    group: Shadow
+  - name: opacity
+    label: Opacity
+    default: '0.7'
+    summary: How dark the shadow is at its darkest.
+    kind: Float
+    minimum: 0
+    maximum: 1
+    group: Shadow

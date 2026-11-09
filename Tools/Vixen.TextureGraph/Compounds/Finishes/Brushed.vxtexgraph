@@ -1,0 +1,149 @@
+version: 1
+name: Brushed
+nodes:
+  - id: 1
+    type: Sub-graph/Input
+    x: -960
+    y: 0
+    values: {}
+    texts: {}
+  - id: 2
+    type: Source/Noise
+    x: -960
+    y: 320
+    values:
+      Octaves: [5]
+      Scale X: [1]
+    texts:
+      Basis: Gradient
+      '=Scale': scale
+      '=Scale Y': stretch
+  - id: 3
+    type: Space/Transform 2D
+    x: -640
+    y: 320
+    values: {}
+    texts:
+      Tiling: Wrap
+      '=Rotation': angle * 0.0174532924f
+  - id: 4
+    type: Colour/Auto Levels
+    x: -320
+    y: 320
+    values: {}
+    texts: {}
+  - id: 5
+    type: Filters/Pixel Processor
+    x: 0
+    y: 0
+    values: {}
+    texts:
+      Expression: float4(lerp(a.xyz, saturate(float3(x, x, x) + (b.xxx - 0.5f) * y), z), 1f)
+      '=X': roughness
+      '=Y': variation
+      '=Z': amount
+  - id: 6
+    type: Filters/Pixel Processor
+    x: 0
+    y: 160
+    values: {}
+    texts:
+      Expression: float4(a.xyz + (b.xxx - 0.5f) * x * 0.1f * y, 1f)
+      '=X': depth
+      '=Y': amount
+  - id: 7
+    type: Sub-graph/Output
+    x: 320
+    y: 0
+    values: {}
+    texts: {}
+edges:
+  - { fromNode: 2, fromPort: Out, toNode: 3, toPort: Input }
+  - { fromNode: 3, fromPort: Out, toNode: 4, toPort: Input }
+  - { fromNode: 1, fromPort: roughness, toNode: 5, toPort: A }
+  - { fromNode: 4, fromPort: Out, toNode: 5, toPort: B }
+  - { fromNode: 1, fromPort: height, toNode: 6, toPort: A }
+  - { fromNode: 4, fromPort: Out, toNode: 6, toPort: B }
+  - { fromNode: 5, fromPort: Out, toNode: 7, toPort: roughness }
+  - { fromNode: 6, fromPort: Out, toNode: 7, toPort: height }
+groups: []
+comments: []
+interface:
+  - name: roughness
+    direction: Input
+    kind: Image
+    default: []
+    summary: The roughness beneath, which the finish replaces by Amount.
+  - name: height
+    direction: Input
+    kind: Image
+    default: []
+    summary: The height beneath, which the brushing scores.
+  - name: roughness
+    direction: Output
+    kind: Image
+    default: []
+    summary: A roughness streaked along the brushing.
+  - name: height
+    direction: Output
+    kind: Image
+    default: []
+    summary: The height beneath with fine grooves along the brushing.
+settings: { baseWidth: '1024', baseHeight: '1024', seed: '1', summary: 'Metal brushed in one direction: fine streaks in the roughness and shallow grooves in the height.', doesNotTile: 'It draws its own pattern where it lies, so the pattern stays put when the picture beneath moves. The pattern itself tiles.' }
+parameters:
+  - name: angle
+    label: Angle
+    default: '0'
+    summary: Which way the brushing runs, in degrees from across the map.
+    kind: Float
+    minimum: 0
+    maximum: 180
+    group: Pattern
+  - name: scale
+    label: Scale
+    default: '6'
+    summary: How many streaks run side by side across the map, before Stretch.
+    kind: Float
+    minimum: 1
+    maximum: 64
+    group: Pattern
+  - name: stretch
+    label: Stretch
+    default: '12'
+    summary: How much finer the streaks are across the brushing than along it. More is longer, finer streaks.
+    kind: Float
+    minimum: 1
+    maximum: 32
+    group: Pattern
+  - name: roughness
+    label: Roughness
+    default: '0.35'
+    summary: The roughness of the brushed surface, between the streaks.
+    kind: Float
+    minimum: 0
+    maximum: 1
+    group: Surface
+  - name: variation
+    label: Variation
+    default: '0.25'
+    summary: How much the roughness differs from one streak to the next.
+    kind: Float
+    minimum: 0
+    maximum: 1
+    group: Surface
+  - name: depth
+    label: Depth
+    default: '0.2'
+    summary: How deep the grooves are. One is a tenth of the height's range.
+    kind: Float
+    minimum: 0
+    maximum: 1
+    group: Surface
+  - name: amount
+    label: Amount
+    default: '1'
+    summary: How much of the finish shows over what is beneath.
+    kind: Float
+    minimum: 0
+    maximum: 1
+    group: Surface

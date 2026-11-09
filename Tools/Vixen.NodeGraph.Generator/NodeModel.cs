@@ -110,6 +110,7 @@ sealed record NodeModel(
     string Path,
     string Summary,
     bool Preview,
+    bool Adjustment,
     ImmutableArray<PortModel> Ports,
     ImmutableArray<SettingModel> Settings,
     ImmutableArray<DiagnosticModel> Problems
@@ -125,6 +126,7 @@ sealed record NodeModel(
         && Path == other.Path
         && Summary == other.Summary
         && Preview == other.Preview
+        && Adjustment == other.Adjustment
         && Ports.SequenceEqual(other.Ports)
         && Settings.SequenceEqual(other.Settings)
         && Problems.SequenceEqual(other.Problems);

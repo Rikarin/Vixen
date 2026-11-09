@@ -61,7 +61,7 @@ static class Placements {
 ///         (<c>Index</c> through a <c>Utility/Histogram Select</c>) or a ramp across every instance is made of.
 ///     </para>
 /// </remarks>
-[Node("Placement/Tile Sampler", Preview = true, Summary = "A grid of cells with one jittered instance of a pattern in each.")]
+[Node("Placement/Tile Sampler", Preview = true, Adjustment = false, Summary = "A grid of cells with one jittered instance of a pattern in each.")]
 sealed partial class TileSamplerNode : TextureNode {
     /// <summary>How overlapping instances combine: <c>Max</c>, <c>Add</c> or <c>Blend</c>.</summary>
     [Setting(AcceptedFrom = typeof(TexturePlacementAccumulation))]
@@ -248,7 +248,7 @@ sealed partial class TileSamplerNode : TextureNode {
 ///         (<c>Index</c> through a <c>Utility/Histogram Select</c>) or a ramp across every instance is made of.
 ///     </para>
 /// </remarks>
-[Node("Placement/Splatter", Preview = true, Summary = "A bounded free scatter of one pattern, seeded from the plan.")]
+[Node("Placement/Splatter", Preview = true, Adjustment = false, Summary = "A bounded free scatter of one pattern, seeded from the plan.")]
 sealed partial class SplatterNode : TextureNode {
     /// <summary>How overlapping instances combine: <c>Max</c>, <c>Add</c> or <c>Blend</c>.</summary>
     [Setting(AcceptedFrom = typeof(TexturePlacementAccumulation))]

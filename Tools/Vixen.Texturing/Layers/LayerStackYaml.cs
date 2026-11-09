@@ -226,7 +226,7 @@ public static class LayerStackYaml {
             mapping.Set("anchor", Write(layer.Anchor));
         }
 
-        WriteInputs(mapping, "inputs", layer.Inputs);
+        WriteSources(mapping, "inputs", layer.Inputs);
 
         // ⚠ One of the two and never both — #1068. `filterNode` takes precedence when it is there,
         // and `LayerFilterKind.Levels` is zero, so a file carrying both would read as a compound and
@@ -453,7 +453,7 @@ public static class LayerStackYaml {
             mapping.Set("texts", texts);
         }
 
-        WriteInputs(mapping, "inputs", effect.Inputs);
+        WriteSources(mapping, "inputs", effect.Inputs);
 
         return mapping;
     }
@@ -483,6 +483,99 @@ public static class LayerStackYaml {
         }
 
         mapping.Set(key, ports);
+    }
+
+    /// <summary>Where each image input reads, by port: its source and the members that source reads, and nothing else.</summary>
+    static void WriteSources(YamlMapping mapping, string key, Dictionary<string, LayerInputAsset> inputs) {
+        if (inputs.Count == 0) {
+            return;
+        }
+
+        YamlMapping ports = new();
+
+        foreach (var (port, input) in inputs) {
+            YamlMapping entry = new();
+
+            entry.Set("source", Text(input.Source.ToString()));
+
+            switch (input.Source) {
+                case LayerInputSource.Beneath when input.Channel.Length > 0:
+                    entry.Set("channel", Text(input.Channel));
+
+                    break;
+
+                case LayerInputSource.Anchor:
+                    entry.Set("anchor", Write(input.Anchor));
+
+                    break;
+
+                case LayerInputSource.Generator: {
+                    entry.Set("generator", Text(input.Generator));
+
+                    if (input.Values.Count > 0) {
+                        YamlMapping values = new();
+
+                        foreach (var (name, value) in input.Values) {
+                            values.Set(name, Numbers(value));
+                        }
+
+                        entry.Set("values", values);
+                    }
+
+                    if (input.Texts.Count > 0) {
+                        YamlMapping texts = new();
+
+                        foreach (var (name, value) in input.Texts) {
+                            texts.Set(name, Text(value));
+                        }
+
+                        entry.Set("texts", texts);
+                    }
+
+                    break;
+                }
+
+                case LayerInputSource.Texture:
+                    entry.Set("asset", Text(input.Asset));
+
+                    break;
+
+                case LayerInputSource.Bake:
+                    entry.Set("map", Text(input.Map));
+
+                    break;
+            }
+
+            ports.Set(port, entry);
+        }
+
+        mapping.Set(key, ports);
+    }
+
+    static Dictionary<string, LayerInputAsset> ReadSources(YamlMapping mapping, string key, string path) {
+        Dictionary<string, LayerInputAsset> inputs = [];
+
+        if (!mapping.TryGet(key, out var node)) {
+            return inputs;
+        }
+
+        foreach (var (port, value) in Mapping(node, $"{path}.{key}")) {
+            var where = $"{path}.{key}.{port}";
+            var entry = Mapping(value, where);
+
+            inputs[port] = new() {
+                Source = Choice(entry, "source", LayerInputSource.Beneath, where),
+                Channel = String(entry, "channel", where),
+                Anchor = ReadAnchor(entry, "anchor", where),
+                Generator = String(entry, "generator", where),
+                Values = Colours(entry, "values", where),
+                Texts = Strings(entry, "texts", where),
+                Asset = String(entry, "asset", where),
+                Map = String(entry, "map", where)
+            };
+        }
+
+        return inputs;
     }
 
     static AnchorReference ReadAnchor(YamlMapping mapping, string key, string path) {
@@ -590,7 +683,7 @@ public static class LayerStackYaml {
             Textures = Strings(mapping, "textures", path),
             Graph = String(mapping, "graph", path),
             Anchor = ReadAnchor(mapping, "anchor", path),
-            Inputs = ReadInputs(mapping, "inputs", path),
+            Inputs = ReadSources(mapping, "inputs", path),
             Filter = Choice(mapping, "filter", LayerFilterKind.Levels, path),
             FilterNode = String(mapping, "filterNode", path),
             Settings = Colours(mapping, "settings", path),
@@ -688,7 +781,7 @@ public static class LayerStackYaml {
             Enabled = Flag(mapping, "enabled", true, path),
             Values = Colours(mapping, "values", path),
             Texts = Strings(mapping, "texts", path),
-            Inputs = ReadInputs(mapping, "inputs", path)
+            Inputs = ReadSources(mapping, "inputs", path)
         };
     }
 

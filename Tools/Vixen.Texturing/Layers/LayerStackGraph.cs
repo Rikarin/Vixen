@@ -32,6 +32,19 @@ public readonly record struct LayerStackProblem(NodeSeverity Severity, string La
     public override string ToString() => Layer.Length == 0 ? Message : $"layer '{Layer}': {Message}";
 }
 
+/// <summary>One image input of a filter, as a host offers a slot for it.</summary>
+/// <param name="Port">Its name, which <see cref="LayerAsset.Inputs" /> is keyed by.</param>
+/// <param name="Summary">What the node says it reads there.</param>
+/// <param name="Subject">
+///     Whether it is the picture the filter changes, which reads the stack beneath in the channel being built until the
+///     layer says otherwise, and is always a mask step's mask.
+/// </param>
+/// <param name="Optional">Whether the node does without it, so a slot nobody fills is left empty rather than refused.</param>
+/// <param name="Channel">
+///     The channel it is named after, which it reads beneath until the layer says otherwise, or empty.
+/// </param>
+public sealed record LayerFilterInput(string Port, string Summary, bool Subject, bool Optional, string Channel);
+
 /// <summary>What one node in an exploded graph came out of, so a comment can say so.</summary>
 /// <param name="Node">The node.</param>
 /// <param name="Text">The sentence to put beside it.</param>
@@ -418,24 +431,110 @@ public static class LayerStackGraph {
             _ => throw new ArgumentOutOfRangeException(nameof(filter), filter, "Not a filter this build knows.")
         };
 
-    /// <summary>Whether a node type can be a filter layer or a mask effect: one image in and one image out.</summary>
+    /// <summary>
+    ///     Whether a node type can be a filter layer: an image in, which is its subject, and one image out — or one per
+    ///     channel, each named by the channel's usage — and a type that does not say it is no adjustment.
+    /// </summary>
     /// <param name="type">The node type or published compound.</param>
-    /// <returns>Whether <see cref="LayerAsset.FilterNode" /> and <see cref="MaskEffectAsset.Node" /> can name it.</returns>
+    /// <returns>Whether <see cref="LayerAsset.FilterNode" /> can name it.</returns>
     /// <remarks>
-    ///     ⚠ <b>The compile's own rule, for a host that wants to offer the list.</b> <c>Published</c> and
-    ///     <c>Effect</c> refuse whatever this says no to, so a menu built from anything else offers
-    ///     refusals. A second image in is a composite, and which of its inputs the stack beneath would
-    ///     be is not something a stack file can decide. The one narrowing the other way is
-    ///     <see cref="IdentityOnAStack" />: nodes the compile takes and that cannot change any picture a
-    ///     stack hands them, so offering them would offer nothing.
+    ///     <para>
+    ///         ⚠ <b>The compile's own rule, for a host that wants to offer the list.</b> <c>Published</c> refuses
+    ///         whatever this says no to, so a menu built from anything else offers refusals.
+    ///     </para>
+    ///     <para>
+    ///         <b>The first image input is the subject and every other one is a source</b> (Patina #113): a warp's
+    ///         field, a slope blur's slope. Each reads what <see cref="LayerAsset.Inputs" /> names, so a second image no
+    ///         longer makes a node a composite the file cannot place. What still does is the node saying so —
+    ///         <see cref="NodeTypeDefinition.Adjustment" />: a blend, a selector, a scatter, and the nodes whose output
+    ///         measures their input rather than being a picture of it (Patina #220).
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>One output per channel is a material filter</b> (Patina #117): in each channel it writes its output
+    ///         named by that channel's usage, and a channel it has no output for it leaves alone. The other narrowings are
+    ///         <see cref="IdentityOnAStack" />: nodes the compile takes and that cannot change any picture a stack hands
+    ///         them, so offering them would offer nothing; and <see cref="ReadsNoPicture" />: nodes whose one image is a
+    ///         mesh map, which a stack would hand the picture beneath instead (Patina #179).
+    ///     </para>
     /// </remarks>
     public static bool IsAdjustment(NodeTypeDefinition type) {
         ArgumentNullException.ThrowIfNull(type);
 
-        return Builder.Images(type, PortDirection.Input) == 1
-            && Builder.Images(type, PortDirection.Output) == 1
-            && !IdentityOnAStack.Contains(type.Path)
-            && !ReadsNoPicture.Contains(type.Path);
+        if (!type.Adjustment
+            || IdentityOnAStack.Contains(type.Path)
+            || ReadsNoPicture.Contains(type.Path)
+            || Builder.Images(type, PortDirection.Input) == 0) {
+            return false;
+        }
+
+        var outputs = Builder.Images(type, PortDirection.Output);
+
+        return outputs == 1 || (outputs > 1 && PerChannel(type));
+    }
+
+    /// <summary>Whether a node type can be a step on a mask: a filter with one picture out, named after no channel.</summary>
+    /// <param name="type">The node type or published compound.</param>
+    /// <returns>Whether <see cref="MaskEffectAsset.Node" /> can name it.</returns>
+    public static bool IsMaskStep(NodeTypeDefinition type) =>
+        IsAdjustment(type) && Builder.Images(type, PortDirection.Output) == 1 && !PerChannel(type);
+
+    /// <summary>A filter's image inputs, its subject first, each with what it asks of what feeds it.</summary>
+    /// <param name="type">The node type or published compound.</param>
+    /// <param name="registry">The node types, compounds included, which is what answers the questions.</param>
+    /// <param name="subGraphs">Where compounds come from.</param>
+    /// <returns>The inputs, in the type's order, the first being the subject.</returns>
+    /// <exception cref="ArgumentNullException">The type or the registry is null.</exception>
+    public static IReadOnlyList<LayerFilterInput> Inputs(
+        NodeTypeDefinition type,
+        NodeTypeRegistry registry,
+        ISubGraphSource? subGraphs
+    ) {
+        ArgumentNullException.ThrowIfNull(type);
+        ArgumentNullException.ThrowIfNull(registry);
+
+        List<LayerFilterInput> inputs = [];
+
+        foreach (var port in type.Ports) {
+            if (port is not { Direction: PortDirection.Input, Kind: PortKind.Image }) {
+                continue;
+            }
+
+            var subject = inputs.Count == 0;
+
+            inputs.Add(
+                new(
+                    port.Name,
+                    port.Summary,
+                    subject,
+                    !subject && TextureImageInputs.Optional(registry, subGraphs, type.Path, port.Name),
+                    Usages.Contains(port.Name) ? port.Name : ""
+                )
+            );
+        }
+
+        return inputs;
+    }
+
+    /// <summary>The usages a channel can have, which is what an input or an output named after a channel is named.</summary>
+    static readonly HashSet<string> Usages = Usage();
+
+    static HashSet<string> Usage() {
+        NodeTypeRegistry registry = new();
+
+        TextureGraph.NodeTypes.Register(registry);
+
+        return new(registry.Get("Output/Output").Setting("Usage")!.Accepted, StringComparer.Ordinal);
+    }
+
+    /// <summary>Whether every image output of a type is named after a channel.</summary>
+    static bool PerChannel(NodeTypeDefinition type) {
+        foreach (var port in type.Ports) {
+            if (port is { Direction: PortDirection.Output, Kind: PortKind.Image } && !Usages.Contains(port.Name)) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /// <summary>One-image nodes whose image is not a picture, so a stack has nothing to hand them.</summary>
@@ -488,6 +587,15 @@ public static class LayerStackGraph {
         ///     <see cref="NodeGraphModel.TryConnect" /> refuses on its own terms.
         /// </remarks>
         readonly List<(string Channel, string Anchor, string Layer, PortRef To)> anchors = [];
+
+        /// <summary>The stack just beneath each layer, per channel, by the layer's id.</summary>
+        readonly Dictionary<(string Channel, string Layer), PortRef> below = [];
+
+        /// <summary>
+        ///     Inputs reading the stack beneath a layer in a channel whose walk had not reached it yet, wired at the end
+        ///     as an anchor's edges are and for their reason: the graph model is what refuses a loop.
+        /// </summary>
+        readonly List<(string Channel, string Layer, PortRef To)> beneath = [];
 
         /// <summary>Each anchor point's picture, per channel, by its name — the stack as it stood just above it.</summary>
         readonly Dictionary<(string Channel, string Anchor), PortRef> results = [];
@@ -612,6 +720,7 @@ public static class LayerStackGraph {
             }
 
             Anchors();
+            Beneaths();
 
             return new(graph, [.. problems], [.. notes]) { Layers = owners.ToImmutableDictionary() };
         }
@@ -804,6 +913,12 @@ public static class LayerStackGraph {
         PortRef Layer(LayerAsset layer, ChannelAsset channel, PortRef cursor, int depth) {
             var outer = owner;
 
+            // What lies beneath it in this channel, for an input that reads it from another channel's walk. Its
+            // children are given the same until a walk reaches them, which one never does when this layer is off or
+            // leaves the channel alone — and then what lies beneath them is what lies beneath it.
+            below[(channel.Usage, layer.Id)] = cursor;
+            Beneath(layer.Children, channel.Usage, cursor);
+
             owner = layer.Id;
 
             try {
@@ -819,6 +934,14 @@ public static class LayerStackGraph {
                 return result;
             } finally {
                 owner = outer;
+            }
+        }
+
+        /// <summary>Gives layers no walk has reached yet what lies beneath their parent.</summary>
+        void Beneath(List<LayerAsset> layers, string usage, PortRef cursor) {
+            foreach (var layer in layers) {
+                below.TryAdd((usage, layer.Id), cursor);
+                Beneath(layer.Children, usage, cursor);
             }
         }
 
@@ -909,7 +1032,7 @@ public static class LayerStackGraph {
                 // ⚠ Nothing, under `Weighing`. An adjustment is not a thing that covers a texel — it
                 // reads what is under it — and a filter layer taken as a fill would claim the whole
                 // surface, so a stack with a Levels layer on top would weigh as one layer everywhere.
-                LayerKind.Filter => Weighing ? null : Adjustment(layer, cursor),
+                LayerKind.Filter => Weighing ? null : Adjustment(layer, channel, cursor),
                 // ⚠ A flattened group is its canvas, exactly as a paint layer is, and its children are not walked: that
                 // is the whole of what flattening buys. Except while it is being captured, which is how the canvas is made.
                 LayerKind.Group when layer.Flattened && layer.Id != Capturing =>
@@ -1463,11 +1586,11 @@ public static class LayerStackGraph {
                         return null;
                     }
 
-                    var node = Add(path);
-
-                    // A graph's image inputs are fed from anchor points, and one nothing feeds is a refusal of the
-                    // compiler's own. ⚠ "The channel being written" is allowed here: a fill writes each channel itself.
-                    Fed(node, type, path, layer.Inputs, layer.Id, true);
+                    // A graph's image inputs read what `Inputs` names, and one nothing feeds is a slot nobody has filled.
+                    // ⚠ "The channel being written" is allowed here: a fill writes each channel itself.
+                    if (Bound(path, type, null, layer.Inputs, layer.Id, channel, null, false) is not { } node) {
+                        return null;
+                    }
 
                     foreach (var (port, value) in layer.Settings) {
                         if (HasInput(type, port)) {
@@ -1528,9 +1651,9 @@ public static class LayerStackGraph {
         ///     because <c>LayerStackExplodeTests</c>' byte-identical differential is what says this
         ///     change added a kind rather than moved the existing ones.
         /// </remarks>
-        PortRef? Adjustment(LayerAsset layer, PortRef cursor) {
+        PortRef? Adjustment(LayerAsset layer, ChannelAsset channel, PortRef cursor) {
             if (layer.FilterNode.Trim().Length > 0) {
-                return Published(layer, cursor);
+                return Published(layer, channel, cursor);
             }
 
             var (type, ports) = Filter(layer.Filter);
@@ -1600,7 +1723,7 @@ public static class LayerStackGraph {
         ///         and leave a picture that looks like a working file with one layer switched off.
         ///     </para>
         /// </remarks>
-        PortRef? Published(LayerAsset layer, PortRef cursor) {
+        PortRef? Published(LayerAsset layer, ChannelAsset channel, PortRef cursor) {
             var path = layer.FilterNode.Trim();
 
             if (!Library.TryGet(path, out var type)) {
@@ -1616,30 +1739,32 @@ public static class LayerStackGraph {
                 return null;
             }
 
-            var input = Unfed(type, layer.Inputs);
-            var output = OnlyImage(type, PortDirection.Output);
+            var input = FirstImage(type);
+            var outputs = Images(type, PortDirection.Output);
 
-            if (input is null || output is null) {
+            if (input is null || outputs == 0 || (outputs > 1 && !PerChannel(type))) {
                 problems.Add(
                     LayerStackProblem.Refusal(
                         layer.Id,
-                        $"'{path}' is not a single-input graph once its anchored inputs are fed: doc 48 § D10 says a "
-                        + "filter layer's fourth kind is a "
-                        + "graph with one image in and one image out, and this type has "
+                        $"'{path}' is not a filter: a filter reads an image and writes one, or one per channel named "
+                        + "after it, and this type has "
                         + $"{Images(type, PortDirection.Input).ToString(CultureInfo.InvariantCulture)} in and "
-                        + $"{Images(type, PortDirection.Output).ToString(CultureInfo.InvariantCulture)} out. "
-                        + "A two-input node is a composite rather than an adjustment, and which of its images the "
-                        + "layers beneath would be is not something this file can decide."
+                        + $"{outputs.ToString(CultureInfo.InvariantCulture)} out."
                     )
                 );
 
                 return null;
             }
 
-            var node = Add(path);
+            // ⚠ A material filter writes the channels it has an output for and leaves the rest as they were.
+            if ((PerChannel(type) ? ByUsage(type, channel.Usage) : OnlyImage(type, PortDirection.Output))
+                is not { } output) {
+                return null;
+            }
 
-            graph.Connect(Greyed(path, cursor, false), new(node.Id, input.Name));
-            Fed(node, type, path, layer.Inputs, layer.Id, true);
+            if (Bound(path, type, input, layer.Inputs, layer.Id, channel, cursor, false) is not { } node) {
+                return null;
+            }
 
             foreach (var (port, value) in layer.Settings) {
                 if (string.Equals(port, input.Name, StringComparison.Ordinal)
@@ -1987,6 +2112,344 @@ public static class LayerStackGraph {
             return reference.Channel;
         }
 
+        /// <summary>A node with every image input wired to what it reads, or null when one has nothing to read yet.</summary>
+        /// <param name="path">The node type's path.</param>
+        /// <param name="type">The node type.</param>
+        /// <param name="subject">Its first image input, which <paramref name="cursor" /> feeds, or null for a fill.</param>
+        /// <param name="inputs">Where its inputs read, by port.</param>
+        /// <param name="layerId">The layer it belongs to.</param>
+        /// <param name="channel">The channel being built.</param>
+        /// <param name="cursor">What the subject reads until the layer says otherwise: the stack beneath, or a mask.</param>
+        /// <param name="mask">Whether this is a mask step, whose subject is always its mask and whose pictures are one channel.</param>
+        /// <remarks>
+        ///     <para>
+        ///         <b>Patina #113 and #114, and ADR 0017.</b> An input <paramref name="inputs" /> names reads what it
+        ///         names. One it does not reads, in order: the stack beneath in the channel it is named after, when its
+        ///         name is one of the set's channels — which is how a material filter reads height and roughness at once;
+        ///         <paramref name="cursor" />, when it is the subject; nothing, when the node does without it. Any other
+        ///         is a slot nobody has filled.
+        ///     </para>
+        ///     <para>
+        ///         ⚠ <b>Every slot is decided before the node is added</b>, so an empty one leaves nothing half-wired in
+        ///         the graph for a draft's compile to trip over. A port that measures — a warp's field, a slope — takes
+        ///         the grey of what it reads, as the subject always has.
+        ///     </para>
+        /// </remarks>
+        GraphNode? Bound(
+            string path,
+            NodeTypeDefinition type,
+            PortDefinition? subject,
+            Dictionary<string, LayerInputAsset> inputs,
+            string layerId,
+            ChannelAsset channel,
+            PortRef? cursor,
+            bool mask
+        ) {
+            foreach (var port in inputs.Keys) {
+                if (type.Port(port, PortDirection.Input) is not { Kind: PortKind.Image }) {
+                    problems.Add(
+                        LayerStackProblem.Warning(
+                            layerId,
+                            $"'{port}' is not an image input of '{path}', so what it reads is dropped."
+                        )
+                    );
+                }
+            }
+
+            List<(PortDefinition Port, LayerInputAsset? Input, string Read)> plan = [];
+            var ready = true;
+
+            foreach (var port in type.Ports) {
+                if (port is not { Direction: PortDirection.Input, Kind: PortKind.Image }) {
+                    continue;
+                }
+
+                var own = subject is not null && string.Equals(port.Name, subject.Name, StringComparison.Ordinal);
+
+                if (mask && own) {
+                    if (inputs.ContainsKey(port.Name)) {
+                        problems.Add(
+                            LayerStackProblem.Warning(
+                                layerId,
+                                $"'{port.Name}' is the mask a step on a mask changes, so what it was told to read is "
+                                + "dropped."
+                            )
+                        );
+                    }
+
+                    plan.Add((port, null, ""));
+
+                    continue;
+                }
+
+                if (inputs.TryGetValue(port.Name, out var input)) {
+                    if (Readable(input, path, port.Name, layerId, channel, mask) is { } read) {
+                        plan.Add((port, input, read));
+                    } else {
+                        ready = false;
+                    }
+
+                    continue;
+                }
+
+                if (set.Channels.Exists(held => string.Equals(held.Usage, port.Name, StringComparison.Ordinal))) {
+                    plan.Add((port, LayerInputAsset.BeneathIn(port.Name), port.Name));
+
+                    continue;
+                }
+
+                if (own && cursor is not null) {
+                    plan.Add((port, null, ""));
+
+                    continue;
+                }
+
+                if (TextureImageInputs.Optional(Library, SubGraphs, path, port.Name)) {
+                    continue;
+                }
+
+                Unfilled(
+                    layerId,
+                    $"'{path}' reads '{port.Name}' from nothing yet. Choose what it reads: the layers beneath in a "
+                    + "channel, an anchor point, a generator, an image or a mesh map."
+                );
+
+                ready = false;
+            }
+
+            if (!ready) {
+                return null;
+            }
+
+            var node = Add(path);
+
+            foreach (var (port, input, read) in plan) {
+                PortRef to = new(node.Id, port.Name);
+
+                if (TextureImageInputs.Measures(Library, SubGraphs, path, port.Name)) {
+                    var grey = Add("Colour/Grayscale");
+
+                    // A mask is read for its red, as every mask source is; a picture for its luminance. ⚠ And a generator
+                    // or a mesh map for its red too: most are one channel already, and `Grayscale` reads one channel as
+                    // (r, 0, 0) and weighs it down to a fifth of itself under the luminance weights.
+                    if (mask || input?.Source is LayerInputSource.Generator or LayerInputSource.Bake) {
+                        grey.SetValue("Weight R", 1f);
+                        grey.SetValue("Weight G", 0f);
+                        grey.SetValue("Weight B", 0f);
+                    }
+
+                    graph.Connect(new(grey.Id, "Out"), to);
+                    to = new(grey.Id, "Input");
+                }
+
+                if (input is null) {
+                    graph.Connect(cursor!.Value, to);
+                } else {
+                    Source(input, read, layerId, to);
+                }
+            }
+
+            return node;
+        }
+
+        /// <summary>
+        ///     Whether an input can be read, saying why not when it cannot: the channel it reads, its anchor point's, or
+        ///     an empty string for a source that reads none; null when it cannot.
+        /// </summary>
+        string? Readable(
+            LayerInputAsset input,
+            string path,
+            string port,
+            string layerId,
+            ChannelAsset channel,
+            bool mask
+        ) {
+            switch (input.Source) {
+                case LayerInputSource.Beneath: {
+                    var usage = input.Channel.Trim();
+
+                    if (usage.Length == 0) {
+                        if (mask) {
+                            Unfilled(
+                                layerId,
+                                $"'{port}' of the mask step '{path}' reads the layers beneath in no channel. A mask is "
+                                + "one picture whatever channel it is applied to, so it says which channel it reads."
+                            );
+
+                            return null;
+                        }
+
+                        return channel.Usage;
+                    }
+
+                    if (!set.Channels.Exists(held => string.Equals(held.Usage, usage, StringComparison.Ordinal))) {
+                        Unfilled(
+                            layerId,
+                            $"'{port}' of '{path}' reads the layers beneath in '{usage}', which is not a channel of "
+                            + $"texture set '{set.Name}'."
+                        );
+
+                        return null;
+                    }
+
+                    return usage;
+                }
+
+                case LayerInputSource.Anchor:
+                    return Read(input.Anchor, layerId, !mask);
+
+                case LayerInputSource.Generator: {
+                    var generator = input.Generator.Trim();
+
+                    if (generator.Length == 0) {
+                        Unfilled(layerId, $"'{port}' of '{path}' reads a generator and names none.");
+
+                        return null;
+                    }
+
+                    if (!Library.TryGet(generator, out var type)) {
+                        problems.Add(
+                            LayerStackProblem.Refusal(
+                                layerId,
+                                $"'{port}' of '{path}' reads the generator '{generator}', which is not a node type this "
+                                + "project has."
+                            )
+                        );
+
+                        return null;
+                    }
+
+                    if (Images(type, PortDirection.Input) > 0 || OnlyImage(type, PortDirection.Output) is null) {
+                        problems.Add(
+                            LayerStackProblem.Refusal(
+                                layerId,
+                                $"'{port}' of '{path}' reads '{generator}', which is not a generator: a generator reads "
+                                + "no image and writes one."
+                            )
+                        );
+
+                        return null;
+                    }
+
+                    return "";
+                }
+
+                case LayerInputSource.Texture:
+                    if (input.Asset.Trim().Length == 0) {
+                        Unfilled(layerId, $"'{port}' of '{path}' reads an image and names none.");
+
+                        return null;
+                    }
+
+                    return "";
+
+                case LayerInputSource.Bake:
+                    if (input.Map.Trim().Length == 0) {
+                        Unfilled(layerId, $"'{port}' of '{path}' reads a mesh map and names none.");
+
+                        return null;
+                    }
+
+                    return "";
+
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(input), input.Source, "Not an input this build knows.");
+            }
+        }
+
+        /// <summary>Wires what one input reads into a port, now or once the walk has reached it.</summary>
+        /// <param name="input">What it reads, already found readable.</param>
+        /// <param name="read">The channel <see cref="Readable" /> found.</param>
+        /// <param name="layerId">The layer reading it.</param>
+        /// <param name="to">The port.</param>
+        void Source(LayerInputAsset input, string read, string layerId, PortRef to) {
+            switch (input.Source) {
+                case LayerInputSource.Beneath:
+                    if (below.TryGetValue((read, layerId), out var from)) {
+                        graph.Connect(from, to);
+                    } else {
+                        beneath.Add((read, layerId, to));
+                    }
+
+                    return;
+
+                case LayerInputSource.Anchor:
+                    anchors.Add((read, input.Anchor.Anchor, layerId, to));
+
+                    return;
+
+                case LayerInputSource.Generator: {
+                    var path = input.Generator.Trim();
+
+                    Library.TryGet(path, out var type);
+
+                    var node = Add(path);
+
+                    foreach (var (port, value) in input.Values) {
+                        if (type!.Port(port, PortDirection.Input) is not { Kind: not PortKind.Image }) {
+                            problems.Add(
+                                LayerStackProblem.Warning(layerId, $"'{port}' is not a number '{path}' takes, so it is dropped.")
+                            );
+
+                            continue;
+                        }
+
+                        node.SetValue(port, value);
+                    }
+
+                    foreach (var (setting, value) in input.Texts) {
+                        if (type!.Setting(setting) is null) {
+                            problems.Add(
+                                LayerStackProblem.Warning(
+                                    layerId,
+                                    $"'{setting}' is not a setting '{path}' declares, so it is dropped."
+                                )
+                            );
+
+                            continue;
+                        }
+
+                        node.SetText(setting, value);
+                    }
+
+                    graph.Connect(new(node.Id, OnlyImage(type!, PortDirection.Output)!.Name), to);
+
+                    return;
+                }
+
+                case LayerInputSource.Texture: {
+                    var node = Add("Source/Bitmap");
+
+                    node.SetText("Source", input.Asset.Trim());
+                    node.SetText("Space", "Linear");
+                    node.SetText("Filter", "Bilinear");
+                    graph.Connect(new(node.Id, "Out"), to);
+
+                    return;
+                }
+
+                case LayerInputSource.Bake: {
+                    var node = Add("Source/Mesh Map");
+
+                    node.SetText("Map", input.Map.Trim());
+                    graph.Connect(new(node.Id, "Out"), to);
+
+                    return;
+                }
+            }
+        }
+
+        /// <summary>A type's first image input, which is a filter's subject, or null when it reads no image.</summary>
+        static PortDefinition? FirstImage(NodeTypeDefinition type) {
+            foreach (var port in type.Ports) {
+                if (port is { Direction: PortDirection.Input, Kind: PortKind.Image }) {
+                    return port;
+                }
+            }
+
+            return null;
+        }
+
         /// <summary>Feeds a node's image inputs from anchor points, by port name.</summary>
         /// <param name="node">The node.</param>
         /// <param name="type">Its type.</param>
@@ -2027,27 +2490,6 @@ public static class LayerStackGraph {
                     graph.Connect(new(nothing.Id, "Out"), to);
                 }
             }
-        }
-
-        /// <summary>The one image input of a type that no anchor point feeds, or null when there is not exactly one.</summary>
-        static PortDefinition? Unfed(NodeTypeDefinition type, Dictionary<string, AnchorReference> inputs) {
-            PortDefinition? found = null;
-
-            foreach (var port in type.Ports) {
-                if (port.Direction != PortDirection.Input
-                    || port.Kind != PortKind.Image
-                    || inputs.ContainsKey(port.Name)) {
-                    continue;
-                }
-
-                if (found is not null) {
-                    return null;
-                }
-
-                found = port;
-            }
-
-            return found;
         }
 
         /// <summary>An anchor point's picture, as the opaque number a mask entry is.</summary>
@@ -2125,36 +2567,6 @@ public static class LayerStackGraph {
             return new(product.Id, "Out");
         }
 
-        /// <summary>What an adjustment that measures its input reads: one channel, which the stack chooses.</summary>
-        /// <param name="path">The adjustment's node type.</param>
-        /// <param name="cursor">The colour chain it would have read.</param>
-        /// <param name="mask">Whether this is a mask, which is read for its red like every other mask source.</param>
-        /// <returns>The chain, or a grey of it when the node wants one channel.</returns>
-        /// <remarks>
-        ///     ⚠ <b>The compiler's own refusal is the reason, and it says what to do.</b> A height to normal,
-        ///     a distance field or a gradient map reads one channel and refuses a colour, asking for a
-        ///     Grayscale node that says which grey is meant. In a graph an author says so; a filter layer or a
-        ///     mask effect has no wire to put it on, so it would be refused whatever its settings. A layer means
-        ///     the luminance of what is beneath it, and a mask means its red, which is what a mask is.
-        /// </remarks>
-        PortRef Greyed(string path, PortRef cursor, bool mask) {
-            if (!TextureMeasuredInputs.Measures(Library, SubGraphs, path)) {
-                return cursor;
-            }
-
-            var grey = Add("Colour/Grayscale");
-
-            if (mask) {
-                grey.SetValue("Weight R", 1f);
-                grey.SetValue("Weight G", 0f);
-                grey.SetValue("Weight B", 0f);
-            }
-
-            graph.Connect(cursor, new(grey.Id, "Input"));
-
-            return new(grey.Id, "Out");
-        }
-
         /// <summary>One adjustment over a mask, as any node with one image in and one image out.</summary>
         MaskSlot Effect(MaskSlot cursor, MaskEffectAsset effect, string layerId, ChannelAsset channel) {
             var path = effect.Node.Trim();
@@ -2184,30 +2596,28 @@ public static class LayerStackGraph {
                 return cursor;
             }
 
-            var input = Unfed(type, effect.Inputs);
+            var input = FirstImage(type);
             var output = OnlyImage(type, PortDirection.Output);
 
             if (input is null || output is null) {
                 problems.Add(
                     LayerStackProblem.Refusal(
                         layerId,
-                        $"'{path}' is not a single-input graph once its anchored inputs are fed: doc 48 § 4.10 says a "
-                        + "mask effect has one image in "
-                        + "and one image out, and this type has "
+                        $"'{path}' is not a step a mask can take: doc 48 § 4.10 says a mask effect reads the mask "
+                        + "into its first image input and writes one image, and this type has "
                         + $"{Images(type, PortDirection.Input).ToString(CultureInfo.InvariantCulture)} in and "
-                        + $"{Images(type, PortDirection.Output).ToString(CultureInfo.InvariantCulture)} out. "
-                        + "A two-input node is a composite rather than an effect, and which of its images the mask "
-                        + "would be is not something this file can decide."
+                        + $"{Images(type, PortDirection.Output).ToString(CultureInfo.InvariantCulture)} out."
                     )
                 );
 
                 return cursor;
             }
 
-            var node = Add(path);
-
-            graph.Connect(Greyed(path, cursor.Port, true), new(node.Id, input.Name));
-            Fed(node, type, path, effect.Inputs, layerId, false);
+            // ⚠ A step with an input nobody has filled is passed over, as a broken step always was: a mask with one
+            // unfinished step is still a mask.
+            if (Bound(path, type, input, effect.Inputs, layerId, channel, cursor.Port, true) is not { } node) {
+                return cursor;
+            }
 
             foreach (var (port, value) in effect.Values) {
                 // ⚠ Derived from the type rather than from a list per effect, and what it is
@@ -2569,6 +2979,37 @@ public static class LayerStackGraph {
                         $"The anchor point '{anchor}' is refused: {GraphInvariants.Describe(error, from, to)} "
                         + "⚠ Reading an anchor point at or above the layer that reads it is a loop, and the graph model "
                         + "is what says so — the stack does not check for one itself."
+                    )
+                );
+            }
+        }
+
+        /// <summary>Wires every input that reads the stack beneath its layer in a channel walked after its own.</summary>
+        /// <remarks>
+        ///     ⚠ <b>A loop is the graph model's to refuse, as an anchor's is.</b> A filter reading height beneath it and
+        ///     writing normal is no loop; one whose height beneath reads its own normal through an anchor is, and
+        ///     <see cref="NodeGraphModel.TryConnect" /> says so on its own terms.
+        /// </remarks>
+        void Beneaths() {
+            HashSet<(string Channel, string Layer)> reported = [];
+
+            foreach (var (channel, layer, to) in beneath) {
+                if (!below.TryGetValue((channel, layer), out var from)) {
+                    // Every layer is walked in every channel of the set, so this is a channel the set does not have, and
+                    // `Source` already said so.
+                    continue;
+                }
+
+                if (graph.TryConnect(from, to, out _, out var error) || !reported.Add((channel, layer))) {
+                    continue;
+                }
+
+                problems.Add(
+                    LayerStackProblem.Refusal(
+                        layer,
+                        $"This layer reads the layers beneath it in '{channel}', and that is refused: "
+                        + $"{GraphInvariants.Describe(error, from, to)} The layers beneath it in '{channel}' read "
+                        + "what this layer makes."
                     )
                 );
             }

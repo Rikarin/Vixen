@@ -458,9 +458,9 @@ public class MaskStackTests(ITestOutputHelper output) {
         Assert.NotNull(compilation.Plan);
     }
 
-    /// <summary>A node with two images is a composite rather than an effect, and is refused.</summary>
+    /// <summary>A step's second image reads what the file names, and one naming nothing is refused (Patina #113).</summary>
     [Fact]
-    public void A_two_image_node_is_not_a_mask_effect() {
+    public void A_mask_step_whose_second_image_reads_nothing_is_refused() {
         var stack = Masked(new() {
             Source = LayerMaskSource.Constant,
             Value = 1f,
@@ -472,7 +472,7 @@ public class MaskStackTests(ITestOutputHelper output) {
         Assert.Null(compilation.Plan);
         Assert.Contains(
             compilation.Problems,
-            problem => problem.Message.Contains("single-input", StringComparison.Ordinal)
+            problem => problem.Message.Contains("reads 'Foreground' from nothing yet", StringComparison.Ordinal)
         );
     }
 

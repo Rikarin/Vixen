@@ -403,7 +403,7 @@ sealed partial class ReplaceColourRangeNode : TextureNode {
 ///     colour per texel and this one chooses: every texel is exactly one of the two inputs. The draw is the
 ///     plan's seed and the texel's position, so it repeats across bakes.
 /// </remarks>
-[Node("Colour/Dissolve", Preview = true, Summary = "Shows the foreground in a random scatter of texels.")]
+[Node("Colour/Dissolve", Preview = true, Adjustment = false, Summary = "Shows the foreground in a random scatter of texels.")]
 sealed partial class DissolveNode : TextureNode {
     /// <summary>What shows where the foreground does not.</summary>
     [Input(Name = "Background")]
@@ -652,7 +652,7 @@ sealed partial class PaletteNode : TextureNode {
 ///     change must not recompile the plan. An unwired slot that is chosen draws transparent black, which
 ///     is visible, rather than quietly standing in another input.
 /// </remarks>
-[Node("Colour/Select Input", Preview = true, Summary = "Passes on one of four inputs, chosen by number.")]
+[Node("Colour/Select Input", Preview = true, Adjustment = false, Summary = "Passes on one of four inputs, chosen by number.")]
 sealed partial class SelectInputNode : TextureNode {
     /// <summary>Slot one.</summary>
     [Input(Name = "Input 1")]

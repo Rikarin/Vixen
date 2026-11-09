@@ -66,8 +66,10 @@ enum TexturePixelFormat {
 ///         an escape hatch in one of them would have hidden the two gaps they found —
 ///         <a href="https://github.com/Rikarin/Vixen/issues/1059">#1059</a> and
 ///         <a href="https://github.com/Rikarin/Vixen/issues/1060">#1060</a>. Counted rather than
-///         repeated: the sentence said twelve while thirty-one shipped, and no <c>.vxtexgraph</c>
-///         under <c>Compounds/</c> names this node.
+///         repeated: the sentence said twelve while thirty-one shipped. ⚠ No compound of § 4.9's
+///         measured rows names this node; <c>Compounds/Adjust</c> and <c>Compounds/Finishes</c> do, on
+///         purpose — they are Patina's layer filters, not a measurement of the atomic set, and the
+///         folder's README says why.
 ///     </para>
 /// </remarks>
 [Node(

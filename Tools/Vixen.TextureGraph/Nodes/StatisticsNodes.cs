@@ -55,7 +55,7 @@ static class Statistics {
 ///     </para>
 /// </remarks>
 [DoesNotTile("A strip's left edge is the darkest bin and its right edge the brightest, which is what a histogram is.")]
-[Node("Analysis/Histogram", Preview = true, Summary = "The input's histogram, one bin per column: densities or cumulative shares.")]
+[Node("Analysis/Histogram", Preview = true, Adjustment = false, Summary = "The input's histogram, one bin per column: densities or cumulative shares.")]
 sealed partial class HistogramNode : TextureNode {
     /// <summary>Which numbers: <c>Density</c> or <c>Cumulative</c>.</summary>
     [Setting(AcceptedFrom = typeof(TextureHistogramData))]
@@ -100,7 +100,7 @@ sealed partial class HistogramNode : TextureNode {
 ///     numbers are <c>Analysis/Histogram</c>'s; this is the picture of them a person reads.
 /// </remarks>
 [DoesNotTile("A chart has a bottom and a top, and a left end that is the darkest bin.")]
-[Node("Analysis/Histogram Render", Preview = true, Summary = "The input's histogram drawn as bars.")]
+[Node("Analysis/Histogram Render", Preview = true, Adjustment = false, Summary = "The input's histogram drawn as bars.")]
 sealed partial class HistogramRenderNode : TextureNode {
     /// <summary>What is counted, by its red channel.</summary>
     [Input(Name = "Input")]
@@ -192,7 +192,7 @@ sealed partial class HistogramEqualiseNode : TextureNode {
 ///     </para>
 /// </remarks>
 [DoesNotTile("A sum from one corner is a function of where that corner is: the far corner holds the whole image.")]
-[Node("Analysis/Summed Area Table", Preview = true, Summary = "Each texel the sum of the rectangle up to it, over the texel count.")]
+[Node("Analysis/Summed Area Table", Preview = true, Adjustment = false, Summary = "Each texel the sum of the rectangle up to it, over the texel count.")]
 sealed partial class SummedAreaTableNode : TextureNode {
     /// <summary>What is summed, per channel.</summary>
     [Input(Name = "Input")]

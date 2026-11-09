@@ -688,13 +688,7 @@ public class TextureCompoundBakeDeviceTests(ITestOutputHelper output) {
         var used = graph.Add(path);
         var output = graph.Add("Output/Output");
 
-        // The first image output, which is "Out" for every compound but one with several: Utility/Frequency
-        // Split's are Low and High, and a compound is read by what it hands on first.
-        var first = registry.Types.Single(type => type.Path == path)
-            .Ports.First(static port => port is { Direction: PortDirection.Output, Kind: PortKind.Image })
-            .Name;
-
-        graph.Connect(new(used.Id, first), new(output.Id, "Input"));
+        graph.Connect(new(used.Id, TextureCompoundLibraryTests.FirstPictureOut(registry, path)), new(output.Id, "Input"));
 
         foreach (var port in registry.Types.Single(type => type.Path == path).Ports) {
             if (port is { Direction: PortDirection.Input, Kind: PortKind.Image }) {

@@ -1,0 +1,137 @@
+version: 1
+name: Colour Balance
+nodes:
+  - id: 1
+    type: Sub-graph/Input
+    x: -640
+    y: 0
+    values: {}
+    texts: {}
+  - id: 2
+    type: Filters/Pixel Processor
+    x: -320
+    y: 0
+    values: {}
+    texts:
+      Expression: float4(saturate(a.xyz + float3(x, y, z) * 0.4f * (1f - smoothstep(0f, 0.5f, dot(a.xyz, float3(0.2126f, 0.7152f, 0.0722f))))), a.w)
+      '=X': shadowRed
+      '=Y': shadowGreen
+      '=Z': shadowBlue
+  - id: 3
+    type: Filters/Pixel Processor
+    x: 0
+    y: 0
+    values: {}
+    texts:
+      Expression: float4(saturate(a.xyz + float3(x, y, z) * 0.4f * (1f - abs(2f * dot(a.xyz, float3(0.2126f, 0.7152f, 0.0722f)) - 1f))), a.w)
+      '=X': midRed
+      '=Y': midGreen
+      '=Z': midBlue
+  - id: 4
+    type: Filters/Pixel Processor
+    x: 320
+    y: 0
+    values: {}
+    texts:
+      Expression: float4(saturate(a.xyz + float3(x, y, z) * 0.4f * smoothstep(0.5f, 1f, dot(a.xyz, float3(0.2126f, 0.7152f, 0.0722f)))), a.w)
+      '=X': highlightRed
+      '=Y': highlightGreen
+      '=Z': highlightBlue
+  - id: 5
+    type: Sub-graph/Output
+    x: 640
+    y: 0
+    values: {}
+    texts: {}
+edges:
+  - { fromNode: 1, fromPort: Input, toNode: 2, toPort: A }
+  - { fromNode: 2, fromPort: Out, toNode: 3, toPort: A }
+  - { fromNode: 3, fromPort: Out, toNode: 4, toPort: A }
+  - { fromNode: 4, fromPort: Out, toNode: 5, toPort: Out }
+groups: []
+comments: []
+interface:
+  - name: Input
+    direction: Input
+    kind: Image
+    default: []
+    summary: The picture to tint.
+  - name: Out
+    direction: Output
+    kind: Image
+    default: []
+    summary: The picture with its shadows, midtones and highlights each pushed towards a colour.
+settings: { baseWidth: '1024', baseHeight: '1024', seed: '1', summary: 'Pushes the shadows, the midtones and the highlights each towards a colour of its own.' }
+parameters:
+  - name: shadowRed
+    label: Cyan - Red
+    default: '0'
+    summary: Towards red above zero and cyan below it, in the darkest values.
+    kind: Float
+    minimum: -1
+    maximum: 1
+    group: Shadows
+  - name: shadowGreen
+    label: Magenta - Green
+    default: '0'
+    summary: Towards green above zero and magenta below it, in the darkest values.
+    kind: Float
+    minimum: -1
+    maximum: 1
+    group: Shadows
+  - name: shadowBlue
+    label: Yellow - Blue
+    default: '0'
+    summary: Towards blue above zero and yellow below it, in the darkest values.
+    kind: Float
+    minimum: -1
+    maximum: 1
+    group: Shadows
+  - name: midRed
+    label: Cyan - Red
+    default: '0'
+    summary: Towards red above zero and cyan below it, in the middle values.
+    kind: Float
+    minimum: -1
+    maximum: 1
+    group: Midtones
+  - name: midGreen
+    label: Magenta - Green
+    default: '0'
+    summary: Towards green above zero and magenta below it, in the middle values.
+    kind: Float
+    minimum: -1
+    maximum: 1
+    group: Midtones
+  - name: midBlue
+    label: Yellow - Blue
+    default: '0'
+    summary: Towards blue above zero and yellow below it, in the middle values.
+    kind: Float
+    minimum: -1
+    maximum: 1
+    group: Midtones
+  - name: highlightRed
+    label: Cyan - Red
+    default: '0'
+    summary: Towards red above zero and cyan below it, in the brightest values.
+    kind: Float
+    minimum: -1
+    maximum: 1
+    group: Highlights
+  - name: highlightGreen
+    label: Magenta - Green
+    default: '0'
+    summary: Towards green above zero and magenta below it, in the brightest values.
+    kind: Float
+    minimum: -1
+    maximum: 1
+    group: Highlights
+  - name: highlightBlue
+    label: Yellow - Blue
+    default: '0'
+    summary: Towards blue above zero and yellow below it, in the brightest values.
+    kind: Float
+    minimum: -1
+    maximum: 1
+    group: Highlights

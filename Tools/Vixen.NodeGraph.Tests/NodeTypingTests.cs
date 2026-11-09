@@ -71,6 +71,13 @@ public class NodeTypingTests {
         return registry;
     }
 
+    /// <summary>A node is an adjustment unless it says it is not, and the generator carries what it says.</summary>
+    [Fact]
+    public void A_node_that_says_it_is_no_adjustment_is_not_one() {
+        Assert.True(Library().Get("Test/Combine").Adjustment);
+        Assert.False(Library().Get("Test/Vector").Adjustment);
+    }
+
     /// <summary>The generator read the declaration, and this is what it made of it.</summary>
     [Fact]
     public void A_marked_class_becomes_a_node_type() {

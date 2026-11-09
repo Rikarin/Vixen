@@ -374,6 +374,15 @@ public static class SubGraphs {
     /// </remarks>
     public const int MaximumDepth = 32;
 
+    /// <summary>The graph setting holding a published graph's one-line summary, which is its name when it has none.</summary>
+    public const string SummarySetting = "summary";
+
+    /// <summary>
+    ///     The graph setting that says, as <c>false</c>, that a published graph is not an adjustment a host should
+    ///     offer — <see cref="NodeAttribute.Adjustment" />, for a graph.
+    /// </summary>
+    public const string AdjustmentSetting = "adjustment";
+
     /// <summary>The node type a containing graph stores for a sub-graph.</summary>
     /// <param name="graph">The sub-graph.</param>
     /// <param name="path">The menu path, and the key the containing graph stores.</param>
@@ -409,10 +418,14 @@ public static class SubGraphs {
             path,
             ports.ToImmutable(),
             static () => new SubGraphNode(),
-            graph.Name,
+            graph.Settings.TryGetValue(SummarySetting, out var summary) && summary.Trim().Length > 0
+                ? summary.Trim()
+                : graph.Name,
             // A compound that hands a picture back has one to draw, like the nodes beside it.
             graph.Interface.Any(static port => port is { Direction: PortDirection.Output, Kind: PortKind.Image }),
-            [.. graph.Parameters]
+            [.. graph.Parameters],
+            !(graph.Settings.TryGetValue(AdjustmentSetting, out var adjustment)
+                && string.Equals(adjustment.Trim(), "false", StringComparison.OrdinalIgnoreCase))
         );
     }
 

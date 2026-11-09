@@ -119,20 +119,19 @@ public class FilterCompoundTests {
         Assert.Equal("f", refusal.Layer);
     }
 
-    /// <summary>⚠ A node with two images in is a composite rather than an adjustment.</summary>
+    /// <summary>⚠ A node's first image is the layers beneath, and a second one nothing feeds is refused.</summary>
     /// <remarks>
-    ///     <b>Which of <c>Colour/Blend</c>'s two images the layers beneath would be is not something a
-    ///     stack file can decide</b>, and picking one — the first declared, say — is the shape of
-    ///     answer that produces a picture nobody asked for and no diagnostic. The refusal names both
-    ///     counts so the author can see why.
+    ///     <b>This refused every node with two images in, as a composite whose subject a file could not choose</b>
+    ///     (Patina #113). The first image input is the subject now and every other one reads what
+    ///     <see cref="LayerAsset.Inputs" /> names, so the refusal is of the slot nobody filled, by name.
     /// </remarks>
     [Fact]
-    public void A_filter_layer_naming_a_two_image_node_is_refused() {
+    public void A_filter_layer_whose_second_image_reads_nothing_is_refused() {
         var compilation = Compile(new() { Id = "f", Kind = LayerKind.Filter, FilterNode = "Colour/Blend" });
         var refusal = Assert.Single(compilation.Problems, problem => problem.Severity == NodeSeverity.Error);
 
-        Assert.Contains("single-input graph", refusal.Message, StringComparison.Ordinal);
-        Assert.Contains("2 in", refusal.Message, StringComparison.Ordinal);
+        Assert.Contains("reads 'Foreground' from nothing yet", refusal.Message, StringComparison.Ordinal);
+        Assert.Equal("f", refusal.Layer);
     }
 
     /// <summary>⚠ A number reaches the node's port, and one named after the image input does not.</summary>

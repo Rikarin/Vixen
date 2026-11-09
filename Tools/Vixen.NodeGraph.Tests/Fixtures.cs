@@ -38,7 +38,7 @@ public sealed partial class TestCombineNode : Node {
 }
 
 /// <summary>A fixed three-lane output, for something to resolve a dynamic port against.</summary>
-[Node("Test/Vector", Summary = "A float3.")]
+[Node("Test/Vector", Adjustment = false, Summary = "A float3.")]
 public sealed partial class TestVectorNode : Node {
     /// <summary>The vector.</summary>
     [Output(Name = "Out")]

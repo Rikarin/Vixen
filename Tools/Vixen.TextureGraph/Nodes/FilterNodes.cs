@@ -14,7 +14,7 @@ namespace Vixen.TextureGraph.Nodes;
 ///     over a grey stays grey, one channel wide, all the way down. Without that rule the library needs
 ///     a <c>BlendGrayscale</c> beside this, which is the cost § Part 4 names.
 /// </remarks>
-[Node("Colour/Blend", Preview = true, Summary = "Two images composited under one of sixteen operators.")]
+[Node("Colour/Blend", Preview = true, Adjustment = false, Summary = "Two images composited under one of sixteen operators.")]
 sealed partial class BlendNode : TextureNode {
     /// <summary>Which operator. One of <c>TextureBlendMode</c>'s sixteen names.</summary>
     [Setting(AcceptedFrom = typeof(TextureBlendMode))]
@@ -104,6 +104,7 @@ sealed partial class BlendNode : TextureNode {
 [Node(
     "Colour/Mix",
     Preview = true,
+    Adjustment = false,
     Summary = "Two images composited through a per-texel mask, under one of sixteen operators."
 )]
 sealed partial class MixNode : TextureNode {
@@ -531,8 +532,18 @@ sealed partial class DistanceNode : TextureNode {
 ///         <c>Analysis/Distance</c>'s flood, read at the seed rather than as a length: the record names
 ///         the nearest in-texel already, so this is one more read and no second chain.
 ///     </para>
+///     <para>
+///         ⚠ <b>No filter layer and no mask step.</b> A stack's filter takes its first image as the subject, the
+///         picture beneath, and here that is <c>Mask</c>: a layer would spread a colour from the shape of the
+///         colour beneath it rather than spread that colour. Padding a layer's picture is a fill's graph for now.
+///     </para>
 /// </remarks>
-[Node("Analysis/Distance Colour", Preview = true, Summary = "The colour of the nearest point of a mask's shape, spread outwards.")]
+[Node(
+    "Analysis/Distance Colour",
+    Preview = true,
+    Adjustment = false,
+    Summary = "The colour of the nearest point of a mask's shape, spread outwards."
+)]
 sealed partial class DistanceColourNode : TextureNode {
     /// <summary>How a length is measured: <c>Euclidean</c>, <c>Manhattan</c> or <c>Chebyshev</c>.</summary>
     [Setting(AcceptedFrom = typeof(TextureDistanceMetric))]

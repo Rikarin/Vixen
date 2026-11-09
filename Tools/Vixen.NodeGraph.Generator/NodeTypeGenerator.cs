@@ -126,6 +126,9 @@ public sealed class NodeTypeGenerator : IIncrementalGenerator {
         var summary = Named(attribute, "Summary") as string ?? "";
         var preview = Named(attribute, "Preview") is bool flag && flag;
 
+        // True unless the class says otherwise, as the attribute's own initializer has it.
+        var adjustment = Named(attribute, "Adjustment") is not bool adjusts || adjusts;
+
         var ports = ImmutableArray.CreateBuilder<PortModel>();
         var settings = ImmutableArray.CreateBuilder<SettingModel>();
 
@@ -217,6 +220,7 @@ public sealed class NodeTypeGenerator : IIncrementalGenerator {
             path,
             summary,
             preview,
+            adjustment,
             ordered,
             settings.ToImmutable(),
             problems.ToImmutable()
@@ -292,8 +296,9 @@ public sealed class NodeTypeGenerator : IIncrementalGenerator {
             );
         }
 
-        text.AppendLine("        ]")
-            .AppendLine("    );")
+        // Only a node that is not an adjustment spells it, so that every other definition reads as it did.
+        text.AppendLine(model.Adjustment ? "        ]" : "        ],")
+            .AppendLine(model.Adjustment ? "    );" : "        Adjustment: false\n    );")
             .AppendLine()
             .AppendLine("    /// <inheritdoc />")
             .AppendLine("    public override void Bind(NodeBinding binding) {");

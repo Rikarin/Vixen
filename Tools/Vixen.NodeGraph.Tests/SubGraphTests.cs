@@ -82,6 +82,21 @@ public class SubGraphTests {
         Assert.Equal(preview, SubGraphs.Definition(graph, "Sub-graphs/Picture").Preview);
     }
 
+    /// <summary>A compound's summary and whether it is an adjustment are the graph's own settings, when it has them.</summary>
+    [Fact]
+    public void A_compound_says_its_summary_and_whether_it_is_an_adjustment_in_its_settings() {
+        var graph = new NodeGraphModel { Name = "Chart" };
+
+        Assert.Equal("Chart", SubGraphs.Definition(graph, "Sub-graphs/Chart").Summary);
+        Assert.True(SubGraphs.Definition(graph, "Sub-graphs/Chart").Adjustment);
+
+        graph.Settings[SubGraphs.SummarySetting] = "Its input's histogram, drawn.";
+        graph.Settings[SubGraphs.AdjustmentSetting] = "false";
+
+        Assert.Equal("Its input's histogram, drawn.", SubGraphs.Definition(graph, "Sub-graphs/Chart").Summary);
+        Assert.False(SubGraphs.Definition(graph, "Sub-graphs/Chart").Adjustment);
+    }
+
     [Fact]
     public void Inlining_replaces_the_node_with_the_graphs_contents_and_keeps_the_wiring() {
         var library = new SubGraphLibrary();
