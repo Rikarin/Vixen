@@ -769,7 +769,8 @@ public class MaskStackTests(ITestOutputHelper output) {
                 $"the plan asks for the external '{external.Asset}' and this test has no picture for it."
             );
 
-            uploads.Add(plan, external.Image, Side, Side, Texels(map!));
+            // As the eight bits these are: a mesh map is declared at half-float (#1534).
+            uploads.AddPicture(plan, external.Image, Side, Side, Texels(map!), TextureFormat.Rgba8);
         }
 
         using TexturePlanEvaluator evaluator = new(device);
