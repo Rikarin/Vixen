@@ -2169,7 +2169,18 @@ public static class LayerStackGraph {
             var mask = layer.Mask;
             List<MaskLayerAsset> entries = [];
 
-            if (mask.Source != LayerMaskSource.None) {
+            // Switched off, the artist's mask is not there: only the entries a host keeps whatever the switch says
+            // apply, each as it would over an unmasked layer, which is white (Patina #109).
+            if (!mask.Enabled) {
+                var kept = mask.Layers.Where(static entry => entry is { Enabled: true, Kept: true }).ToList();
+
+                if (kept.Count == 0) {
+                    return null;
+                }
+
+                entries.Add(new() { Source = LayerMaskSource.Constant, Value = 1f });
+                entries.AddRange(kept);
+            } else if (mask.Source != LayerMaskSource.None) {
                 // The legacy single source, as the bottom entry. Its blend and opacity are the
                 // neutral ones, so a stack with only a base compiles to exactly the nodes it did
                 // before this file learned about mask stacks.
@@ -2198,7 +2209,7 @@ public static class LayerStackGraph {
                 );
             }
 
-            foreach (var entry in mask.Layers) {
+            foreach (var entry in mask.Enabled ? mask.Layers : []) {
                 if (entry.Enabled) {
                     entries.Add(entry);
                 }
@@ -2255,7 +2266,7 @@ public static class LayerStackGraph {
                 return null;
             }
 
-            foreach (var effect in mask.Effects) {
+            foreach (var effect in mask.Enabled ? mask.Effects : []) {
                 if (effect.Enabled) {
                     composited = Effect(composited, effect, layer.Id, channel);
                 }
@@ -3365,6 +3376,13 @@ public static class LayerStackGraph {
         ///     </para>
         /// </remarks>
         static float? Folds(MaskAsset mask, float opacity) {
+            // A mask switched off with nothing kept is no mask: the opacity alone, as a constant one would fold.
+            if (!mask.Enabled) {
+                return Unit(opacity) && !mask.Layers.Exists(static entry => entry is { Enabled: true, Kept: true })
+                    ? opacity
+                    : null;
+            }
+
             if (mask.Source != LayerMaskSource.Constant || !Unit(mask.Value) || !Unit(opacity)) {
                 return null;
             }

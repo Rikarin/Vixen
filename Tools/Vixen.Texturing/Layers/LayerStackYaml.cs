@@ -389,6 +389,10 @@ public static class LayerStackYaml {
             mapping.Set("effects", effects);
         }
 
+        if (!mask.Enabled) {
+            mapping.Set("enabled", new YamlScalar("false"));
+        }
+
         return mapping;
     }
 
@@ -438,6 +442,10 @@ public static class LayerStackYaml {
 
         if (!entry.Enabled) {
             mapping.Set("enabled", new YamlScalar("false"));
+        }
+
+        if (entry.Kept) {
+            mapping.Set("kept", new YamlScalar("true"));
         }
 
         return mapping;
@@ -750,7 +758,8 @@ public static class LayerStackYaml {
             Lane = Choice(mapping, "lane", LayerMaskLane.Red, path),
             Paint = String(mapping, "paint", path),
             Layers = entries,
-            Effects = effects
+            Effects = effects,
+            Enabled = Flag(mapping, "enabled", true, path)
         };
     }
 
@@ -797,7 +806,8 @@ public static class LayerStackYaml {
             Paint = String(mapping, "paint", path),
             Blend = Choice(mapping, "blend", LayerBlendMode.Copy, path),
             Opacity = Single(mapping, "opacity", 1f, path),
-            Enabled = Flag(mapping, "enabled", true, path)
+            Enabled = Flag(mapping, "enabled", true, path),
+            Kept = Flag(mapping, "kept", false, path)
         };
     }
 
