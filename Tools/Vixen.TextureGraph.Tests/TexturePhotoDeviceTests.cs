@@ -59,7 +59,7 @@ public class TexturePhotoDeviceTests(ITestOutputHelper output) {
         Assert.Equal(1f, after, 0.06f);
 
         // ⚠ A gain and not an offset: the two greys of the checker stay in their ratio of two on both sides.
-        foreach (var x in (int[]) [20, 236]) {
+        foreach (var x in (int[])[20, 236]) {
             var dark = flat.At(x - (x % 8), 2, 1);
             var light = flat.At(x - (x % 8) + 4, 2, 1);
 
@@ -111,14 +111,14 @@ public class TexturePhotoDeviceTests(ITestOutputHelper output) {
         }
 
         static float Variance(Lanes picture) =>
-            Spread([..Enumerable.Range(0, picture.Width * picture.Height).Select(at => picture.At(at % picture.Width, at / picture.Width, 0))]);
+            Spread([.. Enumerable.Range(0, picture.Width * picture.Height).Select(at => picture.At(at % picture.Width, at / picture.Width, 0))]);
 
-        var source = Spread([..Enumerable.Range(0, Side * Side).Select(at => noise[at * 4] / 255f)]);
+        var source = Spread([.. Enumerable.Range(0, Side * Side).Select(at => noise[at * 4] / 255f)]);
         var kept = Variance(Bake(device, "Space/Break Up Tiling", Side, Side, [new("Input", noise)], node => node.SetValue("Softness", 1f)));
         var averaged = Variance(Bake(device, "Space/Break Up Tiling", Side, Side, [new("Input", noise)], node => {
-                node.SetValue("Softness", 1f);
-                node.SetValue("Keep Contrast", 0f);
-            }
+            node.SetValue("Softness", 1f);
+            node.SetValue("Keep Contrast", 0f);
+        }
         ));
 
         output.WriteLine($"variance: {source} in, {kept} kept, {averaged} averaged");
@@ -182,7 +182,7 @@ public class TexturePhotoDeviceTests(ITestOutputHelper output) {
         var normal = Bake(device, "Photo/Normal from Lighting", Side, Side, photos, output: "Normal");
         var albedo = Bake(device, "Photo/Normal from Lighting", Side, Side, photos, output: "Albedo");
 
-        foreach (var x in (int[]) [10, 50]) {
+        foreach (var x in (int[])[10, 50]) {
             var expected = Normal(x);
 
             Assert.Equal((expected.X * 0.5f) + 0.5f, normal.At(x, 20, 0), 0.02f);

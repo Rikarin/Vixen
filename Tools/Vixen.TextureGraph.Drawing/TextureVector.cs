@@ -302,7 +302,7 @@ internal static partial class TextureVector {
         );
 
         if (coverageOnly) {
-            var weighed = paint.A >= 1f ? filled.Coverage : [..filled.Coverage.Select(value => value * paint.A)];
+            var weighed = paint.A >= 1f ? filled.Coverage : [.. filled.Coverage.Select(value => value * paint.A)];
 
             canvas.Union(picture, box, weighed);
         } else {
@@ -629,7 +629,7 @@ internal static partial class TextureVector {
 
             Shapes.Add(
                 new(
-                    [..path.Segments.Select(local.Apply)],
+                    [.. path.Segments.Select(local.Apply)],
                     fill,
                     style.FillRule,
                     stroke,

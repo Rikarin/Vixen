@@ -921,7 +921,7 @@ public class TextureNodeLibraryTests {
 
         // Patina #178's photo nodes and #218's anti-repetition and terrain ones. Normal from Lighting reads four
         // photos, and one picture wired to all four is a flat surface, which is still a plan.
-        foreach (var path in (string[]) ["Photo/Flatten Light", "Photo/Tile from Patches", "Space/Break Up Tiling", "Space/Atlas Cell"]) {
+        foreach (var path in (string[])["Photo/Flatten Light", "Photo/Tile from Patches", "Space/Break Up Tiling", "Space/Atlas Cell"]) {
             graph.Connect(invert, "Out", graph.Add(path), "Input");
         }
 
@@ -929,7 +929,7 @@ public class TextureNodeLibraryTests {
 
         var photometric = graph.Add("Photo/Normal from Lighting");
 
-        foreach (var side in (string[]) ["Left", "Right", "Top", "Bottom"]) {
+        foreach (var side in (string[])["Left", "Right", "Top", "Bottom"]) {
             graph.Connect(invert, "Out", photometric, $"Lit from {side}");
         }
 

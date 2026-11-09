@@ -562,7 +562,7 @@ public class TextureTilingConformanceDeviceTests(ITestOutputHelper output) {
                 var periodic = Periodic(Side / 2);
 
                 if (plan.Images[owed.Image].Format == TextureFormat.R8) {
-                    uploads.AddCoverage(plan, owed.Image, Side / 2, Side / 2, [..Enumerable.Range(0, periodic.Length / 4).Select(at => periodic[at * 4] / 255f)]);
+                    uploads.AddCoverage(plan, owed.Image, Side / 2, Side / 2, [.. Enumerable.Range(0, periodic.Length / 4).Select(at => periodic[at * 4] / 255f)]);
                 } else {
                     uploads.Add(plan, owed.Image, Side / 2, Side / 2, periodic);
                 }

@@ -112,14 +112,14 @@ public class TextureDrawingDeviceTests(ITestOutputHelper output) {
     [Fact]
     public void Letters_twice_the_size_cover_four_times_the_texels() {
         var small = Bake("Source/Text", node => {
-                node.SetText("Text", "HEH");
-                node.SetValue("Size", 0.2f);
-            }, NoFile
+            node.SetText("Text", "HEH");
+            node.SetValue("Size", 0.2f);
+        }, NoFile
         );
         var large = Bake("Source/Text", node => {
-                node.SetText("Text", "HEH");
-                node.SetValue("Size", 0.4f);
-            }, NoFile
+            node.SetText("Text", "HEH");
+            node.SetValue("Size", 0.4f);
+        }, NoFile
         );
 
         output.WriteLine($"ink: {small.Ink} at 0.2, {large.Ink} at 0.4");
@@ -151,10 +151,10 @@ public class TextureDrawingDeviceTests(ITestOutputHelper output) {
         }
 
         var two = Bake("Source/Text", node => {
-                node.SetText("Text", "I\nI");
-                node.SetText("Font", "fonts/OpenSans.ttf");
-                node.SetValue("Line Spacing", 1.5f);
-            }, Read
+            node.SetText("Text", "I\nI");
+            node.SetText("Font", "fonts/OpenSans.ttf");
+            node.SetValue("Line Spacing", 1.5f);
+        }, Read
         );
 
         Assert.Equal(["fonts/OpenSans.ttf"], asked);
@@ -190,9 +190,9 @@ public class TextureDrawingDeviceTests(ITestOutputHelper output) {
     public void A_vector_draws_its_colours_decoded_to_linear_and_its_coverage_as_a_mask() {
         var colour = Bake("Source/Vector", node => node.SetText("File", "logo.svg"), static _ => Encoding.UTF8.GetBytes(HalfRed));
         var mask = Bake("Source/Vector", node => {
-                node.SetText("File", "logo.svg");
-                node.SetText("Draw", "Coverage");
-            }, static _ => Encoding.UTF8.GetBytes(HalfRed)
+            node.SetText("File", "logo.svg");
+            node.SetText("Draw", "Coverage");
+        }, static _ => Encoding.UTF8.GetBytes(HalfRed)
         );
 
         Assert.Equal(4, colour.Channels);

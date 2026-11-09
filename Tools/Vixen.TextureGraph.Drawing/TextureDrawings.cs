@@ -32,14 +32,14 @@ public static class TextureDrawings {
     const string DefaultFont = "Vixen.TextureGraph.Drawing.Fonts.OpenSans-Regular.ttf";
 
     static readonly Lazy<FontFace> Bundled = new(static () => {
-            using var stream = typeof(TextureDrawings).Assembly.GetManifestResourceStream(DefaultFont)
-                ?? throw new InvalidOperationException($"'{DefaultFont}' is not embedded in this assembly.");
-            using MemoryStream bytes = new();
+        using var stream = typeof(TextureDrawings).Assembly.GetManifestResourceStream(DefaultFont)
+            ?? throw new InvalidOperationException($"'{DefaultFont}' is not embedded in this assembly.");
+        using MemoryStream bytes = new();
 
-            stream.CopyTo(bytes);
+        stream.CopyTo(bytes);
 
-            return FontFace.Load(bytes.ToArray());
-        }
+        return FontFace.Load(bytes.ToArray());
+    }
     );
 
     /// <summary>Whether a reference names a drawing this fills, rather than a file or another host's scheme.</summary>

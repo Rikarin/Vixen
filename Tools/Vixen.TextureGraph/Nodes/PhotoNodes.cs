@@ -369,12 +369,12 @@ sealed partial class NormalFromLightingNode : TextureNode {
             return;
         }
 
-        foreach (var (output, which) in (ReadOnlySpan<(int, float)>) [(normal, 0f), (albedo, 1f)]) {
+        foreach (var (output, which) in (ReadOnlySpan<(int, float)>)[(normal, 0f), (albedo, 1f)]) {
             emitter.Dispatch(
                 new TextureOp {
                     Kernel = TexturePhotoKernels.PhotometricNormal,
                     Output = output,
-                    Inputs = [..photos],
+                    Inputs = [.. photos],
                     ReadsOtherExtents = true,
                     Parameters = [new("elevation", emitter.Number("Light Height")), new("albedo", which)]
                 }
