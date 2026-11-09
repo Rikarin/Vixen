@@ -583,6 +583,8 @@ public static class SmartMaterial {
                         }
                     )
                 ],
+                GeneratorValues = Numbers(mask.GeneratorValues),
+                GeneratorTexts = new Dictionary<string, string>(mask.GeneratorTexts, StringComparer.Ordinal),
                 GeneratorInputs = Inputs(layer, mask.GeneratorInputs, "its mask generator's input")
             };
 
@@ -605,8 +607,14 @@ public static class SmartMaterial {
 
             foreach (var entry in mask.Layers) {
                 if (!Stranded(entry.Source, entry.Anchor)) {
+                    // ⚠ Each dictionary of an entry, as of the mask: two applications of one material sharing an
+                    // entry's generator values would each change with an edit meant for the other (Patina's wave 5).
                     carried.Layers.Add(
-                        entry with { GeneratorInputs = Inputs(layer, entry.GeneratorInputs, "a mask entry's input") }
+                        entry with {
+                            GeneratorValues = Numbers(entry.GeneratorValues),
+                            GeneratorTexts = new Dictionary<string, string>(entry.GeneratorTexts, StringComparer.Ordinal),
+                            GeneratorInputs = Inputs(layer, entry.GeneratorInputs, "a mask entry's input")
+                        }
                     );
 
                     continue;
@@ -622,11 +630,23 @@ public static class SmartMaterial {
                 // "cover nothing" under `Multiply` and "cover nothing, and throw away everything
                 // under me" under `Copy`; a disabled entry is skipped and is neutral under all
                 // sixteen.
-                carried.Layers.Add(entry with { Enabled = false, Paint = "", Anchor = new() });
+                carried.Layers.Add(
+                    entry with {
+                        Enabled = false,
+                        Paint = "",
+                        Anchor = new(),
+                        GeneratorValues = Numbers(entry.GeneratorValues),
+                        GeneratorTexts = new Dictionary<string, string>(entry.GeneratorTexts, StringComparer.Ordinal),
+                        GeneratorInputs = new Dictionary<string, AnchorReference>(entry.GeneratorInputs, StringComparer.Ordinal)
+                    }
+                );
             }
 
             return carried;
         }
+
+        static Dictionary<string, float[]> Numbers(Dictionary<string, float[]> numbers) =>
+            numbers.ToDictionary(entry => entry.Key, entry => entry.Value.ToArray(), StringComparer.Ordinal);
 
         bool Stranded(LayerMaskSource source, AnchorReference anchor) =>
             source == LayerMaskSource.Paint

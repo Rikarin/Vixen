@@ -418,6 +418,92 @@ public class SmartMaterialTests {
         Assert.Empty(target.Layers);
     }
 
+    /// <summary>⚠ Two applications of one material share nothing of a mask, its entries' generators included.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         Patina's wave 5 found it: <c>SmartMaterial.Portable</c> copied a mask's effects and its generator's
+    ///         inputs, and carried the mask's own <c>GeneratorValues</c> and <c>GeneratorTexts</c>, and each entry's,
+    ///         with a shallow <c>with</c>. Every application of a material then held the material's own
+    ///         dictionaries, so a generator's setting changed in one applied layer changed in every other, and in
+    ///         the material, until something wrote one of them out.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Reflection over both records, as the layer's own test walks <see cref="LayerAsset" /></b>, so a
+    ///         member added to either later is covered the day it is added. A value is changed through the first
+    ///         application as well, since sharing is only a defect once somebody writes.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Two_applications_share_no_mutable_member_of_a_mask() {
+        LayerStackAsset material = new() {
+            Name = "Generated",
+            Sets = [
+                new() {
+                    Name = "Body",
+                    Channels = [new() { Usage = "baseColor" }],
+                    Layers = [
+                        new() {
+                            Id = "rust",
+                            Kind = LayerKind.Fill,
+                            Mask = new() {
+                                Source = LayerMaskSource.Generator,
+                                Generator = "Noise",
+                                GeneratorValues = { ["Scale"] = [4f] },
+                                GeneratorTexts = { ["Mode"] = "Soft" },
+                                Layers = [
+                                    new() {
+                                        Source = LayerMaskSource.Generator,
+                                        Generator = "Noise",
+                                        GeneratorValues = { ["Scale"] = [8f] },
+                                        GeneratorTexts = { ["Mode"] = "Hard" }
+                                    }
+                                ]
+                            }
+                        }
+                    ]
+                }
+            ]
+        };
+
+        TextureSetAsset target = new() { Name = "Head", Channels = [new() { Usage = "baseColor" }] };
+        var first = SmartMaterial.Prepare(target, material).Layers[0].Mask;
+        var second = SmartMaterial.Prepare(target, material).Layers[0].Mask;
+        var source = material.Sets[0].Layers[0].Mask;
+
+        static bool Mutable(System.Reflection.PropertyInfo property) =>
+            !property.PropertyType.IsValueType
+            && property.PropertyType != typeof(string)
+            && property.PropertyType != typeof(AnchorReference);
+
+        var masks = typeof(MaskAsset).GetProperties().Where(Mutable).ToArray();
+        var entries = typeof(MaskLayerAsset).GetProperties().Where(Mutable).ToArray();
+
+        Assert.True(masks.Length >= 5 && entries.Length >= 3, "the walk has lost its subject.");
+
+        foreach (var (one, other) in new[] { (first, second), (first, source) }) {
+            foreach (var property in masks) {
+                Assert.False(
+                    ReferenceEquals(property.GetValue(one), property.GetValue(other)),
+                    $"two masks share their {property.Name}. Deep-copy it in SmartMaterial.Portable."
+                );
+            }
+
+            foreach (var property in entries) {
+                Assert.False(
+                    ReferenceEquals(property.GetValue(one.Layers[0]), property.GetValue(other.Layers[0])),
+                    $"two mask entries share their {property.Name}. Deep-copy it in SmartMaterial.Portable."
+                );
+            }
+        }
+
+        first.Layers[0].GeneratorValues["Scale"][0] = 2f;
+        first.GeneratorTexts["Mode"] = "Changed";
+
+        Assert.Equal(8f, second.Layers[0].GeneratorValues["Scale"][0]);
+        Assert.Equal("Soft", second.GeneratorTexts["Mode"]);
+        Assert.Equal(8f, source.Layers[0].GeneratorValues["Scale"][0]);
+    }
+
     /// <summary>A material authored against a channel the target does not produce says so.</summary>
     [Fact]
     public void A_channel_the_target_does_not_produce_is_named() {
