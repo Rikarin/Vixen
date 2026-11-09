@@ -48,7 +48,8 @@ public enum MeshMapKind {
 /// </param>
 /// <param name="Scale">
 ///     What a stored unit value is multiplied by to get a signed quantity back: the largest absolute
-///     displacement or curvature, or zero for a map that has no such scale.
+///     displacement, the curvature's <c>BakedMaps.CurvatureRange</c> (a percentile, beyond which an
+///     integer file clips), or zero for a map that has no such scale.
 /// </param>
 /// <param name="Signed">Whether <see cref="Unit" /> has to centre this map on one half.</param>
 public sealed record MeshMapPlane(MeshMapKind Kind, int Resolution, int Channels, float[] Samples, float Scale, bool Signed) {

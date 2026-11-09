@@ -211,7 +211,7 @@ and "fully occluded" are not the same answer.
 |---|---|
 | `AmbientOcclusion` | The unoccluded fraction of a cosine-weighted hemisphere. One is open sky, zero is sealed |
 | `BentNormal` | The average unoccluded direction, in `Space` alongside `Normals` |
-| `Curvature` | Mean curvature, in reciprocal model units, with `CurvatureRange` beside it |
+| `Curvature` | Mean curvature, in reciprocal model units, with `CurvatureRange`, its 99th percentile, beside it |
 | `Thickness` | The mean depth through the surface along the same hemisphere, over `OcclusionRadius` |
 | `Position` | The surface point, each axis `[0, 1]` across the source's bounding box |
 | `WorldNormal` | The source's normal, unrotated and independent of `Space` |
@@ -243,6 +243,19 @@ scale that goes beside the pixels for the same reason `DisplacementRange` does. 
 zero**: the operator wants a closed one-ring and the missing half of one is not a measurement, so
 without the refusal every sheet and cut-out in a project bakes a bright border that no generator can
 tell from a crease.
+
+⚠ **`CurvatureRange` is the 99th percentile of the curvature's magnitude over covered texels, not its
+largest value.** It was the largest, so one sharp corner scaled the whole model: a machined housing's
+sharpest texel read 380, its rounded edges 8 to 23, and stored as `0.5 + 0.5·v/range` those edges came
+out at 0.51 to 0.53, flat grey to every generator that thresholded them. Scaled by the percentile, 49
+on that housing, the sharpest one texel in a hundred clips to the end of the range and every other
+keeps its gradient. A percentile and not a world-space radius, because a radius is a claim about how
+round a model's edges are, and a sculpt, a machined part and a torus knot do not agree; the knot's tube
+is curved the same everywhere, so its percentile is within half a percent of its largest. The range is
+never less than a hundredth of the sharpest texel, so a model whose curvature lies on under one texel
+in a hundred does not stretch its flats' rounding error across the whole range. Written beside the map
+as its scale, so a reader recovers absolute curvature as `(sample·2 − 1)·range` for every texel but the
+clipped ones; `BakedMaps.Curvature` and a float file hold every texel unclipped.
 
 ### The id map is nearest, everywhere, including through the gutter
 

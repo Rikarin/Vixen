@@ -80,6 +80,14 @@ sealed class BakeBuffers {
     public float DisplacementRange { get; set; }
 
     /// <summary>The largest absolute curvature seen.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Not what the map is scaled by</b> (#1533). One sharp corner is the whole of it, and
+    ///     dividing by it pushed every rounded edge on a model towards flat grey. It is the floor
+    ///     <c>MapBaker.CurvatureScale</c> puts under the percentile it does scale by.
+    /// </remarks>
+    public float SharpestCurvature { get; set; }
+
+    /// <summary>What the curvature map is quantized with: see <c>MapBaker.CurvatureScale</c>.</summary>
     public float CurvatureRange { get; set; }
 
     /// <summary>Adds what one row found to the bake's totals, which any thread may do at any time.</summary>
@@ -94,7 +102,7 @@ sealed class BakeBuffers {
         lock (merging) {
             Missed += missed;
             DisplacementRange = MathF.Max(DisplacementRange, displacement);
-            CurvatureRange = MathF.Max(CurvatureRange, curvature);
+            SharpestCurvature = MathF.Max(SharpestCurvature, curvature);
         }
     }
 

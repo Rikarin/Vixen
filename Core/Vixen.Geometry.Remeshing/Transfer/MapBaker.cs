@@ -570,7 +570,8 @@ public sealed record BakedMaps {
     ///     ⚠ <b>A sphere of radius <i>r</i> reads <c>1/r</c>, so this is a length⁻¹ and it moves with
     ///     the model's scale.</b> Positive is convex along the source's own normal — an edge —
     ///     and negative is a crease. <see cref="CurvatureRange" /> is what a caller quantizes with,
-    ///     exactly as <see cref="DisplacementRange" /> is. ⚠ An open rim reads zero rather than a
+    ///     as <see cref="DisplacementRange" /> is, except that it is not the largest value: the
+    ///     sharpest one texel in a hundred lies beyond it. ⚠ An open rim reads zero rather than a
     ///     number: the operator needs a closed one-ring and the missing half of one is not a
     ///     measurement.
     /// </remarks>
@@ -641,7 +642,22 @@ public sealed record BakedMaps {
     /// </remarks>
     public IReadOnlyList<Vector4>? Colour { get; init; }
 
-    /// <summary>The largest absolute curvature, which is what a caller quantizes with.</summary>
+    /// <summary>What a caller quantizes <see cref="Curvature" /> with: the 99th percentile of its magnitude.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Not the largest absolute curvature, which it was</b> (#1533). One sharp corner set
+    ///         the scale for the whole model, and every rounded edge read close to flat. It is now the
+    ///         magnitude ninety-nine covered texels in a hundred do not exceed, and never less than a
+    ///         hundredth of the sharpest, so a map stored as <c>0.5 + 0.5·v/range</c> clips the sharpest
+    ///         one texel in a hundred and keeps every other one's gradient.
+    ///     </para>
+    ///     <para>
+    ///         Written beside the map, so a reader recovers absolute curvature as
+    ///         <c>(sample·2 − 1)·range</c>, exactly for every texel but the clipped ones, which read as
+    ///         the range itself. <see cref="Curvature" /> holds every texel unclipped, and a float file
+    ///         written from it does too. Zero for a map with no curvature in it.
+    ///     </para>
+    /// </remarks>
     public float CurvatureRange { get; init; }
 
     /// <summary>What could not be baked.</summary>
@@ -916,6 +932,10 @@ public static class MapBaker {
             Normalise(thickness, buffers.Coverage);
         }
 
+        if (buffers.Curvature is { } measured) {
+            buffers.CurvatureRange = CurvatureScale(measured, buffers.Coverage, buffers.SharpestCurvature);
+        }
+
         var dilated = Dilate(settings, buffers, options);
 
         if (buffers.Covered == 0) {
@@ -1020,6 +1040,63 @@ public static class MapBaker {
         for (var index = 0; index < channel.Length; index++) {
             channel[index] /= largest;
         }
+    }
+
+    /// <summary>What share of a model's covered texels a curvature map holds unclipped.</summary>
+    internal const double CurvaturePercentile = 0.99;
+
+    /// <summary>The least a curvature map is scaled by, as a share of its sharpest texel.</summary>
+    internal const float CurvatureFloor = 0.01f;
+
+    /// <summary>What a curvature map is quantized with: the 99th percentile of its covered texels' magnitudes.</summary>
+    /// <param name="curvature">The map, in reciprocal model units.</param>
+    /// <param name="coverage">Which texels a chart covers.</param>
+    /// <param name="sharpest">The largest magnitude anywhere in it.</param>
+    /// <returns>The scale, or zero for a map with no curvature in it.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Not the sharpest texel, which it was</b> (#1533). One sharp corner is a single texel
+    ///         and set the scale for the whole model: a machined housing's sharpest point read 380 and
+    ///         its rounded edges 8 to 23, so they came out at 0.51 to 0.53, and every generator that
+    ///         thresholded the map drew nothing. The 99th percentile there is 49.
+    ///     </para>
+    ///     <para>
+    ///         <b>A percentile and not a world-space radius,</b> because a radius is a claim about how
+    ///         round a model's edges are, and a sculpt, a machined part and a torus knot do not agree.
+    ///         The percentile asks the model: the sharpest one texel in a hundred is clipped to the end
+    ///         of the range, and everything else keeps its gradient. A model whose curvature is the same
+    ///         everywhere, a torus knot's tube, scales by about its largest, as it did.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Never less than a hundredth of the sharpest texel.</b> A model whose curvature lies on
+    ///         under one texel in a hundred, hard-surface flats with thin bevels, has a 99th percentile on
+    ///         a flat, whose rounding error would otherwise be stretched across the whole range.
+    ///     </para>
+    ///     <para>
+    ///         Over covered texels only: the gutter is copies of them and the background is nothing. Taken
+    ///         after the bake from the finished map, so it does not depend on which rows a thread
+    ///         finished first.
+    ///     </para>
+    /// </remarks>
+    internal static float CurvatureScale(float[] curvature, bool[] coverage, float sharpest) {
+        List<float> magnitudes = [];
+
+        for (var index = 0; index < curvature.Length; index++) {
+            if (coverage[index]) {
+                magnitudes.Add(MathF.Abs(curvature[index]));
+            }
+        }
+
+        if (magnitudes.Count == 0 || sharpest <= 0f) {
+            return 0f;
+        }
+
+        magnitudes.Sort();
+
+        // Nearest rank: the smallest magnitude at least this share of the texels do not exceed.
+        var rank = (int)Math.Ceiling(CurvaturePercentile * magnitudes.Count) - 1;
+
+        return MathF.Max(magnitudes[Math.Clamp(rank, 0, magnitudes.Count - 1)], sharpest * CurvatureFloor);
     }
 
     /// <summary>Whether two meshes have the same faces in the same order.</summary>

@@ -422,6 +422,14 @@ that covers most of the atlas would otherwise put the whole flat above the thres
 `Curvature_edge_wear_finds_a_soft_edge_on_a_bake_scaled_by_its_sharpest_texel` holds it, and wiring the
 blur straight past the equaliser turns it red.
 
+**The baker no longer scales by its sharpest texel** (#1533): `CurvatureRange` is the 99th percentile of the
+covered texels' magnitude, 49 rather than 380 on that housing, so its rounded edges read well away from
+grey in the map itself, for a hand-built graph, an export or another tool. The ranking stays: it is what
+makes a generator independent of any bake's scale. Rendered before and after on the housing and the torus
+knot, the ten compounds that read curvature hold. The knot's maps are within half a percent of each other,
+and the housing's vertical rounded corners, nothing before, now take wear. The `Levels` floor did not need
+moving: a flat still ties at one value.
+
 ⚠ **`Dust` read occlusion the wrong way up**, so its shelter term was white wherever the light reached and it
 dusted every open face; `Dirt` multiplied crease by occlusion, so a texel needed both. Every generator takes a
 seed through `Source/Noise`'s `Seed`, which folds into the hash rather than the op's identity, so turning it
