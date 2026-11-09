@@ -125,6 +125,23 @@ quarter flow is a quarter however slowly it is dragged.
 Either way a stroke dilates each island it reached separately, into the gutter of `PaintCoverage`, and reports one
 rectangle per island, since the union of two is everything between them.
 
+`Fill(mode, view)` is a polygon fill: each stamp is a click, given to `PaintStroke.Dab` so that two clicks are two places
+rather than a path, and it fills the piece of the mesh under the click whole, at a weight of one under the stroke's
+opacity. `PaintFillMode` says how much: the triangle, the flat polygon it is part of (found, as the triangles joined to
+it on the same island in the same plane, since a mesh here is triangles), every triangle of the mesh it came from
+(`PaintProjection.PartOf`, one part per `MeshData` it was opened from), or its whole island, the UV shell.
+
+A stroke's colour can come from somewhere other than one colour. An `IPaintSource` says what each texel mixes towards,
+and an `IPaintStencil` how much of the brush gets through where each texel lands on the stroke's picture; every
+placement reports that place (`PaintStampTexels.Pictures`), through a camera where the texel projects and in the atlas
+its own centre. `PaintAtlasSource` lays a picture over the atlas texel for texel at an offset, which is a material's map
+painted as it is or the composite read from elsewhere, a clone. `PaintProjectedPicture` is a picture fixed on the screen
+by a `PaintFrame` (moved, scaled, turned, perhaps tiled): as a source each texel takes its colour, and as a stencil its
+brightness masks the brush. `PaintSmudge` reads the canvas being painted, at the step the brush just took in the atlas,
+so each stamp drags what lies behind it; it is read for the whole stamp before any of it is written, and moves what is
+there rather than mixing from what the texel held before the stroke. A dilated texel takes the colour of the texel it
+grew from as it takes its reach.
+
 The per-texel numbers of a stroke live in `PaintTexelMap`, a tiled sparse array, because a hash table of millions of
 entries is a cache miss per lookup.
 

@@ -50,7 +50,7 @@ public sealed class PaintStroke {
     readonly uint seed;
     readonly BrushStroke path;
     readonly List<BrushStamp> spaced = [];
-    readonly List<(int Texel, float Reach)> pending = [];
+    readonly List<(int Texel, float Reach, int From)> pending = [];
     readonly PaintTexelMap<uint> before;
     readonly PaintTexelMap<float> reached;
     readonly PaintImageSnapshot origin;
@@ -77,6 +77,19 @@ public sealed class PaintStroke {
     readonly float lazy;
     readonly IPaintPlacement? placement;
     readonly PaintStampTexels placed;
+    readonly PaintStampTexels beneath;
+    readonly IPaintSource? source;
+    readonly IPaintStencil? stencil;
+
+    /// <summary>What each texel was given to mix towards, for a stroke whose colour is not one colour.</summary>
+    /// <remarks>
+    ///     A dilated texel takes the colour of the texel it grew from, as it takes its reach: a gutter beside a
+    ///     projected picture continues the picture, not some colour of the stroke's.
+    /// </remarks>
+    readonly PaintTexelMap<uint>? laid;
+
+    /// <summary>A stamp's colours, gathered before any is written, for a source that reads the canvas.</summary>
+    readonly List<(bool Has, uint Colour)> gathered = [];
     Vector2 smoothed;
     float pressed = 1f;
     bool started;
@@ -105,6 +118,11 @@ public sealed class PaintStroke {
     ///     Where a stamp lands besides, or instead of, the disc around its centre: a mesh's other side of a
     ///     seam, or a surface seen through a camera. Nothing paints the atlas under the stamp alone.
     /// </param>
+    /// <param name="source">
+    ///     What each texel is painted with instead of <paramref name="colour" />: a material's map, the composite at an
+    ///     offset, a picture on the screen, or the canvas itself smeared along the stroke. Null paints the colour.
+    /// </param>
+    /// <param name="stencil">What masks the brush where each texel lands on the stroke's picture, or null.</param>
     /// <exception cref="ArgumentException">The coverage map is not the image's size.</exception>
     public PaintStroke(
         PaintImage image,
@@ -115,7 +133,9 @@ public sealed class PaintStroke {
         float lazy = 0f,
         uint seed = 0x9E3779B9u,
         PaintImageSnapshot? origin = null,
-        IPaintPlacement? placement = null
+        IPaintPlacement? placement = null,
+        IPaintSource? source = null,
+        IPaintStencil? stencil = null
     ) {
         ArgumentNullException.ThrowIfNull(image);
         ArgumentNullException.ThrowIfNull(coverage);
@@ -135,14 +155,22 @@ public sealed class PaintStroke {
         distance = new(image.Width, image.Height);
         placed = new(image.Width, image.Height) {
             Reached = reached,
-            // A stroke that does not accumulate is full at the most one stamp lays, which is the flow.
-            FullReach = Math.Clamp(
-                    brush.Blend == PaintStampBlend.Maximum ? Math.Min(brush.Opacity, brush.Flow) : brush.Opacity,
-                    0f,
-                    1f
-                )
-                - (0.5f / byte.MaxValue)
+            // A stroke that does not accumulate is full at the most one stamp lays, which is the flow. ⚠ A smear is
+            // never full: each stamp moves what is there, however much the stroke has reached.
+            FullReach = source is { ReadsCanvas: true }
+                ? float.PositiveInfinity
+                : Math.Clamp(
+                        brush.Blend == PaintStampBlend.Maximum ? Math.Min(brush.Opacity, brush.Flow) : brush.Opacity,
+                        0f,
+                        1f
+                    )
+                    - (0.5f / byte.MaxValue)
         };
+        beneath = new(image.Width, image.Height);
+        laid = source is null ? null : new(image.Width, image.Height);
+
+        this.source = source;
+        this.stencil = stencil;
 
         this.image = image;
         this.coverage = coverage;
@@ -269,6 +297,28 @@ public sealed class PaintStroke {
         return dirty;
     }
 
+    /// <summary>One stamp exactly here, with no spacing from the last: a click of a fill, or a single dab.</summary>
+    /// <param name="at">Where, in the units of <see cref="MoveTo" />'s positions.</param>
+    /// <param name="regions">Appended the rectangles it painted, or <see langword="null" />.</param>
+    /// <param name="pressure">How hard, 0 to 1.</param>
+    /// <returns>The rectangle it dirtied.</returns>
+    /// <remarks>
+    ///     A polygon fill's clicks are places and not a path: the stroke between two of them would fill everything
+    ///     it passed over. The jitter is the stamp's own, by its index, so a replay lays the same.
+    /// </remarks>
+    public PaintRect Dab(Vector2 at, List<PaintRect>? regions = null, float pressure = 1f) {
+        started = true;
+        smoothed = at;
+        previous = null;
+
+        var dirty = Apply(Jittered(new(at), StampCount, Math.Clamp(pressure, 0f, 1f)), regions);
+
+        StampCount++;
+        Rect = Rect.Union(dirty);
+
+        return dirty;
+    }
+
     /// <summary>Where a brush on a string of this length ends up when the pointer moves to here.</summary>
     /// <param name="brush">Where the brush is.</param>
     /// <param name="pointer">Where the pointer went.</param>
@@ -305,6 +355,7 @@ public sealed class PaintStroke {
         before.Release();
         reached.Release();
         distance.Release();
+        laid?.Release();
     }
 
     /// <summary>Captures what the stroke left, so it can be redone.</summary>
@@ -384,6 +435,14 @@ public sealed class PaintStroke {
         var cap = Math.Clamp(brush.Opacity, 0f, 1f);
         var dirty = PaintRect.Empty;
 
+        if (source is not null) {
+            Vector2? atlas = placement is not { ReplacesStamp: true } ? stamp.Centre
+                : placement is IPaintAnchor anchor && anchor.TryAtlas(stamp.Centre, out var texel) ? texel
+                : null;
+
+            source.Stamp(stamp, atlas);
+        }
+
         if (placement is not { ReplacesStamp: true }) {
             dirty = Under(stamp, kernel, cap);
 
@@ -398,12 +457,9 @@ public sealed class PaintStroke {
 
         placed.Clear();
         placement.Place(stamp, brush, kernel, placed);
-
-        foreach (var (index, weight) in placed.Texels) {
-            WeightsEvaluated++;
-            TexelsScanned++;
-            Deposit(index, weight, cap);
-        }
+        WeightsEvaluated += placed.Texels.Count;
+        TexelsScanned += placed.Texels.Count;
+        Lay(placed, cap);
 
         foreach (var (_, piece) in placed.Pieces) {
             var painted = piece.Union(Dilate(piece));
@@ -418,6 +474,8 @@ public sealed class PaintStroke {
     /// <summary>The stamp's own footprint in the atlas, dilated.</summary>
     PaintRect Under(PaintStamp stamp, in TerrainBrush kernel, float cap) {
         var footprint = brush.FootprintOf(stamp, image.Width, image.Height);
+
+        beneath.Clear();
 
         for (var y = footprint.Y; y < footprint.EndY; y++) {
             for (var x = footprint.X; x < footprint.EndX; x++) {
@@ -438,8 +496,17 @@ public sealed class PaintStroke {
 
                 WeightsEvaluated++;
 
-                Deposit(index, weight, cap);
+                // A plain colour is laid as it is weighed; anything that reads where a texel lands gathers the stamp.
+                if (source is null && stencil is null) {
+                    Deposit(index, weight, cap, colour);
+                } else if (weight > 0f) {
+                    beneath.Add(index, weight);
+                }
             }
+        }
+
+        if (source is not null || stencil is not null) {
+            Lay(beneath, cap);
         }
 
         var dilated = Dilate(footprint);
@@ -447,8 +514,52 @@ public sealed class PaintStroke {
         return footprint.Union(dilated);
     }
 
+    /// <summary>Lays one stamp's texels: the colour, or what the source says for each, through the stencil.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A source that reads the canvas is read for the whole stamp before any of it is written</b>, or a smear
+    ///     would carry what this same stamp just laid one texel further along, and the result would depend on the
+    ///     order texels are visited in.
+    /// </remarks>
+    void Lay(PaintStampTexels texels, float cap) {
+        var list = texels.Texels;
+        var pictures = texels.Pictures;
+        var smear = source is { ReadsCanvas: true };
+
+        if (smear) {
+            gathered.Clear();
+
+            for (var at = 0; at < list.Count; at++) {
+                var has = source!.TryColour(list[at].Texel, pictures[at], out var found);
+
+                gathered.Add((has, found));
+            }
+        }
+
+        for (var at = 0; at < list.Count; at++) {
+            var (index, weight) = list[at];
+
+            if (stencil is not null) {
+                weight *= Math.Clamp(stencil.At(pictures[at]), 0f, 1f);
+            }
+
+            if (!(weight > 0f)) {
+                continue;
+            }
+
+            if (source is null) {
+                Deposit(index, weight, cap, colour);
+            } else if (smear) {
+                if (gathered[at].Has) {
+                    Smear(index, Math.Min(weight, cap), gathered[at].Colour);
+                }
+            } else if (source.TryColour(index, pictures[at], out var found)) {
+                Deposit(index, weight, cap, found);
+            }
+        }
+    }
+
     /// <summary>Lays one stamp's weight on one covered texel, on top of what the stroke has reached there.</summary>
-    void Deposit(int index, float weight, float cap) {
+    void Deposit(int index, float weight, float cap, uint paint) {
         if (!(weight > 0f)) {
             return;
         }
@@ -464,7 +575,19 @@ public sealed class PaintStroke {
             return;
         }
 
-        Paint(index, reach);
+        Paint(index, reach, paint);
+    }
+
+    /// <summary>
+    ///     Moves a texel towards a colour by a stamp's weight, from what it holds now and not from before the stroke:
+    ///     a smear is each stamp pushing along what the last left, so it has to build on it.
+    /// </summary>
+    void Smear(int index, float weight, uint paint) {
+        Record(index);
+        reached.TryGet(index, out var already);
+        reached.Set(index, MathF.Max(already, weight));
+        laid?.Set(index, paint);
+        image[index] = PaintImage.Mix(image[index], paint, weight);
     }
 
     /// <summary>
@@ -555,12 +678,12 @@ public sealed class PaintStroke {
                 break;
             }
 
-            foreach (var (index, reach) in pending) {
+            foreach (var (index, reach, from) in pending) {
                 if (!reached.Contains(index)) {
                     DilatedTexels++;
                 }
 
-                Paint(index, reach);
+                Paint(index, reach, LaidAt(from));
 
                 var x = index % image.Width;
                 var y = index / image.Width;
@@ -591,10 +714,13 @@ public sealed class PaintStroke {
                     continue;
                 }
 
-                var best = Neighbour(x - 1, y, x >= 1, round);
-                best = MathF.Max(best, Neighbour(x + 1, y, x + 1 < image.Width, round));
-                best = MathF.Max(best, Neighbour(x, y - 1, y >= 1, round));
-                best = MathF.Max(best, Neighbour(x, y + 1, y + 1 < image.Height, round));
+                var best = 0f;
+                var from = -1;
+
+                Strongest(x - 1, y, x >= 1, round, ref best, ref from);
+                Strongest(x + 1, y, x + 1 < image.Width, round, ref best, ref from);
+                Strongest(x, y - 1, y >= 1, round, ref best, ref from);
+                Strongest(x, y + 1, y + 1 < image.Height, round, ref best, ref from);
 
                 if (!(best > 0f)) {
                     continue;
@@ -620,11 +746,12 @@ public sealed class PaintStroke {
                     shortened = true;
                 }
 
-                if (reached.TryGet(index, out var already) && already >= best) {
+                // A smear moves its texels on every stamp, so the gutter beside them follows even at the same reach.
+                if (reached.TryGet(index, out var already) && already >= best && source is not { ReadsCanvas: true }) {
                     continue;
                 }
 
-                pending.Add((index, best));
+                pending.Add((index, best, from));
             }
         }
 
@@ -660,13 +787,27 @@ public sealed class PaintStroke {
             : distance.TryGet(index, out var steps) && steps == round ? reach : 0f;
     }
 
-    /// <summary>Takes a texel to a reach of the colour, over what it held before the stroke.</summary>
-    void Paint(int index, float reach) {
+    /// <summary>Takes a neighbour's contribution if it is the strongest so far, and remembers which it was.</summary>
+    void Strongest(int x, int y, bool inside, int round, ref float best, ref int from) {
+        var reach = Neighbour(x, y, inside, round);
+
+        if (reach > best) {
+            best = reach;
+            from = (y * image.Width) + x;
+        }
+    }
+
+    /// <summary>Takes a texel to a reach of a colour, over what it held before the stroke.</summary>
+    void Paint(int index, float reach, uint paint) {
         Record(index);
         reached.Set(index, reach);
+        laid?.Set(index, paint);
         before.TryGet(index, out var held);
-        image[index] = PaintImage.Mix(held, colour, reach);
+        image[index] = PaintImage.Mix(held, paint, reach);
     }
+
+    /// <summary>What a texel was given to mix towards: the stroke's colour, or what its source laid there.</summary>
+    uint LaidAt(int index) => laid is not null && index >= 0 && laid.TryGet(index, out var found) ? found : colour;
 
     /// <summary>
     ///     Remembers what a texel held before the stroke, once.

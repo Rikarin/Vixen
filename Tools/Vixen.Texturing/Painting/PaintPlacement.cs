@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Core.Mathematics;
 using Vixen.Terrain;
 
 namespace Vixen.Texturing.Painting;
@@ -18,18 +19,37 @@ public interface IPaintPlacement {
     void Place(PaintStamp stamp, in PaintBrush brush, in TerrainBrush kernel, PaintStampTexels into);
 }
 
+/// <summary>A placement that knows where a stamp's centre lands in the atlas, which a source moving with it reads.</summary>
+internal interface IPaintAnchor {
+    /// <summary>Where a position the stroke was given lands in the atlas.</summary>
+    /// <param name="centre">The stamp's centre, in the stroke's own units.</param>
+    /// <param name="texel">Where that is in the atlas, in texels.</param>
+    /// <returns>Whether it lands on the mesh at all.</returns>
+    bool TryAtlas(Vector2 centre, out Vector2 texel);
+}
+
 /// <summary>The texels of one stamp, each once, and the rectangles they fall in.</summary>
 /// <remarks>
-///     ⚠ <b>The strongest weight and not the sum.</b> A texel beside a shared edge is reached from both
-///     triangles, and one stamp must lay one weight there or a mesh's edges paint darker than its faces.
+///     <para>
+///         ⚠ <b>The strongest weight and not the sum.</b> A texel beside a shared edge is reached from both
+///         triangles, and one stamp must lay one weight there or a mesh's edges paint darker than its faces.
+///     </para>
+///     <para>
+///         Each texel also says where it lands on the stroke's picture: through a camera, where it projects; in the
+///         atlas, its own centre. A projected picture or a stencil is read there.
+///     </para>
 /// </remarks>
 public sealed class PaintStampTexels(int width, int height) {
     readonly PaintTexelMap<int> slots = new(width, height);
     readonly List<(int Texel, float Weight)> texels = [];
+    readonly List<Vector2> pictures = [];
     readonly List<(int Piece, PaintRect Rect)> pieces = [];
 
     /// <summary>Each texel and its weight.</summary>
     public IReadOnlyList<(int Texel, float Weight)> Texels => texels;
+
+    /// <summary>Where each of <see cref="Texels" /> lands on the stroke's picture, in the same order.</summary>
+    public IReadOnlyList<Vector2> Pictures => pictures;
 
     /// <summary>One rectangle for each piece of the atlas the stamp reached.</summary>
     public IReadOnlyList<(int Piece, PaintRect Rect)> Pieces => pieces;
@@ -56,18 +76,28 @@ public sealed class PaintStampTexels(int width, int height) {
     public void Clear() {
         slots.Clear();
         texels.Clear();
+        pictures.Clear();
         pieces.Clear();
     }
 
-    /// <summary>Adds a texel.</summary>
+    /// <summary>Adds a texel, which lands on the picture at its own centre, as a stamp in the atlas does.</summary>
     /// <param name="index">Its index, row-major.</param>
     /// <param name="weight">Its weight.</param>
-    public void Add(int index, float weight) {
+    public void Add(int index, float weight) =>
+        Add(index, weight, new((index % width) + 0.5f, (index / width) + 0.5f));
+
+    /// <summary>Adds a texel and where it lands on the stroke's picture.</summary>
+    /// <param name="index">Its index, row-major.</param>
+    /// <param name="weight">Its weight.</param>
+    /// <param name="picture">Where it lands on the picture.</param>
+    public void Add(int index, float weight, Vector2 picture) {
         if (!slots.TryGet(index, out var slot)) {
             slots.Set(index, texels.Count);
             texels.Add((index, weight));
+            pictures.Add(picture);
         } else if (weight > texels[slot].Weight) {
             texels[slot] = (index, weight);
+            pictures[slot] = picture;
         }
     }
 

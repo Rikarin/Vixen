@@ -119,6 +119,106 @@ public sealed class PaintMeshSurface {
     /// <returns>What a stroke places its stamps with.</returns>
     public IPaintPlacement AcrossSeams(PaintSymmetryGroup? symmetry = null) => new SeamPlacement(this, symmetry);
 
+    /// <summary>A polygon fill: each stamp is a click, and what it fills is the piece of the mesh under it, whole.</summary>
+    /// <param name="mode">How much of the mesh a click takes.</param>
+    /// <param name="view">
+    ///     The camera a click was made through, whose ray finds the triangle; null for a click in the atlas, which takes
+    ///     the triangle it lands in.
+    /// </param>
+    /// <returns>What a stroke places its clicks with, one stamp each (<see cref="PaintStroke.Dab" />).</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Every texel of what is chosen, at a weight of one, whatever the brush's radius and falloff.</b>
+    ///         The stroke's opacity and flow still cap it, and a stencil or a source still applies, so a fill is a
+    ///         stroke like any other to the journal, the gutter and undo.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A polygon is found, not read.</b> A mesh here is triangles, so a quad or an n-gon is the triangles
+    ///         joined to the one clicked across shared edges, on the same island and in the same plane. A flat area
+    ///         modelled as many quads therefore fills as one polygon.
+    ///     </para>
+    /// </remarks>
+    public IPaintPlacement Fill(PaintFillMode mode, PaintView? view = null) => new FillPlacement(this, mode, view);
+
+    /// <summary>Which triangles a polygon fill takes from one triangle.</summary>
+    /// <param name="triangle">The triangle clicked.</param>
+    /// <param name="mode">How much of the mesh a click takes.</param>
+    /// <param name="into">Cleared, then given the triangles, the clicked one first.</param>
+    public void Select(int triangle, PaintFillMode mode, List<int> into) {
+        ArgumentNullException.ThrowIfNull(into);
+        ArgumentOutOfRangeException.ThrowIfNegative(triangle);
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(triangle, Projection.Triangles);
+
+        into.Clear();
+
+        switch (mode) {
+            case PaintFillMode.Triangle:
+                into.Add(triangle);
+
+                break;
+            case PaintFillMode.Shell:
+            case PaintFillMode.Part:
+                into.Add(triangle);
+
+                for (var other = 0; other < Projection.Triangles; other++) {
+                    var same = mode == PaintFillMode.Shell
+                        ? ChartOf(other) == ChartOf(triangle)
+                        : Projection.PartOf(other) == Projection.PartOf(triangle);
+
+                    if (other != triangle && same) {
+                        into.Add(other);
+                    }
+                }
+
+                break;
+            default:
+                Projection.Triangle(triangle, out var a, out var b, out var c, out _, out _, out _);
+
+                var normal = Vector3.Normalize(Vector3.Cross(b - a, c - a));
+                var bounds = Projection.Bounds;
+                var flat = Vector3.Distance(bounds.Minimum, bounds.Maximum) * 1e-4f;
+
+                Gather(
+                    triangle,
+                    into,
+                    to => {
+                        if (ChartOf(to) != ChartOf(triangle)) {
+                            return false;
+                        }
+
+                        Projection.Triangle(to, out var p, out var q, out var r, out _, out _, out _);
+
+                        return MathF.Abs(Vector3.Dot(p - a, normal)) <= flat
+                            && MathF.Abs(Vector3.Dot(q - a, normal)) <= flat
+                            && MathF.Abs(Vector3.Dot(r - a, normal)) <= flat;
+                    }
+                );
+
+                break;
+        }
+    }
+
+    /// <summary>Floods from a triangle across shared edges, wherever a step is allowed.</summary>
+    void Gather(int start, List<int> into, Func<int, bool> allowed) {
+        var joined = topology.Value;
+        HashSet<int> seen = [start];
+        Queue<int> waiting = new();
+
+        waiting.Enqueue(start);
+
+        while (waiting.TryDequeue(out var triangle)) {
+            into.Add(triangle);
+
+            for (var at = joined.First[triangle]; at < joined.First[triangle + 1]; at++) {
+                var next = joined.Neighbours[at];
+
+                if (seen.Add(next) && allowed(next)) {
+                    waiting.Enqueue(next);
+                }
+            }
+        }
+    }
+
     /// <summary>A brush's radius in the units of a camera's picture, measured where a position on it lands.</summary>
     /// <param name="view">The camera.</param>
     /// <param name="position">Where on its picture, which is where a stroke starts.</param>
@@ -303,13 +403,13 @@ public sealed class PaintMeshSurface {
                 wc = MathF.Max(wc, 0f);
 
                 var sum = wa + wb + wc;
-                var weight = weigher.Weigh(((a * wa) + (b * wb) + (c * wc)) / sum);
+                var weight = weigher.Weigh(((a * wa) + (b * wb) + (c * wc)) / sum, centre, out var picture);
 
                 if (!(weight > 0f)) {
                     continue;
                 }
 
-                into.Add(index, weight);
+                into.Add(index, weight, picture);
                 minimumX = Math.Min(minimumX, x);
                 minimumY = Math.Min(minimumY, y);
                 maximumX = Math.Max(maximumX, x);
@@ -419,7 +519,7 @@ public sealed class PaintMeshSurface {
 
     /// <summary>What a stamp weighs at a point on the mesh.</summary>
     interface ITexelWeigher {
-        float Weigh(Vector3 point);
+        float Weigh(Vector3 point, Vector2 texel, out Vector2 picture);
     }
 
     /// <summary>A stamp on a camera's picture: a texel weighs what the brush weighs where it projects.</summary>
@@ -435,14 +535,16 @@ public sealed class PaintMeshSurface {
         readonly TerrainBrush kernel = kernel;
         readonly float tangent = view.Tangent;
 
-        public float Weigh(Vector3 point) {
+        public float Weigh(Vector3 point, Vector2 texel, out Vector2 picture) {
             var at = view.Depth(point);
 
             if (MathF.Abs(at - depth) > reach) {
+                picture = default;
+
                 return 0f;
             }
 
-            var picture = view.Project(point, tangent);
+            picture = view.Project(point, tangent);
             var weight = PaintBrush.Weight(kernel, picture, stamp, alpha);
 
             // Weighed first, since most of a stamp's square is outside its disc and the test costs more.
@@ -464,7 +566,7 @@ public sealed class PaintMeshSurface {
     ) : ITexelWeigher {
         readonly TerrainBrush kernel = kernel;
 
-        public float Weigh(Vector3 point) {
+        public float Weigh(Vector3 point, Vector2 texel, out Vector2 picture) {
             var offset = point - centre;
             var across = Vector3.Dot(offset, density.Tangent);
             var along = Vector3.Dot(offset, density.Bitangent);
@@ -473,20 +575,34 @@ public sealed class PaintMeshSurface {
             // ⚠ Laid flat at its full length: a point round a right angle projects onto almost nothing,
             // and a stamp must reach as far down the next face as it would have on this one.
             var unfold = flat > 0f ? offset.Length() / flat : 1f;
-            var texel = anchor + (((density.PerTangent * across) + (density.PerBitangent * along)) * unfold);
+            var unfolded = anchor + (((density.PerTangent * across) + (density.PerBitangent * along)) * unfold);
 
-            return PaintBrush.Weight(kernel, texel, stamp, alpha);
+            picture = unfolded;
+
+            return PaintBrush.Weight(kernel, unfolded, stamp, alpha);
         }
     }
 
     sealed class ViewPlacement(PaintMeshSurface surface, PaintView[] views, PaintOcclusion occlusion)
-        : IPaintPlacement, IPaintRays {
+        : IPaintPlacement, IPaintRays, IPaintAnchor {
         readonly List<int> near = [];
         readonly DepthCells?[] cells = new DepthCells?[views.Length];
 
         public bool ReplacesStamp => true;
 
         public long Rays => cells.Sum(static held => held?.Rays ?? 0L);
+
+        public bool TryAtlas(Vector2 centre, out Vector2 texel) {
+            texel = default;
+
+            if (!surface.Projection.TryHit(views[0].RayAt(centre), out var hit)) {
+                return false;
+            }
+
+            texel = PaintProjection.Texel(hit.Coordinate, surface.width, surface.height);
+
+            return true;
+        }
 
         public void Place(PaintStamp stamp, in PaintBrush brush, in TerrainBrush kernel, PaintStampTexels into) {
             // Each camera's pieces apart from the others', so a copy on the same island dilates on its own.
@@ -803,6 +919,66 @@ public sealed class PaintMeshSurface {
         }
     }
 
+    /// <summary>A fill: every texel weighs one, and lands on the picture where it projects or at its own centre.</summary>
+    readonly struct FillWeigher(PaintView? view) : ITexelWeigher {
+        public float Weigh(Vector3 point, Vector2 texel, out Vector2 picture) {
+            picture = view is { } camera ? camera.Project(point) : texel;
+
+            return 1f;
+        }
+    }
+
+    sealed class FillPlacement(PaintMeshSurface surface, PaintFillMode mode, PaintView? view)
+        : IPaintPlacement, IPaintAnchor {
+        readonly List<int> chosen = [];
+
+        public bool ReplacesStamp => true;
+
+        public bool TryAtlas(Vector2 centre, out Vector2 texel) => Find(centre, out _, out texel);
+
+        public void Place(PaintStamp stamp, in PaintBrush brush, in TerrainBrush kernel, PaintStampTexels into) {
+            if (!Find(stamp.Centre, out var triangle, out _)) {
+                return;
+            }
+
+            surface.Select(triangle, mode, chosen);
+
+            var weigher = new FillWeigher(view);
+            var everywhere = new PaintRect(0, 0, surface.width, surface.height);
+
+            foreach (var each in chosen) {
+                surface.Scan(each, everywhere, surface.ChartOf(each), ref weigher, into);
+            }
+        }
+
+        /// <summary>The triangle under a click: what its ray hits first, or the one it lands in on the atlas.</summary>
+        bool Find(Vector2 centre, out int triangle, out Vector2 texel) {
+            triangle = -1;
+            texel = default;
+
+            if (view is { } camera) {
+                if (!surface.Projection.TryHit(camera.RayAt(centre), out var hit)) {
+                    return false;
+                }
+
+                triangle = hit.Triangle;
+                texel = PaintProjection.Texel(hit.Coordinate, surface.width, surface.height);
+
+                return true;
+            }
+
+            // ⚠ In a triangle and not near one: a click in the gutter between islands fills nothing.
+            if (!surface.Locate(centre, out triangle, out _, out var nearest)
+                || Vector2.Distance(nearest, centre) > Margin) {
+                return false;
+            }
+
+            texel = centre;
+
+            return true;
+        }
+    }
+
     /// <summary>What shares an edge with what, on the mesh and in the atlas.</summary>
     sealed class Topology {
         Topology(int[] chart, int charts, int[] first, int[] neighbours) {
@@ -953,6 +1129,21 @@ public readonly record struct PaintOcclusion(bool Tests, float Tolerance) {
 
     /// <summary>Every texel within the depth under the brush, seen or not, which is what a stroke did before the test.</summary>
     public static PaintOcclusion None { get; } = new(false, 0f);
+}
+
+/// <summary>How much of a mesh one click of a polygon fill takes.</summary>
+public enum PaintFillMode {
+    /// <summary>The triangle under the click.</summary>
+    Triangle,
+
+    /// <summary>The flat polygon it is part of: the triangles joined to it on the same island and in the same plane.</summary>
+    Polygon,
+
+    /// <summary>Every triangle of the mesh it came from, as a model file names its meshes.</summary>
+    Part,
+
+    /// <summary>Every triangle of its island in the atlas: the UV shell.</summary>
+    Shell
 }
 
 /// <summary>What a brush's radius is measured in.</summary>
