@@ -2937,6 +2937,7 @@ T:Vixen.Texturing.Layers.AnchorReference sweep-pending
 T:Vixen.Texturing.Layers.ApplySmartMaterialCommand sweep-pending
 T:Vixen.Texturing.Layers.ChannelAsset sweep-pending
 T:Vixen.Texturing.Layers.ILayerStackDocument sweep-pending
+T:Vixen.Texturing.Layers.InstanceReference sweep-pending
 T:Vixen.Texturing.Layers.LayerAnchorUse sweep-pending
 T:Vixen.Texturing.Layers.LayerAsset sweep-pending
 T:Vixen.Texturing.Layers.LayerAxis sweep-pending
@@ -2944,6 +2945,7 @@ T:Vixen.Texturing.Layers.LayerBlendMode sweep-pending
 T:Vixen.Texturing.Layers.LayerFillSource sweep-pending
 T:Vixen.Texturing.Layers.LayerFilterKind sweep-pending
 T:Vixen.Texturing.Layers.LayerKind sweep-pending
+T:Vixen.Texturing.Layers.LayerMaskLane sweep-pending
 T:Vixen.Texturing.Layers.LayerMaskSource sweep-pending
 T:Vixen.Texturing.Layers.LayerNote sweep-pending
 T:Vixen.Texturing.Layers.LayerPaint sweep-pending
@@ -2958,6 +2960,7 @@ T:Vixen.Texturing.Layers.LayerStackCompiler sweep-pending
 T:Vixen.Texturing.Layers.LayerStackEdit sweep-pending
 T:Vixen.Texturing.Layers.LayerStackExplode sweep-pending
 T:Vixen.Texturing.Layers.LayerStackGraph sweep-pending
+T:Vixen.Texturing.Layers.LayerStackInstances sweep-pending
 T:Vixen.Texturing.Layers.LayerStackProblem sweep-pending
 T:Vixen.Texturing.Layers.LayerStackSplat sweep-pending
 T:Vixen.Texturing.Layers.LayerStackYaml sweep-pending
