@@ -126,6 +126,53 @@ public sealed class PaintCanvas {
     /// <returns>Whether it is present.</returns>
     public bool Has(string usage) => channels.ContainsKey(usage);
 
+    /// <summary>This canvas at a larger resolution, each texel repeated over the texels it now covers.</summary>
+    /// <param name="width">The new width, at least this one's.</param>
+    /// <param name="height">The new height, at least this one's.</param>
+    /// <returns>A new canvas with every channel this one has.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">A dimension is smaller than this one's.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Nearest and never filtered, because the point is to lose nothing.</b> Each new texel takes the value
+    ///         of the old texel it lies in, so no value appears that was not painted, and at a whole factor (every
+    ///         change between the power-of-two sides a texture set offers) averaging each block of the new canvas gives
+    ///         the old one back exactly. A filtered enlargement would blur what was painted on the way up, and that
+    ///         blur would stay after the set came back down.
+    ///     </para>
+    ///     <para>
+    ///         Only larger: a canvas painted at a higher resolution than its set keeps it, and the evaluator samples
+    ///         it at the set's size, so making a set smaller never rewrites a texel.
+    ///     </para>
+    /// </remarks>
+    public PaintCanvas Enlarged(int width, int height) {
+        ArgumentOutOfRangeException.ThrowIfLessThan(width, Width);
+        ArgumentOutOfRangeException.ThrowIfLessThan(height, Height);
+
+        PaintCanvas enlarged = new(width, height);
+
+        foreach (var usage in order) {
+            var from = channels[usage];
+            var into = enlarged.Channel(usage);
+
+            // What was never painted stays a background rather than becoming tiles of it.
+            into.Fill(from.Background);
+
+            for (var y = 0; y < height; y++) {
+                var row = (int)((long)y * Height / height);
+
+                for (var x = 0; x < width; x++) {
+                    var value = from.At((int)((long)x * Width / width), row);
+
+                    if (value != from.Background) {
+                        into.Put(x, y, value);
+                    }
+                }
+            }
+        }
+
+        return enlarged;
+    }
+
     /// <summary>Writes the canvas.</summary>
     /// <param name="stream">Where to.</param>
     /// <remarks>
