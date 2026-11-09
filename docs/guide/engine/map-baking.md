@@ -4,7 +4,7 @@ slug: engine/map-baking
 kind: guide
 area: Engine
 summary: Casting the output's normal at the source to fill an atlas with a normal map, a displacement map and seven more mesh maps, on the CPU, with no device anywhere.
-api: [T:Vixen.Geometry.Remeshing.MapBaker, T:Vixen.Geometry.Remeshing.BakeSettings, T:Vixen.Geometry.Remeshing.BakedMaps, T:Vixen.Geometry.Remeshing.BakeSpace, T:Vixen.Geometry.Remeshing.MeshMaps, T:Vixen.Geometry.Remeshing.BakeMask, T:Vixen.Geometry.Remeshing.BakeParts, T:Vixen.Geometry.Remeshing.MeshMapKind, T:Vixen.Geometry.Remeshing.MeshMapPlane, T:Vixen.Geometry.Remeshing.MeshMapPlanes, T:Vixen.Interchange.FlatModel, T:Vixen.Geometry.MikkTSpace, T:Vixen.Geometry.Remeshing.BakeUnits, T:Vixen.Geometry.Remeshing.OcclusionFalloff, T:Vixen.Geometry.Remeshing.OcclusionDistribution, T:Vixen.Geometry.Remeshing.BakeIdSource, T:Vixen.Geometry.Remeshing.IdPalette, T:Vixen.Geometry.Remeshing.HeightRange]
+api: [T:Vixen.Geometry.Remeshing.MapBaker, T:Vixen.Geometry.Remeshing.BakeSettings, T:Vixen.Geometry.Remeshing.BakedMaps, T:Vixen.Geometry.Remeshing.BakeSpace, T:Vixen.Geometry.Remeshing.MeshMaps, T:Vixen.Geometry.Remeshing.BakeMask, T:Vixen.Geometry.Remeshing.BakeParts, T:Vixen.Geometry.Remeshing.MeshMapKind, T:Vixen.Geometry.Remeshing.MeshMapPlane, T:Vixen.Geometry.Remeshing.MeshMapPlanes, T:Vixen.Interchange.FlatModel, T:Vixen.Geometry.MikkTSpace, T:Vixen.Geometry.Remeshing.BakeUnits, T:Vixen.Geometry.Remeshing.OcclusionFalloff, T:Vixen.Geometry.Remeshing.OcclusionDistribution, T:Vixen.Geometry.Remeshing.BakeIdSource, T:Vixen.Geometry.Remeshing.IdPalette, T:Vixen.Geometry.Remeshing.HeightRange, T:Vixen.Geometry.Remeshing.BakeRounding, T:Vixen.Geometry.Remeshing.RoundedEdges, T:Vixen.Geometry.Remeshing.BakeColours, T:Vixen.Geometry.Remeshing.BakeImage, T:Vixen.Geometry.Remeshing.BakeReachShell]
 tags: [geometry, retopology, remesh, bake, normal-map, displacement, atlas, ambient-occlusion, curvature, mesh-maps, cage, hard-edge, supersampling]
 since: 0.1
 status: preview
@@ -131,6 +131,25 @@ painted in over the bolt and left out at the edge.
 together do not strike each other's rays and nothing has to be exploded apart by hand. `BakeParts.ByName`
 makes one from names: `bolt_high` and `bolt_low` are the same part. ⚠ **Occlusion ignores it on purpose**:
 a neighbouring part stays out of the normal map and still shades this one.
+
+`BakeSettings.DistanceMap` corrects the reach where it is wrong, over the atlas: one half leaves a texel's
+rays as set, nothing pulls them onto the target and one sends them twice as far, front and rear both, and
+with a cage the gap between it and the target. So a missed bolt or a struck neighbour is fixed by painting
+the place lighter or darker, as the skew is.
+
+`MapBaker.Reach` gives the two ends of every target corner's ray, from the same averaged directions,
+distances, cage and distance map the bake uses, so a preview drawn from it shows the bake's own reach.
+
+### Rounded edges
+
+`BakeSettings.Rounding` bakes edges round into the normal with no high poly modelled to give them a bevel.
+Within `BakeRounding.Width` of a rounded edge the source's normal leans evenly towards the direction halfway
+between the edge's two faces and arrives there on the edge, so both sides meet. `RoundedEdges.Angle` rounds
+every edge whose faces meet at `BakeRounding.Angle` or more; `RoundedEdges.Hard` rounds the edges the
+source's normals split, the hard edges its author marked, which is the nearest thing an interchange file has
+to an edge weight. ⚠ **The normal turns and the surface does not move**: the displacement is untouched, and
+the lean is added to the source's own normal, so a smooth-shaded source has no step where a bevel begins.
+Baking a low poly onto itself with this on is the whole hard-surface use.
 
 ### Supersampling, threads and what they do not change
 
@@ -285,6 +304,15 @@ them agree.
 `_hp` and `_lp` matches them; the overload without them knows `_high`, `_low`, `_hi`, `_lo`, `_hp` and
 `_lp`. `ModelGeometry.Flatten` takes several files in order, each file's materials numbered after the
 last file's, and welds within a file but never across two.
+
+### Colour, and moving a picture to another layout
+
+`MeshMaps.Colour` carries the source's colour across: each source corner's colour from
+`BakeColours.Corners`, blended over the face, times the face's `BakeImage` read at the source's own
+coordinates. ⚠ **That is a transfer between layouts as well**: a source that is the target with its old
+coordinates, and a picture made for them, bakes the picture onto the new ones. The numbers are carried and
+never converted, so the caller says what space they are in. It is not in `MeshMaps.All`, because the meshes
+alone have no colour to give; asked for without `BakeSettings.Colours` it is white, with a warning.
 
 ### Nothing samples randomly
 

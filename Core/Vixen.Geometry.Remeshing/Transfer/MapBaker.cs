@@ -65,7 +65,14 @@ public enum MeshMaps {
     /// <summary>The source's face group, nearest-sampled and never filtered.</summary>
     Id = 64,
 
-    /// <summary>All seven.</summary>
+    /// <summary>The source's colour carried across, from <see cref="BakeSettings.Colours" />.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Not in <see cref="All" />, because the mesh alone has no colour to give.</b> It needs a
+    ///     caller's <see cref="BakeColours" />, and without them it bakes white and says so.
+    /// </remarks>
+    Colour = 128,
+
+    /// <summary>All seven measurements, which need nothing but the two meshes.</summary>
     All = AmbientOcclusion | BentNormal | Curvature | Thickness | Position | WorldNormal | Id
 }
 
@@ -330,6 +337,29 @@ public sealed record BakeSettings {
 
     /// <summary>Where to apply <see cref="Skew" />, over the atlas, or null for everywhere.</summary>
     public BakeMask? SkewMap { get; init; }
+
+    /// <summary>How far the rays reach at each point of the atlas, as a share of the set distances, or null.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The cage, corrected where it is wrong.</b> A value of one half leaves a texel's rays as set,
+    ///         nothing pulls them onto the target, and one sends them twice as far: the front and rear
+    ///         distances both, and with a <see cref="Cage" /> the gap between it and the target. So an
+    ///         artist who sees a bolt missed or a neighbour struck paints the place darker or lighter
+    ///         rather than moving a cage by hand.
+    ///     </para>
+    ///     <para>⚠ <b>Read nearest</b>, as <see cref="SkewMap" /> is: a corrected texel is a texel.</para>
+    /// </remarks>
+    public BakeMask? DistanceMap { get; init; }
+
+    /// <summary>Edges to bake round into the normal, or null for none.</summary>
+    /// <remarks>
+    ///     Baked from the source's own edges, so a bake of a low poly onto itself turns its hard edges
+    ///     into bevels with no high poly at all. See <see cref="BakeRounding" />.
+    /// </remarks>
+    public BakeRounding? Rounding { get; init; }
+
+    /// <summary>The source's colours, which <see cref="MeshMaps.Colour" /> carries across, or null.</summary>
+    public BakeColours? Colours { get; init; }
 
     /// <summary>Which target faces may strike which source faces, or null for all of them.</summary>
     /// <remarks>
@@ -603,12 +633,25 @@ public sealed record BakedMaps {
     /// <summary>How labels are coloured when <see cref="Ids" /> are not colours already.</summary>
     public IdPalette IdPalette { get; init; }
 
+    /// <summary>The source's colour per texel, as <see cref="BakeSettings.Colours" /> gave it, or null.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Carried, not converted.</b> The numbers are whatever the caller's colours and images held,
+    ///     interpolated and filtered as they are, so a caller decides what space they are in — linear
+    ///     colour to be encoded afterwards, or a roughness map moved from one layout to another as it is.
+    /// </remarks>
+    public IReadOnlyList<Vector4>? Colour { get; init; }
+
     /// <summary>The largest absolute curvature, which is what a caller quantizes with.</summary>
     public float CurvatureRange { get; init; }
 
     /// <summary>What could not be baked.</summary>
     public IReadOnlyList<string> Warnings { get; init; } = [];
 }
+
+/// <summary>The two ends of every corner's ray, which is the reach a preview draws.</summary>
+/// <param name="Outer">Where each ray starts: the cage, or the front distance out along the ray.</param>
+/// <param name="Inner">Where it stops looking: the rear distance behind the target.</param>
+public sealed record BakeReachShell(IReadOnlyList<Vector3> Outer, IReadOnlyList<Vector3> Inner);
 
 /// <summary>docs/plan/41 § D12's bake: the output's normal, cast at the source, into the atlas.</summary>
 /// <remarks>
@@ -770,6 +813,23 @@ public static class MapBaker {
             );
         }
 
+        if (settings.Colours is { } colours
+            && ((colours.Corners is { } corners && corners.Count != source.CornerCount)
+                || (colours.FaceImages is { } faceImages && faceImages.Count != source.FaceCount))) {
+            throw new ArgumentException(
+                "The colours must name one colour per source corner and one picture per source face.",
+                nameof(settings)
+            );
+        }
+
+        if (settings.Rounding is { } round && (!(round.Width >= 0f) || round.Angle is < 0f or > 180f)) {
+            throw new ArgumentOutOfRangeException(
+                nameof(settings),
+                round,
+                "A rounded edge's width cannot be negative, and its angle is 0 to 180 degrees."
+            );
+        }
+
         if (settings.Parts is { } parts
             && (parts.Source.Count != source.FaceCount || parts.Target.Count != target.FaceCount)) {
             throw new ArgumentException(
@@ -809,7 +869,21 @@ public static class MapBaker {
         // expensive half is already built" is about — the tree is built once for the same reason.
         var curvature = settings.Maps.HasFlag(MeshMaps.Curvature) ? MeanCurvature.Build(surface) : null;
         var rays = BakeRays.Build(surface, source, target, settings.Parts, warnings);
-        var bake = new TexelBake(surface, rays, settings, new(radius, rear, unit), curvature, buffers);
+        var rounding = settings.Rounding is { } rounded
+            ? EdgeRounding.Build(source, rounded, unit * rounded.Width)
+            : null;
+
+        if (settings.Rounding is not null && rounding is null) {
+            warnings.Add("No edge of the source is sharp enough to round, so the normal is baked as it is.");
+        }
+
+        if (buffers.Colour is not null && settings.Colours is null) {
+            warnings.Add("The colour map was asked for with no colours to carry, so it is white.");
+        }
+
+        var bake = new TexelBake(surface, rays, settings, new(radius, rear, unit), curvature, buffers) {
+            Rounding = rounding
+        };
         var options = new ParallelOptions { MaxDegreeOfParallelism = settings.Threads > 0 ? settings.Threads : -1 };
         var charts = BakeCharts.Build(target, settings, options, cancellationToken);
 
@@ -855,6 +929,77 @@ public static class MapBaker {
         };
 
         return Assemble(settings, buffers, dilated, warnings);
+    }
+
+    /// <summary>Where a bake's rays start and end, per target corner: what to draw so a person sees the bake's reach.</summary>
+    /// <param name="source">The high-resolution surface, for the size relative distances are fractions of.</param>
+    /// <param name="target">The surface baked onto.</param>
+    /// <param name="settings">The distances, the units, the cage and the distance map.</param>
+    /// <returns>The outer and inner end of every corner's ray, in the target's corner order.</returns>
+    /// <exception cref="ArgumentNullException">Any argument is null.</exception>
+    /// <exception cref="ArgumentException">The cage does not have the target's faces.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The same directions and the same lengths the bake casts</b>: the corner normal averaged
+    ///         over every corner on the point, the front and rear distances in the bake's units, and with a
+    ///         cage the cage's own corner, past which a ray runs the rear distance behind the target. A
+    ///         preview drawn from any other numbers is a picture of a different bake.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>At the corners, not at every texel.</b> <see cref="BakeSettings.Skew" /> leans a ray
+    ///         inside a face and the distance map is read where each corner lies on the atlas, so a shell
+    ///         drawn from these is exact at the corners and a straight line between them.
+    ///     </para>
+    /// </remarks>
+    public static BakeReachShell Reach(EditMesh source, EditMesh target, BakeSettings settings) {
+        ArgumentNullException.ThrowIfNull(source);
+        ArgumentNullException.ThrowIfNull(target);
+        ArgumentNullException.ThrowIfNull(settings);
+
+        if (settings.Cage is { } cage && !SameLayout(cage, target)) {
+            throw new ArgumentException(
+                "The cage does not have the target's faces, so its points have no partner on the target.",
+                nameof(settings)
+            );
+        }
+
+        var bounds = source.Bounds;
+        var diagonal = source.PositionCount > 0 ? Vector3.Distance(bounds.Minimum, bounds.Maximum) : 0f;
+        var unit = settings.Units is BakeUnits.Absolute ? 1f : diagonal;
+        var front = unit * MathF.Max(settings.SearchRadius, 0f);
+        var rear = unit * MathF.Max(settings.RearDistance ?? settings.SearchRadius, 0f);
+        var shading = target.Normals.Length == target.CornerCount
+            ? target.Normals.ToArray()
+            : BakeCharts.Geometric(target);
+        var along = BakeCharts.Averaged(target, shading);
+        var mapped = target.TexCoords.Length == target.CornerCount;
+        var outer = new Vector3[target.CornerCount];
+        var inner = new Vector3[target.CornerCount];
+
+        for (var face = 0; face < target.FaceCount; face++) {
+            var entry = target.Faces[face];
+            var loop = target.CornersOf(face);
+
+            for (var at = 0; at < entry.Count; at++) {
+                var corner = entry.Start + at;
+                var point = target.Positions[loop[at]];
+                var stretch = settings.DistanceMap is { } map && mapped ? 2f * map.At(target.TexCoords[corner]) : 1f;
+                var direction = ScaleSafe.Unit(along[corner]);
+
+                if (settings.Cage is { } shell) {
+                    var start = point + ((shell.Positions[shell.CornersOf(face)[at]] - point) * stretch);
+                    var inward = ScaleSafe.Unit(point - start);
+
+                    outer[corner] = start;
+                    inner[corner] = point + ((inward.LengthSquared() > 0f ? inward : -direction) * (rear * stretch));
+                } else {
+                    outer[corner] = point + (direction * (front * stretch));
+                    inner[corner] = point - (direction * (rear * stretch));
+                }
+            }
+        }
+
+        return new(outer, inner);
     }
 
     /// <summary>Divides a channel by its largest covered value, so that one reads one.</summary>
@@ -1171,6 +1316,7 @@ public static class MapBaker {
                     var inside = 0f;
                     var position = Vector3.Zero;
                     var world = Vector3.Zero;
+                    var colour = Vector4.Zero;
                     var found = 0;
 
                     foreach (var neighbour in offsets) {
@@ -1215,6 +1361,10 @@ public static class MapBaker {
                         if (buffers.WorldNormal is { } normals) {
                             world += normals[neighbour];
                         }
+
+                        if (buffers.Colour is { } colours) {
+                            colour += colours[neighbour];
+                        }
                     }
 
                     if (found == 0) {
@@ -1234,6 +1384,7 @@ public static class MapBaker {
                     Write(buffers.Position, index, position / found);
                     Write(buffers.Bent, index, Unit(unoccluded / found));
                     Write(buffers.WorldNormal, index, Unit(world / found));
+                    Write(buffers.Colour, index, colour / found);
 
                     next[index] = true;
                     added++;
@@ -1282,6 +1433,7 @@ public static class MapBaker {
             Position = buffers.Position,
             WorldNormal = buffers.WorldNormal,
             Ids = buffers.Ids,
+            Colour = buffers.Colour,
             IdsAreColours = buffers.Ids is not null && buffers.LabelsAreColours,
             IdPalette = settings.IdPalette,
             CurvatureRange = buffers.CurvatureRange,

@@ -18,7 +18,7 @@ public sealed class HardEdgeBakeTests {
     ///     cannot be continuous across one, so the seam is in the atlas and the two sides meet only on
     ///     the model.
     /// </remarks>
-    static EditMesh HardBox(float half = 1f) {
+    internal static EditMesh HardBox(float half = 1f) {
         var mesh = new EditMesh();
         var corners = new int[8];
 
@@ -58,7 +58,7 @@ public sealed class HardEdgeBakeTests {
         return mesh;
     }
 
-    static Vector2 Chart(int u, int v, float x, float y) =>
+    internal static Vector2 Chart(int u, int v, float x, float y) =>
         new((u + 0.05f + (x * 0.9f)) / 3f, (v + 0.05f + (y * 0.9f)) / 2f);
 
     /// <summary>A unit sphere's worth of a rounded box: what a high poly with bevels looks like to a ray.</summary>
