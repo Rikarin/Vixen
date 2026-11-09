@@ -138,7 +138,7 @@ public sealed class LayerStackEvaluator : IDisposable {
         ArgumentNullException.ThrowIfNull(set);
         ArgumentNullException.ThrowIfNull(registry);
 
-        var build = Asked.Length > 0 ? LayerStackGraph.Amount(stack, set, Asked, registry, subGraphs)
+        var build = Asked.Length > 0 ? LayerStackGraph.Amount(stack, set, Asked, registry, Draft, subGraphs)
             : Weighing ? LayerStackGraph.Weights(stack, set, registry, subGraphs)
             : Capture.Length > 0 ? LayerStackGraph.Capture(stack, set, Capture, Backdrop, registry, Draft, subGraphs)
             : LayerStackGraph.Build(stack, set, registry, Draft, subGraphs);

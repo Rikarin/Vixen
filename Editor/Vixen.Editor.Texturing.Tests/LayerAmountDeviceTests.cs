@@ -106,6 +106,34 @@ public class LayerAmountDeviceTests(ITestOutputHelper output) {
         Assert.True(amount <= 3, $"the layer writes no base colour and must weigh ~0 there; it weighed {amount}");
     }
 
+    /// <summary>
+    ///     A layer beneath whose mask is half set up draws whole in a draft's amount, as it does in a draft's picture, and
+    ///     refuses a build's. Patina's Find asks as a draft, since the picture it was clicked on is one: asked as a
+    ///     build, one empty slot anywhere beneath made every picture-reading layer unfindable.
+    /// </summary>
+    [Fact]
+    public void A_half_set_layer_beneath_draws_whole_in_a_draft_and_refuses_a_build() {
+        using var device = TexturingDevice.Open();
+        LayerAsset half = new() {
+            Id = "half",
+            Kind = LayerKind.Fill,
+            Values = { ["baseColor"] = [0.25f, 0.25f, 0.25f, 1f] },
+            Mask = new() { Source = LayerMaskSource.Generator }
+        };
+        var stack = Stack(Rock(), half, Moss());
+
+        var built = LayerStackGraph.Amount(stack, stack.Sets[0], "moss");
+        var drafted = LayerStackGraph.Amount(stack, stack.Sets[0], "moss", draft: true);
+        var amount = Weigh(device, stack, drafted);
+
+        output.WriteLine($"{TexturingDevice.Adapter(device)}: drafted over a half set layer {amount}");
+
+        Assert.True(built.HasErrors, "a build has no draft, so the empty slot refuses it");
+        Assert.Contains(drafted.Problems, problem => problem.Layer == "half" && problem.Severity == NodeSeverity.Warning);
+        // The quarter grey of the half set layer, not the rock's half beneath it, nor nothing.
+        Assert.InRange(amount, (byte)56, (byte)72);
+    }
+
     /// <summary>A layer no set holds is refused by its id.</summary>
     [Fact]
     public void A_layer_the_set_does_not_hold_is_refused() {

@@ -362,6 +362,10 @@ public static class LayerStackGraph {
     /// <param name="set">Which of its sets.</param>
     /// <param name="layer">The <see cref="LayerAsset.Id" /> of the layer, after the set's instances are resolved.</param>
     /// <param name="registry">The node types, as <see cref="Build" /> takes them.</param>
+    /// <param name="draft">
+    ///     As <see cref="Build" /> takes it: a host asking about the picture someone is editing leaves a layer beneath
+    ///     that is half set up out of it, as that picture does, rather than refusing the whole answer.
+    /// </param>
     /// <param name="subGraphs">As <see cref="Build" /> takes them.</param>
     /// <returns>The graph and what building it had to say: each channel's output is the layer's amount there.</returns>
     /// <exception cref="ArgumentNullException">The stack or the set is null.</exception>
@@ -388,6 +392,7 @@ public static class LayerStackGraph {
         TextureSetAsset set,
         string layer,
         NodeTypeRegistry? registry = null,
+        bool draft = false,
         ISubGraphSource? subGraphs = null
     ) {
         ArgumentNullException.ThrowIfNull(stack);
@@ -407,6 +412,7 @@ public static class LayerStackGraph {
         }
 
         Builder builder = new(stack, resolved with { Layers = kept }, registry) {
+            Drafting = draft,
             Found = found,
             SubGraphs = subGraphs,
             Asked = layer,
