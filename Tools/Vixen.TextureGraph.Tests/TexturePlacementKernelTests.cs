@@ -110,7 +110,7 @@ public class TexturePlacementKernelTests {
     /// </remarks>
     [Theory]
     [InlineData("TileSampler", "pattern", "mask", "sizeMap", "rotationMap")]
-    [InlineData("Splatter", "pattern", "mask", "sizeMap", "rotationMap", "placement")]
+    [InlineData("Splatter", "pattern", "mask", "sizeMap", "rotationMap", "placement", "carried")]
     public void A_placement_kernel_declares_its_inputs_in_the_order_the_evaluator_binds_them(
         string kernel,
         params string[] inputs
@@ -225,7 +225,7 @@ public class TexturePlacementKernelTests {
 
         var splatter = TexturePlacement.Splatter(3, 7);
 
-        Assert.Equal([7, 7, 7, 7, 7], splatter.Inputs);
+        Assert.Equal([7, 7, 7, 7, 7, 7], splatter.Inputs);
         Assert.Equal(0f, splatter.Find("placementAmount")?.Value);
         Assert.Equal(0f, splatter.Find("maskThreshold")?.Value);
     }

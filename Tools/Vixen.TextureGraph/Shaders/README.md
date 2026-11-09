@@ -1,7 +1,7 @@
 # Shaders
 
-The texture graph's atomic kernels, in Raven. **Seventy-five `.rvn` files**, which is
-[doc 48 § 4.11](../../../docs/plan/48-material-authoring.md)'s forty-one adjusted five ways — and
+The texture graph's atomic kernels, in Raven. **Eighty-four `.rvn` files**, which is
+[doc 48 § 4.11](../../../docs/plan/48-material-authoring.md)'s forty-one adjusted seven ways — and
 every adjustment is a fact about the catalogue rather than an arithmetic slip:
 
 | | | |
@@ -12,7 +12,9 @@ every adjustment is a fact about the catalogue rather than an arithmetic slip:
 | + `Mix` | +1 | § M10's, and the only one dogfooding asked for — [#1059](https://github.com/Rikarin/Vixen/issues/1059) |
 | + `MetalReflectance` | +1 | § M10's second: a § 4.9 *compound* row that no atom could express, because nothing mapped a metal name to an F0 — [#1096](https://github.com/Rikarin/Vixen/issues/1096) |
 | + Patina's audit: 14 colour, 5 filter and 7 remap kernels | +26 | Patina #171, #173 and #175: rows the reference catalogue has and § 4.11 never listed. `MeanReduce` and `BoundsReduce` are ladder rungs again, not nodes |
-| = files in this folder | **75** | `TextureKernels.Names` at run time |
+| + Patina's audit, wave 4: `HistogramCount`, `HistogramTable`, `HistogramPlot`, `HistogramEqualise`, `SummedArea` | +5 | Patina #172's statistics, in `TextureStatisticsKernels`. ⚠ This row arrived a wave late: the folder held eighty while this said seventy-five, the fourth time a count here fell behind |
+| + Patina's audit, wave 5: `HeightShadow`, `NormalBlend`, `VolumeNoise`, `VolumeShape` | +4 | Patina #176's lighting and #179's position-driven sources, in `TextureReliefKernels` and `TextureVolumeKernels` |
+| = files in this folder | **84** | `TextureKernels.Names` at run time |
 
 ⚠ **This number read forty-five while the folder held forty-seven, and it is the third time a count
 here has fallen behind the directory.** `Triplanar` and `ColourSelect` shipped and nobody came back.

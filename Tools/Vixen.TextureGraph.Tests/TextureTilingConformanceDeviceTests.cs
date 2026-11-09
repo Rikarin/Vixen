@@ -93,7 +93,9 @@ public class TextureTilingConformanceDeviceTests(ITestOutputHelper output) {
     /// <summary>What wires into one image port, when it is not <see cref="Grey" />.</summary>
     static string StimulusFor(string path, string port) =>
         (path, port) switch {
-            ("Analysis/Distance", _) or ("Analysis/Flood Fill", _) => Mask,
+            // Distance spreads its Source's colour, so a mask there would spread one value everywhere.
+            ("Analysis/Distance Colour", "Source") => Colour,
+            ("Analysis/Distance", _) or ("Analysis/Distance Colour", _) or ("Analysis/Flood Fill", _) => Mask,
             // A smooth field has no staircase, so an anti-alias leaves it alone and is examined on nothing.
             // A median keeps a smooth field to rounding, so it is examined on edges with corners to round.
             ("Filters/Anti-Alias", _) or ("Filters/Median", _) => Mask,
@@ -127,6 +129,7 @@ public class TextureTilingConformanceDeviceTests(ITestOutputHelper output) {
             "Filters/Median" => [("Radius", 4f)],
             "Filters/Non-Uniform Blur" => [("Max Radius", 12f)],
             "Surface/Curvature" => [("Radius", 4f)],
+            "Surface/Height Shadow" => [("Height Scale", 1f), ("Softness", 0.2f)],
             "Source/Shape" => [("Scale", 0.5f), ("Centre X", 0.95f), ("Centre Y", 0.05f)],
             "Space/Transform 2D" => [("Offset X", 0.37f), ("Offset Y", 0.21f)],
             _ => []

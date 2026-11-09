@@ -1,0 +1,97 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+package Vixen.TextureGraph.Shaders
+
+// Patina #176's normal mix: one normal map faded into another by an opacity and a mask, as unit vectors.
+//
+// **Not `NormalCombine`, which adds detail to a base.** This is a cross-fade: at nought the background
+// exactly, at one the foreground exactly, and between them the normalised mix of the two directions —
+// what a `Colour/Mix` of two normal maps would be if it did not shorten every vector it mixed and leave
+// the surface flatter, and bluer, wherever the mask is grey.
+//
+// Pointwise, so the result tiles exactly when both maps and the mask do. `masked` says whether the
+// third image is a mask or a stand-in, `Dissolve.rvn`'s arrangement.
+
+shader NormalBlend {
+    /// The map where the mask is nought.
+    var background: Texture2D
+
+    /// The map where the mask is one.
+    var foreground: Texture2D
+
+    /// Scales the opacity per texel, by its red channel, when `masked` is set.
+    var mask: Texture2D
+
+    /// How much of the foreground reaches the result.
+    var opacity: float = 1f
+
+    /// Non-zero when `mask` is a mask rather than a stand-in.
+    var masked: int = 0
+
+    [Format("rgba16f")] var target: RWTexture2D<float4>
+
+    /// The nearest unit vector, bent up continuously as it shortens.
+    ///
+    /// ⚠ **Not a bare `normalize`, which is discontinuous at nought.** A grey of a half decodes to no
+    /// vector at all, and a hair either side of it to two opposite ones, so a map that is not a normal
+    /// map — or two normals mixed half-way from opposite sides — would flip between them on a rounding.
+    /// Below a length of a quarter the vector is lifted along +z by what it lacks, which leaves a real
+    /// normal alone and sends nothing to straight up.
+    func Unit(v: float3): float3 {
+        val shortfall = max(0.25f - length(v), 0f)
+
+        return normalize(float3(v.x, v.y, v.z + shortfall))
+    }
+
+    /// A sampled triple decoded into a unit tangent-space normal.
+    func Decode(texel: float4): float3 => Unit(float3(texel.x * 2f - 1f, texel.y * 2f - 1f, texel.z * 2f - 1f))
+
+    func Background(x: int, y: int): float4 {
+        val extent = background.GetDimensions(0)
+
+        return background.Load(int3(clamp(x, 0, extent.x - 1), clamp(y, 0, extent.y - 1), 0))
+    }
+
+    func Foreground(x: int, y: int): float4 {
+        val extent = foreground.GetDimensions(0)
+
+        return foreground.Load(int3(clamp(x, 0, extent.x - 1), clamp(y, 0, extent.y - 1), 0))
+    }
+
+    func Mask(x: int, y: int): float {
+        val extent = mask.GetDimensions(0)
+
+        return mask.Load(int3(clamp(x, 0, extent.x - 1), clamp(y, 0, extent.y - 1), 0)).x
+    }
+
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val coord = int2(int(id.x), int(id.y))
+        val size = target.GetDimensions()
+
+        if (coord.x >= size.x || coord.y >= size.y) {
+            return
+        }
+
+        var amount = saturate(opacity)
+
+        if (masked != 0) {
+            amount = amount * saturate(Mask(coord.x, coord.y))
+        }
+
+        val back = Decode(Background(coord.x, coord.y))
+        val fore = Decode(Foreground(coord.x, coord.y))
+
+        // Exactly the endpoints at nought and one, rather than a renormalised copy of them.
+        var mixed = back
+
+        if (amount >= 1f) {
+            mixed = fore
+        } else if (amount > 0f) {
+            mixed = Unit(lerp(back, fore, float3(amount, amount, amount)))
+        }
+
+        target.Store(coord, float4(mixed.x * 0.5f + 0.5f, mixed.y * 0.5f + 0.5f, mixed.z * 0.5f + 0.5f, 1f))
+    }
+}

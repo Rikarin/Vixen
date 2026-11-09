@@ -28,6 +28,13 @@ import Vixen.Shaders.Core
 // at its near end and runs past the image, so that the far corner minus the near one is still its size
 // and the two can still be told apart. Round the whole axis, a box is `0` to the last texel.
 //
+// **`Colour` and `Gradient` are the two pictures an artist asks for by name** — Patina #174's
+// "random island colour" and "flood fill to gradient". `Colour` is three names of the same island
+// under three salts, so it is `Random` with two more lanes and changes exactly when `Random` does.
+// `Gradient` is a ramp across the island's box along `angle`, turned per island by up to
+// `angleVariation` either way, and runs from 0 at the corner the direction leaves to 1 at the corner it
+// reaches, measured in texels so a long box is not a steeper ramp than a square one.
+//
 // **Background is black in every mode, with an opaque alpha.** Zero is a legitimate value for a
 // random and for a UV, so a consumer that has to tell background from a dark island reads the alpha
 // of `BoundingBox`, whose channels are all zero only for a box at the origin of zero size.
@@ -36,8 +43,14 @@ shader FloodFill {
     /// The settled record from the last `FloodBounds` dispatch.
     var bounds: Texture2D
 
-    /// 0 id · 1 random · 2 UV within the island · 3 bounding box · 4 size.
+    /// 0 id · 1 random · 2 UV within the island · 3 bounding box · 4 size · 5 colour · 6 gradient.
     var kind: int = 1
+
+    /// `Gradient`'s direction in radians: 0 rises along +x, π/2 along +y (down the image).
+    var angle: float = 0f
+
+    /// How far each island's direction may turn from `angle`, in radians, half either way.
+    var angleVariation: float = 0f
 
     /// The op's own seed, already mixed. See `TexturePlan.SeedFor`.
     var seed: float = 0f
@@ -131,7 +144,34 @@ shader FloodFill {
             return
         }
 
-        val value = Name(record, uint(int(max(seed, 0f))))
+        val salt = uint(int(max(seed, 0f)))
+
+        if (kind == 5) {
+            target.Store(
+                coord,
+                float4(Name(record, salt), Name(record, Random.Combine(salt, 1u)), Name(record, Random.Combine(salt, 2u)), 1f)
+            )
+
+            return
+        }
+
+        if (kind == 6) {
+            val turned = angle + (Name(record, Random.Combine(salt, 3u)) - 0.5f) * max(angleVariation, 0f)
+            val toward = float2(cos(turned), sin(turned))
+
+            // The texel's centre in the box, in texels, and the projections of the box's corners: the
+            // lowest is where the ramp is 0 and the highest where it is 1.
+            val at = float2(Past(coord.x, record.x, extent.x) + 0.5f, Past(coord.y, record.y, extent.y) + 0.5f)
+            val low = min(0f, span.x * toward.x) + min(0f, span.y * toward.y)
+            val high = max(0f, span.x * toward.x) + max(0f, span.y * toward.y)
+            val ramp = saturate((dot(at, toward) - low) / max(high - low, 0.000001f))
+
+            target.Store(coord, float4(ramp, ramp, ramp, 1f))
+
+            return
+        }
+
+        val value = Name(record, salt)
 
         target.Store(coord, float4(value, value, value, 1f))
     }

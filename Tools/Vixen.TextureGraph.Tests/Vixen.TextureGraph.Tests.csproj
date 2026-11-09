@@ -21,6 +21,12 @@
     </ItemGroup>
 
     <ItemGroup>
+        <!-- A bundle whose one compound collides with a shipped one, so `TextureCompoundLibrary.Bundle`'s
+             refusal can be held without adding a node type to the process every other test reads. -->
+        <EmbeddedResource Include="Bundled/Surface/Bevel.vxtexgraph" LogicalName="Tests.Bundled.Surface.Bevel.vxtexgraph" />
+    </ItemGroup>
+
+    <ItemGroup>
         <ProjectReference Include="..\Vixen.TextureGraph\Vixen.TextureGraph.csproj" />
 
         <!-- The Raven front end, so a test can put the source a node generated through the same

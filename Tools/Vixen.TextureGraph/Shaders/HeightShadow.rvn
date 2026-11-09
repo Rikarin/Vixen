@@ -1,0 +1,113 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+package Vixen.TextureGraph.Shaders
+
+import Vixen.Shaders.Core
+
+// Patina #176's height shadow: where a height field shadows itself under one light.
+//
+// **A march toward the light, keeping the steepest rise.** From each texel the kernel steps along
+// `(cos angle, sin angle)` — toward the light, in image space with y down — out to `radius`, and at
+// each step takes the slope from here to the height there. A texel is in shadow when that slope's angle
+// is above the light's `elevation`: something between it and the light stands higher than the ray. It
+// is `AmbientOcclusion.rvn`'s horizon search along one direction instead of eight, with the same height
+// scale, so a field and its occlusion agree about how tall a height of one is.
+//
+// **The closed form the tests hold**: a wall `h` tall casts a shadow `h · height · width / tan(elevation)`
+// texels long on flat ground, and the texels past it are lit.
+//
+// **`softness` widens the edge into a penumbra** of that many radians either side of the elevation, the
+// light's angular size. At nought the edge is hard.
+//
+// The elevation is held to 0..π/2, the range the node offers: below the horizon is a light the surface
+// faces away from, which is not a cast shadow.
+//
+// **Every step is a whole texel or more, and the count is bounded.** `MaxSteps` is a ceiling for
+// `Blur.rvn`'s reason — a radius arriving as a NaN must be a slower dispatch and not a loop no invocation
+// leaves — and the march takes one step per texel of reach up to it, so a shadow under 64 texels long
+// misses nothing narrower than a texel. Past that the steps space out, which thin occluders feel first.
+//
+// Taps wrap where the plan wraps, so a shadow cast across the seam lands on the other side.
+
+shader HeightShadow {
+    /// The height field, read from the red channel.
+    var source: Texture2D
+
+    /// The direction the light is in, in radians: 0 is toward +x, π/2 toward +y (down the image). The
+    /// default, −3π/4, is a light up and to the left.
+    var angle: float = -2.3561945f
+
+    /// How high the light stands above the horizon, in radians: π/2 is straight overhead.
+    var elevation: float = 0.7853982f
+
+    /// How far a shadow can be cast, in texels of the image being written.
+    var radius: float = 64f
+
+    /// How tall a height of one is, as a fraction of the image's width — `AmbientOcclusion`'s.
+    var height: float = 0.1f
+
+    /// The light's angular size, in radians: how wide the penumbra is.
+    var softness: float = 0f
+
+    /// Non-zero when a read past the left or right edge comes back on the other side. The plan's.
+    var wrapX: int = 0
+
+    /// The same for the top and bottom edges.
+    var wrapY: int = 0
+
+    [Format("rgba16f")] var target: RWTexture2D<float4>
+
+    /// The most steps one march takes.
+    const val MaxSteps: int = 128
+
+    /// The height `offset` texels from `coord`. The offset is floored on its own: `AmbientOcclusion.Height`.
+    func Height(coord: int2, offset: float2): float {
+        val extent = source.GetDimensions(0)
+        val x = coord.x + int(floor(offset.x + 0.5f))
+        val y = coord.y + int(floor(offset.y + 0.5f))
+
+        return source.Load(int3(Math.Address(x, extent.x, wrapX), Math.Address(y, extent.y, wrapY), 0)).x
+    }
+
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val coord = int2(int(id.x), int(id.y))
+        val size = target.GetDimensions()
+
+        if (coord.x >= size.x || coord.y >= size.y) {
+            return
+        }
+
+        val reach = max(radius, 1f)
+        val above = clamp(elevation, 0f, 1.5707964f)
+        val steps = clamp(int(ceil(reach)), 1, MaxSteps)
+        val toward = float2(cos(angle), sin(angle))
+        val here = Height(coord, float2(0f, 0f))
+        val scale = height * float(size.x)
+
+        var steepest = -1000000f
+
+        for (step in 1 .. MaxSteps) {
+            if (step > steps) {
+                break
+            }
+
+            val distance = reach * float(step) / float(steps)
+            val rise = (Height(coord, toward * distance) - here) * scale / distance
+
+            steepest = max(steepest, rise)
+        }
+
+        val horizon = atan(steepest)
+        var lit = 1f
+
+        if (softness > 0.0001f) {
+            lit = saturate(0.5f + (above - horizon) / (2f * softness))
+        } else if (horizon > above) {
+            lit = 0f
+        }
+
+        target.Store(coord, float4(lit, lit, lit, 1f))
+    }
+}

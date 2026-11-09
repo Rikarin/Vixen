@@ -49,7 +49,7 @@ sealed partial class EdgeDetectNode : TextureNode {
     }
 }
 
-/// <summary>The islands of a mask, as one of five pictures.</summary>
+/// <summary>The islands of a mask, as one of seven pictures.</summary>
 /// <remarks>
 ///     <para>
 ///         ⚠ <b><c>Iterations</c> is a budget rather than a quality dial, and nothing in this
@@ -67,9 +67,16 @@ sealed partial class EdgeDetectNode : TextureNode {
 ///     </para>
 ///     <para>
 ///         <b>The output's channels follow the picture and not the mask</b>, which is
-///         <c>Noise</c>'s <c>Worley</c> case again: <c>Random</c> is one value splatted and every
-///         other kind packs coordinates into separate lanes, so calling them all grey would throw
-///         most of the answer away at the first thing that read it.
+///         <c>Noise</c>'s <c>Worley</c> case again: <c>Random</c> and <c>Gradient</c> are one value
+///         splatted, <c>Colour</c> is three, and every other kind packs coordinates into separate
+///         lanes, so calling them all grey would throw most of the answer away at the first thing
+///         that read it.
+///     </para>
+///     <para>
+///         <b><c>Colour</c> and <c>Gradient</c> are the two an artist asks for by name</b> (Patina
+///         #174): a random colour per island, and a ramp across each island's box along
+///         <c>Angle</c>, turned per island by up to <c>Angle Variation</c>. Neither needs a second
+///         flood — every kind is one read of the same settled record.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>Two islands that settle to the same bounding box are one island to this node.</b>
@@ -77,7 +84,11 @@ sealed partial class EdgeDetectNode : TextureNode {
 ///         and a small square tucked into its corner can share a box.
 ///     </para>
 /// </remarks>
-[Node("Analysis/Flood Fill", Preview = true, Summary = "The islands of a mask, as an id, a random value, a local UV, a box or a size.")]
+[Node(
+    "Analysis/Flood Fill",
+    Preview = true,
+    Summary = "The islands of a mask, as an id, a random value or colour, a local UV, a box, a size or a ramp."
+)]
 sealed partial class FloodFillNode : TextureNode {
     /// <summary>The fewest iterations one node may ask for: one round of every axis.</summary>
     /// <remarks>
@@ -105,7 +116,10 @@ sealed partial class FloodFillNode : TextureNode {
     /// </remarks>
     public const int DefaultIterations = 64;
 
-    /// <summary>Which picture: <c>Id</c>, <c>Random</c>, <c>LocalUv</c>, <c>BoundingBox</c> or <c>Size</c>.</summary>
+    /// <summary>
+    ///     Which picture: <c>Id</c>, <c>Random</c>, <c>LocalUv</c>, <c>BoundingBox</c>, <c>Size</c>,
+    ///     <c>Colour</c> or <c>Gradient</c>.
+    /// </summary>
     [Setting(AcceptedFrom = typeof(TextureFloodOutput))]
     public string Kind = "Random";
 
@@ -125,6 +139,14 @@ sealed partial class FloodFillNode : TextureNode {
     [Input]
     public Bool Diagonal = false;
 
+    /// <summary><c>Gradient</c>'s direction in radians: 0 rises to the right, π/2 rises downwards.</summary>
+    [Input(SoftMinimum = -MathF.PI, SoftMaximum = MathF.PI)]
+    public Scalar Angle = 0f;
+
+    /// <summary>How far each island's ramp may turn from <c>Angle</c>, in radians, half either way. At 2π it is free.</summary>
+    [Input(Name = "Angle Variation", Minimum = 0f, SoftMaximum = MathF.Tau)]
+    public Scalar AngleVariation = 0f;
+
     /// <summary>The picture.</summary>
     [Output(Name = "Out")]
     public Image Out;
@@ -136,11 +158,11 @@ sealed partial class FloodFillNode : TextureNode {
         var kind = TextureSettings.Enum(emitter, nameof(Kind), TextureFloodOutput.Random);
         var mask = emitter.ReadGrey("Mask");
 
-        // Random is one value in three lanes; every other kind packs coordinates into red, green,
-        // blue and alpha separately.
+        // Random and Gradient are one value in three lanes; every other kind packs coordinates or a
+        // colour into red, green, blue and alpha separately.
         var target = emitter.Write(
             "Out",
-            kind == TextureFloodOutput.Random ? TextureChannels.Grey : TextureChannels.Colour
+            kind is TextureFloodOutput.Random or TextureFloodOutput.Gradient ? TextureChannels.Grey : TextureChannels.Colour
         );
 
         if (mask < 0) {
@@ -188,7 +210,9 @@ sealed partial class FloodFillNode : TextureNode {
                 height,
                 kind,
                 emitter.Flag(nameof(Diagonal)),
-                emitter.Number(nameof(Threshold))
+                emitter.Number(nameof(Threshold)),
+                emitter.Number(nameof(Angle)),
+                emitter.Number("Angle Variation")
             )
         );
 

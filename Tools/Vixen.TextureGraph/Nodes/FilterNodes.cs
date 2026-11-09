@@ -463,6 +463,16 @@ sealed partial class Transform2DNode : TextureNode {
 ///         and a mask agree on, and picking one would be a distance field measured from a boundary
 ///         the author never chose.
 ///     </para>
+///     <para>
+///         <b><c>Analysis/Distance Colour</c> is the same flood spreading a colour instead</b> (Patina
+///         #174). It is a node of its own rather than a second port here because this one is a filter
+///         and a mask step in a layer stack, which is one image in and one out.
+///     </para>
+///     <para>
+///         <b><c>Metric</c> changes what "near" means</b>: <c>Euclidean</c> grows a shape with round
+///         corners, <c>Chebyshev</c> keeps them square and <c>Manhattan</c> chamfers them, which is
+///         what a bevel's profile at a corner looks like under each.
+///     </para>
 /// </remarks>
 [Node("Analysis/Distance", Preview = true, Summary = "A distance field from a mask, by jump flood.")]
 sealed partial class DistanceNode : TextureNode {
@@ -470,9 +480,14 @@ sealed partial class DistanceNode : TextureNode {
     [Setting(AcceptedFrom = typeof(TextureDistanceMode))]
     public string Mode = "Outside";
 
+    /// <summary>How a length is measured: <c>Euclidean</c>, <c>Manhattan</c> or <c>Chebyshev</c>.</summary>
+    [Setting(AcceptedFrom = typeof(TextureDistanceMetric))]
+    public string Metric = "Euclidean";
+
     /// <summary>The mask to measure from. A single channel.</summary>
     [Input(Name = "Mask")]
     public Image Mask;
+
 
     /// <summary>How far the field reaches, as a fraction of the image's longer side.</summary>
     [Input(Name = "Max Distance", Minimum = 0f, SoftMaximum = 1f)]
@@ -491,6 +506,7 @@ sealed partial class DistanceNode : TextureNode {
         ArgumentNullException.ThrowIfNull(emitter);
 
         var mode = TextureSettings.Enum(emitter, nameof(Mode), TextureDistanceMode.Outside);
+        var metric = TextureSettings.Enum(emitter, nameof(Metric), TextureDistanceMetric.Euclidean);
         var mask = emitter.ReadGrey("Mask");
         var target = emitter.Write("Out", TextureChannels.Grey);
 
@@ -498,6 +514,83 @@ sealed partial class DistanceNode : TextureNode {
             return;
         }
 
+        Distances.Emit(emitter, target, mask, mode, metric, -1, false);
+    }
+}
+
+/// <summary>The colour of the nearest point of a mask's shape, spread outwards by jump flood.</summary>
+/// <remarks>
+///     <para>
+///         <b>Every texel within <c>Max Distance</c> of the shape takes <c>Source</c>'s colour at the
+///         nearest texel inside it, and every texel beyond is transparent black</b> — Patina #174's
+///         distance with a source colour. It is a dilation by colour: padding round islands so mips do
+///         not bleed the background in, or an outline the colour of what it outlines. <c>Fade</c>
+///         multiplies the colour by the falling distance. Inside the shape a texel keeps its own colour.
+///     </para>
+///     <para>
+///         <c>Analysis/Distance</c>'s flood, read at the seed rather than as a length: the record names
+///         the nearest in-texel already, so this is one more read and no second chain.
+///     </para>
+/// </remarks>
+[Node("Analysis/Distance Colour", Preview = true, Summary = "The colour of the nearest point of a mask's shape, spread outwards.")]
+sealed partial class DistanceColourNode : TextureNode {
+    /// <summary>How a length is measured: <c>Euclidean</c>, <c>Manhattan</c> or <c>Chebyshev</c>.</summary>
+    [Setting(AcceptedFrom = typeof(TextureDistanceMetric))]
+    public string Metric = "Euclidean";
+
+    /// <summary>The shape the colour is spread from. A single channel.</summary>
+    [Input(Name = "Mask")]
+    public Image Mask;
+
+    /// <summary>The colour spread, read where the shape is.</summary>
+    [Input(Name = "Source")]
+    public Image Source;
+
+    /// <summary>How far the colour reaches, as a fraction of the image's longer side.</summary>
+    [Input(Name = "Max Distance", Minimum = 0f, SoftMaximum = 1f)]
+    public Scalar MaxDistance = 0.25f;
+
+    /// <summary>What counts as inside the mask.</summary>
+    [Input(SoftMinimum = 0f, SoftMaximum = 1f)]
+    public Scalar Threshold = 0.5f;
+
+    /// <summary>Whether the colour darkens with the distance from the shape.</summary>
+    [Input]
+    public Bool Fade = false;
+
+    /// <summary>The spread colour.</summary>
+    [Output(Name = "Out")]
+    public Image Out;
+
+    /// <inheritdoc />
+    protected internal override void Compile(TextureEmitter emitter) {
+        ArgumentNullException.ThrowIfNull(emitter);
+
+        var metric = TextureSettings.Enum(emitter, nameof(Metric), TextureDistanceMetric.Euclidean);
+        var mask = emitter.ReadGrey("Mask");
+        var source = emitter.Read("Source", TextureChannels.Colour);
+        var target = emitter.Write("Out", TextureChannels.Colour);
+
+        if (mask < 0 || source < 0) {
+            return;
+        }
+
+        Distances.Emit(emitter, target, mask, TextureDistanceMode.Outside, metric, source, emitter.Flag(nameof(Fade)));
+    }
+}
+
+/// <summary>The jump-flood chain both distance nodes emit.</summary>
+static class Distances {
+    /// <summary>Allocates the flood's records and appends the chain, or reports the builder's refusal.</summary>
+    public static void Emit(
+        TextureEmitter emitter,
+        int target,
+        int mask,
+        TextureDistanceMode mode,
+        TextureDistanceMetric metric,
+        int source,
+        bool fade
+    ) {
         var width = emitter.Width;
         var height = emitter.Height;
         var passes = TextureAnalysis.FloodDispatches(width, height);
@@ -520,7 +613,10 @@ sealed partial class DistanceNode : TextureNode {
                     height,
                     mode,
                     emitter.Number("Max Distance"),
-                    emitter.Number(nameof(Threshold))
+                    emitter.Number("Threshold"),
+                    metric,
+                    source,
+                    fade
                 )
             );
         } catch (ArgumentException refusal) {

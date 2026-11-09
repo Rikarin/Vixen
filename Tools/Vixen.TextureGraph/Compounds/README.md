@@ -23,6 +23,7 @@ authored, and what it cost to author the things that could**.
 | | Contrast Luminosity | one `Levels`, all four handles from two knobs |
 | | Highpass | `Blur` → `Invert` → `Blend Copy` at half opacity |
 | | Glow | `Levels` for a bright pass → `Blur HQ` → `Blend Add` back over the picture, at the `Amount` |
+| | Frequency Split | `Blur HQ` for `Low`, and `Invert` → `Blend Copy` at half opacity for `High`: the one compound with two outputs, which add back up to the picture (Patina #176) |
 | | Equalize | `Highpass` at a coarse radius, then `Contrast Luminosity`. ⚠ **This is § 4.9's *Delight / Equalize* ●, and the slash there is an alias rather than an enumeration** — doc 40 § D2's second row names one technique ("high-pass over a large-radius blur") twice, exactly as its neighbour names one compound *make-it-tile / smart auto-tile*. There is no second file owed ([#1110](https://github.com/Rikarin/Vixen/issues/1110)) |
 | | Safe Transform | `Transform 2D` under `Wrap`, quarter turns and whole tile counts |
 | | Make It Tile | offset-wrap, a mirrored `Gradation` cross for the seam mask, a masked composite |
@@ -52,6 +53,7 @@ authored, and what it cost to author the things that could**.
 | `Grunges` | Concrete · Clouds · Damage · Fibres · Leaks · Rust · Scratches · Smears | `Noise` and `Slope Blur` in eight arrangements, which is § 4.9's own description |
 | `Surface` | Height Blend | one `Levels` on a height, then one `Colour/Mix` |
 | | Bevel | `Distance` inside → `Levels` for the profile → `Height to Normal` |
+| | Bevel Height | `Bevel`'s first two nodes, ending at the height. ⚠ A sibling and not a second output on `Bevel`, because a layer stack's filter is one image in and one out, and `Bevel` is one (Patina #176) |
 | | Curvature Smooth | `Blur HQ` → `Height to Normal` → `Curvature` |
 | | Height to AO | `Ambient Occlusion` → `Blur` → `Levels` |
 | | Metal Reflectance | `Colour/Metal Reflectance` on a `Metal` name port, mixed over a base by a mask through `Colour/Mix` — the row that was blocked on [#1096](https://github.com/Rikarin/Vixen/issues/1096) until the atomic node landed |

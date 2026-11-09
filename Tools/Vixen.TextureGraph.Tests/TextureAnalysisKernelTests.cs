@@ -83,7 +83,7 @@ public class TextureAnalysisKernelTests {
     ///     convention, and it costs one line to write down.
     /// </remarks>
     [Theory]
-    [InlineData("Distance", "flood")]
+    [InlineData("Distance", "flood", "source")]
     [InlineData("EdgeDetect", "source")]
     [InlineData("FloodBounds", "source")]
     [InlineData("FloodFill", "bounds")]

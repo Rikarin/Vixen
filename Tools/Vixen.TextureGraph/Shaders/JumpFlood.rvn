@@ -67,6 +67,15 @@ shader JumpFlood {
     /// be checked on the CPU, where it can be refused.
     var maxDistance: float = 0.25f
 
+    /// How a distance is measured: 0 Euclidean · 1 Manhattan (`|x| + |y|`) · 2 Chebyshev
+    /// (`max(|x|, |y|)`). Patina #174.
+    ///
+    /// The flood keeps whichever seed is nearest *under this metric*, and `Distance.rvn` reads the
+    /// same metric back, so the two agree on what "nearest" meant. ⚠ A jump flood is exact for none of
+    /// them in every configuration — its nine taps can miss a seed that a full search would find — and
+    /// the error is the same order under each: a texel or so, at the corners of Voronoi cells.
+    var metric: int = 0
+
     /// Non-zero when a tap past the left or right edge comes back on the other side. The plan's, as
     /// `seed` is: see `Math.Address`.
     var wrapX: int = 0
@@ -82,6 +91,23 @@ shader JumpFlood {
     /// against `TexturePlan.MaxExtent`'s 2^16. `Distance.rvn` needs no separate flag: an unset field
     /// is simply further away than the maximum.
     const val Unset: float = 1048576f
+
+    /// The square of an offset's length under `metric`, so the ceiling compares squares under all three.
+    func Measure(offset: float2): float {
+        if (metric == 1) {
+            val taxi = abs(offset.x) + abs(offset.y)
+
+            return taxi * taxi
+        }
+
+        if (metric == 2) {
+            val most = max(abs(offset.x), abs(offset.y))
+
+            return most * most
+        }
+
+        return dot(offset, offset)
+    }
 
     /// One neighbour's record, or its seeding, with no clamp — see the header.
     func Record(x: int, y: int): float4 {
@@ -128,7 +154,7 @@ shader JumpFlood {
                 val tap = Record(coord.x + dx * jump, coord.y + dy * jump)
 
                 val toInside = float2(tap.x + toward.x, tap.y + toward.y)
-                val insideDistance = dot(toInside, toInside)
+                val insideDistance = Measure(toInside)
 
                 if (insideDistance < insideBest && insideDistance <= ceiling) {
                     insideBest = insideDistance
@@ -136,7 +162,7 @@ shader JumpFlood {
                 }
 
                 val toOutside = float2(tap.z + toward.x, tap.w + toward.y)
-                val outsideDistance = dot(toOutside, toOutside)
+                val outsideDistance = Measure(toOutside)
 
                 if (outsideDistance < outsideBest && outsideDistance <= ceiling) {
                     outsideBest = outsideDistance

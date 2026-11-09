@@ -3,6 +3,8 @@
 
 package Vixen.TextureGraph.Shaders
 
+import Vixen.Shaders.Core
+
 // The reading half of doc 48 § 4.5's `Distance`: the settled jump-flood record turned into a grey.
 //
 // `JumpFlood.rvn` has already done the work — this is one load and a length, and it exists as a
@@ -22,9 +24,22 @@ package Vixen.TextureGraph.Shaders
 // unassertable without a second subtraction. `value * maxDistance` is a length in texels, which is
 // the property a test can hold this to.
 
+// **The source colour is the colour of the nearest in-texel, which the record already names.** `xy`
+// is the offset from here to that texel, so with `coloured` set a texel reads `source` there and
+// spreads the shape's own colours outwards (Patina #174) — what a dilation, a padding and an outline
+// coloured by what it outlines are all made of. Beyond the reach no seed was kept, and that texel is
+// transparent black: there is no colour it is nearest to. `fade` multiplies the colour by
+// `1 − distance`, the reference tool's "combine with the distance" in one switch.
+//
+// ⚠ The seed's address wraps where the plan wraps, for `JumpFlood.rvn`'s reason: the offset to a seed
+// across the seam points past the image, and the seed is on the other side.
+
 shader Distance {
     /// The settled record from the last `JumpFlood` dispatch.
     var flood: Texture2D
+
+    /// The colour spread from the shape when `coloured` is set; the record again when it is not.
+    var source: Texture2D
 
     /// 0 outside · 1 inside · 2 both, signed about a half.
     var mode: int = 0
@@ -32,7 +47,35 @@ shader Distance {
     /// The same fraction of the image's longer side the flood was run with.
     var maxDistance: float = 0.25f
 
+    /// The metric the flood was run with: 0 Euclidean · 1 Manhattan · 2 Chebyshev.
+    var metric: int = 0
+
+    /// Non-zero when `source` is a picture whose colour is spread, rather than a stand-in.
+    var coloured: int = 0
+
+    /// Non-zero to multiply a spread colour by `1 − distance`.
+    var fade: int = 0
+
+    /// Non-zero when a seed past the left or right edge is on the other side. The plan's.
+    var wrapX: int = 0
+
+    /// The same for the top and bottom edges.
+    var wrapY: int = 0
+
     [Format("rgba16f")] var target: RWTexture2D<float4>
+
+    /// An offset's length under `metric`.
+    func Length(offset: float2): float {
+        if (metric == 1) {
+            return abs(offset.x) + abs(offset.y)
+        }
+
+        if (metric == 2) {
+            return max(abs(offset.x), abs(offset.y))
+        }
+
+        return length(offset)
+    }
 
     [ComputeShader(8, 8, 1)]
     func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
@@ -47,8 +90,36 @@ shader Distance {
         val record = flood.Load(int3(clamp(coord.x, 0, extent.x - 1), clamp(coord.y, 0, extent.y - 1), 0))
         val reach = max(maxDistance * float(max(extent.x, extent.y)), 0.000001f)
 
-        val toInside = length(float2(record.x, record.y))
-        val toOutside = length(float2(record.z, record.w))
+        val toInside = Length(float2(record.x, record.y))
+        val toOutside = Length(float2(record.z, record.w))
+
+        if (coloured != 0) {
+            // No seed within reach was kept, so the offset is the flood's `Unset` and points at nothing.
+            if (toInside > reach) {
+                target.Store(coord, float4(0f, 0f, 0f, 0f))
+
+                return
+            }
+
+            val colourExtent = source.GetDimensions(0)
+            val seedX = coord.x + int(round(record.x))
+            val seedY = coord.y + int(round(record.y))
+
+            // The record is in texels of the flood, and the source is read at its own extent.
+            val sx = int(floor((float(Math.Address(seedX, extent.x, wrapX)) + 0.5f) * float(colourExtent.x) / float(extent.x)))
+            val sy = int(floor((float(Math.Address(seedY, extent.y, wrapY)) + 0.5f) * float(colourExtent.y) / float(extent.y)))
+            val colour = source.Load(int3(clamp(sx, 0, colourExtent.x - 1), clamp(sy, 0, colourExtent.y - 1), 0))
+
+            var kept = 1f
+
+            if (fade != 0) {
+                kept = 1f - saturate(toInside / reach)
+            }
+
+            target.Store(coord, float4(colour.x * kept, colour.y * kept, colour.z * kept, 1f))
+
+            return
+        }
 
         var value = saturate(toInside / reach)
 

@@ -434,8 +434,22 @@ public static class LayerStackGraph {
 
         return Builder.Images(type, PortDirection.Input) == 1
             && Builder.Images(type, PortDirection.Output) == 1
-            && !IdentityOnAStack.Contains(type.Path);
+            && !IdentityOnAStack.Contains(type.Path)
+            && !ReadsNoPicture.Contains(type.Path);
     }
+
+    /// <summary>One-image nodes whose image is not a picture, so a stack has nothing to hand them.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Refused, not merely left off the list</b> (Patina #179). Each reads § D12's <c>position</c>
+    ///     bake through its one image port, and a filter layer or a mask step would hand it the colour or the
+    ///     mask beneath instead — a noise of a colour read as a place on the model, which is a plausible
+    ///     picture of nothing. A stack reaches them through a fill's graph, where the port is wired to a mesh map.
+    /// </remarks>
+    static readonly HashSet<string> ReadsNoPicture = new(StringComparer.Ordinal) {
+        "Source/Volume Gradient",
+        "Source/Volume Mask",
+        "Source/Volume Noise"
+    };
 
     /// <summary>One-image nodes the compile would take and that cannot change a stack's picture.</summary>
     /// <remarks>

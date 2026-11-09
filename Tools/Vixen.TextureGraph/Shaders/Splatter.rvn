@@ -68,8 +68,22 @@ shader Splatter {
     /// far as it says, which reads as a weak effect and not as a wrong one.
     var placement: Texture2D
 
-    /// How many instances. Refused above `MaxInstances` where the op is built.
+    /// What the batches before this one left, when `batched` is set; a stand-in when it is not.
+    ///
+    /// **A splatter of more than `MaxInstances` is several of these ops in a chain** (Patina #170), each
+    /// walking the next `MaxInstances` instances and starting every sub-sample from what the one before
+    /// it wrote at this texel. The loop bound is still this constant, so no one dispatch costs more than
+    /// it did, and the count the node offers is a multiple of it rather than the constant itself.
+    var carried: Texture2D
+
+    /// How many instances in the whole splatter, across every batch.
     var count: int = 16
+
+    /// The first instance this batch walks: a multiple of `MaxInstances`.
+    var first: int = 0
+
+    /// Non-zero when `carried` holds the batches before this one.
+    var batched: int = 0
 
     /// An instance's size as a fraction of the **image**, not of a cell — there are no cells here.
     var scale: float = 0.25f
@@ -115,6 +129,19 @@ shader Splatter {
     /// How much of each instance reaches the result.
     var opacity: float = 1f
 
+    /// What each instance draws: 0 the pattern · 1 a random grey · 2 a random colour · 3 its number over
+    /// the count · 4 its own UV. The last four are what a per-instance mask, tint or ramp is made of.
+    var output: int = 0
+
+    /// 0 a scatter, every instance anywhere · 1 a ring, the instances evenly round a circle.
+    var distribution: int = 0
+
+    /// The ring's radius as a fraction of the image, about its centre.
+    var ringRadius: float = 0.3f
+
+    /// Non-zero to turn each instance on a ring by its angle round it, so it faces along the ring.
+    var followRing: int = 0
+
     /// The op's own seed, already mixed. See `TexturePlan.SeedFor`.
     var seed: float = 0f
 
@@ -133,10 +160,42 @@ shader Splatter {
     /// The most sub-samples per axis, whatever the minification says. `TileSampler`'s number.
     const val MaxSamples: int = 4
 
+    const val TwoPi: float = 6.2831853f
+
     func Seeded(): uint => uint(int(max(seed, 0f)))
 
     /// One of an instance's independent random numbers. `lane` keeps the five uncorrelated.
     func Draw(instance: uint, lane: uint): float => Random.ToFloat01(Random.Combine(Random.Combine(instance, lane), Seeded()))
+
+    /// What one instance draws under `output`, and its coverage beside it.
+    ///
+    /// ⚠ **Under a luminance coverage the value is multiplied by it**, which is `Coverage`'s model: with no
+    /// alpha the image is an energy, so a texel half covered by an instance is half as bright whatever the
+    /// instance carries. With an alpha the value stays straight and the alpha says how much of it there is.
+    /// Patina #170.
+    func Instance(id: uint, number: float, local: float2, colour: float3, texel: float4): float3 {
+        if (output == 0) {
+            return colour
+        }
+
+        var value = float3(local.x + 0.5f, local.y + 0.5f, 0f)
+
+        if (output == 1) {
+            val grey = Draw(id, 7u)
+
+            value = float3(grey, grey, grey)
+        } else if (output == 2) {
+            value = float3(Draw(id, 7u), Draw(id, 8u), Draw(id, 9u))
+        } else if (output == 3) {
+            value = float3(number, number, number)
+        }
+
+        if (alphaCoverage == 0) {
+            return value * Coverage(texel)
+        }
+
+        return value
+    }
 
     /// One texel of a source, clamped to **that source's** dimensions and never the target's — #618.
     func Tap(image: Texture2D, x: int, y: int): float4 {
@@ -274,17 +333,32 @@ shader Splatter {
     }
 
     /// Every instance, gathered at one point of the image in normalised coordinates.
-    func Gather(uv: float2): float4 {
-        var carried = float4(0f, 0f, 0f, 0f)
-        val wanted = clamp(count, 0, MaxInstances)
+    func Gather(uv: float2, start: float4): float4 {
+        var carried = start
+        val total = max(count, 1)
+        val wanted = clamp(count - first, 0, MaxInstances)
 
-        for (index in 0 .. MaxInstances) {
-            if (index >= wanted) {
+        for (walked in 0 .. MaxInstances) {
+            if (walked >= wanted) {
                 break
             }
 
+            val index = walked + max(first, 0)
             val id = uint(index + 1)
-            val placed = float2(Draw(id, 1u), Draw(id, 2u))
+            // ⚠ A ring divides a whole turn among its instances, which is geometry and not a parameter
+            // decoded: `TextureAngleUnitTests` says so.
+            val around = TwoPi * float(index) / float(total)
+            var placed = float2(Draw(id, 1u), Draw(id, 2u))
+            var faced = 0f
+
+            if (distribution == 1) {
+                placed = float2(0.5f + ringRadius * cos(around), 0.5f + ringRadius * sin(around))
+
+                if (followRing != 0) {
+                    faced = around
+                }
+            }
+
             val push = At(placement, placed.x, placed.y)
             val centre = placed + (float2(push.x, push.y) * 2f - float2(1f, 1f)) * placementAmount
 
@@ -310,7 +384,7 @@ shader Splatter {
                 val size = max(scale, 0.000001f) * shrink * mapped
 
                 val spun = (Draw(id, 4u) - 0.5f) * max(rotationJitter, 0f)
-                val angle = rotation + spun + turned * rotationMapAmount
+                val angle = rotation + spun + turned * rotationMapAmount + faced
                 val c = cos(angle)
                 val s = sin(angle)
 
@@ -327,7 +401,9 @@ shader Splatter {
                     val texel = Stamp(slot, local)
                     val tint = 1f - saturate(colourJitter) * Draw(id, 6u)
 
-                    carried = Accumulate(carried, texel.xyz * tint, Coverage(texel))
+                    val number = (float(index) + 0.5f) / float(total)
+
+                    carried = Accumulate(carried, Instance(id, number, local, texel.xyz * tint, texel), Coverage(texel))
                 }
             }
         }
@@ -342,6 +418,14 @@ shader Splatter {
 
         if (coord.x >= size.x || coord.y >= size.y) {
             return
+        }
+
+        // What the batches before this one left here, which every sub-sample starts from. Nought for the
+        // first batch, which is what a splatter of one batch always started from.
+        var start = float4(0f, 0f, 0f, 0f)
+
+        if (batched != 0) {
+            start = Tap(carried, coord.x, coord.y)
         }
 
         // How many pattern texels one output texel covers, so a minified stamp is boxed rather than
@@ -369,7 +453,7 @@ shader Splatter {
 
                 val u = (float(coord.x) + (float(jx) + 0.5f) * step) / float(size.x)
                 val v = (float(coord.y) + (float(jy) + 0.5f) * step) / float(size.y)
-                val gathered = Gather(float2(u, v))
+                val gathered = Gather(float2(u, v), start)
 
                 sum = sum + gathered
                 weighted = weighted + gathered.xyz * gathered.w

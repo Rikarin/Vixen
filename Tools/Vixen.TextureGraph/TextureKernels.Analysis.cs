@@ -25,7 +25,23 @@ internal enum TextureDistanceMode {
     Both = 2
 }
 
-/// <summary>Which of a <c>Flood Fill</c>'s five pictures an op reads out of the settled record.</summary>
+/// <summary>How a <c>Distance</c> node measures a length.</summary>
+/// <remarks>
+///     The numbers are the contract with <c>Shaders/JumpFlood.rvn</c>'s and <c>Shaders/Distance.rvn</c>'s
+///     <c>metric</c>, which compare against them literally. Patina #174.
+/// </remarks>
+internal enum TextureDistanceMetric {
+    /// <summary>The straight-line length: round fields, round corners on a grown shape.</summary>
+    Euclidean = 0,
+
+    /// <summary><c>|x| + |y|</c>: a diamond about a point, and a bevel with chamfered corners.</summary>
+    Manhattan = 1,
+
+    /// <summary><c>max(|x|, |y|)</c>: a square about a point, and a grown shape that keeps its square corners.</summary>
+    Chebyshev = 2
+}
+
+/// <summary>Which of a <c>Flood Fill</c>'s seven pictures an op reads out of the settled record.</summary>
 /// <remarks>
 ///     ⚠ <b><see cref="Size" /> is the island's bounding box and not its area</b> — see
 ///     <c>Shaders/FloodFill.rvn</c>. A pixel count is a sum over the island and the chain that
@@ -62,7 +78,13 @@ internal enum TextureFloodOutput {
     BoundingBox = 3,
 
     /// <summary>The box's width, height and longer side, each as a fraction of the image.</summary>
-    Size = 4
+    Size = 4,
+
+    /// <summary>Three values per island, one per colour lane, seeded as <see cref="Random" /> is.</summary>
+    Colour = 5,
+
+    /// <summary>A ramp across the island's box along an angle, turned per island by a random amount.</summary>
+    Gradient = 6
 }
 
 /// <summary>Doc 48 § 4.5's three analysis kernels, by the name a <see cref="TextureOp" /> gives.</summary>
@@ -91,7 +113,7 @@ internal static class TextureAnalysisKernels {
     /// <summary>Whether the last <see cref="FloodBounds" /> iteration changed anything.</summary>
     public const string FloodResidual = "FloodResidual";
 
-    /// <summary>The settled bounds record read out as one of five pictures.</summary>
+    /// <summary>The settled bounds record read out as one of seven pictures.</summary>
     public const string FloodFill = "FloodFill";
 
     /// <summary>Every kernel this slice registers, which is what the roll call enumerates.</summary>
@@ -153,7 +175,7 @@ internal static class TextureAnalysis {
     /// <summary>How many <c>JumpFlood</c> dispatches an image of this size needs.</summary>
     /// <param name="width">The width of the image the node writes, in texels of this bake.</param>
     /// <param name="height">Its height.</param>
-    /// <returns>The number of ops <see cref="Distance(int, int, ImmutableArray{int}, int, int, TextureDistanceMode, float, float)" /> will emit before the read.</returns>
+    /// <returns>The number of ops <see cref="Distance(int, int, ImmutableArray{int}, int, int, TextureDistanceMode, float, float, TextureDistanceMetric, int, bool)" /> will emit before the read.</returns>
     /// <remarks>
     ///     ⚠ <b>The seeding pass is also the first jump, which is why this is <c>log2(n)</c> and not
     ///     <c>log2(n) + 1</c>.</b> <c>JumpFlood.rvn</c>'s <c>first</c> uniform makes its taps read the
@@ -181,6 +203,12 @@ internal static class TextureAnalysis {
     /// <param name="mode">Which side of the shape is measured.</param>
     /// <param name="maxDistance">How far the field reaches, as a fraction of the image's longer side.</param>
     /// <param name="threshold">What counts as inside the mask.</param>
+    /// <param name="metric">How a length is measured, by the flood and by the read alike.</param>
+    /// <param name="source">
+    ///     A picture whose colour at the nearest in-texel is spread instead of a distance, or −1 for the
+    ///     distance itself.
+    /// </param>
+    /// <param name="fade">Whether a spread colour is multiplied by one less the distance.</param>
     /// <returns>The ops, in evaluation order.</returns>
     /// <exception cref="ArgumentException">The scratch list is the wrong length.</exception>
     /// <exception cref="ArgumentOutOfRangeException">The maximum distance is outside 0..1.</exception>
@@ -192,7 +220,10 @@ internal static class TextureAnalysis {
         int height,
         TextureDistanceMode mode = TextureDistanceMode.Outside,
         float maxDistance = 0.25f,
-        float threshold = 0.5f
+        float threshold = 0.5f,
+        TextureDistanceMetric metric = TextureDistanceMetric.Euclidean,
+        int source = -1,
+        bool fade = false
     ) {
         var dispatches = FloodDispatches(width, height);
 
@@ -238,7 +269,8 @@ internal static class TextureAnalysis {
                         new("first", pass == 0 ? 1f : 0f),
                         new("step", Math.Max(step, 1)),
                         new("threshold", threshold),
-                        new("maxDistance", maxDistance)
+                        new("maxDistance", maxDistance),
+                        new("metric", (float)metric)
                     ]
                 }
             );
@@ -250,8 +282,14 @@ internal static class TextureAnalysis {
             new() {
                 Kernel = TextureAnalysisKernels.Distance,
                 Output = output,
-                Inputs = [scratch[^1]],
-                Parameters = [new("mode", (float)mode), new("maxDistance", maxDistance)]
+                Inputs = [scratch[^1], source >= 0 ? source : scratch[^1]],
+                Parameters = [
+                    new("mode", (float)mode),
+                    new("maxDistance", maxDistance),
+                    new("metric", (float)metric),
+                    new("coloured", source >= 0 ? 1f : 0f),
+                    new("fade", fade ? 1f : 0f)
+                ]
             }
         );
 
@@ -285,9 +323,11 @@ internal static class TextureAnalysis {
     /// </param>
     /// <param name="width">The width of the image being written, in texels of this bake.</param>
     /// <param name="height">Its height.</param>
-    /// <param name="kind">Which of the five pictures to read out.</param>
+    /// <param name="kind">Which of the seven pictures to read out.</param>
     /// <param name="diagonal">Whether diagonally touching texels are one island.</param>
     /// <param name="threshold">What counts as inside the mask.</param>
+    /// <param name="angle"><see cref="TextureFloodOutput.Gradient" />'s direction, in radians.</param>
+    /// <param name="angleVariation">How far each island's direction may turn, in radians, half either way.</param>
     /// <returns>The ops, in evaluation order.</returns>
     /// <exception cref="ArgumentException">The scratch list is empty.</exception>
     /// <remarks>
@@ -313,7 +353,9 @@ internal static class TextureAnalysis {
         int height,
         TextureFloodOutput kind = TextureFloodOutput.Random,
         bool diagonal = false,
-        float threshold = 0.5f
+        float threshold = 0.5f,
+        float angle = 0f,
+        float angleVariation = 0f
     ) {
         if (scratch.IsDefaultOrEmpty) {
             throw new ArgumentException(
@@ -348,7 +390,7 @@ internal static class TextureAnalysis {
             );
         }
 
-        ops.Add(FloodRead(output, scratch[^1], kind));
+        ops.Add(FloodRead(output, scratch[^1], kind, angle, angleVariation));
 
         return ops.ToImmutable();
     }
@@ -384,7 +426,9 @@ internal static class TextureAnalysis {
     /// <summary>One more picture out of a settled flood record, without flooding again.</summary>
     /// <param name="output">The image to write.</param>
     /// <param name="bounds">The settled record — the last image the propagation wrote.</param>
-    /// <param name="kind">Which of the five pictures.</param>
+    /// <param name="kind">Which of the seven pictures.</param>
+    /// <param name="angle"><see cref="TextureFloodOutput.Gradient" />'s direction, in radians.</param>
+    /// <param name="angleVariation">How far each island's direction may turn, in radians, half either way.</param>
     /// <returns>The op.</returns>
     /// <remarks>
     ///     ⚠ <b>This is why doc 48 § 4.5 can say the node has five outputs and still be one
@@ -393,12 +437,18 @@ internal static class TextureAnalysis {
     ///     end that re-ran the chain per output would be correct and would cost the settling time
     ///     again — which, for the shapes this node is slow on, is the whole cost of the node.
     /// </remarks>
-    public static TextureOp FloodRead(int output, int bounds, TextureFloodOutput kind) =>
+    public static TextureOp FloodRead(
+        int output,
+        int bounds,
+        TextureFloodOutput kind,
+        float angle = 0f,
+        float angleVariation = 0f
+    ) =>
         new() {
             Kernel = TextureAnalysisKernels.FloodFill,
             Output = output,
             Inputs = [bounds],
-            Parameters = [new("kind", (float)kind)]
+            Parameters = [new("kind", (float)kind), new("angle", angle), new("angleVariation", angleVariation)]
         };
 
     /// <summary>Whether the last propagation iteration changed anything, as a picture.</summary>

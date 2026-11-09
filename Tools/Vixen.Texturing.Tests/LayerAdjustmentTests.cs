@@ -18,6 +18,13 @@ public sealed class LayerAdjustmentTests {
     [InlineData("Source/Noise", false)]
     [InlineData("Colour/Premultiply", false)]
     [InlineData("Colour/Unpremultiply", false)]
+    [InlineData("Analysis/Distance", true)]
+    [InlineData("Surface/Height Shadow", true)]
+    [InlineData("Surface/Bevel Height", true)]
+    [InlineData("Analysis/Distance Colour", false)]
+    [InlineData("Source/Volume Noise", false)]
+    [InlineData("Source/Volume Mask", false)]
+    [InlineData("Source/Volume Gradient", false)]
     public void One_image_in_and_one_out_is_an_adjustment_unless_it_cannot_change_a_stack(string path, bool offered) {
         var library = LayerStackCompiler.Library(out _);
 

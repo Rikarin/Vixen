@@ -6,6 +6,38 @@ using System.Globalization;
 
 namespace Vixen.TextureGraph;
 
+/// <summary>What each instance of a placement kernel draws.</summary>
+/// <remarks>
+///     The numbers are the contract with <c>output</c> in both placement kernels. Patina #170: the per-instance
+///     data a tint, a mask from a range of instances or a ramp across each instance is made of.
+/// </remarks>
+internal enum TexturePlacementOutput {
+    /// <summary>The pattern itself, as it always drew.</summary>
+    Pattern = 0,
+
+    /// <summary>One random grey per instance, shaped by the pattern's coverage.</summary>
+    Random = 1,
+
+    /// <summary>One random colour per instance, whose red is <see cref="Random" />'s grey.</summary>
+    Colour = 2,
+
+    /// <summary>The instance's number over the count, centred in its share: <c>(i + ½) / n</c>.</summary>
+    Index = 3,
+
+    /// <summary>Where in its own square a texel is, in red and green.</summary>
+    Uv = 4
+}
+
+/// <summary>Where a splatter puts its instances.</summary>
+/// <remarks>The numbers are the contract with <c>Shaders/Splatter.rvn</c>'s <c>distribution</c>.</remarks>
+internal enum TextureSplatterDistribution {
+    /// <summary>Anywhere, each by its own two random numbers.</summary>
+    Scatter = 0,
+
+    /// <summary>Evenly round a circle about the image's centre.</summary>
+    Ring = 1
+}
+
 /// <summary>How a placement kernel folds one instance into what the ones before it left.</summary>
 /// <remarks>
 ///     ⚠ <b>The numbers are the contract with <c>accumulation</c> in both placement kernels, which
@@ -91,6 +123,20 @@ internal static class TexturePlacement {
     /// <remarks>Duplicated from <c>Shaders/Splatter.rvn</c>'s <c>MaxInstances</c>, and asserted equal.</remarks>
     public const int MaxInstances = 256;
 
+    /// <summary>The most instances a <c>Placement/Splatter</c> node may place, as a chain of ops.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Sixteen batches, each one <see cref="MaxInstances" /> instances and one dispatch</b> — Patina
+    ///     #170 asked for the 256 to be raised or removed. A batch is still bounded by the kernel's loop, so
+    ///     what this ceiling buys is a cost a reader can multiply: at most sixteen dispatches of what one cost
+    ///     before. A count past it is refused, for the reason <see cref="MaxInstances" /> was.
+    /// </remarks>
+    public const int MaxBatchedInstances = 16 * MaxInstances;
+
+    /// <summary>How many ops a splatter of so many instances is.</summary>
+    /// <param name="count">The instances.</param>
+    /// <returns>One per <see cref="MaxInstances" />, and at least one.</returns>
+    public static int SplatterBatches(int count) => Math.Max(1, (count + MaxInstances - 1) / MaxInstances);
+
     /// <summary>Half the diagonal of a unit square: how far a rotated instance reaches past its size.</summary>
     const float HalfDiagonal = 0.70710678f;
 
@@ -115,6 +161,8 @@ internal static class TexturePlacement {
     /// <param name="rotationMapAmount">How much of the rotation map is added, in radians.</param>
     /// <param name="accumulation">How overlapping instances combine.</param>
     /// <param name="opacity">How much of each instance reaches the result.</param>
+    /// <param name="draws">What each instance draws: the pattern or one of its per-instance numbers.</param>
+    /// <param name="rowOffset">How far odd rows are shifted along x, as a fraction of a cell.</param>
     /// <returns>The op.</returns>
     /// <exception cref="ArgumentOutOfRangeException">A grid, a count or a scale is not positive.</exception>
     /// <exception cref="ArgumentException">The instance would reach further than the kernel searches.</exception>
@@ -138,7 +186,9 @@ internal static class TexturePlacement {
         float sizeMapAmount = 0f,
         float rotationMapAmount = 0f,
         TexturePlacementAccumulation accumulation = TexturePlacementAccumulation.Max,
-        float opacity = 1f
+        float opacity = 1f,
+        TexturePlacementOutput draws = TexturePlacementOutput.Pattern,
+        float rowOffset = 0f
     ) {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(gridX);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(gridY);
@@ -149,7 +199,7 @@ internal static class TexturePlacement {
         // loop, which is a correctness property — a NaN in `scale` must not be a dispatch that never
         // ends. What it cannot be is the *answer*: an instance the search does not reach is drawn
         // with a straight edge along a cell boundary, which looks like a pattern and not like a bug.
-        var reach = (scale * HalfDiagonal) + (Math.Clamp(positionJitter, 0f, 1f) * 0.5f);
+        var reach = (scale * HalfDiagonal) + (Math.Clamp(positionJitter, 0f, 1f) * 0.5f) + Math.Clamp(rowOffset, 0f, 1f);
 
         if (reach > MaxSearch) {
             var cells = reach.ToString("0.###", CultureInfo.InvariantCulture);
@@ -199,7 +249,9 @@ internal static class TexturePlacement {
                 new("sizeMapAmount", sizeMapAmount),
                 new("rotationMapAmount", rotationMapAmount),
                 new("accumulation", (float)(int)accumulation),
-                new("opacity", opacity)
+                new("opacity", opacity),
+                new("output", (float)draws),
+                new("rowOffset", rowOffset)
             ]
         };
     }
@@ -284,6 +336,10 @@ internal static class TexturePlacement {
     /// <param name="placementAmount">How far the placement map may move an instance, in fractions of the image.</param>
     /// <param name="accumulation">How overlapping instances combine.</param>
     /// <param name="opacity">How much of each instance reaches the result.</param>
+    /// <param name="draws">What each instance draws: the pattern or one of its per-instance numbers.</param>
+    /// <param name="distribution">Where the instances go: a scatter, or evenly round a ring.</param>
+    /// <param name="ringRadius">The ring's radius, as a fraction of the image.</param>
+    /// <param name="followRing">Whether an instance on a ring is turned by its angle round it.</param>
     /// <returns>The op.</returns>
     /// <exception cref="ArgumentOutOfRangeException">The count is not positive, or the scale is not.</exception>
     /// <exception cref="ArgumentException">The count is past what the kernel walks.</exception>
@@ -307,7 +363,11 @@ internal static class TexturePlacement {
         float rotationMapAmount = 0f,
         float placementAmount = 0f,
         TexturePlacementAccumulation accumulation = TexturePlacementAccumulation.Max,
-        float opacity = 1f
+        float opacity = 1f,
+        TexturePlacementOutput draws = TexturePlacementOutput.Pattern,
+        TextureSplatterDistribution distribution = TextureSplatterDistribution.Scatter,
+        float ringRadius = 0.3f,
+        bool followRing = false
     ) {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(count);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(scale);
@@ -325,23 +385,12 @@ internal static class TexturePlacement {
             );
         }
 
-        return new() {
-            Kernel = SplatterKernel,
-            Output = output,
-            Inputs = [pattern, mask, sizeMap, rotationMap, placement],
-
-            // ⚠ #867, `TileSampler`'s reason and one more input. All five are read through their own
-            // extent, so **every** input of this op is extent-agnostic — which is why
-            // `OtherExtentInputs` stays empty here rather than listing 0 through 4: empty means every
-            // input, and a list that has to be kept in step with `Inputs` is a second thing to get
-            // wrong. See `TextureOp.OtherExtentInputs` for the op where the distinction is real.
-            //
-            // ⚠ And #900 applies here word for word: the caution this silences is one no compiled
-            // graph can raise, because `SplatterNode.Compile` reads through `TextureEmitter.Read` and
-            // that rescales to the node's level before the op is built. A hand-built plan is the
-            // reachable case, exactly as it is for `AutoLevels`.
-            ReadsOtherExtents = true,
-            Parameters = [
+        return SplatterBatch(
+            output,
+            [pattern, mask, sizeMap, rotationMap, placement, pattern],
+            0,
+            false,
+            [
                 new("count", count),
                 new("scale", scale),
                 new("scaleJitter", scaleJitter),
@@ -355,10 +404,97 @@ internal static class TexturePlacement {
                 new("rotationMapAmount", rotationMapAmount),
                 new("placementAmount", placementAmount),
                 new("accumulation", (float)(int)accumulation),
-                new("opacity", opacity)
+                new("opacity", opacity),
+                new("output", (float)draws),
+                new("distribution", (float)distribution),
+                new("ringRadius", ringRadius),
+                new("followRing", followRing ? 1f : 0f)
             ]
-        };
+        );
     }
+
+    /// <summary>A splatter of up to <see cref="MaxBatchedInstances" />, as a chain of batches.</summary>
+    /// <param name="output">The image the last batch writes.</param>
+    /// <param name="scratch">
+    ///     One image per batch but the last, the output's size and format: what each batch hands the next.
+    /// </param>
+    /// <param name="single">
+    ///     The whole splatter as one op would be, with its count — built by
+    ///     <see cref="Splatter(int, int, int, int, int, int, int, float, float, float, float, float, int, bool, float, float, float, float, TexturePlacementAccumulation, float, TexturePlacementOutput, TextureSplatterDistribution, float, bool)" />
+    ///     at a count it accepts and given the real one here.
+    /// </param>
+    /// <param name="count">How many instances in all.</param>
+    /// <returns>The ops, in evaluation order.</returns>
+    /// <exception cref="ArgumentException">The count is past the ceiling, or the scratch list is the wrong length.</exception>
+    public static ImmutableArray<TextureOp> SplatterChain(int output, ImmutableArray<int> scratch, TextureOp single, int count) {
+        ArgumentNullException.ThrowIfNull(single);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(count);
+
+        if (count > MaxBatchedInstances) {
+            throw new ArgumentException(
+                $"'{SplatterKernel}' places at most {MaxBatchedInstances} instances, in {MaxBatchedInstances / MaxInstances} "
+                + $"batches of {MaxInstances}, and this asks for {count}. Each batch is a dispatch over the whole image, so "
+                + "the cost of the node is knowable before it runs; a graph that wants more blends several.",
+                nameof(count)
+            );
+        }
+
+        var batches = SplatterBatches(count);
+
+        if (scratch.Length != batches - 1) {
+            throw new ArgumentException(
+                $"A splatter of {count} is {batches} batches, and so {batches - 1} scratch images; this names {scratch.Length}.",
+                nameof(scratch)
+            );
+        }
+
+        var parameters = single.Parameters.Where(static parameter => parameter.Name is not ("count" or "first" or "batched"))
+            .Append(new("count", count))
+            .ToImmutableArray();
+
+        var ops = ImmutableArray.CreateBuilder<TextureOp>(batches);
+
+        for (var batch = 0; batch < batches; batch++) {
+            ops.Add(
+                SplatterBatch(
+                    batch == batches - 1 ? output : scratch[batch],
+                    [.. single.Inputs.Take(5), batch == 0 ? single.Inputs[0] : scratch[batch - 1]],
+                    batch * MaxInstances,
+                    batch > 0,
+                    parameters
+                )
+            );
+        }
+
+        return ops.ToImmutable();
+    }
+
+    /// <summary>One batch of a splatter: the kernel's whole parameter set, with where this batch starts.</summary>
+    static TextureOp SplatterBatch(
+        int output,
+        ImmutableArray<int> inputs,
+        int first,
+        bool batched,
+        IEnumerable<TextureParameter> parameters
+    ) =>
+        new() {
+            Kernel = SplatterKernel,
+            Output = output,
+            Inputs = inputs,
+
+            // ⚠ #867, `TileSampler`'s reason and one more input. All five are read through their own
+            // extent, so **every** input of this op is extent-agnostic — which is why
+            // `OtherExtentInputs` stays empty here rather than listing 0 through 4: empty means every
+            // input, and a list that has to be kept in step with `Inputs` is a second thing to get
+            // wrong. See `TextureOp.OtherExtentInputs` for the op where the distinction is real.
+            //
+            // ⚠ And #900 applies here word for word: the caution this silences is one no compiled
+            // graph can raise, because `SplatterNode.Compile` reads through `TextureEmitter.Read` and
+            // that rescales to the node's level before the op is built. A hand-built plan is the
+            // reachable case, exactly as it is for `AutoLevels`.
+            ReadsOtherExtents = true,
+            Parameters = [.. parameters, new("first", first), new("batched", batched ? 1f : 0f)]
+        };
 
     /// <summary>The same scatter with no maps: the pattern is bound to all five inputs and none is read.</summary>
     /// <param name="output">The image to write.</param>

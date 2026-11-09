@@ -127,6 +127,15 @@ public class TextureNodeLibraryTests {
         [("SelectInput", "wired")] = "Not a default: one bit per slot that has a wire, and the fixture wires two.",
         [("HistogramPlot", "mode")] = "Not a default: Analysis/Histogram and Analysis/Histogram Render are the same "
             + "kernel, and the fixture's render draws bars where the kernel's own nought is the density strip.",
+        [("Distance", "coloured")] = "Not a default: Analysis/Distance Colour is the same kernel read at the seed, and "
+            + "it sets the flag its name says.",
+        [("VolumeShape", "kind")] = "Not a default: Source/Volume Mask and Source/Volume Gradient are the same kernel, "
+            + "and the gradient sets the kind its name says.",
+        [("VolumeShape", "ay")] = "Source/Volume Gradient starts at the bottom of the model, where the kernel's own "
+            + "point is the mask's centre.",
+        [("VolumeShape", "by")] = "And ends at its top, where the kernel's is the mask's extent.",
+        [("VolumeShape", "falloff")] = "Not read by the gradient, which passes nought.",
+        [("NormalBlend", "masked")] = "Not a default: it says whether the Mask port is wired, and the fixture wires it.",
         [("SummedArea", "axis")] = "Not a default: set per pass by Analysis/Summed Area Table's chain, x first and "
             + "then y.",
         [("SummedArea", "stride")] = "Multiplied by eight per pass along each axis. Its whole point is that it is "
@@ -506,7 +515,7 @@ public class TextureNodeLibraryTests {
         // Nothing is wired to either node's maps, so every slot is the pattern. The lengths are
         // asserted first because `All` over one element is true of anything.
         Assert.Equal(4, sampler.Inputs.Length);
-        Assert.Equal(5, splatter.Inputs.Length);
+        Assert.Equal(6, splatter.Inputs.Length);
         Assert.All(sampler.Inputs, input => Assert.Equal(sampler.Inputs[0], input));
         Assert.All(splatter.Inputs, input => Assert.Equal(splatter.Inputs[0], input));
 
@@ -711,6 +720,17 @@ public class TextureNodeLibraryTests {
         graph.Connect(heightToNormal, "Out", normalToHeight, "Normal");
         graph.Connect(normalToHeight, "Out", occlusion, "Height");
 
+        // Patina #176's shadow and normal mix, downstream of the same height and its two normals. The mix's
+        // optional mask is wired, to a smooth field: the shadow's hard edge would move a texel between 16
+        // and 32 bits and take the mix with it.
+        var heightShadow = graph.Add("Surface/Height Shadow");
+        var normalBlend = graph.Add("Surface/Normal Blend");
+
+        graph.Connect(slopeBlur, "Out", heightShadow, "Height");
+        graph.Connect(heightToNormal, "Out", normalBlend, "Background");
+        graph.Connect(normalCombine, "Out", normalBlend, "Foreground");
+        graph.Connect(distance, "Out", normalBlend, "Mask");
+
         // The colour side. ⚠ The blend takes a colour and a grey, so the compiler's promotion is on
         // this path too — the one op in the plan no node emitted.
         var uniform = graph.Add("Source/Uniform");
@@ -750,6 +770,13 @@ public class TextureNodeLibraryTests {
         var colourSelect = graph.Add("Analysis/Colour Select");
 
         graph.Connect(invert, "Out", colourSelect, "Input");
+
+        // Patina #174's colour spread: the same flood as Distance, read at the seed. Its source is on the
+        // colour side, so no promotion is inserted for it — a grey there would be a third ChannelShuffle.
+        var spread = graph.Add("Analysis/Distance Colour");
+
+        graph.Connect(blur, "Out", spread, "Mask");
+        graph.Connect(invert, "Out", spread, "Source");
 
         // ⚠ § 4.9's named-metal lookup, placed and wired to nothing, because it *reads* nothing: it
         // is the one node in the library with no input port at all. An op still reaches the plan
@@ -810,6 +837,11 @@ public class TextureNodeLibraryTests {
         graph.Connect(hsl, "Out", triplanar, "Input");
         graph.Connect(place, "Out", triplanar, "Position");
         graph.Connect(facing, "Out", triplanar, "Normal");
+
+        // Patina #179's three readers of the same position bake, each ending in no Output node.
+        foreach (var path in (string[])["Source/Volume Noise", "Source/Volume Mask", "Source/Volume Gradient"]) {
+            graph.Connect(place, "Out", graph.Add(path), "Position");
+        }
         graph.Connect(gradient, "Out", curve, "Input");
 
         // Grey into the ladder and out through the ramp, because Gradient Map measures rather than

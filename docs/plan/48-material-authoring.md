@@ -739,6 +739,15 @@ Three rules the whole catalogue obeys:
 | **Text** | grey | string, font, size, alignment, tracking | ⚙️ **Half built, and the half that was a decision is decided.** `TextureText.Rasterize` shapes and fills the string through the `Outlines` path and `TextureUploads.AddCoverage` puts it on the device — closed on an adapter, texel for texel, in `TextureTextDeviceTests`. What is left is a node, and the font it draws with is answered below rather than deferred again. ⚠ It is **not** a kernel — [#687](https://github.com/Rikarin/Vixen/issues/687) — because a compute kernel has no rasteriser and cannot reach a font |
 | **Svg Path** | grey | path data (`d`), fill rule, scale | ⛔ **Refused here on one remaining reason of the three first written down.** The closure measurement was wrong, the fill rule is now implemented, and what is left is a compile surface — see below |
 
+**Three sources of the model's own space, beside the table rather than in it** (Patina #179, outside
+[§ 4.11](#411-the-count-and-the-claim-it-corrects)'s count): `Source/Volume Noise` — a 3D gradient, simplex,
+Worley or value noise with octaves and `Noise`'s three folds — `Source/Volume Mask`, a box or an ellipsoid
+with a falloff, and `Source/Volume Gradient`, a ramp between two points. Each reads § D12's `position` bake
+through a `Position` port, so every number is a fraction of the mesh's bounds and two texels either side
+of a UV seam that are one point of the model get one value; `TextureVolumeDeviceTests` holds that as a
+mirrored position map giving the mirrored picture. They are pointwise in the position, so they tile
+exactly when it does.
+
 #### `Text`'s font is decided: the host resolves it at fill time, and a compilation never carries a glyph
 
 [#687](https://github.com/Rikarin/Vixen/issues/687) left two shapes open — *a face this assembly
@@ -896,8 +905,8 @@ Signed Add.
 
 | Node | Out | |
 |---|---|---|
-| **Distance** | grey | ⚠ **Jump flooding**: log₂(n) ping-ponged dispatches. The naive kernel is O(r²) per texel and is the difference between four milliseconds and four seconds at 2K |
-| **Flood Fill** | id · random value · UV-within-island · bounding box · size | ⚠ **The highest-risk kernel in the catalogue.** Connected components on a GPU is label propagation to a fixed point; its cost depends on the *shape* of the input rather than its size, and it needs an iteration ceiling that **reports truncation** rather than a while-loop on the device. Everything Substance calls "flood fill to …" is this node plus a `Channel Shuffle` |
+| **Distance** | grey | ⚠ **Jump flooding**: log₂(n) ping-ponged dispatches. The naive kernel is O(r²) per texel and is the difference between four milliseconds and four seconds at 2K. A **metric** — Euclidean, Manhattan, Chebyshev — that the flood keeps its seed under and the read measures with (Patina #174). **Distance Colour** is the same flood read at the seed: a source's colour at the nearest in-texel spread outwards, faded with the distance if asked — a node of its own because `Distance` is a layer filter, one image in and one out |
+| **Flood Fill** | id · random value · **random colour** · UV-within-island · bounding box · size · **a ramp across the island along an angle, turned per island** | ⚠ **The highest-risk kernel in the catalogue.** Connected components on a GPU is label propagation to a fixed point; its cost depends on the *shape* of the input rather than its size, and it needs an iteration ceiling that **reports truncation** rather than a while-loop on the device. Everything the reference calls "flood fill to …" is this node plus a `Channel Shuffle`, and the two asked for by name — a colour and a gradient per island — are kinds of it (Patina #174) |
 | **Edge Detect** | grey | Sobel, width, threshold |
 
 ⚠ **Histogram Scan, Range and Select are compounds over `Levels`**, as they are in the reference, and
@@ -915,12 +924,17 @@ generator turns, and they are three files rather than three kernels.
 | **Curvature from Normal** | radius | ⚠ The cheap one, from a height field. **Not** § D12's mesh bake, and the node's own inspector says which a generator should prefer |
 | **Ambient Occlusion from Height** | radius, samples | Horizon search. Same caveat, same sentence in the inspector |
 
+**Two lighting nodes beside the table** (Patina #176, outside § 4.11's count): `Surface/Height Shadow`
+marches toward one light and keeps the steepest rise — a wall `h` tall casts `h · scale · width /
+tan(elevation)` texels of shadow, held texel by texel — and `Surface/Normal Blend` cross-fades two normal
+maps as directions by an opacity and a mask, where a `Colour/Mix` of them shortens every vector it mixes.
+
 ### 4.7 Placement — 2 kernels
 
 | Node | Parameters | |
 |---|---|---|
-| **Tile Sampler** | grid X/Y · pattern input(s) · mask input · per-instance random **position · rotation · scale · colour · pattern index** · size and rotation *maps* · accumulation mode · **seed** | The workhorse. Nearly every pattern in 4.9 is this node with a `Shape` in it |
-| **Splatter** | the same, without the grid: a count and a distribution, optionally placed by a vector map | The FX-Map replacement of § D7 |
+| **Tile Sampler** | grid X/Y · pattern input(s) · mask input · per-instance random **position · rotation · scale · colour · pattern index** · size and rotation *maps* · accumulation mode · **seed** · **row offset** · **what each instance draws**: the pattern, or a random grey or colour, its number or its UV | The workhorse. Nearly every pattern in 4.9 is this node with a `Shape` in it. The per-instance outputs and the row offset are Patina #170's |
+| **Splatter** | the same, without the grid: a count and a distribution — a scatter or a **ring** — optionally placed by a vector map | The FX-Map replacement of § D7. ⚠ Up to 4 096 instances as a chain of ops of 256 each, every batch starting from what the last left: the kernel's loop bound did not move, and the node's ceiling is sixteen of them (Patina #170) |
 
 ### 4.8 Graph structure — 5 node classes, no kernel
 
@@ -1002,10 +1016,10 @@ says what may not be lost *and* what is still owed, because the two sides are th
 
 | | |
 |---|---|
-| **Utility** | Histogram Scan ● · Histogram Range ● · Histogram Select ● · Safe Transform ● · Highpass ● · Contrast/Luminosity ● · **Make It Tile** ● (offset-wrap with an edge mask — doc 40 § D2's first row, whose slash is an alias: *make-it-tile* and *smart auto-tile* are the one compound) · **Equalize** ● (its second row, whose slash is the same alias — *delight* and *equalize* name one high-pass over a large-radius blur, and `Utility/Equalize` is it) · **Glow** ● (a bright pass through `Levels`, a `Blur HQ` and an `Add` back over the picture — Patina #173) · Dilate · Skew · Colour Variation. ⚠ *Anti-Alias* and *Quantize* were listed here as compounds and shipped as atoms, `Filters/Anti-Alias` and `Colour/Quantise` (Patina #173 and #171): neither is honest out of the atomic set — a quantise is a floor, which no node takes, and an anti-alias reads along an edge's own direction |
+| **Utility** | Histogram Scan ● · Histogram Range ● · Histogram Select ● · Safe Transform ● · Highpass ● · Contrast/Luminosity ● · **Make It Tile** ● (offset-wrap with an edge mask — doc 40 § D2's first row, whose slash is an alias: *make-it-tile* and *smart auto-tile* are the one compound) · **Equalize** ● (its second row, whose slash is the same alias — *delight* and *equalize* name one high-pass over a large-radius blur, and `Utility/Equalize` is it) · **Glow** ● (a bright pass through `Levels`, a `Blur HQ` and an `Add` back over the picture — Patina #173) · **Frequency Split** ● (a `Blur HQ` and the detail about a half beside it, two outputs that add back up to the picture — Patina #176) · Dilate · Skew · Colour Variation. ⚠ *Anti-Alias* and *Quantize* were listed here as compounds and shipped as atoms, `Filters/Anti-Alias` and `Colour/Quantise` (Patina #173 and #171): neither is honest out of the atomic set — a quantise is a floor, which no node takes, and an anti-alias reads along an edge's own direction |
 | **Patterns** | Brick ● · **Varied Brick** ● (a tone per brick — Patina #168 — from two white noises half a brick apart and a row-parity checker) · Panels ● · Tile Random ● · Rivets ● · Scratches ● · Wood Grain ● · Cells ● · **Weave** ● (two reflected sweeps tiled into threads, a checker choosing which is on top) · **Hex Cells** ● (a six-sided `Shape` squashed by √3 and laid twice into a tile — § 4.9's *Hexagon Grid*) · **Stripes** ● · **Triangle Grid** ● (two triangles stretched by 2/√3 into a tile with a half shift per row) — these four and Varied Brick Patina #168's · Bolts · Stitches · Chain · Fibres · Marble Veins · Gravel · Sand · Water Drops · Snow · Moss · Leather · Cloth |
 | **Grunges** | `Noise` and `Slope Blur` in eight arrangements — the honest description of most of what a grunge library is. ⚠ **Named rather than counted**, because this row was one ● for eight files and is the reason a glyph count and a compound count could disagree: Grunge Clouds ● · Grunge Concrete ● · Grunge Damage ● · Grunge Fibres ● · Grunge Leaks ● · Grunge Rust ● · Grunge Scratches ● · Grunge Smears ● |
-| **Surface** | Height Blend ● · **Bevel** ● (`Distance` → `Height → Normal`) · Curvature Smooth ● · Height to AO ● · Metal Reflectance ● (a named-metal lookup, and it was the one ● with no file — blocked rather than unstarted on [#1096](https://github.com/Rikarin/Vixen/issues/1096) until the atomic node landed on 2026-09-09) · Normal Sobel · Basecolor/Metallic/Roughness converter |
+| **Surface** | Height Blend ● · **Bevel** ● (`Distance` → `Height → Normal`) · **Bevel Height** ● (Bevel's height before the normal, so a layer can use it as one — Patina #176; a sibling rather than a second output, because a stack's filter is one image in and one out) · Curvature Smooth ● · Height to AO ● · Metal Reflectance ● (a named-metal lookup, and it was the one ● with no file — blocked rather than unstarted on [#1096](https://github.com/Rikarin/Vixen/issues/1096) until the atomic node landed on 2026-09-09) · Normal Sobel · Basecolor/Metallic/Roughness converter |
 | **Mask generators** | Every one reads § D12's maps **by usage**: Dirt ● · Curvature Edge Wear ● · Metal Edge Wear ● · Grunge Rough Dirty ● · Dust ● · Position Gradient ● · **Mask Editor** ● — the big composite with the sliders, which is what most artists actually reach for · Drips · Light · Water Level |
 | **Noise** | Patina #167's compounds over the widened `Noise`, each a few nodes: **Clouds** ● (seven octaves of gaussian noise, stretched) · **Cell Walls** ● (`F2 − F1` through a `Levels`) · **Fractal Cells** ● (Worley summed over octaves) · **Streaks** ● (a lattice many times finer down than across) · **Spots** ● (a cone about each Worley point) · **Liquid** ● (a noise pushed along a coarser one's slopes) · Plasma · Caustics · Moisture · Fur · Fibres · Waveform Bars · Creased Cloth |
 | **Smart materials** | `.vxsmartmat`: Painted Metal ● · Rusted Iron ● · Worn Wood ● · Concrete ● · Plastic ● · Leather |

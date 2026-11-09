@@ -60,6 +60,9 @@ public class TextureAngleUnitTests {
         ("Triplanar",
             "Its `rotation` is radians and goes straight to cos and sin. The constants turn atan2's and "
             + "acos's own results into a coordinate on the picture, which is an output being normalised."),
+        ("Splatter",
+            "Its three angles are radians and go straight to cos and sin. TwoPi divides a whole turn among the "
+            + "instances of a ring, which places them and is not a parameter being decoded (Patina #170)."),
         ("Shape",
             "Its `rotation` is radians and goes straight to cos and sin. Pi and TwoPi divide a whole turn by a "
             + "polygon's or a star's side count to find the sector atan2's result falls in, which is geometry "
