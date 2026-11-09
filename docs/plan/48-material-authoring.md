@@ -116,7 +116,7 @@ better than doc 40's Part 1 suggested.
 | Offscreen rendering inside the editor | `Editor/Vixen.Editor.App/ThumbnailSurface.cs`, `ShaderGraphPreviewRenderer.cs` | A device in an editor assembly, drawing into a target, with no window |
 | Image containers and codecs | [`Vixen.Core.Imaging`](../../Core/Vixen.Core.Imaging/README.md) | `TextureData`, `MipChain`, `PngCodec`, `Ktx2`, `BlockCompression`, `DataFormatDescriptor` |
 | Texture import | `Editor/Vixen.Editor.Assets/Textures/` | `TextureImporter`, `StbImageDecoder`, `DdsDecoder`, and `SpriteSlicing` — doc 40's cited precedent for a pure pixel kernel tested with images built in a test |
-| An atlas rasteriser and a cage bake | `Core/Vixen.Geometry.Remeshing/Transfer/` — `AtlasRaster.cs`, `SourceSurface.cs`, `MapBaker.cs:659` | Conservative texel coverage, gutter dilation, opposed ray casting with a fallback, and a triangle tree over the source. **The expensive half of a mesh-map baker** |
+| An atlas rasteriser and a cage bake | `Core/Vixen.Geometry.Remeshing/Transfer/` — `AtlasRaster.cs`, `SourceSurface.cs`, `MapBaker.cs:702` | Conservative texel coverage, gutter dilation, opposed ray casting with a fallback, and a triangle tree over the source. **The expensive half of a mesh-map baker** |
 | UV unwrapping | [`Vixen.Geometry.Uv`](../../Core/Vixen.Geometry.Uv/README.md) | Charting, flattening, packing — so a mesh with no UVs is not a refusal |
 | A brush, a stroke and a falloff | `Core/Vixen.Terrain/BrushStroke.cs`, `BrushFalloff.cs`, `TerrainPaint.cs`; `Editor/Vixen.Editor.Terrain/TerrainPaintCommand.cs` | Pointer → stamp → kernel → **one undo entry per drag**, already solved once |
 | A plugin host, and two features that use it | [`Vixen.Editor.Plugin`](../../Editor/Vixen.Editor.Plugin/README.md), `TerrainModule`, `WaterModule` | Commands, panels, modes, layouts, keybindings, contributions, `Owns`/`With`, collectible unload |
@@ -208,7 +208,7 @@ them and every one needs a golden, a sabotage and a scale-invariance check.
 
 ### B3. `MapBaker` bakes two of the ten mesh maps 🟡
 
-`MapBaker.Bake` (`MapBaker.cs:679`) fills a normal map and a signed displacement map. The seven the
+`MapBaker.Bake` (`MapBaker.cs:722`) fills a normal map and a signed displacement map. The seven the
 generators actually read — ambient occlusion, curvature, thickness, position, world-space normal, bent
 normal, ID — are **not there**, and neither is the hierarchy that would make them fast.
 
