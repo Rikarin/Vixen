@@ -165,7 +165,7 @@ sealed class EdgeRounding {
             return source.Faces[one].Smoothing != source.Faces[two].Smoothing;
         }
 
-        foreach (var position in (ReadOnlySpan<int>) [a, b]) {
+        foreach (var position in (ReadOnlySpan<int>)[a, b]) {
             var first = CornerNormal(source, one, position);
             var second = CornerNormal(source, two, position);
 
@@ -246,7 +246,7 @@ sealed class EdgeRounding {
     }
 
     static (int X, int Y, int Z) Cell(Vector3 point, float size) =>
-        ((int) MathF.Floor(point.X / size), (int) MathF.Floor(point.Y / size), (int) MathF.Floor(point.Z / size));
+        ((int)MathF.Floor(point.X / size), (int)MathF.Floor(point.Y / size), (int)MathF.Floor(point.Z / size));
 
     /// <summary>How far a point is from a segment.</summary>
     static float Distance(Segment segment, Vector3 point) {

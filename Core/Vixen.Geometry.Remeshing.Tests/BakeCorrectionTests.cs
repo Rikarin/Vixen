@@ -43,7 +43,7 @@ public sealed class BakeCorrectionTests {
     static int Texel(float x, float y) {
         var uv = HardEdgeBakeTests.Chart(0, 0, x, y) * Size;
 
-        return ((int) uv.Y * Size) + (int) uv.X;
+        return ((int)uv.Y * Size) + (int)uv.X;
     }
 
     /// <summary>How far a texel's centre on face 0 is from the edge face 0 shares with the −Y face.</summary>
@@ -64,7 +64,7 @@ public sealed class BakeCorrectionTests {
         var maps = RoundedBox(new(width));
         var checkedTexels = 0;
 
-        foreach (var y in (float[]) [0.02f, 0.06f, 0.1f, 0.15f, 0.2f]) {
+        foreach (var y in (float[])[0.02f, 0.06f, 0.1f, 0.15f, 0.2f]) {
             var texel = Texel(0.5f, y);
             var distance = FromEdge(texel);
             var turn = (MathF.PI / 4f) * MathF.Max(0f, 1f - (distance / width));
@@ -88,7 +88,7 @@ public sealed class BakeCorrectionTests {
     public void Without_rounding_the_box_is_flat_up_to_its_edges() {
         var maps = RoundedBox(null);
 
-        foreach (var y in (float[]) [0.02f, 0.06f, 0.1f]) {
+        foreach (var y in (float[])[0.02f, 0.06f, 0.1f]) {
             Assert.True(Vector3.Dot(maps.Normals[Texel(0.5f, y)], -Vector3.UnitX) > 0.9999f);
         }
     }

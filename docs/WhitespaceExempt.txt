@@ -101,7 +101,6 @@ Core/Vixen.Geometry.Remeshing/SeparatrixTracer.cs
 Core/Vixen.Geometry.Remeshing/SingularityPass.cs
 Core/Vixen.Geometry.Remeshing/SurfaceProjector.cs
 Core/Vixen.Geometry.Remeshing/Transfer/AttributeMirror.cs
-Core/Vixen.Geometry.Remeshing/Transfer/MapBaker.cs
 Core/Vixen.Geometry.Remeshing/VoxelShrinkwrap.cs
 Core/Vixen.Geometry.Remeshing/WindingNumberField.cs
 Core/Vixen.Geometry.Tests/MeshGroupSourceTests.cs

@@ -24,7 +24,7 @@ public sealed record BakeImage(int Width, int Height, IReadOnlyList<Vector4> Pix
 
         var x = (Wrap(uv.X) * Width) - 0.5f;
         var y = (Wrap(uv.Y) * Height) - 0.5f;
-        var (left, top) = ((int) MathF.Floor(x), (int) MathF.Floor(y));
+        var (left, top) = ((int)MathF.Floor(x), (int)MathF.Floor(y));
         var (across, down) = (x - left, y - top);
 
         var upper = Vector4.Lerp(Pixel(left, top), Pixel(left + 1, top), across);

@@ -385,8 +385,8 @@ public sealed record BakeMask(int Resolution, IReadOnlyList<float> Values) {
     /// <param name="uv">The coordinate; anything outside the atlas reads its edge.</param>
     /// <returns>The value.</returns>
     public float At(Vector2 uv) {
-        var x = Math.Clamp((int) (uv.X * Resolution), 0, Resolution - 1);
-        var y = Math.Clamp((int) (uv.Y * Resolution), 0, Resolution - 1);
+        var x = Math.Clamp((int)(uv.X * Resolution), 0, Resolution - 1);
+        var y = Math.Clamp((int)(uv.Y * Resolution), 0, Resolution - 1);
 
         return Values[(y * Resolution) + x];
     }
@@ -1172,7 +1172,7 @@ public static class MapBaker {
 
             made[index] = palette is IdPalette.Grey
                 ? new Vector3((rank + 1f) / count)
-                : Hue((float) rank / count);
+                : Hue((float)rank / count);
         }
 
         return made;
@@ -1182,7 +1182,7 @@ public static class MapBaker {
     /// <param name="turn">Where on the wheel, in turns, <c>[0, 1)</c>.</param>
     static Vector3 Hue(float turn) {
         var hue = turn * 6f;
-        var sector = (int) hue;
+        var sector = (int)hue;
         var fraction = hue - sector;
 
         const float value = 0.95f;
@@ -1237,7 +1237,7 @@ public static class MapBaker {
                     return;
                 }
 
-                var fraction = MathF.Min((float) ((double) done / rows), 1f);
+                var fraction = MathF.Min((float)((double)done / rows), 1f);
 
                 if (fraction - said < Step) {
                     return;
@@ -1283,8 +1283,8 @@ public static class MapBaker {
     /// </remarks>
     static int Dilate(BakeSettings settings, BakeBuffers buffers, ParallelOptions options) {
         var resolution = settings.Resolution;
-        var filled = (bool[]) buffers.Coverage.Clone();
-        var next = (bool[]) filled.Clone();
+        var filled = (bool[])buffers.Coverage.Clone();
+        var next = (bool[])filled.Clone();
         var total = 0;
 
         for (var round = 0; round < settings.Gutter; round++) {
