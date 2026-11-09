@@ -519,6 +519,21 @@ public sealed class TextureCompoundLibraryTests : IDisposable {
     ///         port.
     ///     </para>
     /// </remarks>
+    /// <summary>
+    ///     A published compound's knobs keep the label their graph declares, which is what a host lists them by. They
+    ///     went through the parameter record, which holds no label, and reached a layer stack's Properties by their
+    ///     expression names (Patina wave 6).
+    /// </summary>
+    [Fact]
+    public void A_compounds_knobs_keep_their_labels() {
+        var registry = Registry();
+
+        TextureCompoundLibrary.Publish(registry, folder: null, out _);
+
+        Assert.Equal("Angle", registry.Get("Finishes/Brushed").Setting("angle")!.Label);
+        Assert.Equal("Seed", registry.Get("Generators/Metal Edge Wear").Setting("seed")!.Label);
+    }
+
     [Fact]
     public void A_compounds_scalar_port_is_a_knob_a_containing_graph_turns() {
         var registry = Registry();

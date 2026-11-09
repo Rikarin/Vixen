@@ -342,11 +342,22 @@ public static class TextureGraphParameters {
 
         var ports = SubGraphs.Definition(graph, path);
 
+        // ⚠ What a parameter is called, how it is drawn and when it shows are the graph's own declaration's, which
+        // the parameter record does not hold, so they are read back off it by name. Without this a compound's knobs
+        // reached every host that lists them, a layer stack's Properties among them, by their expression names.
+        var settings = Settings(parameters)
+            .Select(setting => graph.Parameters.Find(own => string.Equals(own.Name, setting.Name, StringComparison.Ordinal))
+                is { } own
+                ? setting with { Label = own.Label, Widget = own.Widget, VisibleIf = own.VisibleIf }
+                : setting
+            )
+            .ToImmutableArray();
+
         // ⚠ Rebuilt rather than `with`-ed. `NodeTypeDefinition.Settings` is redeclared as a get-only
         // property over its own positional parameter — that is what normalises a default
         // `ImmutableArray` to empty — and a redeclared positional member has no setter, so a `with`
         // on it does not compile.
-        return new(ports.Path, ports.Ports, ports.Create, ports.Summary, ports.Preview, Settings(parameters));
+        return new(ports.Path, ports.Ports, ports.Create, ports.Summary, ports.Preview, settings);
     }
 
     /// <summary>The parameters as the framework's settings.</summary>
