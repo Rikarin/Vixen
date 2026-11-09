@@ -1,5 +1,4 @@
 <Solution>
-
   <Folder Name="/_root/">
     <File Path="README.md" />
     <File Path="CONTRIBUTING.md" />
@@ -21,18 +20,12 @@
     <File Path="build.sh" />
     <File Path="build.cmd" />
   </Folder>
-
   <Folder Name="/_root/.github/">
     <File Path=".github/workflows/ci.yml" />
     <File Path=".github/workflows/docs.yml" />
     <File Path=".github/workflows/nightly.yml" />
   </Folder>
 
-  <!--
-    docs — mirrored directory by directory, because a solution folder is the only way an IDE shows
-    a file that no project owns. The spike .csproj files are left out: each was a one-off
-    experiment, recorded by its RESULT.md, and is deliberately not a project of this solution.
-  -->
   <Folder Name="/docs/">
     <File Path="docs/ComponentGeneratorExempt.txt" />
     <File Path="docs/DataContractGeneratorExempt.txt" />
@@ -47,24 +40,16 @@
     <File Path="docs/PlanCitationExempt.txt" />
     <File Path="docs/PlanCitationUnbound.txt" />
     <File Path="docs/RavenDocCommentExempt.txt" />
-    <!--
-      ADR-001 measure 4: every RHI concept against every backend, reviewed whenever the RHI surface
-      changes, so D3D12 mappability is checked by inspection rather than discovered when it lands.
-    -->
     <File Path="docs/rhi-backend-mapping.md" />
     <File Path="docs/WhitespaceExempt.txt" />
   </Folder>
-
   <Folder Name="/docs/api-history/">
     <File Path="docs/api-history/index.json" />
   </Folder>
-
   <Folder Name="/docs/api-history/0.1.0/">
     <File Path="docs/api-history/0.1.0/changes.json" />
   </Folder>
-
   <Folder Name="/docs/guide/" />
-
   <Folder Name="/docs/guide/ai/">
     <File Path="docs/guide/ai/agents.md" />
     <File Path="docs/guide/ai/authoring-a-tree.md" />
@@ -79,19 +64,16 @@
     <File Path="docs/guide/ai/utility.md" />
     <File Path="docs/guide/ai/world-nodes.md" />
   </Folder>
-
   <Folder Name="/docs/guide/animation/">
     <File Path="docs/guide/animation/move-sets.md" />
     <File Path="docs/guide/animation/pose-constraints.md" />
     <File Path="docs/guide/animation/replicating-a-pose.md" />
     <File Path="docs/guide/animation/variation-harness.md" />
   </Folder>
-
   <Folder Name="/docs/guide/assets/">
     <File Path="docs/guide/assets/content-in-a-game.md" />
     <File Path="docs/guide/assets/importing-textures.md" />
   </Folder>
-
   <Folder Name="/docs/guide/core/">
     <File Path="docs/guide/core/collections.md" />
     <File Path="docs/guide/core/fuzzing.md" />
@@ -101,7 +83,6 @@
     <File Path="docs/guide/core/symbols.md" />
     <File Path="docs/guide/core/triangle-tree.md" />
   </Folder>
-
   <Folder Name="/docs/guide/ecs/">
     <File Path="docs/guide/ecs/component-defaults.md" />
     <File Path="docs/guide/ecs/components.md" />
@@ -109,7 +90,6 @@
     <File Path="docs/guide/ecs/structural-changes.md" />
     <File Path="docs/guide/ecs/system-order.md" />
   </Folder>
-
   <Folder Name="/docs/guide/editor/">
     <File Path="docs/guide/editor/booleans.md" />
     <File Path="docs/guide/editor/collections.md" />
@@ -164,7 +144,6 @@
     <File Path="docs/guide/editor/water-mode.md" />
     <File Path="docs/guide/editor/writing-a-plugin.md" />
   </Folder>
-
   <Folder Name="/docs/guide/engine/">
     <File Path="docs/guide/engine/attribute-transfer.md" />
     <File Path="docs/guide/engine/binding-controls.md" />
@@ -216,7 +195,6 @@
     <File Path="docs/guide/engine/water-surface.md" />
     <File Path="docs/guide/engine/world-serialisation.md" />
   </Folder>
-
   <Folder Name="/docs/guide/gameplay/">
     <File Path="docs/guide/gameplay/ai.md" />
     <File Path="docs/guide/gameplay/attributes.md" />
@@ -248,7 +226,6 @@
     <File Path="docs/guide/gameplay/tags.md" />
     <File Path="docs/guide/gameplay/travel.md" />
   </Folder>
-
   <Folder Name="/docs/guide/live/">
     <File Path="docs/guide/live/admission-and-health.md" />
     <File Path="docs/guide/live/durable-state.md" />
@@ -265,7 +242,6 @@
     <File Path="docs/guide/live/upgrading-a-fleet.md" />
     <File Path="docs/guide/live/writing-a-realm.md" />
   </Folder>
-
   <Folder Name="/docs/guide/raven/">
     <File Path="docs/guide/raven/compiled-artefacts.md" />
     <File Path="docs/guide/raven/compiling-a-shader.md" />
@@ -275,7 +251,6 @@
     <File Path="docs/guide/raven/symbols.md" />
     <File Path="docs/guide/raven/syntax.md" />
   </Folder>
-
   <Folder Name="/docs/guide/rendering/">
     <File Path="docs/guide/rendering/async-compute.md" />
     <File Path="docs/guide/rendering/blend-shapes.md" />
@@ -308,7 +283,6 @@
     <File Path="docs/guide/rendering/timing-the-frame.md" />
     <File Path="docs/guide/rendering/volumetric-fog.md" />
   </Folder>
-
   <Folder Name="/docs/guide/ui/">
     <File Path="docs/guide/ui/accessibility.md" />
     <File Path="docs/guide/ui/ambient-values.md" />
@@ -365,14 +339,12 @@
     <File Path="docs/guide/ui/undo.md" />
     <File Path="docs/guide/ui/utility-composition.md" />
   </Folder>
-
   <Folder Name="/docs/manual/">
     <File Path="docs/manual/building-a-game-and-a-server.md" />
     <File Path="docs/manual/diagnostic-codes.md" />
     <File Path="docs/manual/log-events.md" />
     <File Path="docs/manual/third-party.md" />
   </Folder>
-
   <Folder Name="/docs/plan/">
     <File Path="docs/plan/README.md" />
     <File Path="docs/plan/00-vision-and-principles.md" />
@@ -431,33 +403,26 @@
     <File Path="docs/plan/50-the-editor-as-bounded-contexts.md" />
     <File Path="docs/plan/tailwind-registry.json" />
   </Folder>
-
   <Folder Name="/docs/plan/spikes/" />
-
   <Folder Name="/docs/plan/spikes/docs-graph/">
     <File Path="docs/plan/spikes/docs-graph/Program.cs" />
     <File Path="docs/plan/spikes/docs-graph/RESULT.md" />
   </Folder>
-
   <Folder Name="/docs/plan/spikes/text-glyph-outlines/">
     <File Path="docs/plan/spikes/text-glyph-outlines/Probe.cs" />
     <File Path="docs/plan/spikes/text-glyph-outlines/RESULT.md" />
   </Folder>
-
   <Folder Name="/docs/plan/spikes/text-harfbuzz/">
     <File Path="docs/plan/spikes/text-harfbuzz/Probe.cs" />
     <File Path="docs/plan/spikes/text-harfbuzz/RESULT.md" />
   </Folder>
-
   <Folder Name="/docs/plan/spikes/vcss-excss/">
     <File Path="docs/plan/spikes/vcss-excss/Probe.cs" />
     <File Path="docs/plan/spikes/vcss-excss/RESULT.md" />
   </Folder>
-
   <Folder Name="/docs/plan/spikes/web-head/">
     <File Path="docs/plan/spikes/web-head/RESULT.md" />
   </Folder>
-
   <Folder Name="/docs/plan/spikes/web-webgl2/">
     <File Path="docs/plan/spikes/web-webgl2/index.html" />
     <File Path="docs/plan/spikes/web-webgl2/main.js" />
@@ -465,689 +430,420 @@
     <File Path="docs/plan/spikes/web-webgl2/RESULT.md" />
   </Folder>
 
-  <!--
-    Core — the shared foundation (docs/plan/02-repository-layout.md § "Core/").
-    Vixen.Core.Syntax was lifted out of Raven so that Raven, VXML and VCSS are three
-    grammars over one tested tree rather than three trees (doc 07 § A).
-  -->
   <Folder Name="/Core/">
     <Project Path="Core/Vixen.Core/Vixen.Core.csproj" />
-    <Project Path="Core/Vixen.Core.Tests/Vixen.Core.Tests.csproj" />
     <Project Path="Core/Vixen.Core.Mathematics/Vixen.Core.Mathematics.csproj" />
-    <Project Path="Core/Vixen.Core.Mathematics.Tests/Vixen.Core.Mathematics.Tests.csproj" />
     <Project Path="Core/Vixen.Core.Collections/Vixen.Core.Collections.csproj" />
-    <Project Path="Core/Vixen.Core.Collections.Tests/Vixen.Core.Collections.Tests.csproj" />
     <Project Path="Core/Vixen.Core.Memory/Vixen.Core.Memory.csproj" />
-    <Project Path="Core/Vixen.Core.Memory.Tests/Vixen.Core.Memory.Tests.csproj" />
     <Project Path="Core/Vixen.Core.Diagnostics/Vixen.Core.Diagnostics.csproj" />
-    <Project Path="Core/Vixen.Core.Diagnostics.Tests/Vixen.Core.Diagnostics.Tests.csproj" />
     <Project Path="Core/Vixen.Core.IO/Vixen.Core.IO.csproj" />
     <Project Path="Core/Vixen.Core.Analyzers/Vixen.Core.Analyzers.csproj" />
-    <Project Path="Core/Vixen.Core.Analyzers.Tests/Vixen.Core.Analyzers.Tests.csproj" />
     <Project Path="Core/Vixen.Core.Diagnostics.Analyzers/Vixen.Core.Diagnostics.Analyzers.csproj" />
-    <Project Path="Core/Vixen.Core.Diagnostics.Analyzers.Tests/Vixen.Core.Diagnostics.Analyzers.Tests.csproj" />
     <Project Path="Core/Vixen.Core.IO.Analyzers/Vixen.Core.IO.Analyzers.csproj" />
-    <Project Path="Core/Vixen.Core.IO.Analyzers.Tests/Vixen.Core.IO.Analyzers.Tests.csproj" />
-    <Project Path="Core/Vixen.Core.IO.Tests/Vixen.Core.IO.Tests.csproj" />
     <Project Path="Core/Vixen.Core.Serialization/Vixen.Core.Serialization.csproj" />
     <Project Path="Core/Vixen.Core.Serialization.Generator/Vixen.Core.Serialization.Generator.csproj" />
-    <Project Path="Core/Vixen.Core.Serialization.Tests/Vixen.Core.Serialization.Tests.csproj" />
     <Project Path="Core/Vixen.Core.Reflection/Vixen.Core.Reflection.csproj" />
     <Project Path="Core/Vixen.Core.Reflection.Generator/Vixen.Core.Reflection.Generator.csproj" />
-    <Project Path="Core/Vixen.Core.Reflection.Tests/Vixen.Core.Reflection.Tests.csproj" />
     <Project Path="Core/Vixen.Core.Threading/Vixen.Core.Threading.csproj" />
-    <Project Path="Core/Vixen.Core.Threading.Tests/Vixen.Core.Threading.Tests.csproj" />
     <Project Path="Core/Vixen.Core.Syntax/Vixen.Core.Syntax.csproj" />
-    <Project Path="Core/Vixen.Core.Syntax.Tests/Vixen.Core.Syntax.Tests.csproj" />
     <Project Path="Core/Vixen.Core.Yaml/Vixen.Core.Yaml.csproj" />
-    <Project Path="Core/Vixen.Core.Yaml.Tests/Vixen.Core.Yaml.Tests.csproj" />
     <Project Path="Core/Vixen.Core.Imaging/Vixen.Core.Imaging.csproj" />
     <Project Path="Core/Vixen.Assets/Vixen.Assets.csproj" />
-    <Project Path="Core/Vixen.Core.Imaging.Tests/Vixen.Core.Imaging.Tests.csproj" />
-    <Project Path="Core/Vixen.Assets.Tests/Vixen.Assets.Tests.csproj" />
     <Project Path="Core/Vixen.Core.Syntax.Generator/Vixen.Core.Syntax.Generator.csproj" />
     <Project Path="Core/Vixen.Ecs/Vixen.Ecs.csproj" />
     <Project Path="Core/Vixen.Ecs.Generators/Vixen.Ecs.Generators.csproj" />
-    <Project Path="Core/Vixen.Ecs.Tests/Vixen.Ecs.Tests.csproj" />
     <Project Path="Core/Vixen.Engine/Vixen.Engine.csproj" />
     <Project Path="Core/Vixen.Engine.Generators/Vixen.Engine.Generators.csproj" />
-    <Project Path="Core/Vixen.Engine.Generators.Tests/Vixen.Engine.Generators.Tests.csproj" />
-    <Project Path="Core/Vixen.Engine.Tests/Vixen.Engine.Tests.csproj" />
     <Project Path="Core/Vixen.Graphics/Vixen.Graphics.csproj" />
-    <Project Path="Core/Vixen.Graphics.Tests/Vixen.Graphics.Tests.csproj" />
     <Project Path="Core/Vixen.Graphics.RenderGraph/Vixen.Graphics.RenderGraph.csproj" />
-    <Project Path="Core/Vixen.Graphics.RenderGraph.Tests/Vixen.Graphics.RenderGraph.Tests.csproj" />
     <Project Path="Core/Vixen.Shaders/Vixen.Shaders.csproj" />
     <Project Path="Core/Vixen.Shaders.Generators/Vixen.Shaders.Generators.csproj" />
-    <Project Path="Core/Vixen.Shaders.Tests/Vixen.Shaders.Tests.csproj" />
     <Project Path="Core/Vixen.Audio/Vixen.Audio.csproj" />
-    <Project Path="Core/Vixen.Audio.Tests/Vixen.Audio.Tests.csproj" />
     <Project Path="Core/Vixen.Audio.Codecs/Vixen.Audio.Codecs.csproj" />
-    <Project Path="Core/Vixen.Audio.Codecs.Tests/Vixen.Audio.Codecs.Tests.csproj" />
     <Project Path="Core/Vixen.Audio.Physics/Vixen.Audio.Physics.csproj" />
-    <Project Path="Core/Vixen.Audio.Physics.Tests/Vixen.Audio.Physics.Tests.csproj" />
     <Project Path="Core/Vixen.Input/Vixen.Input.csproj" />
     <Project Path="Core/Vixen.Input.Generators/Vixen.Input.Generators.csproj" />
-    <Project Path="Core/Vixen.Input.Tests/Vixen.Input.Tests.csproj" />
     <Project Path="Core/Vixen.Physics/Vixen.Physics.csproj" />
-    <Project Path="Core/Vixen.Physics.Tests/Vixen.Physics.Tests.csproj" />
-    <!--
-      The platform contracts. Under Core/ and not Platform/ because doc 02's own rule for that
-      folder is "platform *implementations* of a Core/ contract", and this assembly is the
-      contract: interfaces and a handful of value types, referencing nothing but Vixen.Core,
-      Vixen.Core.IO and Vixen.Core.Mathematics. Filing it as an implementation had one concrete
-      cost — CheckArchitecture forbids Core/ referencing Platform/, so no Core assembly was
-      allowed to say the word "window", which is what kept the whole application host out of
-      this folder.
-    -->
     <Project Path="Core/Vixen.Platform/Vixen.Platform.csproj" />
-    <Project Path="Core/Vixen.Platform.Tests/Vixen.Platform.Tests.csproj" />
-    <!--
-      The application host, and the reason the contracts above had to move first. Its namespace is
-      Vixen.App and its package is still Tools/Vixen.App — what changed is that the boot sequence
-      and the frame loop are compiled as frame code: AOT- and trim-analyzed, API-baselined,
-      documentation-gated, and published by Tools/Vixen.AotProbe, none of which the TOOLING profile
-      does. What stayed in Tools/ is the three files that name a backend.
-    -->
     <Project Path="Core/Vixen.App.Hosting/Vixen.App.Hosting.csproj" />
-    <!--
-      The blockout mesh kernel (docs/plan/24 § D1). Under Core/ and not Editor/ because it is pure
-      arithmetic with no document, no selection and no device — so it belongs under the profile that
-      is AOT-compatible, trimmable, packable and API-checked, and because a mesh operation is worth
-      having at run time: procedural level generation, destructible geometry and a runtime CSG are
-      all things the same code answers and none of them can reach an editor assembly.
-      ⚠ It references Vixen.Core.Mathematics and nothing else — in particular not Vixen.Rendering,
-      because a geometry kernel that needed the render assembly to describe a triangle would be
-      backwards. Vixen.Navigation is the precedent and makes the same choice with its own PolyMesh.
-    -->
     <Project Path="Core/Vixen.Geometry/Vixen.Geometry.csproj" />
-    <Project Path="Core/Vixen.Geometry.Tests/Vixen.Geometry.Tests.csproj" />
-    <!--
-      UV unwrapping (docs/plan/42) and quad retopology (docs/plan/41), beside the kernel rather than
-      inside it: both want Vixen.Core.Threading, and adding a threading reference to Vixen.Geometry
-      would put it in every consumer of the mesh kernel including a blockout verb that needs one
-      thread.
-      ⚠ Under Core/ and not Editor/, which is where docs/plan/40 § D9 put inference — and the
-      contrast is the argument rather than an inconsistency. That section's reasons are all
-      statements about *models*: a shipped game infers nothing, the weights are the author's to
-      accept, the runtime must not grow. There is no model in either of these. They are arithmetic
-      over triangles, with four callers that are not the editor — Tools/Vixen.AssetCompiler running
-      headless on CI, the CLI over a directory, doc 24's blockout mode retopologising a boolean
-      result, and a game's own build-time tooling.
-      ⚠ The edge runs Remeshing → Uv and never the reverse (docs/plan/42 § D2). The remesher keeps
-      its privileged charting, because a quantized quad patch *is* a rectangle and re-cutting it with
-      a general charter would be worse in every respect; what it gives up is owning a second packer.
-      The unwrapper has to run on meshes nobody remeshed, which is the whole of why it is a separate
-      assembly rather than a folder in the other one.
-    -->
     <Project Path="Core/Vixen.Geometry.Uv/Vixen.Geometry.Uv.csproj" />
-    <Project Path="Core/Vixen.Geometry.Uv.Tests/Vixen.Geometry.Uv.Tests.csproj" />
     <Project Path="Core/Vixen.Geometry.Remeshing/Vixen.Geometry.Remeshing.csproj" />
-    <Project Path="Core/Vixen.Geometry.Remeshing.Tests/Vixen.Geometry.Remeshing.Tests.csproj" />
     <Project Path="Core/Vixen.Foliage/Vixen.Foliage.csproj" />
-    <Project Path="Core/Vixen.Foliage.Tests/Vixen.Foliage.Tests.csproj" />
     <Project Path="Core/Vixen.Rendering.Terrain/Vixen.Rendering.Terrain.csproj" />
-    <Project Path="Core/Vixen.Rendering.Terrain.Tests/Vixen.Rendering.Terrain.Tests.csproj" />
     <Project Path="Core/Vixen.Terrain/Vixen.Terrain.csproj" />
     <Project Path="Core/Vixen.Terrain.Physics/Vixen.Terrain.Physics.csproj" />
-    <Project Path="Core/Vixen.Terrain.Physics.Tests/Vixen.Terrain.Physics.Tests.csproj" />
-    <Project Path="Core/Vixen.Terrain.Tests/Vixen.Terrain.Tests.csproj" />
-    <!--
-      Water (docs/plan/35). Beside the terrain kernel and on the same terms: a body is a spline and a
-      profile, the surface is arithmetic, and the whole assembly opens no device — because § D1's
-      third reason is that this is what a dedicated server runs. A headless build still has to answer
-      how deep the water is for every swimming character and every boat it simulates.
-    -->
     <Project Path="Core/Vixen.Water/Vixen.Water.csproj" />
-    <Project Path="Core/Vixen.Water.Tests/Vixen.Water.Tests.csproj" />
     <Project Path="Core/Vixen.Water.Physics/Vixen.Water.Physics.csproj" />
-    <Project Path="Core/Vixen.Water.Physics.Tests/Vixen.Water.Physics.Tests.csproj" />
-    <!--
-      And water's device half, beside the terrain renderer for the same reason: § D1 splits the kernel
-      from the thing that knows what a device is, and the pass that integrates absorption over a depth
-      of water is squarely the second.
-    -->
     <Project Path="Core/Vixen.Rendering.Water/Vixen.Rendering.Water.csproj" />
-    <Project Path="Core/Vixen.Rendering.Water.Tests/Vixen.Rendering.Water.Tests.csproj" />
     <Project Path="Core/Vixen.Navigation/Vixen.Navigation.csproj" />
-    <Project Path="Core/Vixen.Navigation.Tests/Vixen.Navigation.Tests.csproj" />
-    <!--
-      Agent decision-making (docs/plan/37). Under Core/ and emphatically not on the gameplay spine:
-      doc 28 had put the three planners in Vixen.Gameplay.Ai on top of Vixen.Gameplay.Combat, and a
-      behaviour tree that needs a combat package cannot run a stealth patrol or a shopkeeper. What
-      stays behind in Gameplay is threat, aggro, leashing and spawn tables — the part that really is
-      game rules — and it will reference this rather than contain it.
-    -->
     <Project Path="Core/Vixen.Ai/Vixen.Ai.csproj" />
-    <Project Path="Core/Vixen.Ai.Tests/Vixen.Ai.Tests.csproj" />
-    <!--
-      And perception beside it rather than inside it (docs/plan/37 § P3), because it is the half that
-      needs the world: Vixen.Engine for where things are and Vixen.Physics for what is between them.
-      A game that wants behaviour trees without a physics world links Vixen.Ai and stops.
-    -->
     <Project Path="Core/Vixen.Ai.Perception/Vixen.Ai.Perception.csproj" />
-    <Project Path="Core/Vixen.Ai.Perception.Tests/Vixen.Ai.Perception.Tests.csproj" />
-    <!--
-      And the nodes that touch the rest of the engine (docs/plan/37 § P4). The widest reference list
-      in Core/ — navigation, animation and audio at once — which is exactly why it is its own
-      assembly: nothing depends on it, so a game links it only if it wants the nodes.
-    -->
     <Project Path="Core/Vixen.Ai.Nodes/Vixen.Ai.Nodes.csproj" />
-    <Project Path="Core/Vixen.Ai.Nodes.Tests/Vixen.Ai.Nodes.Tests.csproj" />
-    <!--
-      And the gameplay debugger (docs/plan/37 § P7). Split out for the same reason perception is:
-      DebugDraw lives in Vixen.Engine and Vixen.Ai depends on no engine. It sees perception too,
-      because § D20 asks for *one* debug surface — the cones are drawn beside the active path — and
-      the assembly that draws has to see both halves to do that.
-    -->
     <Project Path="Core/Vixen.Ai.Diagnostics/Vixen.Ai.Diagnostics.csproj" />
-    <Project Path="Core/Vixen.Ai.Diagnostics.Tests/Vixen.Ai.Diagnostics.Tests.csproj" />
     <Project Path="Core/Vixen.Rendering/Vixen.Rendering.csproj" />
-    <Project Path="Core/Vixen.Rendering.Tests/Vixen.Rendering.Tests.csproj" />
     <Project Path="Core/Vixen.Rendering.PostFx/Vixen.Rendering.PostFx.csproj" />
-    <Project Path="Core/Vixen.Rendering.PostFx.Tests/Vixen.Rendering.PostFx.Tests.csproj" />
-
-    <!--
-      The distance-field bake (docs/plan/19 § L1). Beside the renderer rather than inside it because
-      it references no device: it turns triangles into a field on the CPU, which is what lets it be
-      checked against closed forms instead of against a picture.
-    -->
     <Project Path="Core/Vixen.Rendering.DistanceFields/Vixen.Rendering.DistanceFields.csproj" />
-    <Project Path="Core/Vixen.Rendering.DistanceFields.Tests/Vixen.Rendering.DistanceFields.Tests.csproj" />
-
-    <!--
-      The irradiance field (docs/plan/19 § L2): bricks, a pool and an indirection grid. Beside the
-      distance fields and device-free for the same reason — the storage and sampling half is where
-      the seams and the leaks live, and both are arithmetic.
-    -->
     <Project Path="Core/Vixen.Rendering.IrradianceFields/Vixen.Rendering.IrradianceFields.csproj" />
-    <Project Path="Core/Vixen.Rendering.IrradianceFields.Tests/Vixen.Rendering.IrradianceFields.Tests.csproj" />
-
-    <!--
-      The screen probe gather (docs/plan/19 § L3): an octahedral radiance map per probe on a coarse
-      screen grid. Device-free like its two siblings above, and for the same reason — the mapping,
-      the solid angles and the projection are the halves that can be held against closed forms.
-    -->
     <Project Path="Core/Vixen.Rendering.ScreenProbes/Vixen.Rendering.ScreenProbes.csproj" />
-    <Project Path="Core/Vixen.Rendering.ScreenProbes.Tests/Vixen.Rendering.ScreenProbes.Tests.csproj" />
     <Project Path="Core/Vixen.Rendering.RayTracing/Vixen.Rendering.RayTracing.csproj" />
-    <Project Path="Core/Vixen.Rendering.RayTracing.Tests/Vixen.Rendering.RayTracing.Tests.csproj" />
     <Project Path="Core/Vixen.Rendering.Reflections/Vixen.Rendering.Reflections.csproj" />
-    <Project Path="Core/Vixen.Rendering.Reflections.Tests/Vixen.Rendering.Reflections.Tests.csproj" />
     <Project Path="Core/Vixen.Rendering.SurfaceCache/Vixen.Rendering.SurfaceCache.csproj" />
-    <Project Path="Core/Vixen.Rendering.SurfaceCache.Tests/Vixen.Rendering.SurfaceCache.Tests.csproj" />
     <Project Path="Core/Vixen.Rendering.VirtualGeometry/Vixen.Rendering.VirtualGeometry.csproj" />
-    <Project Path="Core/Vixen.Rendering.VirtualGeometry.Tests/Vixen.Rendering.VirtualGeometry.Tests.csproj" />
-
-    <!--
-      The debug-geometry join, listed here rather than beside Vixen.Engine because it belongs to the
-      renderer half of the pair: Vixen.Engine accumulates without a device and this draws. Same
-      arrangement, and same reason, as Vixen.Ui.Renderer.
-    -->
     <Project Path="Core/Vixen.Engine.Renderer/Vixen.Engine.Renderer.csproj" />
-    <Project Path="Core/Vixen.Engine.Renderer.Tests/Vixen.Engine.Renderer.Tests.csproj" />
     <Project Path="Core/Vixen.Animation/Vixen.Animation.csproj" />
-    <Project Path="Core/Vixen.Animation.Tests/Vixen.Animation.Tests.csproj" />
     <Project Path="Core/Vixen.Vfx/Vixen.Vfx.csproj" />
-    <Project Path="Core/Vixen.Vfx.Tests/Vixen.Vfx.Tests.csproj" />
     <Project Path="Core/Vixen.Video/Vixen.Video.csproj" />
-    <Project Path="Core/Vixen.Video.Tests/Vixen.Video.Tests.csproj" />
     <Project Path="Core/Vixen.Video.Codecs/Vixen.Video.Codecs.csproj" />
-    <Project Path="Core/Vixen.Video.Codecs.Tests/Vixen.Video.Codecs.Tests.csproj" />
     <Project Path="Core/Vixen.Video.Rendering/Vixen.Video.Rendering.csproj" />
-    <Project Path="Core/Vixen.Video.Rendering.Tests/Vixen.Video.Rendering.Tests.csproj" />
     <Project Path="Core/Vixen.Xr/Vixen.Xr.csproj" />
-    <Project Path="Core/Vixen.Xr.Tests/Vixen.Xr.Tests.csproj" />
     <Project Path="Core/Vixen.Ui.Reactive/Vixen.Ui.Reactive.csproj" />
-    <Project Path="Core/Vixen.Ui.Reactive.Tests/Vixen.Ui.Reactive.Tests.csproj" />
     <Project Path="Core/Vixen.Ui.Layout/Vixen.Ui.Layout.csproj" />
-    <Project Path="Core/Vixen.Ui.Layout.Tests/Vixen.Ui.Layout.Tests.csproj" />
     <Project Path="Core/Vixen.Ui.Styling/Vixen.Ui.Styling.csproj" />
-    <Project Path="Core/Vixen.Ui.Styling.Tests/Vixen.Ui.Styling.Tests.csproj" />
     <Project Path="Core/Vixen.Ui.Styling.Utilities/Vixen.Ui.Styling.Utilities.csproj" />
-    <Project Path="Core/Vixen.Ui.Styling.Utilities.Tests/Vixen.Ui.Styling.Utilities.Tests.csproj" />
     <Project Path="Core/Vixen.Ui.Text/Vixen.Ui.Text.csproj" />
-    <Project Path="Core/Vixen.Ui.Text.Tests/Vixen.Ui.Text.Tests.csproj" />
     <Project Path="Core/Vixen.Ui/Vixen.Ui.csproj" />
     <Project Path="Core/Vixen.Ui.Generators/Vixen.Ui.Generators.csproj" />
-    <Project Path="Core/Vixen.Ui.Generators.Tests/Vixen.Ui.Generators.Tests.csproj" />
-    <Project Path="Core/Vixen.Ui.Tests/Vixen.Ui.Tests.csproj" />
+    <Project Path="Core/Vixen.Ui.Testing/Vixen.Ui.Testing.csproj" />
     <Project Path="Core/Vixen.Ui.Markup/Vixen.Ui.Markup.csproj" />
-    <Project Path="Core/Vixen.Ui.Markup.Tests/Vixen.Ui.Markup.Tests.csproj" />
     <Project Path="Core/Vixen.Ui.Markup.Generators/Vixen.Ui.Markup.Generators.csproj" />
-    <Project Path="Core/Vixen.Ui.Markup.Generators.Tests/Vixen.Ui.Markup.Generators.Tests.csproj" />
     <Project Path="Core/Vixen.Ui.Controls/Vixen.Ui.Controls.csproj" />
-    <Project Path="Core/Vixen.Ui.Controls.Tests/Vixen.Ui.Controls.Tests.csproj" />
     <Project Path="Core/Vixen.Ui.Controls.Advanced/Vixen.Ui.Controls.Advanced.csproj" />
-    <Project Path="Core/Vixen.Ui.Controls.Advanced.Tests/Vixen.Ui.Controls.Advanced.Tests.csproj" />
     <Project Path="Core/Vixen.Ui.Renderer/Vixen.Ui.Renderer.csproj" />
     <Project Path="Core/Vixen.Ui.HotReload/Vixen.Ui.HotReload.csproj" />
-    <Project Path="Core/Vixen.Ui.HotReload.Tests/Vixen.Ui.HotReload.Tests.csproj" />
-    <Project Path="Core/Vixen.Ui.Testing/Vixen.Ui.Testing.csproj" />
-    <Project Path="Core/Vixen.Ui.Testing.Tests/Vixen.Ui.Testing.Tests.csproj" />
     <Project Path="Core/Vixen.Net/Vixen.Net.csproj" />
     <Project Path="Core/Vixen.Net.Generators/Vixen.Net.Generators.csproj" />
+    <Project Path="Core/Vixen.Net.Transport.Local/Vixen.Net.Transport.Local.csproj" />
+    <Project Path="Core/Vixen.Net.Transport.Udp/Vixen.Net.Transport.Udp.csproj" />
+    <Project Path="Core/Vixen.Net.Transport.WebSocket/Vixen.Net.Transport.WebSocket.csproj" />
+    <Project Path="Core/Vixen.Net.Transport.Composite/Vixen.Net.Transport.Composite.csproj" />
+    <Project Path="Core/Vixen.Net.Engine/Vixen.Net.Engine.csproj" />
+    <Project Path="Core/Vixen.Net.Engine.Content/Vixen.Net.Engine.Content.csproj" />
+    <Project Path="Core/Vixen.Net.Animation/Vixen.Net.Animation.csproj" />
+    <Project Path="Core/Vixen.Net.Audio/Vixen.Net.Audio.csproj" />
+    <Project Path="Core/Vixen.Net.Physics/Vixen.Net.Physics.csproj" />
+    <Project Path="Core/Vixen.Net.Telemetry/Vixen.Net.Telemetry.csproj" />
+    <Project Path="Core/Vixen.Fuzz/Vixen.Fuzz.csproj" />
+  </Folder>
+
+  <Folder Name="/Tests/Core/">
+    <Project Path="Core/Vixen.Core.Tests/Vixen.Core.Tests.csproj" />
+    <Project Path="Core/Vixen.Core.Mathematics.Tests/Vixen.Core.Mathematics.Tests.csproj" />
+    <Project Path="Core/Vixen.Core.Collections.Tests/Vixen.Core.Collections.Tests.csproj" />
+    <Project Path="Core/Vixen.Core.Memory.Tests/Vixen.Core.Memory.Tests.csproj" />
+    <Project Path="Core/Vixen.Core.Diagnostics.Tests/Vixen.Core.Diagnostics.Tests.csproj" />
+    <Project Path="Core/Vixen.Core.Analyzers.Tests/Vixen.Core.Analyzers.Tests.csproj" />
+    <Project Path="Core/Vixen.Core.Diagnostics.Analyzers.Tests/Vixen.Core.Diagnostics.Analyzers.Tests.csproj" />
+    <Project Path="Core/Vixen.Core.IO.Analyzers.Tests/Vixen.Core.IO.Analyzers.Tests.csproj" />
+    <Project Path="Core/Vixen.Core.IO.Tests/Vixen.Core.IO.Tests.csproj" />
+    <Project Path="Core/Vixen.Core.Serialization.Tests/Vixen.Core.Serialization.Tests.csproj" />
+    <Project Path="Core/Vixen.Core.Reflection.Tests/Vixen.Core.Reflection.Tests.csproj" />
+    <Project Path="Core/Vixen.Core.Threading.Tests/Vixen.Core.Threading.Tests.csproj" />
+    <Project Path="Core/Vixen.Core.Syntax.Tests/Vixen.Core.Syntax.Tests.csproj" />
+    <Project Path="Core/Vixen.Core.Yaml.Tests/Vixen.Core.Yaml.Tests.csproj" />
+    <Project Path="Core/Vixen.Core.Imaging.Tests/Vixen.Core.Imaging.Tests.csproj" />
+    <Project Path="Core/Vixen.Assets.Tests/Vixen.Assets.Tests.csproj" />
+    <Project Path="Core/Vixen.Ecs.Tests/Vixen.Ecs.Tests.csproj" />
+    <Project Path="Core/Vixen.Engine.Generators.Tests/Vixen.Engine.Generators.Tests.csproj" />
+    <Project Path="Core/Vixen.Engine.Tests/Vixen.Engine.Tests.csproj" />
+    <Project Path="Core/Vixen.Graphics.Tests/Vixen.Graphics.Tests.csproj" />
+    <Project Path="Core/Vixen.Graphics.RenderGraph.Tests/Vixen.Graphics.RenderGraph.Tests.csproj" />
+    <Project Path="Core/Vixen.Shaders.Tests/Vixen.Shaders.Tests.csproj" />
+    <Project Path="Core/Vixen.Audio.Tests/Vixen.Audio.Tests.csproj" />
+    <Project Path="Core/Vixen.Audio.Codecs.Tests/Vixen.Audio.Codecs.Tests.csproj" />
+    <Project Path="Core/Vixen.Audio.Physics.Tests/Vixen.Audio.Physics.Tests.csproj" />
+    <Project Path="Core/Vixen.Input.Tests/Vixen.Input.Tests.csproj" />
+    <Project Path="Core/Vixen.Physics.Tests/Vixen.Physics.Tests.csproj" />
+    <Project Path="Core/Vixen.Platform.Tests/Vixen.Platform.Tests.csproj" />
+    <Project Path="Core/Vixen.Geometry.Tests/Vixen.Geometry.Tests.csproj" />
+    <Project Path="Core/Vixen.Geometry.Uv.Tests/Vixen.Geometry.Uv.Tests.csproj" />
+    <Project Path="Core/Vixen.Geometry.Remeshing.Tests/Vixen.Geometry.Remeshing.Tests.csproj" />
+    <Project Path="Core/Vixen.Foliage.Tests/Vixen.Foliage.Tests.csproj" />
+    <Project Path="Core/Vixen.Rendering.Terrain.Tests/Vixen.Rendering.Terrain.Tests.csproj" />
+    <Project Path="Core/Vixen.Terrain.Physics.Tests/Vixen.Terrain.Physics.Tests.csproj" />
+    <Project Path="Core/Vixen.Terrain.Tests/Vixen.Terrain.Tests.csproj" />
+    <Project Path="Core/Vixen.Water.Tests/Vixen.Water.Tests.csproj" />
+    <Project Path="Core/Vixen.Water.Physics.Tests/Vixen.Water.Physics.Tests.csproj" />
+    <Project Path="Core/Vixen.Rendering.Water.Tests/Vixen.Rendering.Water.Tests.csproj" />
+    <Project Path="Core/Vixen.Navigation.Tests/Vixen.Navigation.Tests.csproj" />
+    <Project Path="Core/Vixen.Ai.Tests/Vixen.Ai.Tests.csproj" />
+    <Project Path="Core/Vixen.Ai.Perception.Tests/Vixen.Ai.Perception.Tests.csproj" />
+    <Project Path="Core/Vixen.Ai.Nodes.Tests/Vixen.Ai.Nodes.Tests.csproj" />
+    <Project Path="Core/Vixen.Ai.Diagnostics.Tests/Vixen.Ai.Diagnostics.Tests.csproj" />
+    <Project Path="Core/Vixen.Rendering.Tests/Vixen.Rendering.Tests.csproj" />
+    <Project Path="Core/Vixen.Rendering.PostFx.Tests/Vixen.Rendering.PostFx.Tests.csproj" />
+    <Project Path="Core/Vixen.Rendering.DistanceFields.Tests/Vixen.Rendering.DistanceFields.Tests.csproj" />
+    <Project Path="Core/Vixen.Rendering.IrradianceFields.Tests/Vixen.Rendering.IrradianceFields.Tests.csproj" />
+    <Project Path="Core/Vixen.Rendering.ScreenProbes.Tests/Vixen.Rendering.ScreenProbes.Tests.csproj" />
+    <Project Path="Core/Vixen.Rendering.RayTracing.Tests/Vixen.Rendering.RayTracing.Tests.csproj" />
+    <Project Path="Core/Vixen.Rendering.Reflections.Tests/Vixen.Rendering.Reflections.Tests.csproj" />
+    <Project Path="Core/Vixen.Rendering.SurfaceCache.Tests/Vixen.Rendering.SurfaceCache.Tests.csproj" />
+    <Project Path="Core/Vixen.Rendering.VirtualGeometry.Tests/Vixen.Rendering.VirtualGeometry.Tests.csproj" />
+    <Project Path="Core/Vixen.Engine.Renderer.Tests/Vixen.Engine.Renderer.Tests.csproj" />
+    <Project Path="Core/Vixen.Animation.Tests/Vixen.Animation.Tests.csproj" />
+    <Project Path="Core/Vixen.Vfx.Tests/Vixen.Vfx.Tests.csproj" />
+    <Project Path="Core/Vixen.Video.Tests/Vixen.Video.Tests.csproj" />
+    <Project Path="Core/Vixen.Video.Codecs.Tests/Vixen.Video.Codecs.Tests.csproj" />
+    <Project Path="Core/Vixen.Video.Rendering.Tests/Vixen.Video.Rendering.Tests.csproj" />
+    <Project Path="Core/Vixen.Xr.Tests/Vixen.Xr.Tests.csproj" />
+    <Project Path="Core/Vixen.Ui.Reactive.Tests/Vixen.Ui.Reactive.Tests.csproj" />
+    <Project Path="Core/Vixen.Ui.Layout.Tests/Vixen.Ui.Layout.Tests.csproj" />
+    <Project Path="Core/Vixen.Ui.Styling.Tests/Vixen.Ui.Styling.Tests.csproj" />
+    <Project Path="Core/Vixen.Ui.Styling.Utilities.Tests/Vixen.Ui.Styling.Utilities.Tests.csproj" />
+    <Project Path="Core/Vixen.Ui.Text.Tests/Vixen.Ui.Text.Tests.csproj" />
+    <Project Path="Core/Vixen.Ui.Generators.Tests/Vixen.Ui.Generators.Tests.csproj" />
+    <Project Path="Core/Vixen.Ui.Tests/Vixen.Ui.Tests.csproj" />
+    <Project Path="Core/Vixen.Ui.Markup.Tests/Vixen.Ui.Markup.Tests.csproj" />
+    <Project Path="Core/Vixen.Ui.Markup.Generators.Tests/Vixen.Ui.Markup.Generators.Tests.csproj" />
+    <Project Path="Core/Vixen.Ui.Controls.Tests/Vixen.Ui.Controls.Tests.csproj" />
+    <Project Path="Core/Vixen.Ui.Controls.Advanced.Tests/Vixen.Ui.Controls.Advanced.Tests.csproj" />
+    <Project Path="Core/Vixen.Ui.HotReload.Tests/Vixen.Ui.HotReload.Tests.csproj" />
+    <Project Path="Core/Vixen.Ui.Testing.Tests/Vixen.Ui.Testing.Tests.csproj" />
     <Project Path="Core/Vixen.Net.Generators.Tests/Vixen.Net.Generators.Tests.csproj" />
     <Project Path="Core/Vixen.Net.Tests/Vixen.Net.Tests.csproj" />
-    <Project Path="Core/Vixen.Net.Transport.Local/Vixen.Net.Transport.Local.csproj" />
     <Project Path="Core/Vixen.Net.Transport.Local.Tests/Vixen.Net.Transport.Local.Tests.csproj" />
-    <Project Path="Core/Vixen.Net.Transport.Udp/Vixen.Net.Transport.Udp.csproj" />
     <Project Path="Core/Vixen.Net.Transport.Udp.Tests/Vixen.Net.Transport.Udp.Tests.csproj" />
-    <Project Path="Core/Vixen.Net.Transport.WebSocket/Vixen.Net.Transport.WebSocket.csproj" />
     <Project Path="Core/Vixen.Net.Transport.WebSocket.Tests/Vixen.Net.Transport.WebSocket.Tests.csproj" />
-    <!--
-      The tests, but not the project they test: Vixen.Net.Transport.WebSocket.Browser targets
-      net10.0-browser and is excluded for the same reason as the three browser projects below.
-      This one is net10.0 and links the browser factory's single source file, which contains no
-      [JSImport] and no conditional compilation — so the code a page will run is exercised here
-      against a real server over loopback. LinkedSourceTests is what keeps that true.
-    -->
     <Project Path="Core/Vixen.Net.Transport.WebSocket.Browser.Tests/Vixen.Net.Transport.WebSocket.Browser.Tests.csproj" />
-    <Project Path="Core/Vixen.Net.Transport.Composite/Vixen.Net.Transport.Composite.csproj" />
     <Project Path="Core/Vixen.Net.Transport.Composite.Tests/Vixen.Net.Transport.Composite.Tests.csproj" />
-    <Project Path="Core/Vixen.Net.Engine/Vixen.Net.Engine.csproj" />
     <Project Path="Core/Vixen.Net.Engine.Tests/Vixen.Net.Engine.Tests.csproj" />
-    <Project Path="Core/Vixen.Net.Engine.Content/Vixen.Net.Engine.Content.csproj" />
     <Project Path="Core/Vixen.Net.Engine.Content.Tests/Vixen.Net.Engine.Content.Tests.csproj" />
-    <Project Path="Core/Vixen.Net.Animation/Vixen.Net.Animation.csproj" />
     <Project Path="Core/Vixen.Net.Animation.Tests/Vixen.Net.Animation.Tests.csproj" />
-    <Project Path="Core/Vixen.Net.Audio/Vixen.Net.Audio.csproj" />
     <Project Path="Core/Vixen.Net.Audio.Tests/Vixen.Net.Audio.Tests.csproj" />
-    <Project Path="Core/Vixen.Net.Physics/Vixen.Net.Physics.csproj" />
     <Project Path="Core/Vixen.Net.Physics.Tests/Vixen.Net.Physics.Tests.csproj" />
-    <Project Path="Core/Vixen.Net.Telemetry/Vixen.Net.Telemetry.csproj" />
     <Project Path="Core/Vixen.Net.Telemetry.Tests/Vixen.Net.Telemetry.Tests.csproj" />
-    <Project Path="Core/Vixen.Fuzz/Vixen.Fuzz.csproj" />
     <Project Path="Core/Vixen.Fuzz.Tests/Vixen.Fuzz.Tests.csproj" />
   </Folder>
 
-  <!--
-    Platform — one folder per deployment concern (docs/plan/02 § "Platform/").
-    Contracts first, then the implementations. Headless is here from the start rather
-    than as a Phase 9 retrofit: it is what the dedicated server runs on *and* what every
-    test that needs a platform uses, so the no-display path cannot quietly rot.
-  -->
   <Folder Name="/Platform/">
-    <!-- The contracts these implement are in Core/Vixen.Platform; see the note beside it. -->
     <Project Path="Platform/Vixen.Platform.Headless/Vixen.Platform.Headless.csproj" />
-    <Project Path="Platform/Vixen.Platform.Headless.Tests/Vixen.Platform.Headless.Tests.csproj" />
     <Project Path="Platform/Vixen.Platform.Desktop/Vixen.Platform.Desktop.csproj" />
-    <Project Path="Platform/Vixen.Platform.Desktop.Tests/Vixen.Platform.Desktop.Tests.csproj" />
-    <!--
-      The three per-OS assemblies. All of them are here and all of them build everywhere, because
-      each is net10.0 and its platform-specific half is [LibraryImport] behind
-      [SupportedOSPlatform] rather than a Windows-versioned target framework — which is what keeps
-      them out of the workload problem that Vixen.Platform.Android and .iOS have, and inside
-      `nuke CheckApi`.
-    -->
     <Project Path="Platform/Vixen.Platform.Windows/Vixen.Platform.Windows.csproj" />
-    <Project Path="Platform/Vixen.Platform.Windows.Tests/Vixen.Platform.Windows.Tests.csproj" />
     <Project Path="Platform/Vixen.Platform.Linux/Vixen.Platform.Linux.csproj" />
-    <Project Path="Platform/Vixen.Platform.Linux.Tests/Vixen.Platform.Linux.Tests.csproj" />
     <Project Path="Platform/Vixen.Platform.MacOS/Vixen.Platform.MacOS.csproj" />
-    <Project Path="Platform/Vixen.Platform.MacOS.Tests/Vixen.Platform.MacOS.Tests.csproj" />
     <Project Path="Platform/Vixen.Platform.Native/Vixen.Platform.Native.csproj" />
-    <Project Path="Platform/Vixen.Platform.Native.Tests/Vixen.Platform.Native.Tests.csproj" />
-    <!--
-      The join between Vixen.Platform and Vixen.Ui. It is in Platform/ rather than Core/ because it
-      references a window, and Core may not — which is the whole reason the assembly exists.
-    -->
     <Project Path="Platform/Vixen.Platform.Ui/Vixen.Platform.Ui.csproj" />
-    <Project Path="Platform/Vixen.Platform.Ui.Tests/Vixen.Platform.Ui.Tests.csproj" />
-    <!--
-      The window, the device and the four steps of a frame, for an application whose whole content is
-      a user interface. It is here rather than in Core/ for Vixen.Platform.Ui's reason and one more:
-      it creates the Vulkan device and the swapchain, and both of those are Platform/.
-    -->
     <Project Path="Platform/Vixen.Ui.Desktop/Vixen.Ui.Desktop.csproj" />
-    <!--
-      Development-time hot reload, joining two assemblies that may not reference each other:
-      Vixen.Ui.HotReload is under Core/ and may not name a window, and Vixen.Ui.Desktop is shipped
-      and may not name a development tool. Referencing this is the whole of the opt-in.
-    -->
     <Project Path="Platform/Vixen.Ui.Desktop.HotReload/Vixen.Ui.Desktop.HotReload.csproj" />
-    <Project Path="Platform/Vixen.Ui.Desktop.Tests/Vixen.Ui.Desktop.Tests.csproj" />
     <Project Path="Platform/Vixen.Graphics.Null/Vixen.Graphics.Null.csproj" />
+    <Project Path="Platform/Vixen.Graphics.Vulkan/Vixen.Graphics.Vulkan.csproj" />
+    <Project Path="Platform/Vixen.Graphics.WebGPU/Vixen.Graphics.WebGPU.csproj" />
+    <Project Path="Platform/Vixen.Graphics.OpenGL/Vixen.Graphics.OpenGL.csproj" />
+    <Project Path="Platform/Vixen.Audio.Backend.OpenAL/Vixen.Audio.Backend.OpenAL.csproj" />
+    <Project Path="Platform/Vixen.Xr.OpenXR/Vixen.Xr.OpenXR.csproj" />
+  </Folder>
+
+  <Folder Name="/Tests/Platform/">
+    <Project Path="Platform/Vixen.Platform.Headless.Tests/Vixen.Platform.Headless.Tests.csproj" />
+    <Project Path="Platform/Vixen.Platform.Desktop.Tests/Vixen.Platform.Desktop.Tests.csproj" />
+    <Project Path="Platform/Vixen.Platform.Windows.Tests/Vixen.Platform.Windows.Tests.csproj" />
+    <Project Path="Platform/Vixen.Platform.Linux.Tests/Vixen.Platform.Linux.Tests.csproj" />
+    <Project Path="Platform/Vixen.Platform.MacOS.Tests/Vixen.Platform.MacOS.Tests.csproj" />
+    <Project Path="Platform/Vixen.Platform.Native.Tests/Vixen.Platform.Native.Tests.csproj" />
+    <Project Path="Platform/Vixen.Platform.Ui.Tests/Vixen.Platform.Ui.Tests.csproj" />
+    <Project Path="Platform/Vixen.Ui.Desktop.Tests/Vixen.Ui.Desktop.Tests.csproj" />
     <Project Path="Platform/Vixen.Graphics.Null.Tests/Vixen.Graphics.Null.Tests.csproj" />
     <Project Path="Platform/Vixen.Graphics.Golden.Tests/Vixen.Graphics.Golden.Tests.csproj" />
-    <Project Path="Platform/Vixen.Graphics.Vulkan/Vixen.Graphics.Vulkan.csproj" />
     <Project Path="Platform/Vixen.Graphics.Vulkan.Tests/Vixen.Graphics.Vulkan.Tests.csproj" />
-    <!--
-      The WebGPU backend's shared half and its native Dawn/wgpu surface. Its browser
-      surface — Vixen.Graphics.WebGPU.Browser — is absent for the reason below.
-    -->
-    <Project Path="Platform/Vixen.Graphics.WebGPU/Vixen.Graphics.WebGPU.csproj" />
     <Project Path="Platform/Vixen.Graphics.WebGPU.Tests/Vixen.Graphics.WebGPU.Tests.csproj" />
-    <!--
-      The abstraction validator. ADR-001 postponed D3D12 past 1.0 and passed the job of proving the
-      RHI is API-neutral to OpenGL, which is a stricter test — no pipeline objects, no descriptor
-      sets, no explicit barriers, no multithreaded recording. Its test assembly drives a recording
-      IGlApi rather than a driver, so the translation layer is checked on every build and not only
-      on the CI leg that has Mesa.
-    -->
-    <Project Path="Platform/Vixen.Graphics.OpenGL/Vixen.Graphics.OpenGL.csproj" />
     <Project Path="Platform/Vixen.Graphics.OpenGL.Tests/Vixen.Graphics.OpenGL.Tests.csproj" />
     <Project Path="Platform/Vixen.Raven.Gpu.Tests/Vixen.Raven.Gpu.Tests.csproj" />
     <Project Path="Platform/Vixen.Vfx.Gpu.Tests/Vixen.Vfx.Gpu.Tests.csproj" />
-    <!--
-      Vixen.Platform.Web, Vixen.Audio.Backend.WebAudio and Vixen.Graphics.WebGPU.Browser
-      are deliberately absent, for the same reason Vixen.Platform.Android and
-      Vixen.Platform.iOS are: they target net10.0-browser, which needs the wasm-tools
-      workload even to evaluate, and a solution that will not restore on a machine
-      without it is a solution nobody can open. All three are built by `nuke CompileWeb`
-      and by the `web` leg of ci.yml, which also publishes a head (`nuke PublishWeb`).
-
-      Vixen.Platform.Web.Tests *is* here, and is not a contradiction: it targets
-      net10.0 and links the platform-neutral half of those projects as source rather than
-      referencing them, so the manifest reader — hand-written, and the thing most worth
-      testing — and the three browser bindings' module-URL constants are covered on every
-      push without a browser or a workload. See its csproj.
-    -->
     <Project Path="Platform/Vixen.Platform.Web.Tests/Vixen.Platform.Web.Tests.csproj" />
-    <Project Path="Platform/Vixen.Audio.Backend.OpenAL/Vixen.Audio.Backend.OpenAL.csproj" />
     <Project Path="Platform/Vixen.Audio.Backend.OpenAL.Tests/Vixen.Audio.Backend.OpenAL.Tests.csproj" />
-    <!--
-      The OpenXR backend ships bindings and no native payload: the loader belongs to whatever
-      runtime owns the headset, and a copy inside a game would shadow it. A machine with no
-      headset therefore has no loader either, which is why the backend is written to survive
-      that and why its tests skip rather than fail.
-    -->
-    <Project Path="Platform/Vixen.Xr.OpenXR/Vixen.Xr.OpenXR.csproj" />
     <Project Path="Platform/Vixen.Xr.OpenXR.Tests/Vixen.Xr.OpenXR.Tests.csproj" />
   </Folder>
 
-  <!--
-    Editor — docs/plan/02 § Editor/. Vixen.Editor.Core is the project model everything
-    else in the editor is built on: the asset database and the two indexes over it.
-    Vixen.Editor.Ui is the shell over Vixen.Ui — docking, commands, palette, theming —
-    and deliberately does not reference Core, so the chrome is testable with no project
-    on disk. Vixen.Editor.App is the head that joins them to a window and a device.
-    Vixen.Editor.NodeGraph is the framework the shader and VFX graphs are both built on
-    and references neither of those two: a graph is a document and a compiler, so the
-    whole of it is testable with no shell either. Vixen.Editor.AnimationGraph is beside
-    them and ⚠ deliberately *not* on that framework: a state machine's edge carries "may
-    become" rather than a value, several leave one state and several arrive at another,
-    and a graph with no cycle is a character that can never return to idle. See its README.
-
-    Vixen.Editor.Inspector and Vixen.Editor.SceneView are the two panels that are more
-    than chrome, and both reference Vixen.Editor.Core because both produce IEditorCommands
-    — "every edit produces a command" is only true by construction if the thing building
-    the editors knows about the stack. Neither references Vixen.Editor.Ui: an inspector is
-    a control and a viewport is arithmetic over an interface, so both are testable against
-    a bare UiDocument with no shell, and joining them to the docking workspace is
-    Vixen.Editor.App's job as it is for everything else.
-
-    Vixen.Editor.AssetEditors is the one assembly here that references most of the others,
-    and that is what it is for: doc 11's table of per-asset editors is a table of things
-    that each need a document, an inspector, and — for four of them — a viewport, a graph
-    or a code editor. It is above the panels rather than beside them, and it is still not
-    the shell: an asset editor is a document and a control, and which dock group it lands
-    in is Vixen.Editor.App's decision as everything else is.
-
-    Vixen.Editor.Profiler and Vixen.Editor.Debugger are doc 11's two diagnostics projects
-    and doc 20's B4. Two rather than one because they depend on different halves of the
-    engine — the profiler on the sample rings and the RHI's query pools, the debugger on a
-    command stream and a network transport — and neither references Vixen.Editor.Core:
-    what a diagnostics panel shows is a *reading* rather than something anybody edits, so
-    there is no document and no undo stack, and both are testable against a bare
-    UiDocument with no project on disk. Which world the statistics count and which device
-    the GPU timeline reads are Vixen.Editor.App's arbitration, as every other panel's
-    subject is.
-
-    Vixen.Editor.Blockout is doc 24's editor half: the viewport mode the grey-boxing
-    tools live in. It references Vixen.Editor.Ui and nothing else — a mode is a shell
-    concept, and the viewport is joined to it by Vixen.Editor.App through the pane's own
-    IViewportInput rather than by a reference from here. ⚠ The mesh kernel it will edit is
-    Core/Vixen.Geometry and is deliberately not under Editor/: it is arithmetic with no
-    document, no selection and no device, and doc 24 § D1 says why that belongs under the
-    profile that is AOT-compatible, trimmable and API-checked.
-
-    Vixen.Editor.Terrain is doc 31 § T3's editor half, and the same shape one phase on: the
-    viewport mode the sculpt tools live in, the settings the terrain panel is made of, the
-    stroke and layer commands, and the editing state that turns a drag into one undo entry.
-    ⚠ It references Vixen.Editor.SceneView as well as Vixen.Editor.Ui — a brush needs to know
-    which pane the pointer is in to turn it into a ray — and Vixen.Editor.Inspector, because
-    the panel is [Inspector] members of [DataContract] types rather than dialog code. The
-    heightfield kernel it edits is Core/Vixen.Terrain, deliberately not under Editor/, for the
-    reason Core/Vixen.Geometry is not: arithmetic with no document, no selection and no device.
-
-    Vixen.Editor.Water is doc 35 § W9, and the smallest of these three by a long way — for a
-    stated reason rather than by luck. Doc 35 § "One mode, not two" says water needs one mode and
-    most of the time not even that: placing a lake is placing an entity and editing its shape is
-    editing a spline, both of which the existing tools already do. What is left is the three verbs
-    that are not entity editing — draw a body's curve on the ground, drag its profile handles, and
-    preview what its carve did to the terrain — plus the zone panel, whose whole job is turning a
-    resolution into metres per texel and megabytes before somebody types one.
-
-    Vixen.Editor.Plugin is the contract a third party writes against, and the only
-    project under Editor/ whose public surface is checked against a baseline — doc 11
-    asks for a stricter promise there than anywhere else in the editor. It references
-    Vixen.Editor.Ui and nothing else here, so that a plugin adding a menu item does not
-    build against a model importer.
-  -->
   <Folder Name="/Editor/">
     <Project Path="Editor/Vixen.Editor.Core/Vixen.Editor.Core.csproj" />
-    <Project Path="Editor/Vixen.Editor.Core.Tests/Vixen.Editor.Core.Tests.csproj" />
     <Project Path="Editor/Vixen.Editor.Assets/Vixen.Editor.Assets.csproj" />
-    <Project Path="Editor/Vixen.Editor.Assets.Tests/Vixen.Editor.Assets.Tests.csproj" />
     <Project Path="Tools/Vixen.Authoring/Vixen.Authoring.csproj" />
     <Project Path="Tools/Vixen.Interchange/Vixen.Interchange.csproj" />
-    <Project Path="Tools/Vixen.Interchange.Tests/Vixen.Interchange.Tests.csproj" />
     <Project Path="Tools/Vixen.NodeGraph/Vixen.NodeGraph.csproj" />
-    <Project Path="Tools/Vixen.NodeGraph.Tests/Vixen.NodeGraph.Tests.csproj" />
     <Project Path="Editor/Vixen.Editor.NodeGraph/Vixen.Editor.NodeGraph.csproj" />
     <Project Path="Tools/Vixen.NodeGraph.Generator/Vixen.NodeGraph.Generator.csproj" />
-    <Project Path="Editor/Vixen.Editor.NodeGraph.Tests/Vixen.Editor.NodeGraph.Tests.csproj" />
     <Project Path="Editor/Vixen.Editor.ShaderGraph/Vixen.Editor.ShaderGraph.csproj" />
-    <Project Path="Editor/Vixen.Editor.ShaderGraph.Tests/Vixen.Editor.ShaderGraph.Tests.csproj" />
     <Project Path="Tools/Vixen.TextureGraph/Vixen.TextureGraph.csproj" />
     <Project Path="Tools/Vixen.Texturing/Vixen.Texturing.csproj" />
-    <Project Path="Tools/Vixen.Texturing.Tests/Vixen.Texturing.Tests.csproj" />
     <Project Path="Editor/Vixen.Editor.TextureGraph/Vixen.Editor.TextureGraph.csproj" />
-    <Project Path="Editor/Vixen.Editor.TextureGraph.Tests/Vixen.Editor.TextureGraph.Tests.csproj" />
-    <Project Path="Tools/Vixen.TextureGraph.Tests/Vixen.TextureGraph.Tests.csproj" />
-
-    <!--
-      Doc 48 § D14: the texture graph's plugin. It is a separate project from
-      Vixen.Editor.TextureGraph and not a folder inside it, because the property being claimed is a
-      reference set — the evaluator holds a device and knows nothing about a project, and this holds
-      a document and a panel and does not reference Vixen.Editor.App.
-    -->
     <Project Path="Editor/Vixen.Editor.Texturing/Vixen.Editor.Texturing.csproj" />
-    <Project Path="Editor/Vixen.Editor.Texturing.Tests/Vixen.Editor.Texturing.Tests.csproj" />
     <Project Path="Editor/Vixen.Editor.VfxGraph/Vixen.Editor.VfxGraph.csproj" />
-    <Project Path="Editor/Vixen.Editor.VfxGraph.Tests/Vixen.Editor.VfxGraph.Tests.csproj" />
     <Project Path="Editor/Vixen.Editor.AnimationGraph/Vixen.Editor.AnimationGraph.csproj" />
-    <!--
-      The authoring half of doc 37's behaviour trees. Beside AnimationGraph rather than under
-      NodeGraph, and for its reason: doc 37 § D19 works through NodeGraphModel's rules and a tree
-      fails two — a composite's children are ordered where Edges is an unordered list, and a
-      decorator attaches where the model has no notion of an attachment. What is shared is the
-      canvas, not the model.
-    -->
     <Project Path="Editor/Vixen.Editor.Ai/Vixen.Editor.Ai.csproj" />
-    <Project Path="Editor/Vixen.Editor.Ai.Tests/Vixen.Editor.Ai.Tests.csproj" />
-    <Project Path="Editor/Vixen.Editor.AnimationGraph.Tests/Vixen.Editor.AnimationGraph.Tests.csproj" />
-
-    <!--
-      docs/plan/28 § Library structure. The editor half of a loot table, and the reason it is a
-      library rather than a view: the drop simulator runs the shipped LootEvaluator, because a
-      simulator with its own arithmetic is a second set of odds and the one a designer balances
-      against is the one that is wrong.
-    -->
     <Project Path="Editor/Vixen.Editor.Gameplay.Loot/Vixen.Editor.Gameplay.Loot.csproj" />
-    <Project Path="Editor/Vixen.Editor.Gameplay.Loot.Tests/Vixen.Editor.Gameplay.Loot.Tests.csproj" />
     <Project Path="Editor/Vixen.Editor.Gameplay.Quests/Vixen.Editor.Gameplay.Quests.csproj" />
-    <Project Path="Editor/Vixen.Editor.Gameplay.Quests.Tests/Vixen.Editor.Gameplay.Quests.Tests.csproj" />
     <Project Path="Editor/Vixen.Editor.Inspector/Vixen.Editor.Inspector.csproj" />
     <Project Path="Editor/Vixen.Editor.Inspector.Generator/Vixen.Editor.Inspector.Generator.csproj" />
-    <Project Path="Editor/Vixen.Editor.Inspector.Tests/Vixen.Editor.Inspector.Tests.csproj" />
     <Project Path="Editor/Vixen.Editor.SceneView/Vixen.Editor.SceneView.csproj" />
-    <Project Path="Editor/Vixen.Editor.SceneView.Tests/Vixen.Editor.SceneView.Tests.csproj" />
     <Project Path="Editor/Vixen.Editor.Blockout/Vixen.Editor.Blockout.csproj" />
-    <Project Path="Editor/Vixen.Editor.Blockout.Tests/Vixen.Editor.Blockout.Tests.csproj" />
     <Project Path="Editor/Vixen.Editor.Terrain/Vixen.Editor.Terrain.csproj" />
-    <Project Path="Editor/Vixen.Editor.Terrain.Tests/Vixen.Editor.Terrain.Tests.csproj" />
     <Project Path="Editor/Vixen.Editor.Terrain.Physics/Vixen.Editor.Terrain.Physics.csproj" />
-    <Project Path="Editor/Vixen.Editor.Terrain.Physics.Tests/Vixen.Editor.Terrain.Physics.Tests.csproj" />
     <Project Path="Editor/Vixen.Editor.Water/Vixen.Editor.Water.csproj" />
-    <Project Path="Editor/Vixen.Editor.Water.Tests/Vixen.Editor.Water.Tests.csproj" />
     <Project Path="Editor/Vixen.Editor.Ui/Vixen.Editor.Ui.csproj" />
-    <Project Path="Editor/Vixen.Editor.Ui.Tests/Vixen.Editor.Ui.Tests.csproj" />
     <Project Path="Editor/Vixen.Editor.AssetEditors/Vixen.Editor.AssetEditors.csproj" />
-    <Project Path="Editor/Vixen.Editor.AssetEditors.Tests/Vixen.Editor.AssetEditors.Tests.csproj" />
     <Project Path="Editor/Vixen.Editor.Profiler/Vixen.Editor.Profiler.csproj" />
-    <Project Path="Editor/Vixen.Editor.Profiler.Tests/Vixen.Editor.Profiler.Tests.csproj" />
     <Project Path="Editor/Vixen.Editor.Debugger/Vixen.Editor.Debugger.csproj" />
     <Project Path="Editor/Vixen.Editor.Diagnostics/Vixen.Editor.Diagnostics.csproj" />
-    <Project Path="Editor/Vixen.Editor.Debugger.Tests/Vixen.Editor.Debugger.Tests.csproj" />
     <Project Path="Editor/Vixen.Editor.Plugin/Vixen.Editor.Plugin.csproj" />
-    <Project Path="Editor/Vixen.Editor.Plugin.Tests/Vixen.Editor.Plugin.Tests.csproj" />
     <Project Path="Editor/Vixen.Editor.Plugin.Generator/Vixen.Editor.Plugin.Generator.csproj" />
-    <Project Path="Editor/Vixen.Editor.Plugin.Generator.Tests/Vixen.Editor.Plugin.Generator.Tests.csproj" />
     <Project Path="Editor/Vixen.Editor.Scripts/Vixen.Editor.Scripts.csproj" />
-    <Project Path="Editor/Vixen.Editor.Scripts.Tests/Vixen.Editor.Scripts.Tests.csproj" />
     <Project Path="Editor/Vixen.Editor.App/Vixen.Editor.App.csproj" />
     <Project Path="Editor/Vixen.Editor.Host/Vixen.Editor.Host.csproj" />
+  </Folder>
+
+  <Folder Name="/Tests/Editor/">
+    <Project Path="Editor/Vixen.Editor.Core.Tests/Vixen.Editor.Core.Tests.csproj" />
+    <Project Path="Editor/Vixen.Editor.Assets.Tests/Vixen.Editor.Assets.Tests.csproj" />
+    <Project Path="Tools/Vixen.Interchange.Tests/Vixen.Interchange.Tests.csproj" />
+    <Project Path="Tools/Vixen.NodeGraph.Tests/Vixen.NodeGraph.Tests.csproj" />
+    <Project Path="Editor/Vixen.Editor.NodeGraph.Tests/Vixen.Editor.NodeGraph.Tests.csproj" />
+    <Project Path="Editor/Vixen.Editor.ShaderGraph.Tests/Vixen.Editor.ShaderGraph.Tests.csproj" />
+    <Project Path="Tools/Vixen.Texturing.Tests/Vixen.Texturing.Tests.csproj" />
+    <Project Path="Editor/Vixen.Editor.TextureGraph.Tests/Vixen.Editor.TextureGraph.Tests.csproj" />
+    <Project Path="Tools/Vixen.TextureGraph.Tests/Vixen.TextureGraph.Tests.csproj" />
+    <Project Path="Editor/Vixen.Editor.Texturing.Tests/Vixen.Editor.Texturing.Tests.csproj" />
+    <Project Path="Editor/Vixen.Editor.VfxGraph.Tests/Vixen.Editor.VfxGraph.Tests.csproj" />
+    <Project Path="Editor/Vixen.Editor.Ai.Tests/Vixen.Editor.Ai.Tests.csproj" />
+    <Project Path="Editor/Vixen.Editor.AnimationGraph.Tests/Vixen.Editor.AnimationGraph.Tests.csproj" />
+    <Project Path="Editor/Vixen.Editor.Gameplay.Loot.Tests/Vixen.Editor.Gameplay.Loot.Tests.csproj" />
+    <Project Path="Editor/Vixen.Editor.Gameplay.Quests.Tests/Vixen.Editor.Gameplay.Quests.Tests.csproj" />
+    <Project Path="Editor/Vixen.Editor.Inspector.Tests/Vixen.Editor.Inspector.Tests.csproj" />
+    <Project Path="Editor/Vixen.Editor.SceneView.Tests/Vixen.Editor.SceneView.Tests.csproj" />
+    <Project Path="Editor/Vixen.Editor.Blockout.Tests/Vixen.Editor.Blockout.Tests.csproj" />
+    <Project Path="Editor/Vixen.Editor.Terrain.Tests/Vixen.Editor.Terrain.Tests.csproj" />
+    <Project Path="Editor/Vixen.Editor.Terrain.Physics.Tests/Vixen.Editor.Terrain.Physics.Tests.csproj" />
+    <Project Path="Editor/Vixen.Editor.Water.Tests/Vixen.Editor.Water.Tests.csproj" />
+    <Project Path="Editor/Vixen.Editor.Ui.Tests/Vixen.Editor.Ui.Tests.csproj" />
+    <Project Path="Editor/Vixen.Editor.AssetEditors.Tests/Vixen.Editor.AssetEditors.Tests.csproj" />
+    <Project Path="Editor/Vixen.Editor.Profiler.Tests/Vixen.Editor.Profiler.Tests.csproj" />
+    <Project Path="Editor/Vixen.Editor.Debugger.Tests/Vixen.Editor.Debugger.Tests.csproj" />
+    <Project Path="Editor/Vixen.Editor.Plugin.Tests/Vixen.Editor.Plugin.Tests.csproj" />
+    <Project Path="Editor/Vixen.Editor.Plugin.Generator.Tests/Vixen.Editor.Plugin.Generator.Tests.csproj" />
+    <Project Path="Editor/Vixen.Editor.Scripts.Tests/Vixen.Editor.Scripts.Tests.csproj" />
     <Project Path="Editor/Vixen.Editor.Testing/Vixen.Editor.Testing.csproj" />
     <Project Path="Editor/Vixen.Editor.App.Tests/Vixen.Editor.App.Tests.csproj" />
   </Folder>
 
-  <!--
-    Tools — docs/plan/02 § Tools/. Vixen.App is both the host an application boots
-    through and, later, the meta-package that pulls in the backends valid for a RID.
-  -->
   <Folder Name="/Tools/">
     <Project Path="Tools/Vixen.AotProbe/Vixen.AotProbe.csproj" />
     <Project Path="Tools/Vixen.ApiCheck/Vixen.ApiCheck.csproj" />
-    <Project Path="Tools/Vixen.ApiCheck.Tests/Vixen.ApiCheck.Tests.csproj" />
     <Project Path="Tools/Vixen.App/Vixen.App.csproj" />
-    <Project Path="Tools/Vixen.App.Tests/Vixen.App.Tests.csproj" />
     <Project Path="Tools/Vixen.AssetCompiler/Vixen.AssetCompiler.csproj" />
-    <Project Path="Tools/Vixen.AssetCompiler.Tests/Vixen.AssetCompiler.Tests.csproj" />
     <Project Path="Tools/Vixen.Cli/Vixen.Cli.csproj" />
-    <Project Path="Tools/Vixen.Cli.Tests/Vixen.Cli.Tests.csproj" />
     <Project Path="Tools/Vixen.ContentServer/Vixen.ContentServer.csproj" />
-    <Project Path="Tools/Vixen.ContentServer.Tests/Vixen.ContentServer.Tests.csproj" />
     <Project Path="Tools/Vixen.DocGen/Vixen.DocGen.csproj" />
-    <Project Path="Tools/Vixen.DocGen.Tests/Vixen.DocGen.Tests.csproj" />
     <Project Path="Tools/Vixen.Sdk/Vixen.Sdk.csproj" />
-    <Project Path="Tools/Vixen.Sdk.Tests/Vixen.Sdk.Tests.csproj" />
     <Project Path="Tools/Vixen.ShaderCompiler/Vixen.ShaderCompiler.csproj" />
-    <Project Path="Tools/Vixen.ShaderCompiler.Tests/Vixen.ShaderCompiler.Tests.csproj" />
     <Project Path="Tools/Vixen.ShaderCompilerService/Vixen.ShaderCompilerService.csproj" />
-    <Project Path="Tools/Vixen.ShaderCompilerService.Tests/Vixen.ShaderCompilerService.Tests.csproj" />
     <Project Path="Tools/Vixen.StyleGen/Vixen.StyleGen.csproj" />
-    <Project Path="Tools/Vixen.StyleGen.Tests/Vixen.StyleGen.Tests.csproj" />
     <Project Path="Tools/Vixen.TaffyTestGen/Vixen.TaffyTestGen.csproj" />
     <Project Path="Tools/Vixen.TailwindParity/Vixen.TailwindParity.csproj" />
-    <Project Path="Tools/Vixen.TailwindParity.Tests/Vixen.TailwindParity.Tests.csproj" />
     <Project Path="Tools/Vixen.Templates/Vixen.Templates.csproj" />
-    <Project Path="Tools/Vixen.Templates.Tests/Vixen.Templates.Tests.csproj" />
     <Project Path="Tools/Vixen.TextRenderingTestGen/Vixen.TextRenderingTestGen.csproj" />
     <Project Path="Tools/Vixen.UnicodeTableGen/Vixen.UnicodeTableGen.csproj" />
-    <Project Path="Tools/Vixen.UnicodeTableGen.Tests/Vixen.UnicodeTableGen.Tests.csproj" />
     <Project Path="Tools/Vixen.YogaTestGen/Vixen.YogaTestGen.csproj" />
   </Folder>
 
-  <!--
-    Gameplay — what a game is made of, rather than what it runs on (docs/plan/28 § Library structure).
-    Engine-side runtime code by every test that matters — it runs in the frame, a client links it, a
-    phone runs that client — so it carries the same RUNTIME profile Core/ does: packable, AOT- and
-    trim-clean, documented, API-baselined. A top level of its own so that a game must be able to
-    decline all of it visibly: folded into Core/, "the engine" would silently mean "the engine, and an
-    inventory system, and a threat table". It sits on Core/ and may not reference Editor/, Tools/ or
-    Live/, which build/Build.ArchitectureRules.cs checks rather than trusts.
-  -->
+  <Folder Name="/Tests/Tools/">
+    <Project Path="Tools/Vixen.ApiCheck.Tests/Vixen.ApiCheck.Tests.csproj" />
+    <Project Path="Tools/Vixen.App.Tests/Vixen.App.Tests.csproj" />
+    <Project Path="Tools/Vixen.AssetCompiler.Tests/Vixen.AssetCompiler.Tests.csproj" />
+    <Project Path="Tools/Vixen.Cli.Tests/Vixen.Cli.Tests.csproj" />
+    <Project Path="Tools/Vixen.ContentServer.Tests/Vixen.ContentServer.Tests.csproj" />
+    <Project Path="Tools/Vixen.DocGen.Tests/Vixen.DocGen.Tests.csproj" />
+    <Project Path="Tools/Vixen.Sdk.Tests/Vixen.Sdk.Tests.csproj" />
+    <Project Path="Tools/Vixen.ShaderCompiler.Tests/Vixen.ShaderCompiler.Tests.csproj" />
+    <Project Path="Tools/Vixen.ShaderCompilerService.Tests/Vixen.ShaderCompilerService.Tests.csproj" />
+    <Project Path="Tools/Vixen.StyleGen.Tests/Vixen.StyleGen.Tests.csproj" />
+    <Project Path="Tools/Vixen.TailwindParity.Tests/Vixen.TailwindParity.Tests.csproj" />
+    <Project Path="Tools/Vixen.Templates.Tests/Vixen.Templates.Tests.csproj" />
+    <Project Path="Tools/Vixen.UnicodeTableGen.Tests/Vixen.UnicodeTableGen.Tests.csproj" />
+  </Folder>
+
   <Folder Name="/Gameplay/">
     <Project Path="Gameplay/Vixen.Gameplay/Vixen.Gameplay.csproj" />
-    <Project Path="Gameplay/Vixen.Gameplay.Tests/Vixen.Gameplay.Tests.csproj" />
     <Project Path="Gameplay/Vixen.Gameplay.Items/Vixen.Gameplay.Items.csproj" />
-    <Project Path="Gameplay/Vixen.Gameplay.Items.Tests/Vixen.Gameplay.Items.Tests.csproj" />
     <Project Path="Gameplay/Vixen.Gameplay.Inventory/Vixen.Gameplay.Inventory.csproj" />
-    <Project Path="Gameplay/Vixen.Gameplay.Inventory.Tests/Vixen.Gameplay.Inventory.Tests.csproj" />
     <Project Path="Gameplay/Vixen.Gameplay.Loot/Vixen.Gameplay.Loot.csproj" />
-    <Project Path="Gameplay/Vixen.Gameplay.Loot.Tests/Vixen.Gameplay.Loot.Tests.csproj" />
     <Project Path="Gameplay/Vixen.Gameplay.Combat/Vixen.Gameplay.Combat.csproj" />
-    <Project Path="Gameplay/Vixen.Gameplay.Combat.Tests/Vixen.Gameplay.Combat.Tests.csproj" />
     <Project Path="Gameplay/Vixen.Gameplay.Shooting/Vixen.Gameplay.Shooting.csproj" />
-    <Project Path="Gameplay/Vixen.Gameplay.Shooting.Tests/Vixen.Gameplay.Shooting.Tests.csproj" />
     <Project Path="Gameplay/Vixen.Gameplay.Progression/Vixen.Gameplay.Progression.csproj" />
-    <Project Path="Gameplay/Vixen.Gameplay.Progression.Tests/Vixen.Gameplay.Progression.Tests.csproj" />
     <Project Path="Gameplay/Vixen.Gameplay.Quests/Vixen.Gameplay.Quests.csproj" />
-    <Project Path="Gameplay/Vixen.Gameplay.Quests.Tests/Vixen.Gameplay.Quests.Tests.csproj" />
     <Project Path="Gameplay/Vixen.Gameplay.Social/Vixen.Gameplay.Social.csproj" />
-    <Project Path="Gameplay/Vixen.Gameplay.Social.Tests/Vixen.Gameplay.Social.Tests.csproj" />
     <Project Path="Gameplay/Vixen.Gameplay.Chat/Vixen.Gameplay.Chat.csproj" />
-    <Project Path="Gameplay/Vixen.Gameplay.Chat.Tests/Vixen.Gameplay.Chat.Tests.csproj" />
     <Project Path="Gameplay/Vixen.Gameplay.Economy/Vixen.Gameplay.Economy.csproj" />
-    <Project Path="Gameplay/Vixen.Gameplay.Economy.Tests/Vixen.Gameplay.Economy.Tests.csproj" />
     <Project Path="Gameplay/Vixen.Gameplay.Instances/Vixen.Gameplay.Instances.csproj" />
-    <Project Path="Gameplay/Vixen.Gameplay.Instances.Tests/Vixen.Gameplay.Instances.Tests.csproj" />
     <Project Path="Gameplay/Vixen.Gameplay.Pvp/Vixen.Gameplay.Pvp.csproj" />
-    <Project Path="Gameplay/Vixen.Gameplay.Pvp.Tests/Vixen.Gameplay.Pvp.Tests.csproj" />
     <Project Path="Gameplay/Vixen.Gameplay.Interaction/Vixen.Gameplay.Interaction.csproj" />
-    <Project Path="Gameplay/Vixen.Gameplay.Interaction.Tests/Vixen.Gameplay.Interaction.Tests.csproj" />
     <Project Path="Gameplay/Vixen.Gameplay.Crafting/Vixen.Gameplay.Crafting.csproj" />
-    <Project Path="Gameplay/Vixen.Gameplay.Crafting.Tests/Vixen.Gameplay.Crafting.Tests.csproj" />
     <Project Path="Gameplay/Vixen.Gameplay.Exploration/Vixen.Gameplay.Exploration.csproj" />
-    <Project Path="Gameplay/Vixen.Gameplay.Exploration.Tests/Vixen.Gameplay.Exploration.Tests.csproj" />
     <Project Path="Gameplay/Vixen.Gameplay.Travel/Vixen.Gameplay.Travel.csproj" />
-    <Project Path="Gameplay/Vixen.Gameplay.Travel.Tests/Vixen.Gameplay.Travel.Tests.csproj" />
     <Project Path="Gameplay/Vixen.Gameplay.Movement/Vixen.Gameplay.Movement.csproj" />
-    <Project Path="Gameplay/Vixen.Gameplay.Movement.Tests/Vixen.Gameplay.Movement.Tests.csproj" />
     <Project Path="Gameplay/Vixen.Gameplay.Ai/Vixen.Gameplay.Ai.csproj" />
-    <Project Path="Gameplay/Vixen.Gameplay.Ai.Tests/Vixen.Gameplay.Ai.Tests.csproj" />
     <Project Path="Gameplay/Vixen.Gameplay.Content/Vixen.Gameplay.Content.csproj" />
-    <Project Path="Gameplay/Vixen.Gameplay.Content.Tests/Vixen.Gameplay.Content.Tests.csproj" />
     <Project Path="Gameplay/Vixen.Gameplay.Housing/Vixen.Gameplay.Housing.csproj" />
-    <Project Path="Gameplay/Vixen.Gameplay.Housing.Tests/Vixen.Gameplay.Housing.Tests.csproj" />
     <Project Path="Gameplay/Vixen.Gameplay.Collections/Vixen.Gameplay.Collections.csproj" />
+  </Folder>
+
+  <Folder Name="/Tests/Gameplay/">
+    <Project Path="Gameplay/Vixen.Gameplay.Tests/Vixen.Gameplay.Tests.csproj" />
+    <Project Path="Gameplay/Vixen.Gameplay.Items.Tests/Vixen.Gameplay.Items.Tests.csproj" />
+    <Project Path="Gameplay/Vixen.Gameplay.Inventory.Tests/Vixen.Gameplay.Inventory.Tests.csproj" />
+    <Project Path="Gameplay/Vixen.Gameplay.Loot.Tests/Vixen.Gameplay.Loot.Tests.csproj" />
+    <Project Path="Gameplay/Vixen.Gameplay.Combat.Tests/Vixen.Gameplay.Combat.Tests.csproj" />
+    <Project Path="Gameplay/Vixen.Gameplay.Shooting.Tests/Vixen.Gameplay.Shooting.Tests.csproj" />
+    <Project Path="Gameplay/Vixen.Gameplay.Progression.Tests/Vixen.Gameplay.Progression.Tests.csproj" />
+    <Project Path="Gameplay/Vixen.Gameplay.Quests.Tests/Vixen.Gameplay.Quests.Tests.csproj" />
+    <Project Path="Gameplay/Vixen.Gameplay.Social.Tests/Vixen.Gameplay.Social.Tests.csproj" />
+    <Project Path="Gameplay/Vixen.Gameplay.Chat.Tests/Vixen.Gameplay.Chat.Tests.csproj" />
+    <Project Path="Gameplay/Vixen.Gameplay.Economy.Tests/Vixen.Gameplay.Economy.Tests.csproj" />
+    <Project Path="Gameplay/Vixen.Gameplay.Instances.Tests/Vixen.Gameplay.Instances.Tests.csproj" />
+    <Project Path="Gameplay/Vixen.Gameplay.Pvp.Tests/Vixen.Gameplay.Pvp.Tests.csproj" />
+    <Project Path="Gameplay/Vixen.Gameplay.Interaction.Tests/Vixen.Gameplay.Interaction.Tests.csproj" />
+    <Project Path="Gameplay/Vixen.Gameplay.Crafting.Tests/Vixen.Gameplay.Crafting.Tests.csproj" />
+    <Project Path="Gameplay/Vixen.Gameplay.Exploration.Tests/Vixen.Gameplay.Exploration.Tests.csproj" />
+    <Project Path="Gameplay/Vixen.Gameplay.Travel.Tests/Vixen.Gameplay.Travel.Tests.csproj" />
+    <Project Path="Gameplay/Vixen.Gameplay.Movement.Tests/Vixen.Gameplay.Movement.Tests.csproj" />
+    <Project Path="Gameplay/Vixen.Gameplay.Ai.Tests/Vixen.Gameplay.Ai.Tests.csproj" />
+    <Project Path="Gameplay/Vixen.Gameplay.Content.Tests/Vixen.Gameplay.Content.Tests.csproj" />
+    <Project Path="Gameplay/Vixen.Gameplay.Housing.Tests/Vixen.Gameplay.Housing.Tests.csproj" />
     <Project Path="Gameplay/Vixen.Gameplay.Collections.Tests/Vixen.Gameplay.Collections.Tests.csproj" />
   </Folder>
 
-  <!--
-    Live — the online service layer (docs/plan/27 § Repository layout). Not engine runtime: three of
-    the four projects here run with no renderer, no window and no game loop, and a game client must
-    never link them. Not tools either: a tool is something a developer runs, and these are shipped
-    and operated. Nothing in Core/, Gameplay/, Platform/, Editor/ or Raven/ may reference this
-    folder, which build/Build.ArchitectureRules.cs checks rather than trusts.
-  -->
   <Folder Name="/Live/">
     <Project Path="Live/Vixen.Live.Abstractions/Vixen.Live.Abstractions.csproj" />
-    <Project Path="Live/Vixen.Live.Abstractions.Tests/Vixen.Live.Abstractions.Tests.csproj" />
     <Project Path="Live/Vixen.Live.Client/Vixen.Live.Client.csproj" />
-    <Project Path="Live/Vixen.Live.Client.Tests/Vixen.Live.Client.Tests.csproj" />
     <Project Path="Live/Vixen.Live.Cluster/Vixen.Live.Cluster.csproj" />
-    <Project Path="Live/Vixen.Live.Cluster.Tests/Vixen.Live.Cluster.Tests.csproj" />
     <Project Path="Live/Vixen.Live.Orchestrator/Vixen.Live.Orchestrator.csproj" />
-    <Project Path="Live/Vixen.Live.Orchestrator.Tests/Vixen.Live.Orchestrator.Tests.csproj" />
     <Project Path="Live/Vixen.Live.Placement.Docker/Vixen.Live.Placement.Docker.csproj" />
-    <Project Path="Live/Vixen.Live.Placement.Docker.Tests/Vixen.Live.Placement.Docker.Tests.csproj" />
     <Project Path="Live/Vixen.Live.Placement.Kubernetes/Vixen.Live.Placement.Kubernetes.csproj" />
-    <Project Path="Live/Vixen.Live.Placement.Kubernetes.Tests/Vixen.Live.Placement.Kubernetes.Tests.csproj" />
     <Project Path="Live/Vixen.Live.Gate/Vixen.Live.Gate.csproj" />
-    <Project Path="Live/Vixen.Live.Gate.Tests/Vixen.Live.Gate.Tests.csproj" />
     <Project Path="Live/Vixen.Live.Persistence/Vixen.Live.Persistence.csproj" />
-    <Project Path="Live/Vixen.Live.Persistence.Tests/Vixen.Live.Persistence.Tests.csproj" />
     <Project Path="Live/Vixen.Live.Placement.Process/Vixen.Live.Placement.Process.csproj" />
-    <Project Path="Live/Vixen.Live.Placement.Process.Tests/Vixen.Live.Placement.Process.Tests.csproj" />
     <Project Path="Live/Vixen.Live.Gameplay/Vixen.Live.Gameplay.csproj" />
-    <Project Path="Live/Vixen.Live.Gameplay.Tests/Vixen.Live.Gameplay.Tests.csproj" />
     <Project Path="Live/Vixen.Live.Matchmaking/Vixen.Live.Matchmaking.csproj" />
-    <Project Path="Live/Vixen.Live.Matchmaking.Tests/Vixen.Live.Matchmaking.Tests.csproj" />
     <Project Path="Live/Vixen.Live.Transfer/Vixen.Live.Transfer.csproj" />
-    <Project Path="Live/Vixen.Live.Transfer.Tests/Vixen.Live.Transfer.Tests.csproj" />
     <Project Path="Live/Vixen.Live.Realm/Vixen.Live.Realm.csproj" />
-    <Project Path="Live/Vixen.Live.Realm.Tests/Vixen.Live.Realm.Tests.csproj" />
     <Project Path="Live/Vixen.Live.Realm.Cluster/Vixen.Live.Realm.Cluster.csproj" />
+  </Folder>
+
+  <Folder Name="/Tests/Live/">
+    <Project Path="Live/Vixen.Live.Abstractions.Tests/Vixen.Live.Abstractions.Tests.csproj" />
+    <Project Path="Live/Vixen.Live.Client.Tests/Vixen.Live.Client.Tests.csproj" />
+    <Project Path="Live/Vixen.Live.Cluster.Tests/Vixen.Live.Cluster.Tests.csproj" />
+    <Project Path="Live/Vixen.Live.Orchestrator.Tests/Vixen.Live.Orchestrator.Tests.csproj" />
+    <Project Path="Live/Vixen.Live.Placement.Docker.Tests/Vixen.Live.Placement.Docker.Tests.csproj" />
+    <Project Path="Live/Vixen.Live.Placement.Kubernetes.Tests/Vixen.Live.Placement.Kubernetes.Tests.csproj" />
+    <Project Path="Live/Vixen.Live.Gate.Tests/Vixen.Live.Gate.Tests.csproj" />
+    <Project Path="Live/Vixen.Live.Persistence.Tests/Vixen.Live.Persistence.Tests.csproj" />
+    <Project Path="Live/Vixen.Live.Placement.Process.Tests/Vixen.Live.Placement.Process.Tests.csproj" />
+    <Project Path="Live/Vixen.Live.Gameplay.Tests/Vixen.Live.Gameplay.Tests.csproj" />
+    <Project Path="Live/Vixen.Live.Matchmaking.Tests/Vixen.Live.Matchmaking.Tests.csproj" />
+    <Project Path="Live/Vixen.Live.Transfer.Tests/Vixen.Live.Transfer.Tests.csproj" />
+    <Project Path="Live/Vixen.Live.Realm.Tests/Vixen.Live.Realm.Tests.csproj" />
     <Project Path="Live/Vixen.Live.Realm.Cluster.Tests/Vixen.Live.Realm.Cluster.Tests.csproj" />
   </Folder>
 
-  <!--
-    Benchmarks — docs/plan/02 § Benchmarks/. Not built by `Test`; the Nuke `Benchmark`
-    target runs them in Release and diffs against a committed baseline.
-  -->
   <Folder Name="/Benchmarks/">
     <Project Path="Benchmarks/Vixen.Benchmarks.Math/Vixen.Benchmarks.Math.csproj" />
     <Project Path="Benchmarks/Vixen.Benchmarks.Jobs/Vixen.Benchmarks.Jobs.csproj" />
@@ -1159,34 +855,24 @@
     <Project Path="Benchmarks/Vixen.Benchmarks.Imaging/Vixen.Benchmarks.Imaging.csproj" />
   </Folder>
 
-  <!--
-    Raven — the shader compiler.
-    Layout follows docs/plan/02-repository-layout.md § "Raven/": one folder per
-    project, named after the assembly, with tests as a sibling (ADR-014).
-  -->
   <Folder Name="/Raven/">
     <File Path="Raven/Directory.Build.props" />
     <File Path="Raven/README.md" />
     <Project Path="Raven/Vixen.Raven/Vixen.Raven.csproj" />
-    <Project Path="Raven/Vixen.Raven.Tests/Vixen.Raven.Tests.csproj" />
     <Project Path="Raven/Vixen.Raven.Cli/Vixen.Raven.Cli.csproj" />
     <Project Path="Raven/Vixen.Raven.Transpile/Vixen.Raven.Transpile.csproj" />
+  </Folder>
+
+  <Folder Name="/Tests/Raven/">
+    <Project Path="Raven/Vixen.Raven.Tests/Vixen.Raven.Tests.csproj" />
     <Project Path="Raven/Vixen.Raven.Transpile.Tests/Vixen.Raven.Transpile.Tests.csproj" />
   </Folder>
-  <!--
-    Testing — test-only source shared across test assemblies, linked into them rather than built
-    into one. Vixen.Testing.props says why; docs/plan/02 § "Testing/" says where it sits.
-  -->
-  <Folder Name="/Testing/">
+
+  <Folder Name="/Tests/">
     <File Path="Testing/Vixen.Testing.props" />
     <File Path="Testing/Measured.cs" />
   </Folder>
 
-  <!--
-    Samples — each the proof for one part of the plan. 01-HelloTriangle.Android and .iOS are
-    deliberately absent, for the same reason as Vixen.Platform.Android and .iOS: they need a
-    workload to evaluate, and `nuke CompileMobile` builds them.
-  -->
   <Folder Name="/Samples/">
     <Project Path="Samples/01-HelloTriangle/HelloTriangle.csproj" />
     <Project Path="Samples/02-HelloUi/HelloUi.csproj" />
@@ -1218,5 +904,4 @@
     <Project Path="Samples/14-Mmo/Mmo.Soak/Mmo.Soak.csproj" />
     <Project Path="Samples/14-Mmo/Mmo.Content.Authoring/Mmo.Content.Authoring.csproj" />
   </Folder>
-
 </Solution>
