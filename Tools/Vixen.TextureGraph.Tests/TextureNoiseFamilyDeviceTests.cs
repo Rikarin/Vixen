@@ -76,6 +76,44 @@ public class TextureNoiseFamilyDeviceTests(ITestOutputHelper output) {
         }
     }
 
+    /// <summary>
+    ///     Patina #120's seed: nought is the picture the node always drew, the same number draws the same picture, and
+    ///     another number draws a field that agrees with the first nowhere but by chance.
+    /// </summary>
+    [Fact]
+    public void A_seed_of_nought_is_the_old_picture_and_another_seed_is_another_draw() {
+        using var device = TextureKernelHarness.Open();
+
+        foreach (var basis in (string[])["Gradient", "Value", "Worley", "White"]) {
+            var plain = Noise(device, basis, static node => node.SetValue("Octaves", 3f));
+            var nought = Noise(device, basis, static node => {
+                node.SetValue("Octaves", 3f);
+                node.SetValue("Seed", 0f);
+            });
+            var seven = Noise(device, basis, static node => {
+                node.SetValue("Octaves", 3f);
+                node.SetValue("Seed", 7f);
+            });
+            var again = Noise(device, basis, static node => {
+                node.SetValue("Octaves", 3f);
+                node.SetValue("Seed", 7f);
+            });
+            var moved = 0;
+
+            Each(Side, (x, y) => {
+                Assert.Equal(plain.At(x, y, 0), nought.At(x, y, 0), 0.0001f);
+                Assert.Equal(seven.At(x, y, 0), again.At(x, y, 0), 0.0001f);
+
+                if (MathF.Abs(plain.At(x, y, 0) - seven.At(x, y, 0)) > 0.01f) {
+                    moved++;
+                }
+            });
+
+            // Most texels of an independent draw disagree; a seed the kernel ignored would move none.
+            Assert.True(moved > Side * Side / 2, $"{basis}: a seed of 7 moved {moved} of {Side * Side} texels.");
+        }
+    }
+
     [Fact]
     public void Scale_x_and_y_stretch_the_lattice_along_one_axis_each() {
         using var device = TextureKernelHarness.Open();

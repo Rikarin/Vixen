@@ -358,6 +358,15 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
     /// </remarks>
     public bool PreviewEveryNode { get; set; }
 
+    /// <summary>Whether this is a draft someone is editing rather than a bake.</summary>
+    /// <remarks>
+    ///     It decides one thing: whether a key a node carries and its type has no port or setting for is a warning
+    ///     (<see langword="true" />) or an error. A layer stack's draft makes the same trade for a slot nobody has
+    ///     filled, and for the same reason: a hand half way through an edit should keep its picture, and a bake
+    ///     should not draw something the file does not say.
+    /// </remarks>
+    public bool Drafting { get; set; }
+
     /// <summary>Which image each node's output port wrote in the last compilation.</summary>
     public ImmutableArray<TextureGraphNodeImage> NodeImages { get; private set; } = [];
 
@@ -586,6 +595,59 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
 
         Adopt(graph);
         Declare();
+
+        // A published graph's node is gone once it is inlined, so what it carries is checked here, on the
+        // author's own graph. Every other node is checked by `Visit`, inlined ones included.
+        foreach (var node in graph.Ordered()) {
+            if (SubGraphSource is { } source && source.TryGet(node.Type, out _) && Registry.TryGet(node.Type, out var type)) {
+                Unclaimed(node, type);
+            }
+        }
+    }
+
+    /// <summary>Says which of a node's numbers and settings its type has nowhere to put — see <see cref="Drafting" />.</summary>
+    /// <param name="node">The node as the graph holds it.</param>
+    /// <param name="definition">Its type.</param>
+    /// <remarks>
+    ///     An expression's key names a port and is <c>TG0016</c>'s, so it is left alone here. A number may only sit
+    ///     on an input, and a setting only under a setting's name.
+    /// </remarks>
+    void Unclaimed(GraphNode node, NodeTypeDefinition definition) {
+        var severity = Drafting ? NodeSeverity.Warning : NodeSeverity.Error;
+
+        foreach (var key in node.Values.Keys.Order(StringComparer.Ordinal)) {
+            if (definition.Port(key, PortDirection.Input) is null) {
+                Report(new(
+                    TextureDiagnostics.UnknownKey,
+                    $"'{key}' holds a number and '{definition.Path}' has no input called that, so nothing reads it. "
+                    + Advice(definition.Ports.Where(static port => port.Direction == PortDirection.Input)
+                        .Select(static port => port.Name)),
+                    node.Id,
+                    key,
+                    severity
+                ));
+            }
+        }
+
+        foreach (var key in node.Texts.Keys.Order(StringComparer.Ordinal)) {
+            if (!TextureGraphExpressions.IsExpression(key, out _) && definition.Setting(key) is null) {
+                Report(new(
+                    TextureDiagnostics.UnknownKey,
+                    $"'{key}' holds a setting and '{definition.Path}' has no setting called that, so nothing reads it. "
+                    + Advice(definition.Settings.Select(static setting => setting.Name)),
+                    node.Id,
+                    key,
+                    severity
+                ));
+            }
+        }
+    }
+
+    /// <summary>The names a node does take, as the second half of a sentence about one it does not.</summary>
+    static string Advice(IEnumerable<string> names) {
+        var known = string.Join(", ", names.Select(static name => $"'{name}'"));
+
+        return known.Length == 0 ? "It takes none." : $"It takes {known}.";
     }
 
     /// <inheritdoc />
@@ -1104,6 +1166,8 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
 
             return;
         }
+
+        Unclaimed(node, definition);
 
         var channels = Resolve(node, definition, out var level);
 

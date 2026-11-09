@@ -216,6 +216,18 @@ static class TextureDiagnostics {
     /// </summary>
     internal const string FloodDidNotSettle = "TG0024";
 
+    /// <summary>
+    ///     A node carries a number or a setting under a name its type has no port or setting for, so nothing would
+    ///     read it. A warning in a draft someone is editing and an error otherwise, since a bake that ignored it
+    ///     would be a picture the file does not describe.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Silent until Patina's wave 6</b>: the walk binds only what a type declares, so <c>Source/Gradient</c>
+    ///     given a <c>Basis</c> compiled cleanly and drew its default, and a typo in a shipped compound looked
+    ///     exactly like a knob that does nothing.
+    /// </remarks>
+    internal const string UnknownKey = "TG0025";
+
     /// <summary>Every id declared above, read off the declarations rather than listed again.</summary>
     /// <remarks>
     ///     ⚠ <b>This is what makes a collision findable at all.</b> Two members holding the same

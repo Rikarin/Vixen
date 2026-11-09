@@ -332,6 +332,7 @@ internal static class TextureSources {
     /// <param name="offsetY">A shift of the lattice along y, in cells of octave zero.</param>
     /// <param name="minOctave">The first octave summed; the coarser ones are skipped.</param>
     /// <param name="profile">How each octave is folded before it is summed.</param>
+    /// <param name="variation">Another draw of the same noise; nought is the op's own seed.</param>
     /// <returns>The op. Its <c>seed</c> is supplied by the evaluator from <see cref="TexturePlan.SeedFor" />.</returns>
     public static TextureOp Noise(
         int output,
@@ -346,7 +347,8 @@ internal static class TextureSources {
         float offsetX = 0f,
         float offsetY = 0f,
         int minOctave = 0,
-        TextureNoiseProfile profile = TextureNoiseProfile.Plain
+        TextureNoiseProfile profile = TextureNoiseProfile.Plain,
+        int variation = 0
     ) =>
         new() {
             Kernel = "Noise",
@@ -363,7 +365,8 @@ internal static class TextureSources {
                 new("minOctave", minOctave),
                 new("lacunarity", lacunarity),
                 new("gain", gain),
-                new("profile", (float)profile)
+                new("profile", (float)profile),
+                new("variation", variation)
             ]
         };
 

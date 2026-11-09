@@ -7,14 +7,41 @@ nodes:
     y: -220
     values: {}
     texts: { Map: curvature }
+  - id: 11
+    type: Filters/Blur HQ
+    x: -960
+    y: -380
+    values: {}
+    texts:
+      '=Sigma': smoothing
+  - id: 12
+    type: Colour/Histogram Equalise
+    x: -640
+    y: -380
+    values: {}
+    texts: {}
   - id: 2
     type: Colour/Levels
     x: -640
     y: -220
     values: {}
     texts:
-      '=Input Black': 0.72f - edges * 0.3f
-      '=Input White': 0.86f - edges * 0.3f
+      '=Input Black': 1f - edges * 0.4f - 0.03f
+      '=Input White': 1f - edges * 0.4f + 0.03f
+  - id: 13
+    type: Colour/Levels
+    x: -640
+    y: -80
+    values:
+      Input Black: [0.502]
+      Input White: [0.506]
+    texts: {}
+  - id: 14
+    type: Colour/Blend
+    x: -480
+    y: -220
+    values: {}
+    texts: { Mode: Multiply }
   - id: 3
     type: Source/Mesh Map
     x: -960
@@ -34,9 +61,11 @@ nodes:
     x: -960
     y: 300
     values:
-      Scale: [12]
       Octaves: [4]
-    texts: { Basis: Gradient }
+    texts:
+      Basis: Gradient
+      '=Scale': scale
+      '=Seed': seed
   - id: 6
     type: Colour/Levels
     x: -640
@@ -72,10 +101,15 @@ nodes:
     values: {}
     texts: {}
 edges:
-  - { fromNode: 1, fromPort: Out, toNode: 2, toPort: Input }
+  - { fromNode: 1, fromPort: Out, toNode: 11, toPort: Input }
+  - { fromNode: 11, fromPort: Out, toNode: 12, toPort: Input }
+  - { fromNode: 12, fromPort: Out, toNode: 2, toPort: Input }
+  - { fromNode: 11, fromPort: Out, toNode: 13, toPort: Input }
+  - { fromNode: 2, fromPort: Out, toNode: 14, toPort: Background }
+  - { fromNode: 13, fromPort: Out, toNode: 14, toPort: Foreground }
   - { fromNode: 3, fromPort: Out, toNode: 4, toPort: Input }
   - { fromNode: 5, fromPort: Out, toNode: 6, toPort: Input }
-  - { fromNode: 2, fromPort: Out, toNode: 7, toPort: Background }
+  - { fromNode: 14, fromPort: Out, toNode: 7, toPort: Background }
   - { fromNode: 4, fromPort: Out, toNode: 7, toPort: Foreground }
   - { fromNode: 7, fromPort: Out, toNode: 8, toPort: Background }
   - { fromNode: 6, fromPort: Out, toNode: 8, toPort: Foreground }
@@ -92,13 +126,15 @@ interface:
 settings: { baseWidth: '1024', baseHeight: '1024', seed: '1', doesNotTile: 'Reads a mesh map, and an atlas has islands at its edges rather than a far side.' }
 parameters:
   - name: edges
-    default: '0.5'
-    summary: How far down the convex edges the wear reaches.
+    label: Edges
+    default: '0.35'
+    summary: How much of the model's convex edges the mask takes, sharpest first. It ranks the curvature, so it reads the same on any mesh.
     kind: Float
     minimum: 0
     maximum: 1
     group: Edges
   - name: cavities
+    label: Cavities
     default: '0.5'
     summary: How far out of the cavities the dirt creeps.
     kind: Float
@@ -106,13 +142,39 @@ parameters:
     maximum: 1
     group: Cavities
   - name: grunge
+    label: Grunge
     default: '0.3'
     summary: How much of the mask the noise breaks away.
     kind: Float
     minimum: 0
     maximum: 1
     group: Grunge
+  - name: scale
+    label: Grunge Scale
+    default: '12'
+    summary: How many patches of grunge run across the map.
+    kind: Float
+    minimum: 1
+    maximum: 64
+    group: Grunge
+  - name: seed
+    label: Seed
+    default: '0'
+    summary: Another draw of the grunge. Every whole number is a different pattern.
+    kind: Int
+    minimum: 0
+    maximum: 100
+    group: Grunge
+  - name: smoothing
+    label: Smoothing
+    default: '1.5'
+    summary: How far the curvature is blurred first, in texels. More keeps only broad edges.
+    kind: Float
+    minimum: 0
+    maximum: 16
+    group: Edges
   - name: contrast
+    label: Contrast
     default: '0'
     summary: How hard the mask's own edge is, applied after everything else.
     kind: Float

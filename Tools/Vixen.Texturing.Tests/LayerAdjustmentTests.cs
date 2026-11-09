@@ -33,7 +33,7 @@ public sealed class LayerAdjustmentTests {
     [InlineData("Analysis/Distance", true)]
     [InlineData("Surface/Height Shadow", true)]
     [InlineData("Surface/Bevel Height", true)]
-    [InlineData("Analysis/Distance Colour", false)]
+    [InlineData("Analysis/Distance Colour", true)]
     [InlineData("Source/Volume Noise", false)]
     [InlineData("Source/Volume Mask", false)]
     [InlineData("Source/Volume Gradient", false)]
@@ -79,6 +79,20 @@ public sealed class LayerAdjustmentTests {
         Assert.False(type!.Adjustment, $"'{path}' does not say it is no adjustment.");
         Assert.False(LayerStackGraph.IsAdjustment(type));
         Assert.False(LayerStackGraph.IsMaskStep(type));
+    }
+
+    /// <summary>
+    ///     Distance Colour pads the picture beneath: its colour is the subject, and the shape it spreads from is a
+    ///     slot an input has to fill, since nothing beneath is a shape.
+    /// </summary>
+    [Fact]
+    public void Distance_colour_pads_the_picture_beneath_out_from_a_mask_an_input_names() {
+        var library = LayerStackCompiler.Library(out var compounds);
+        var inputs = LayerStackGraph.Inputs(library.Get("Analysis/Distance Colour"), library, compounds);
+
+        Assert.Equal(["Source", "Mask"], inputs.Select(static input => input.Port));
+        Assert.True(inputs[0].Subject);
+        Assert.False(inputs[1].Optional);
     }
 
     /// <summary>

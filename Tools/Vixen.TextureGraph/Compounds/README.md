@@ -406,6 +406,27 @@ as three hexagons in a column and a honeycomb with no vertical joints — the fi
 size and widened instead. `TextureCompoundFamilyDeviceTests` holds every centre lit and every joint
 dark, which is what that first picture failed.
 
+### 9 · The fifth round: the mask generators on a real bake (Patina wave 6)
+
+⚠ **Every curvature generator drew almost nothing on a real bake, and the roll call could not see it.** The
+baker scales curvature by its single sharpest texel (`BakedMaps.CurvatureRange`), so a machined housing's
+rounded edges read 0.51 to 0.53 while `Curvature Edge Wear`, `Metal Edge Wear`, `Mask Editor` and `Dirt`
+thresholded at 0.55 to 0.72. The roll call feeds a two-axis ramp, which crosses every threshold there is,
+so a generator tuned to it is tuned to nothing in particular.
+
+**They rank the curvature now.** `Filters/Blur HQ` → `Colour/Histogram Equalise` turns a curvature into its
+share of the atlas, so an `amount` is a share of the model's edges, sharpest first, whatever the bake's
+scale: a housing's soft edges and a torus knot's all-convex tube both read sensibly at the same default. A
+`Levels` at 0.502 to 0.506 multiplies in as a floor, because a flat ties at one value and equalising a tie
+that covers most of the atlas would otherwise put the whole flat above the threshold.
+`Curvature_edge_wear_finds_a_soft_edge_on_a_bake_scaled_by_its_sharpest_texel` holds it, and wiring the
+blur straight past the equaliser turns it red.
+
+⚠ **`Dust` read occlusion the wrong way up**, so its shelter term was white wherever the light reached and it
+dusted every open face; `Dirt` multiplied crease by occlusion, so a texel needed both. Every generator takes a
+seed through `Source/Noise`'s `Seed`, which folds into the hash rather than the op's identity, so turning it
+refreshes rather than recompiles.
+
 ### What a compound costs the roll call
 
 Thirty-four compounds bake at 1024² in **4 s** end to end on an Apple M1 Max, and the three added by

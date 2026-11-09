@@ -50,6 +50,10 @@ sealed partial class VolumeNoiseNode : TextureNode {
     [Input(Minimum = 0f, SoftMaximum = 1f)]
     public Scalar Gain = 0.5f;
 
+    /// <summary>Another draw of the same noise; nought is the graph's own — <c>Source/Noise</c>'s <c>Seed</c>.</summary>
+    [Input(Minimum = 0f, SoftMaximum = 100f, Summary = "Another draw of the same noise. 0 is the graph's own.")]
+    public Int Seed = 0;
+
     /// <summary>A shift of the noise along the model's first axis, in cells.</summary>
     [Input(Name = "Offset X", SoftMinimum = 0f, SoftMaximum = 1f)]
     public Scalar OffsetX = 0f;
@@ -89,7 +93,8 @@ sealed partial class VolumeNoiseNode : TextureNode {
                 emitter.Integer(nameof(Octaves)),
                 emitter.Number(nameof(Lacunarity)),
                 emitter.Number(nameof(Gain)),
-                (emitter.Number("Offset X"), emitter.Number("Offset Y"), emitter.Number("Offset Z"))
+                (emitter.Number("Offset X"), emitter.Number("Offset Y"), emitter.Number("Offset Z")),
+                emitter.Integer(nameof(Seed))
             )
         );
     }

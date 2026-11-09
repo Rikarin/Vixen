@@ -138,6 +138,11 @@ shader Noise {
     /// The op's own seed, already mixed. See `TexturePlan.SeedFor`.
     var seed: float = 0f
 
+    /// Another draw of the same noise, as a whole number the author chooses: nought is the op's own seed, so every
+    /// picture drawn before this existed is unchanged, and every other number is a different pattern of the same
+    /// character. Patina #120's seed on a generator.
+    var variation: float = 0f
+
     [Format("rgba16f")] var target: RWTexture2D<float4>
 
     const val TwoPi: float = 6.2831853f
@@ -166,8 +171,16 @@ shader Noise {
     /// `Normalisation`, which is per metric.
     const val WorleyFar: float = 8f
 
-    /// The seed as the integer the hash wants.
-    func Seeded(): uint => uint(int(max(seed, 0f)))
+    /// The seed as the integer the hash wants, with the author's variation folded in when there is one.
+    func Seeded(): uint {
+        val own = uint(int(max(seed, 0f)))
+
+        if (variation < 0.5f) {
+            return own
+        }
+
+        return Random.Combine(own, uint(int(variation + 0.5f)))
+    }
 
     /// One lattice coordinate, wrapped when the noise tiles.
     func Fold(value: int, period: int, wrap: int): int {

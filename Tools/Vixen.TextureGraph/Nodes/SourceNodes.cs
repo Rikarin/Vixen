@@ -136,6 +136,13 @@ sealed partial class NoiseNode : TextureNode {
     [Input(Minimum = 0f, SoftMaximum = 1f)]
     public Scalar Gain = 0.5f;
 
+    /// <summary>
+    ///     Another draw of the same noise: every whole number is a different pattern with the same character, and
+    ///     nought is the graph's own, so a picture drawn before the port existed is the picture it was.
+    /// </summary>
+    [Input(Minimum = 0f, SoftMaximum = 100f, Summary = "Another draw of the same noise. 0 is the graph's own.")]
+    public Int Seed = 0;
+
     /// <summary>The field.</summary>
     [Output(Name = "Out")]
     public Image Out;
@@ -165,7 +172,8 @@ sealed partial class NoiseNode : TextureNode {
                 emitter.Number("Offset X"),
                 emitter.Number("Offset Y"),
                 emitter.Integer("Min Octave"),
-                TextureSettings.Enum(emitter, nameof(Profile), TextureNoiseProfile.Plain)
+                TextureSettings.Enum(emitter, nameof(Profile), TextureNoiseProfile.Plain),
+                emitter.Integer(nameof(Seed))
             )
         );
     }
