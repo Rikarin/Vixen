@@ -667,7 +667,7 @@ public class TextureCompoundBakeDeviceTests(ITestOutputHelper output) {
                 texels[(at * 4) + 3] = byte.MaxValue;
             }
 
-            uploads.Add(compilation.Value, external.Image, Side, Side, texels);
+            uploads.AddPicture(compilation.Value, external.Image, Side, Side, texels, TextureFormat.Rgba8);
         }
 
         Assert.Equal(2, owed.Length);
@@ -739,7 +739,7 @@ public class TextureCompoundBakeDeviceTests(ITestOutputHelper output) {
 
         var owed = TextureGraphExternals.Upload(uploads, compilation.Value, compiler.Externals);
 
-        uploads.Add(compilation.Value, Assert.Single(owed).Image, Side, Side, texels);
+        uploads.AddPicture(compilation.Value, Assert.Single(owed).Image, Side, Side, texels, TextureFormat.Rgba8);
 
         using var bake = evaluator.Evaluate(compilation.Value, uploads.Externals);
         var picture = bake.Read(compilation.Value.Outputs[0]);
@@ -861,7 +861,8 @@ public class TextureCompoundBakeDeviceTests(ITestOutputHelper output) {
             // an asset carries no size, because the size is the *picture's* and the compiler has not
             // seen it — doc 48 § D8's one absolute size, and `Bitmap.rvn` resamples whatever arrives
             // into the image the op writes. A run that read the field would upload nothing at all.
-            uploads.Add(plan, owed.Image, side, side, Ramp(side, side));
+            // ⚠ As the eight bits it is: a mesh map is declared at half-float (#1534).
+            uploads.AddPicture(plan, owed.Image, side, side, Ramp(side, side), TextureFormat.Rgba8);
         }
 
         using var bake = evaluator.Evaluate(plan, uploads.Externals);

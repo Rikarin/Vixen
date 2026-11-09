@@ -67,7 +67,7 @@ not one of them is a `TG0010` naming the node and the setting, and **not** a fal
 every mesh map looks like a mesh map, so a generator wired to the wrong measurement produces a
 plausible picture nobody would question.
 
-Two things the node decides that no setting exposes:
+What the node decides that no setting exposes:
 
 - **Grey or colour.** `height`, `ao`, `curvature` and `thickness` are one measurement per texel and
   come back grey; the other six are directions, positions, indices or a colour and come back colour. A bent
@@ -79,6 +79,10 @@ Two things the node decides that no setting exposes:
 - ⚠ **`colour` alone is decoded from sRGB.** Every other map is a measurement the bake writes linear,
   and the sRGB curve would bend it into a plausible wrong number; the colour map is a picture, vertex
   colours or a material's base colour or a picture carried across layouts, written as a picture is.
+- ⚠ **The picture is declared at half-float, not eight bits.** A bake may write a map at sixteen bits,
+  and a position map narrowed to eight holds 256 places across the model, which a volume noise finer
+  than that draws as stairs. A host uploads at that depth with `TextureUploads.Add`, and one holding an
+  8-bit map, such as the editor's own bake writes, says so with `TextureUploads.AddPicture`.
 
 ⚠ **A quantized map arrives quantized.** Displacement and curvature are stored as `0.5 + 0.5·v/range`
 with the range in the sidecar, so `curvature` is a map whose **0.5 is zero curvature** — edges above

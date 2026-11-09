@@ -195,7 +195,7 @@ public sealed class TextureUploads : IDisposable {
     ) =>
         Put(plan, image, width, height, texels, content, null);
 
-    /// <summary>Uploads a picture at a depth of its own, which may be wider than the plan declares.</summary>
+    /// <summary>Uploads a picture at a depth of its own, which may differ from what the plan declares.</summary>
     /// <param name="plan">The plan.</param>
     /// <param name="image">Which of its images.</param>
     /// <param name="width">Its width in texels.</param>
@@ -209,6 +209,12 @@ public sealed class TextureUploads : IDisposable {
     ///         the plan is made before anything opens it, so it declares <see cref="TextureFormat.Rgba8" />
     ///         for every picture. Narrowing a 16-bit height to fit that puts terraces in everything
     ///         downstream, however deep the graph computes.
+    ///     </para>
+    ///     <para>
+    ///         Narrower works too, and is the other half of the same rule: a <c>Source/Mesh Map</c>
+    ///         declares <see cref="TextureFormat.Rgba16Float" /> because a bake may write sixteen bits,
+    ///         and a host holding an eight-bit map uploads it here as <see cref="TextureFormat.Rgba8" />
+    ///         rather than widening it first.
     ///     </para>
     ///     <para>
     ///         Kernels sample, so nothing else has to change, and the evaluator reads a CPU op's

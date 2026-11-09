@@ -221,9 +221,18 @@ sealed partial class MeshMapInputNode : TextureNode {
             ? TextureChannels.Grey
             : TextureChannels.Colour;
 
-        // Rgba8 because a baked map is a PNG — `MeshMapNaming.Extension` says so and says why — and
-        // because a plan may *read* a format no kernel can write.
-        var source = emitter.External(TextureFormat.Rgba8, TextureChannels.Colour, TextureMeshMaps.Reference(usage));
+        // ⚠ Half-floats and not Rgba8 (#1534). A mesh map is a measurement, and a bake may store more
+        // than eight bits of it: Patina's writes 16-bit PNG or EXR, and a position map read at eight
+        // bits holds 256 places across the model, which a volume noise finer than that draws as
+        // stairs. Half-floats rather than floats because the resample below filters and not every
+        // device filters a float. This is what `TextureUploads.Add` expects; a host holding an 8-bit
+        // map (the editor's own bake, `MeshMapNaming.Extension`) says so with `AddPicture`. A plan
+        // may read a format no kernel can write, so neither has to be storable.
+        var source = emitter.External(
+            TextureFormat.Rgba16Float,
+            TextureChannels.Colour,
+            TextureMeshMaps.Reference(usage)
+        );
         var target = emitter.Write("Out", channels);
 
         emitter.Dispatch(

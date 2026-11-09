@@ -81,6 +81,10 @@ public class TextureMeshMapNodeTests {
             Assert.Empty(external.Texels);
             Assert.True(compilation.Value.Images[external.Image].External);
 
+            // ⚠ Declared deeper than eight bits, because a bake writes sixteen (#1534) and a host
+            // uploads at the depth the plan declares. `TextureMeshMapDepthDeviceTests` is the picture.
+            Assert.Equal(TextureFormat.Rgba16Float, compilation.Value.Images[external.Image].Format);
+
             // And exactly one dispatch, which is the resample into the graph's resolution — a mesh
             // map is baked at the bake's resolution and a plan's images are at the graph's.
             var op = Assert.Single(compilation.Value.Ops);

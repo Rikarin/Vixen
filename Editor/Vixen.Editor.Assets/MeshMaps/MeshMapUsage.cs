@@ -77,11 +77,19 @@ public static class MeshMapNaming {
 
     /// <summary>The extension a baked map is written with.</summary>
     /// <remarks>
-    ///     PNG, because <c>Vixen.Core.Imaging</c>'s encoder sits under everything in this repository
-    ///     that writes a picture and every file browser on every platform opens one. ⚠ It is eight
-    ///     bits a channel, so <see cref="ScaleKey" /> is how the two signed maps get their range back
-    ///     — a sixteen-bit container is owed and the sidecar's scale is what makes adding one a
-    ///     change to this file rather than to every reader.
+    ///     <para>
+    ///         PNG, because <c>Vixen.Core.Imaging</c>'s encoder sits under everything in this repository
+    ///         that writes a picture and every file browser on every platform opens one.
+    ///         <see cref="ScaleKey" /> is how the two signed maps get their range back.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The editor's bake writes eight bits a channel, and that is this bake's limit and
+    ///         not the format's</b> (#1534). <c>PngCodec.Encode16</c> writes sixteen, and Patina's bake
+    ///         writes curvature, position, thickness and occlusion that way. A <c>Mesh Map</c> node
+    ///         therefore declares its picture at half-float, so the deeper file reaches a graph at its
+    ///         depth, and a host uploading one of these eight-bit files says so through
+    ///         <c>TextureUploads.AddPicture</c>.
+    ///     </para>
     /// </remarks>
     public const string Extension = ".png";
 
