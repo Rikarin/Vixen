@@ -1033,6 +1033,17 @@ public sealed record TextureSetAsset {
     /// </remarks>
     public string Mesh { get; init; } = "";
 
+    /// <summary>
+    ///     Which of the model's texture coordinate sets this slot is painted, baked and drawn in, by the file's own
+    ///     number. Zero, the first, unless the model lays this slot out a second time.
+    /// </summary>
+    /// <remarks>
+    ///     A game's mesh may carry a lightmap or a trim-sheet layout beside its unique one. The set chosen here is the
+    ///     one every texel of this slot means, so a host reads the model with it in place of the first: the stack
+    ///     itself never sees a coordinate.
+    /// </remarks>
+    public int UvSet { get; init; }
+
     /// <summary>The maps this set produces, in the order a bake writes them.</summary>
     public List<ChannelAsset> Channels { get; init; } = [];
 

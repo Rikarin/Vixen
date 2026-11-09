@@ -112,6 +112,10 @@ public static class LayerStackYaml {
             mapping.Set("mesh", Text(set.Mesh));
         }
 
+        if (set.UvSet != 0) {
+            mapping.Set("uvSet", Whole(set.UvSet));
+        }
+
         YamlSequence channels = new();
 
         foreach (var channel in set.Channels) {
@@ -666,6 +670,7 @@ public static class LayerStackYaml {
         return new() {
             Name = String(mapping, "name", path),
             Mesh = String(mapping, "mesh", path),
+            UvSet = Integer(mapping, "uvSet", 0, path, unsigned: true),
             Channels = channels,
             HeightNormal = Choice(mapping, "heightNormal", LayerHeightNormal.Smooth, path),
             Layers = layers

@@ -317,6 +317,18 @@ public class LayerStackMeshTests {
         Assert.Equal("", LayerStackYaml.Read(bare).Model);
     }
 
+    /// <summary>A slot's coordinate set survives the file, and the first one writes nothing.</summary>
+    [Fact]
+    public void A_slots_coordinate_set_survives_the_file_and_the_first_is_absent() {
+        var stack = LayerStackDocument.Starter("Hull");
+
+        var read = LayerStackYaml.Read(LayerStackYaml.Write(stack with { Sets = [stack.Sets[0] with { UvSet = 2 }] }));
+
+        Assert.Equal(2, read.Sets[0].UvSet);
+        Assert.DoesNotContain("uvSet:", LayerStackYaml.Write(stack), StringComparison.Ordinal);
+        Assert.Equal(0, LayerStackYaml.Read(LayerStackYaml.Write(stack)).Sets[0].UvSet);
+    }
+
     /// <summary>A stack bound to a model written into the fixture's project.</summary>
     static LayerStackAsset Bound(TexturingFixture fixture, string obj, string file) {
         Add(fixture, file, obj);
