@@ -242,7 +242,14 @@ public static class TextureCompoundLibrary {
                 string text;
 
                 try {
-                    text = File.ReadAllText(file);
+                    // ⚠ Sharing write and delete, which `File.ReadAllText` does not: a compound is a
+                    // file an author saves while the graph using it is open, and on Windows a save
+                    // that meets a read-only share is refused as "used by another process".
+                    using StreamReader reader = new(
+                        new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete)
+                    );
+
+                    text = reader.ReadToEnd();
                 } catch (IOException failure) {
                     found.Add(new(PathOfFile(folder, file), file, failure.Message));
 
