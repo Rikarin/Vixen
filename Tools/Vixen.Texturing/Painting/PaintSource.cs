@@ -164,8 +164,8 @@ public sealed class PaintSmudge(PaintImage canvas, PaintCoverage coverage) : IPa
     /// <summary>Two taps mixed, or the one there is.</summary>
     static uint? Between(uint? first, uint? second, float share) =>
         (first, second) switch {
-            ({ } a, { } b) => PaintImage.Mix(a, b, share),
-            ({ } a, null) => a,
+            ( { } a, { } b) => PaintImage.Mix(a, b, share),
+            ( { } a, null) => a,
             (null, { } b) => b,
             _ => null
         };
