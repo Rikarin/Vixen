@@ -241,9 +241,18 @@ public sealed class DocumentChordTests {
         session.Settle();
     }
 
+    /// <summary>The chord the keymap spells <c>Ctrl+</c><paramref name="key" />, as this machine's user presses it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>⌘ on a Mac, not Ctrl</b> (#1532). The keymap keeps one portable spelling and an arriving
+    ///     key is swapped into it — see <see cref="KeyChord.ForPlatform()" /> — so a literal Ctrl on a
+    ///     Mac resolves to a chord nothing claims. That is what the product must do, and it is what
+    ///     made every chord test here fail on macOS while Linux and Windows passed.
+    /// </remarks>
     static void Chord(EditorSession session, InputKey key) {
-        session.Ui.Hold(ModifierKeys.Control);
-        session.Ui.PressKey(key);
+        var pressed = new KeyChord(key, ModifierKeys.Control).ForPlatform();
+
+        session.Ui.Hold(pressed.Modifiers);
+        session.Ui.PressKey(pressed.Key);
         session.Ui.Hold(ModifierKeys.None);
         session.Settle();
     }
