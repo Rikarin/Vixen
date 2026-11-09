@@ -375,7 +375,9 @@ carries no stamp, and is the most global op in the library.
 express most of the answers.** The rect is in the source's normalised space and the target's size is
 the plan's, so a 1:1 crop is available exactly where the rect is a power of two — because
 `LevelOffset` is the only way to size an image. A crop to 37% of the width has nothing to write into.
-See #619, which is reworking that model.
+See #619, which is reworking that model. ⚠ So Patina #175's 1:1 crop is `Fit = Unscaled`: the rect's texels
+copied exactly, centred, with nothing around them — what a cut-out that keeps its texel density needs, at the
+image's own size.
 
 **⚠ A kernel here imports the Raven library, and this file said for four batches that it could
 not.** The stated cause — "`FromSources` is passed no `referencePaths`, so a kernel binds against
@@ -578,7 +580,15 @@ a size off the image's level and the plan's base resolution; nothing allocates a
 `TextureUploads.SizeOf` is what remembers the real one, and a device test asserts the two disagree so
 that the trap is written down rather than discovered.
 
-**Neither `Text` nor `Svg Path` is built, and the measurement that refused the second was wrong.**
+**⚠ Both are built now, as `Source/Text` and `Source/Vector` (Patina #139), and the rest of this section is
+the reasoning that got them there.** Each node writes what it was told into an external image's reference —
+`text:` or `vector:` and an escaped query, `TextureDrawing` — and
+[`Vixen.TextureGraph.Drawing`](../Vixen.TextureGraph.Drawing/README.md) fills it at the bake's size, through the
+`Outlines` path and `GlyphRasterizer` below and an SVG reader over `SvgPath`. That assembly is the far side of
+the compile surface this section describes: the evaluator still spells no `Vixen.Ui`, and `HeadlessClosureTests`
+still holds it. What follows was written while neither existed.
+
+**Neither `Text` nor `Svg Path` was built, and the measurement that refused the second was wrong.**
 
 ⚠ **This section used to say `Text` was built and describe a `TextureText.Rasterize`, and nothing by
 that name is in the tree.** What exists is the door, `AddCoverage`. What `Text` would be: shape a

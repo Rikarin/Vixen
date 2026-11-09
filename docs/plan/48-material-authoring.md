@@ -736,8 +736,8 @@ Three rules the whole catalogue obeys:
 | **Shape** | grey | disc · square · triangle · paraboloid · gaussian · cone · half-bell · gradation · polygon (with a side count) · star · ring · capsule · crescent · pyramid · hemisphere, scale, rotation, falloff, sides, inner | The splatter's usual pattern input. The seven after gradation are Patina #168's, and a three-sided polygon is exactly the triangle. Analytic rather than rasterised, so it is exact at every resolution — which is half of D8's scale-invariance criterion passing for free |
 | **Noise** | grey **+ cell id** | basis: value · gradient · worley · white · gaussian; octaves, first octave, lacunarity, gain, a per-octave fold (plain · ridged · billow), a scale and an offset per axis, **seed**, tiling — the gaussian basis, the fold, the first octave and the per-axis numbers are Patina #167's, and Worley sums its distances over octaves | ⚠ One kernel with the basis as a **uniform** and a branch — this row said *permutation* from the day the document was written and [#638](https://github.com/Rikarin/Vixen/issues/638) is where the reversal is argued. A texture-graph plan has nowhere to put a permutation value, so one written here would take its `.rvn` default in every op for ever, silently; and the branch is the better answer anyway, because four bases times three storable formats is twelve modules for a branch every invocation in a bandwidth-bound dispatch takes the same way. `TextureKernelLanguageSeamTests` refuses a `[Permutation]` in any kernel, so the decision is held rather than remembered. Worley also outputs F1, F2 and a **cell index** — which is what a splatter wants and what saves a flood fill downstream |
 | **Checker** | grey | scale, rotation, offset | `ComputeColor.Checker` has one already, for the shader graph — and `Checker.rvn` **transcribes** its fold rather than calling it, and no longer because it cannot — `ComputeColor.Checker` takes a uv and a scale and has no rotation or offset, so the call would pass the identity for its only parameter ([#1077](https://github.com/Rikarin/Vixen/issues/1077)). The copy is held: the gate reads `mod(cell.x + cell.y, 2f)` out of the library and requires the kernel to contain it |
-| **Text** | grey | string, font, size, alignment, tracking | ⚙️ **Half built, and the half that was a decision is decided.** `TextureText.Rasterize` shapes and fills the string through the `Outlines` path and `TextureUploads.AddCoverage` puts it on the device — closed on an adapter, texel for texel, in `TextureTextDeviceTests`. What is left is a node, and the font it draws with is answered below rather than deferred again. ⚠ It is **not** a kernel — [#687](https://github.com/Rikarin/Vixen/issues/687) — because a compute kernel has no rasteriser and cannot reach a font |
-| **Svg Path** | grey | path data (`d`), fill rule, scale | ⛔ **Refused here on one remaining reason of the three first written down.** The closure measurement was wrong, the fill rule is now implemented, and what is left is a compile surface — see below |
+| **Text** | grey | string (lines), font, size, alignment, position, letter and line spacing | ✅ **Built as `Source/Text`** (Patina #139). The node writes what it was told into a `text:` reference and `Vixen.TextureGraph.Drawing` shapes and fills it at the bake's size through the `Outlines` path — `TextureDrawings.Fill`, with the host supplying only a file's bytes. A node naming no font draws with the embedded Open Sans. It folds ink across an edge the plan wraps, so a tiling graph stays tiling. ⚠ It is **not** a kernel — [#687](https://github.com/Rikarin/Vixen/issues/687) — because a compute kernel has no rasteriser and cannot reach a font |
+| **Svg Path** | grey or colour | an SVG file, fit, scale, position, colour or coverage | ✅ **Built as `Source/Vector`** (Patina #139), a whole SVG file rather than one path's data: paths, shapes, groups, `use`, transforms, solid fills and strokes, opacity and the fill rule, filled by `GlyphRasterizer` with the even-odd rule it grew for this. Gradients, text, images, filters and masks are refused by name. The refusal below stood on a compile surface, and it still does: the reader lives in `Vixen.TextureGraph.Drawing`, beside the evaluator, which spells no `Vixen.Ui` |
 
 **Three sources of the model's own space, beside the table rather than in it** (Patina #179, outside
 [§ 4.11](#411-the-count-and-the-claim-it-corrects)'s count): `Source/Volume Noise` — a 3D gradient, simplex,
@@ -882,7 +882,7 @@ Signed Add.
 | **Transform 2D** | rotate · scale · offset · shear, tiling mode, filter | ⚠ Minification must be mip-correct or every rotated tile aliases, and the aliasing is the artefact people blame on the noise |
 | **Mirror** | axis (X · Y · corner), offset | |
 | **Tile** | integer repeat X/Y, per-tile offset | |
-| **Crop** | a rect | ⚠ Produces a *different resolution*, which is the one place D8's relative rule has to be answered rather than inherited |
+| **Crop** | a rect, fit | ⚠ Produces a *different resolution*, which is the one place D8's relative rule has to be answered rather than inherited — and it still cannot, so Patina #175's 1:1 crop is `Fit = Unscaled`: the rect's texels copied exactly, centred, transparent around them, at the image's own size |
 | **Resample** | target scale, filter | For the node that wants half resolution deliberately — a blur chain's cheap half |
 
 ### 4.4 Filters — 11 kernels
@@ -928,6 +928,21 @@ generator turns, and they are three files rather than three kernels.
 marches toward one light and keeps the steepest rise — a wall `h` tall casts `h · scale · width /
 tan(elevation)` texels of shadow, held texel by texel — and `Surface/Normal Blend` cross-fades two normal
 maps as directions by an opacity and a mask, where a `Colour/Mix` of them shortens every vector it mixes.
+
+**Scan, photo and terrain nodes beside the tables** (Patina #178 and #218, outside § 4.11's count), four
+kernels in `TexturePhotoKernels`:
+
+| Node | Parameters | |
+|---|---|---|
+| **Photo/Flatten Light** | light size, strength, luminance or colour | Delight and colour equaliser in one: the photo shrunk, blurred and averaged, then divided out as a **gain** — a high pass subtracts and leaves a dark corner's texture flatter than the middle's. Held by the halves of a lit checker coming out equally bright with their ratio of two kept |
+| **Photo/Tile from Patches** | patches, size, randomness, rotation, softness, keep contrast, seed | Make It Tile's patch mode: the photo rebuilt from round patches of its own middle in a grid that tiles because the cell is folded before it is hashed |
+| **Space/Break Up Tiling** | the same | Anti-repetition: texture bombing over a tiling texture with Heitz and Neyret's variance-preserving blend about a measured mean, so overlaps keep their contrast — held as a smooth field's variance kept to 1 % where a plain mean keeps 70 % |
+| **Photo/Normal from Lighting** | four photos, light height | Photometric stereo in closed form, a normal and a delighted albedo; matte and unshadowed is the stated assumption |
+| **Surface/Thermal Erosion** | talus, strength, iterations | A pairwise exchange written as a gather, so material is conserved exactly. The talus is a slope across the image; the iteration count is not resolution-independent, as Flood Fill's is not |
+| **Space/Atlas Cell** | columns, rows, cell | A cell of an atlas through the `Crop` kernel — #178's atlas split |
+
+⚠ **Not here, and said so**: hydraulic erosion, seam and occlusion removal by inpainting, patch cloning, and
+#218's multi-channel streams, which wait on Patina #165's whole-material streams.
 
 ### 4.7 Placement — 2 kernels
 
@@ -1047,8 +1062,7 @@ The same catalogue question for the other front end (§ D10), listed here so it 
 | Compute kernels | **41**, and it is the *sum of the seven headings above* rather than a number kept here: [4.1](#41-sources--6-kernels-and-two-that-cannot-be) 6 · [4.2](#42-colour-and-channels--9-kernels) 9 · [4.3](#43-space--5-kernels) 5 · [4.4](#44-filters--11-kernels) 11 · [4.5](#45-analysis--3-kernels) 3 · [4.6](#46-surface--5-kernels-and-one-cpu-solve) 5 · [4.7](#47-placement--2-kernels) 2. ⚠ **Not 44, and the three that came off are the three rows below.** That arithmetic counted every *row* of every table as a kernel while three of those rows said in their own cells that they are not compute shaders. Change a heading and this changes with it, which is the only reason it is allowed to stay: there is nothing here to keep in step separately |
 | Node classes | ⚠ **Deleted, because this is the number the document could not keep.** It has read **49** (= 44 + 5, both wrong), then **46** (= 41 + § 4.8's five) — and 46 is wrong in a way that is worth stating, because it is wrong *by this table's own prose*: § 4.8 says three of its five are not classes in this assembly, and § D6's `Pixel Processor` is a class Part 4 deliberately never lists. What the catalogue actually implies is a **rule**, not a total: one class per kernel, plus one for each catalogue entry that is not a kernel, plus § D6's. **The number itself lives in the registry** — `NodeTypes`, reconciled against the kernel folder by `TextureNodeLibraryTests.Every_kernel_has_a_node_or_a_written_reason_not_to` — and its reading of the day is reported in [`docs/overview.md`](../overview.md) § 1.11. Three successive batches each corrected this cell into a different wrong number; a number a document cannot keep is worse than no number |
 | Not a kernel | One: `Normal → Height`, on the CPU, by exception — **built**, and declared in `TextureKernels.Cpu.cs` so that the roll calls can name the category rather than reading it as a kernel whose `.rvn` went missing |
-| Not a kernel and not an op | One: `Text`, which is CPU pixels *uploaded* rather than an op of any kind — `TextureText` + `TextureUploads.AddCoverage`. ⚠ It has no node, and the font that was the reason is decided: § 4.1's subsection names the three pieces that remain |
-| Not a kernel and not built | One: `Svg Path`, refused — the measurement is under [4.1](#41-sources--6-kernels-and-two-that-cannot-be) and [#753](https://github.com/Rikarin/Vixen/issues/753) carries where it should live instead |
+| Not a kernel and not an op | Two: `Text` and `Svg Path`, CPU pixels a host fills rather than an op of any kind — `Source/Text` and `Source/Vector`, filled by `Vixen.TextureGraph.Drawing`'s `TextureDrawings` (Patina #139) |
 | Shipped compounds | ⚠ **Also deleted, and for a sharper version of the same reason.** This cell read **24 ●** while [§ 4.9](#49-the-compound-library--content-not-code) carried **34** ● marks — one of which ("a family of eight ●") stood for eight, and five of which are `.vxsmartmat` smart materials rather than compounds. So the cell and the list it summarised could not both be read the same way by anybody, and no single number was ever right for both. ⚠ **The list has since been made countable and the cell still does not come back**: § 4.9 names its grunges, so its marks and its compounds are the same 35 — but a number written here would be a fourth reading of a list three readings already got wrong, and `TextureCompoundLibraryTests` asks § 4.9 for the names rather than this table for a total. The ● in § 4.9 is the mark, [M10](#m10--the-library-smart-materials-and-export--10-em) is the phase that ships them, and what is in the tree on any given day is `TextureCompoundLibrary`'s and [`docs/overview.md`](../overview.md)'s |
 
 ⚠ **And the numbers above are the plan's, not the tree's — deliberately, and they will not agree.**
@@ -1136,12 +1150,10 @@ since 2026-09-07 and is photographed by
 `Platform/Vixen.Graphics.Golden.Tests/LayeredMaterialImageTests`, so what the asset owes is a case in
 *that* file over the shipped material rather than over a fixture, against the half-red / half-green
 closed form § M11 writes out. § 4.1's **`Text`** ([#687](https://github.com/Rikarin/Vixen/issues/687))
-is owed a node: `TextureText.Rasterize` and `TextureUploads.AddCoverage` are closed on a device by
-`Editor/Vixen.Editor.TextureGraph.Tests/TextureTextDeviceTests`, the font is decided above, and the
-three pieces left are a `text:` scheme, one `TextureEmitter.External` overload and a fill helper —
-whose test is a compiler assertion in that same suite, because a plan is a value. § 4.1's
-**`Svg Path`** is **refused**, not owed, on one surviving reason — what this assembly may *spell* —
-and [#753](https://github.com/Rikarin/Vixen/issues/753) carries where it should live instead. ⚠ **Not
+and **`Svg Path`** are built, as `Source/Text` and `Source/Vector` (Patina #139): the `text:` and `vector:`
+schemes, and the fill in `Vixen.TextureGraph.Drawing`, beside the evaluator rather than in it, which is what
+the surviving reason below asked for. ⚠ No `TextureEmitter.External` overload was needed after all: the
+node declares the image by its reference, and the fill reads the bake's size off the plan. ⚠ **Not
 "behind [#720](https://github.com/Rikarin/Vixen/issues/720)'s split", which this paragraph said in its
 first draft**: #720 is closed with a decision *not* to split, because the saving no caller can observe
 is not worth an assembly — so #753 is owed a home of its own rather than a place in a division that is

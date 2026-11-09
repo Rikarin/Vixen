@@ -179,6 +179,15 @@ left `TextureKernelCeilings`. ⚠ `Kuwahara` **weighs** its quadrants by the inv
 variance rather than taking the least: an argmin flips on the last bit of a near tie, and the tiling
 roll call measured that as a 0.08 drift on a field rolled by whole texels.
 
+**Patina's scan, photo and terrain rows — four more, one surface.** `TexturePhotoKernels` (Patina #178 and
+#218): `FlattenLight` · `PatchScatter` · `PhotometricNormal` · `ThermalErosion`. Two of them back two nodes:
+`PatchScatter` is `Photo/Tile from Patches` with its sources kept inside the photo's edges and `Space/Break Up
+Tiling` with them free, and `PhotometricNormal` writes a normal or an albedo by a switch. ⚠ `PatchScatter` folds
+the cell into its grid before hashing it, which is all that makes the result tile, and blends by Heitz and
+Neyret's variance-preserving mix about a `MeanReduce` mean, since a plain mean of unrelated patches halves their
+contrast along every overlap. ⚠ `ThermalErosion` is a gather of a pairwise exchange, so it conserves material to
+the last bit; the textbook form, which weighs a giver's flows by its other neighbours, does not.
+
 **Patina's fourth wave — five more, in one surface, and two sources widened.** `TextureStatisticsKernels`
 (Patina #172): `HistogramCount` · `HistogramTable` · `HistogramPlot` · `HistogramEqualise` · `SummedArea`.
 ⚠ **The histogram is a gather, not a scatter**: a plan binds images and nothing else, so there is no

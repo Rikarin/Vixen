@@ -125,6 +125,18 @@ public class TextureNodeLibraryTests {
         [("Polar", "toPolar")] = "Not a default: Space/Cartesian to Polar and Space/Polar to Cartesian are the same "
             + "kernel either way, and each node sets the direction its name says.",
         [("SelectInput", "wired")] = "Not a default: one bit per slot that has a wire, and the fixture wires two.",
+        [("BlurHq", "sigma")] = "Photo/Flatten Light's blur is derived, not a default: two sigmas span its Light Size, "
+            + "in texels at the base. Filters/Blur HQ still emits the kernel's 1.",
+        [("Crop", "filter")] = "Space/Atlas Cell reads its cell bilinear, so a cell that is not a whole number of "
+            + "texels does not stair-step; Space/Crop's Point is the kernel's.",
+        [("Crop", "rectW")] = "Not a default: Space/Atlas Cell's rect is a cell of its grid, derived from Columns.",
+        [("Crop", "rectH")] = "Not a default: Space/Atlas Cell's rect is a cell of its grid, derived from Rows.",
+        [("PatchScatter", "turn")] = "Photo/Tile from Patches does not turn by default, since a photo usually has an "
+            + "up; Space/Break Up Tiling turns freely, as the kernel's default does.",
+        [("PatchScatter", "margin")] = "Not a default: Photo/Tile from Patches derives it from the patch's radius, "
+            + "so no patch reads across an edge the photo does not tile at.",
+        [("PhotometricNormal", "albedo")] = "Not a default: Photo/Normal from Lighting dispatches the kernel twice, once "
+            + "for each output, and sets the flag its output's name says.",
         [("Bitmap", "srgb")] = "Not a default: Source/Bitmap says what its asset is encoded in, and Source/Vector "
             + "always decodes, because an SVG writes its colours in sRGB.",
         [("HistogramPlot", "mode")] = "Not a default: Analysis/Histogram and Analysis/Histogram Render are the same "
@@ -906,6 +918,20 @@ public class TextureNodeLibraryTests {
 
         graph.Connect(invert, "Out", rotateByMap, "Input");
         graph.Connect(grayscale, "Out", rotateByMap, "Rotation");
+
+        // Patina #178's photo nodes and #218's anti-repetition and terrain ones. Normal from Lighting reads four
+        // photos, and one picture wired to all four is a flat surface, which is still a plan.
+        foreach (var path in (string[]) ["Photo/Flatten Light", "Photo/Tile from Patches", "Space/Break Up Tiling", "Space/Atlas Cell"]) {
+            graph.Connect(invert, "Out", graph.Add(path), "Input");
+        }
+
+        graph.Connect(noise, "Out", graph.Add("Surface/Thermal Erosion"), "Input");
+
+        var photometric = graph.Add("Photo/Normal from Lighting");
+
+        foreach (var side in (string[]) ["Left", "Right", "Top", "Bottom"]) {
+            graph.Connect(invert, "Out", photometric, $"Lit from {side}");
+        }
 
         // Patina #172's statistics: three measure a grey, and the summed-area table takes either.
         foreach (var path in (string[])[

@@ -1,0 +1,98 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+package Vixen.TextureGraph.Shaders
+
+import Vixen.Shaders.Core
+
+// A photo's lighting divided out — Patina #178's light flatten, and its colour equaliser.
+//
+// `lighting` is the photo shrunk and blurred until only the light is left in it; `mean` is that
+// lighting's average. Every texel is scaled by the average over the light where it stands, so a
+// corner the lamp missed comes up to the middle's brightness and the middle's detail is untouched.
+// In luminance the gain is one number and a texel keeps its hue; per channel it is three, and a
+// colour cast that drifts across the photo is evened out with the light.
+//
+// ⚠ **A gain, not an offset.** A shadow darkens a surface by a fraction of its colour, so the light
+// is divided out: subtracting it, which is what a high pass does, leaves a dark corner's texture at a
+// lower contrast than the middle's, which is the tell of a photo that was flattened badly. The gain
+// is capped, so a texel the light never reached is not amplified into noise.
+
+shader FlattenLight {
+    var source: Texture2D
+
+    /// The light: the source shrunk and blurred, read bilinear at each texel's place.
+    var lighting: Texture2D
+
+    /// The light's average, a 1×1 image a `MeanReduce` ladder ended on.
+    var mean: Texture2D
+
+    /// How much of the light is divided out: 0 none, 1 all of it.
+    var strength: float = 1f
+
+    /// Non-zero to divide each channel by its own light, which evens out colour casts as well.
+    var colour: int = 0
+
+    /// The most a texel is brightened or the least it is darkened to, as a factor.
+    var maxGain: float = 8f
+
+    var wrapX: int = 0
+
+    var wrapY: int = 0
+
+    [Format("rgba16f")] var target: RWTexture2D<float4>
+
+    func Light(x: int, y: int): float4 {
+        val extent = lighting.GetDimensions(0)
+
+        return lighting.Load(int3(Math.Address(x, extent.x, wrapX), Math.Address(y, extent.y, wrapY), 0))
+    }
+
+    /// The light at a normalised position, bilinear, measured from texel centres.
+    func Smooth(u: float, v: float): float4 {
+        val extent = lighting.GetDimensions(0)
+        val px = u * float(extent.x) - 0.5f
+        val py = v * float(extent.y) - 0.5f
+        val x0 = int(floor(px))
+        val y0 = int(floor(py))
+        val tx = px - float(x0)
+        val ty = py - float(y0)
+
+        val top = lerp(Light(x0, y0), Light(x0 + 1, y0), float4(tx, tx, tx, tx))
+        val bottom = lerp(Light(x0, y0 + 1), Light(x0 + 1, y0 + 1), float4(tx, tx, tx, tx))
+
+        return lerp(top, bottom, float4(ty, ty, ty, ty))
+    }
+
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val coord = int2(int(id.x), int(id.y))
+        val size = target.GetDimensions()
+
+        if (coord.x >= size.x || coord.y >= size.y) {
+            return
+        }
+
+        val extent = source.GetDimensions(0)
+        val u = (float(coord.x) + 0.5f) / float(size.x)
+        val v = (float(coord.y) + 0.5f) / float(size.y)
+        val texel = source.Load(int3(min(int(u * float(extent.x)), extent.x - 1), min(int(v * float(extent.y)), extent.y - 1), 0))
+        val local = Smooth(u, v).xyz
+        val average = mean.Load(int3(0, 0, 0)).xyz
+        val floor3 = float3(0.0001f, 0.0001f, 0.0001f)
+        var gain = average / max(local, floor3)
+
+        if (colour == 0) {
+            val g = ColorSpaces.Luminance(average) / max(ColorSpaces.Luminance(local), 0.0001f)
+
+            gain = float3(g, g, g)
+        }
+
+        val most = max(maxGain, 1f)
+
+        gain = clamp(gain, float3(1f / most, 1f / most, 1f / most), float3(most, most, most))
+        gain = lerp(float3(1f, 1f, 1f), gain, float3(strength, strength, strength))
+
+        target.Store(coord, float4(texel.x * gain.x, texel.y * gain.y, texel.z * gain.z, texel.w))
+    }
+}
