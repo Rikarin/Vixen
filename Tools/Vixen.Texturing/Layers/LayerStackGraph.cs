@@ -1055,7 +1055,17 @@ public static class LayerStackGraph {
         }
 
         /// <summary>One layer composited over the cursor, or the cursor unchanged.</summary>
+        /// <remarks>
+        ///     ⚠ <b>Except on the way to an asked layer</b> (<see cref="Amount" />), where a layer that composites nothing
+        ///     in a channel covers nothing there: handing back the cursor would hand on the picture beneath as an amount.
+        /// </remarks>
         PortRef Composite(LayerAsset layer, ChannelAsset channel, PortRef cursor, int depth) {
+            var result = Composited(layer, channel, cursor, depth);
+
+            return result == cursor && Around.Contains(layer.Id) ? Black() : result;
+        }
+
+        PortRef Composited(LayerAsset layer, ChannelAsset channel, PortRef cursor, int depth) {
             if (!layer.Enabled || !layer.Writes(channel.Usage)) {
                 return cursor;
             }

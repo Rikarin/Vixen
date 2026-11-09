@@ -87,6 +87,25 @@ public class LayerAmountDeviceTests(ITestOutputHelper output) {
         Assert.InRange(passed, 125, 131);
     }
 
+    /// <summary>⚠ In a channel the layer leaves alone it covers nothing, rather than handing on the picture beneath.</summary>
+    /// <remarks>
+    ///     A layer that does not write a channel composites nothing and its walk hands back what lies beneath it, which
+    ///     here is the grey rock: an amount of a half where the layer is not at all.
+    /// </remarks>
+    [Fact]
+    public void A_channel_the_layer_leaves_alone_weighs_nothing() {
+        using var device = TexturingDevice.Open();
+        LayerAsset rough = new() { Id = "rough", Kind = LayerKind.Fill, Channels = ["roughness"], Values = { ["roughness"] = [1f, 1f, 1f, 1f] } };
+        LayerAsset folder = new() { Id = "folder", Kind = LayerKind.Group, Children = [rough] };
+        var stack = Stack(Rock(), folder);
+
+        var amount = Weigh(device, stack, LayerStackGraph.Amount(stack, stack.Sets[0], "rough"));
+
+        output.WriteLine($"{TexturingDevice.Adapter(device)}: base colour of a roughness layer {amount}");
+
+        Assert.True(amount <= 3, $"the layer writes no base colour and must weigh ~0 there; it weighed {amount}");
+    }
+
     /// <summary>A layer no set holds is refused by its id.</summary>
     [Fact]
     public void A_layer_the_set_does_not_hold_is_refused() {
