@@ -555,7 +555,10 @@ public static class SmartMaterial {
                         // a `.vxpaint` that names another stack is the thing this whole pass is for.
                         Paint = "",
                         Mask = Mask(layer),
-                        Children = Copy(layer.Children)
+                        Children = Copy(layer.Children),
+
+                        // An instance names its source by id, which a material carries with it or does not; Patina #108.
+                        Instance = layer.Instance with { }
                     }
                 );
             }
@@ -794,7 +797,15 @@ public static class SmartMaterial {
             for (var at = 0; at < list.Count; at++) {
                 var layer = list[at];
 
-                list[at] = layer with { Id = map.TryGetValue(layer.Id, out var renamedTo) ? renamedTo : layer.Id };
+                list[at] = layer with {
+                    Id = map.TryGetValue(layer.Id, out var renamedTo) ? renamedTo : layer.Id,
+
+                    // ⚠ An instance of a layer the material brought follows its source's new id: left alone it would
+                    // stand for the target's own layer of the old one (Patina #108).
+                    Instance = layer.Instance.Set.Length == 0 && map.TryGetValue(layer.Instance.Layer, out var source)
+                        ? layer.Instance with { Layer = source }
+                        : layer.Instance
+                };
 
                 Rewrite(list[at].Children);
             }

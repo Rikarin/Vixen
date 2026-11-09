@@ -226,6 +226,17 @@ public static class LayerStackYaml {
             mapping.Set("anchor", Write(layer.Anchor));
         }
 
+        if (layer.Instance.Layer.Length > 0 || layer.Instance.Set.Length > 0) {
+            YamlMapping instance = new() { Style = YamlCollectionStyle.Flow };
+
+            if (layer.Instance.Set.Length > 0) {
+                instance.Set("set", Text(layer.Instance.Set));
+            }
+
+            instance.Set("layer", Text(layer.Instance.Layer));
+            mapping.Set("instance", instance);
+        }
+
         WriteSources(mapping, "inputs", layer.Inputs);
 
         // ⚠ One of the two and never both — #1068. `filterNode` takes precedence when it is there,
@@ -350,6 +361,10 @@ public static class LayerStackYaml {
             mapping.Set("map", Text(mask.Map));
         }
 
+        if (mask.Lane != LayerMaskLane.Red) {
+            mapping.Set("lane", Text(mask.Lane.ToString()));
+        }
+
         if (mask.Paint.Length > 0) {
             mapping.Set("paint", Text(mask.Paint));
         }
@@ -403,6 +418,10 @@ public static class LayerStackYaml {
 
         if (entry.Map.Length > 0) {
             mapping.Set("map", Text(entry.Map));
+        }
+
+        if (entry.Lane != LayerMaskLane.Red) {
+            mapping.Set("lane", Text(entry.Lane.ToString()));
         }
 
         if (entry.Paint.Length > 0) {
@@ -690,8 +709,15 @@ public static class LayerStackYaml {
             Texts = Strings(mapping, "texts", path),
             Mask = mapping.TryGet("mask", out var mask) ? ReadMask(mask, $"{path}.mask") : new(),
             Paint = String(mapping, "paint", path),
-            Children = children
+            Children = children,
+            Instance = mapping.TryGet("instance", out var instance) ? ReadInstance(instance, $"{path}.instance") : new()
         };
+    }
+
+    static InstanceReference ReadInstance(YamlNode node, string path) {
+        var reference = Mapping(node, path);
+
+        return new() { Set = String(reference, "set", path), Layer = String(reference, "layer", path) };
     }
 
     static MaskAsset ReadMask(YamlNode node, string path) {
@@ -721,6 +747,7 @@ public static class LayerStackYaml {
             GeneratorTexts = Strings(mapping, "generatorTexts", path),
             GeneratorInputs = ReadInputs(mapping, "generatorInputs", path),
             Map = String(mapping, "map", path),
+            Lane = Choice(mapping, "lane", LayerMaskLane.Red, path),
             Paint = String(mapping, "paint", path),
             Layers = entries,
             Effects = effects
@@ -766,6 +793,7 @@ public static class LayerStackYaml {
             GeneratorTexts = Strings(mapping, "generatorTexts", path),
             GeneratorInputs = ReadInputs(mapping, "generatorInputs", path),
             Map = String(mapping, "map", path),
+            Lane = Choice(mapping, "lane", LayerMaskLane.Red, path),
             Paint = String(mapping, "paint", path),
             Blend = Choice(mapping, "blend", LayerBlendMode.Copy, path),
             Opacity = Single(mapping, "opacity", 1f, path),

@@ -867,6 +867,9 @@ public class TextureNodeLibraryTests {
         var select = graph.Add("Colour/Select Input");
 
         graph.Connect(grayscale, "Out", threshold, "Input");
+
+        // Patina #110's Compare Mask, on the grey a mask is.
+        graph.Connect(grayscale, "Out", graph.Add("Analysis/Compare"), "Input");
         graph.Connect(grayscale, "Out", imageRamp, "Input");
         graph.Connect(invert, "Out", imageRamp, "Ramp");
         graph.Connect(invert, "Out", dissolve, "Background");

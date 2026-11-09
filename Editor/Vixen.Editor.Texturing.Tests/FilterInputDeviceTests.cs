@@ -67,6 +67,36 @@ public class FilterInputDeviceTests(ITestOutputHelper output) {
         Assert.InRange(BakeRed(device, stack, "baseColor"), 62, 66);
     }
 
+    /// <summary>
+    ///     An instance of a filter reading a generator as its second image bakes what its source bakes, with the source
+    ///     switched off so that the picture is the instance's alone (Patina #108 with #113).
+    /// </summary>
+    [Fact]
+    public void An_instance_of_a_filter_reads_its_sources_second_image() {
+        using var device = TexturingDevice.Open();
+        var filter = new LayerAsset {
+            Id = "f",
+            Kind = LayerKind.Filter,
+            FilterNode = "Colour/Channel Shuffle",
+            Channels = ["baseColor"],
+            Texts = { ["Red From"] = "SecondRed" },
+            Inputs = {
+                ["Second"] = new() {
+                    Source = LayerInputSource.Generator,
+                    Generator = "Source/Uniform",
+                    Values = { ["Colour"] = [0.25f, 0.25f, 0.25f, 1f] }
+                }
+            }
+        };
+        var instance = new LayerAsset { Id = "copy", Kind = LayerKind.Instance, Instance = new() { Layer = "f" } };
+
+        var source = BakeRed(device, Stack(Base(), filter), "baseColor");
+        var copied = BakeRed(device, Stack(Base(), filter with { Enabled = false }, instance), "baseColor");
+
+        Assert.InRange(source, 62, 66);
+        Assert.Equal(source, copied);
+    }
+
     /// <summary>A mask step reads another channel too: a mask of a quarter shuffled to take its red from height beneath.</summary>
     [Fact]
     public void A_mask_step_reads_a_channel_beneath_its_layer() {

@@ -14,7 +14,8 @@ every adjustment is a fact about the catalogue rather than an arithmetic slip:
 | + Patina's audit: 14 colour, 5 filter and 7 remap kernels | +26 | Patina #171, #173 and #175: rows the reference catalogue has and § 4.11 never listed. `MeanReduce` and `BoundsReduce` are ladder rungs again, not nodes |
 | + Patina's audit, wave 4: `HistogramCount`, `HistogramTable`, `HistogramPlot`, `HistogramEqualise`, `SummedArea` | +5 | Patina #172's statistics, in `TextureStatisticsKernels`. ⚠ This row arrived a wave late: the folder held eighty while this said seventy-five, the fourth time a count here fell behind |
 | + Patina's audit, wave 5: `HeightShadow`, `NormalBlend`, `VolumeNoise`, `VolumeShape` | +4 | Patina #176's lighting and #179's position-driven sources, in `TextureReliefKernels` and `TextureVolumeKernels` |
-| = files in this folder | **84** | `TextureKernels.Names` at run time |
+| + Patina's layers, wave 5: `Compare` | +1 | Patina #110's Compare Mask, in `TextureColourOperators` |
+| = files in this folder | **85** | `TextureKernels.Names` at run time |
 
 ⚠ **This number read forty-five while the folder held forty-seven, and it is the third time a count
 here has fallen behind the directory.** `Triplanar` and `ColourSelect` shipped and nobody came back.

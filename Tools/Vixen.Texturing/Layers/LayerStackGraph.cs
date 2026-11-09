@@ -290,7 +290,11 @@ public static class LayerStackGraph {
             subGraphs ??= published;
         }
 
-        Builder builder = new(stack, set, registry) { Drafting = draft, SubGraphs = subGraphs };
+        Builder builder = new(stack, LayerStackInstances.Resolve(stack, set, out var found), registry) {
+            Drafting = draft,
+            SubGraphs = subGraphs,
+            Found = found
+        };
 
         return builder.Run();
     }
@@ -344,7 +348,11 @@ public static class LayerStackGraph {
             subGraphs ??= published;
         }
 
-        Builder builder = new(stack, set, registry) { Weighing = true, SubGraphs = subGraphs };
+        Builder builder = new(stack, LayerStackInstances.Resolve(stack, set, out var found), registry) {
+            Weighing = true,
+            SubGraphs = subGraphs,
+            Found = found
+        };
 
         return builder.Run();
     }
@@ -394,7 +402,8 @@ public static class LayerStackGraph {
             subGraphs ??= published;
         }
 
-        Builder builder = new(stack, set, registry) {
+        Builder builder = new(stack, LayerStackInstances.Resolve(stack, set, out var found), registry) {
+            Found = found,
             Drafting = draft,
             SubGraphs = subGraphs,
             Capturing = group,
@@ -644,6 +653,9 @@ public static class LayerStackGraph {
         /// <summary>Whether a pass-through <see cref="Capturing" /> keeps what is beneath it, rather than isolating.</summary>
         public bool Backdrop { get; init; }
 
+        /// <summary>What resolving the set's instances had to say, which this build reports as its own.</summary>
+        public IReadOnlyList<LayerStackProblem> Found { get; init; } = [];
+
         /// <summary>Says a slot is empty, which refuses unless this is a draft.</summary>
         void Unfilled(string layer, string message) =>
             problems.Add(
@@ -676,6 +688,8 @@ public static class LayerStackGraph {
         string usage = "";
 
         public LayerStackBuild Run() {
+            problems.AddRange(Found);
+
             if (set.Channels.Count == 0) {
                 problems.Add(
                     LayerStackProblem.Refusal(
@@ -977,6 +991,17 @@ public static class LayerStackGraph {
                 captures[channel.Usage] = foreground;
             }
 
+            // ⚠ **Replace ignores the layer's own alpha and keeps its mask, and the kernel cannot tell the two
+            // apart** (Patina #104): a mask multiplies into the foreground's alpha just below, so the kernel's
+            // Replace, which reads no foreground alpha, would discard the mask with it. The content is made
+            // opaque here, before the mask, and composited as Copy — which is the same sentence in the order
+            // a stack can say it.
+            var replacing = layer.Blend == LayerBlendMode.Replace;
+
+            if (replacing) {
+                foreground = Solid(foreground);
+            }
+
             var opacity = Opacity(layer, channel);
             var folded = Folds(layer.Mask, opacity);
 
@@ -988,7 +1013,7 @@ public static class LayerStackGraph {
 
             var blend = Add("Colour/Blend");
 
-            blend.SetText("Mode", layer.Blend.ToString());
+            blend.SetText("Mode", (replacing ? LayerBlendMode.Copy : layer.Blend).ToString());
             blend.SetValue("Opacity", opacity);
 
             // ⚠ **A filter layer's content *is* the backdrop, so it composites atop it and never over
@@ -1084,6 +1109,20 @@ public static class LayerStackGraph {
             node.SetText("Alpha From", "FirstAlpha");
 
             graph.Connect(painted, new(node.Id, "First"));
+
+            return new(node.Id, "Out");
+        }
+
+        /// <summary>A picture with its alpha forced to one and its colour kept, which is what Replace composites.</summary>
+        PortRef Solid(PortRef content) {
+            var node = Add("Colour/Channel Shuffle");
+
+            node.SetText("Red From", "FirstRed");
+            node.SetText("Green From", "FirstGreen");
+            node.SetText("Blue From", "FirstBlue");
+            node.SetText("Alpha From", "One");
+
+            graph.Connect(content, new(node.Id, "First"));
 
             return new(node.Id, "Out");
         }
@@ -1956,7 +1995,8 @@ public static class LayerStackGraph {
                         GeneratorTexts = mask.GeneratorTexts,
                         GeneratorInputs = mask.GeneratorInputs,
                         Map = mask.Map,
-                        Paint = mask.Paint
+                        Paint = mask.Paint,
+                        Lane = mask.Lane
                     }
                 );
             } else if (mask.Paint.Length > 0) {
@@ -1984,6 +2024,10 @@ public static class LayerStackGraph {
                     // Already reported. A refusal stops the compile, so there is no picture to be
                     // wrong about; the walk continues so that one bad entry does not hide the rest.
                     continue;
+                }
+
+                if (entry.Lane != LayerMaskLane.Red && entry.Source != LayerMaskSource.Anchor) {
+                    wire = Laned(wire, entry.Lane);
                 }
 
                 if (cursor is not { } beneath) {
@@ -2030,6 +2074,33 @@ public static class LayerStackGraph {
 
             return composited;
         }
+
+        /// <summary>
+        ///     A mask source's chosen lane moved into every colour lane, opaque, which is what everything after this reads
+        ///     a mask by (Patina #110).
+        /// </summary>
+        MaskSlot Laned(MaskSlot slot, LayerMaskLane lane) {
+            var from = Lane(lane);
+            var node = Add("Colour/Channel Shuffle");
+
+            node.SetText("Red From", from);
+            node.SetText("Green From", from);
+            node.SetText("Blue From", from);
+            node.SetText("Alpha From", "One");
+
+            graph.Connect(slot.Port, new(node.Id, "First"));
+
+            return new(new PortRef(node.Id, "Out"), true);
+        }
+
+        /// <summary>The shuffle source that reads a lane of the first input.</summary>
+        static string Lane(LayerMaskLane lane) =>
+            lane switch {
+                LayerMaskLane.Green => "FirstGreen",
+                LayerMaskLane.Blue => "FirstBlue",
+                LayerMaskLane.Alpha => "FirstAlpha",
+                _ => "FirstRed"
+            };
 
         /// <summary>The same mask entry with its alpha replaced by 1, or the entry unchanged.</summary>
         /// <param name="slot">The entry.</param>
@@ -2538,12 +2609,13 @@ public static class LayerStackGraph {
         ///         rather than multiplies; <see cref="Anchors" /> reports a refused anchor once.
         ///     </para>
         /// </remarks>
-        PortRef Anchored(string anchor, string channel, string layerId) {
+        PortRef Anchored(string anchor, string channel, string layerId, LayerMaskLane lane) {
             var value = Add("Colour/Channel Shuffle");
+            var from = Lane(lane);
 
-            value.SetText("Red From", "FirstRed");
-            value.SetText("Green From", "FirstRed");
-            value.SetText("Blue From", "FirstRed");
+            value.SetText("Red From", from);
+            value.SetText("Green From", from);
+            value.SetText("Blue From", from);
             value.SetText("Alpha From", "One");
 
             var covered = Add("Colour/Channel Shuffle");
@@ -2713,7 +2785,8 @@ public static class LayerStackGraph {
                         return null;
                     }
 
-                    return new(Anchored(entry.Anchor.Anchor, read, layerId), true);
+                    // The lane is read inside, where the picture is still a colour: what leaves is a grey already.
+                    return new(Anchored(entry.Anchor.Anchor, read, layerId, entry.Lane), true);
 
                 case LayerMaskSource.Bake: {
                     if (Drafting && entry.Map.Trim().Length == 0) {
@@ -3156,7 +3229,9 @@ public static class LayerStackGraph {
         float Opacity(LayerAsset layer, ChannelAsset channel) {
             var opacity = layer.Opacity;
 
-            if (layer.Kind != LayerKind.Fill || layer.Fill != LayerFillSource.Constant) {
+            // ⚠ A constant's alpha is the layer's own alpha, folded in here rather than carried in the picture — so
+            // Replace, which does not read it, has to say so here as well as in `Solid` (Patina #104).
+            if (layer.Kind != LayerKind.Fill || layer.Fill != LayerFillSource.Constant || layer.Blend == LayerBlendMode.Replace) {
                 return opacity;
             }
 

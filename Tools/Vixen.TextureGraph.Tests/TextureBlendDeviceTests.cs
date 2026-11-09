@@ -63,7 +63,11 @@ public class TextureBlendDeviceTests(ITestOutputHelper output) {
             { (int)TextureBlendMode.Exclusion, 0f },
             { (int)TextureBlendMode.ColourDodge, 0f },
             { (int)TextureBlendMode.ColourBurn, 1f },
-            { (int)TextureBlendMode.SignedAdd, 0.5f }
+            { (int)TextureBlendMode.SignedAdd, 0.5f },
+            { (int)TextureBlendMode.LinearBurn, 1f },
+            { (int)TextureBlendMode.VividLight, 0.5f },
+            { (int)TextureBlendMode.LinearLight, 0.5f },
+            { (int)TextureBlendMode.PinLight, 0.5f }
         };
 
     /// <summary>
@@ -77,6 +81,13 @@ public class TextureBlendDeviceTests(ITestOutputHelper output) {
     ///     above a half, <c>1 − 2·0.75·0.4</c>; soft light is <c>¼ + 0.2·(√¼ − ¼)</c>; difference is
     ///     <c>|¼ − 0.6|</c>; exclusion is <c>0.6 − 0.2·¼</c>; colour dodge is <c>¼ / 0.4</c>; colour
     ///     burn is <c>1 − 0.75/0.6</c>, which clips to black; signed add is <c>¼ + 0.2</c>.
+    ///     <para>
+    ///         Patina #104's five that a grey can tell apart: inverse divide is <c>0.6 / ¼</c> and <c>0.6 / ¾</c>;
+    ///         inverse subtract <c>0.6 − ¼</c>; linear burn <c>¼ + 0.6 − 1</c>; vivid light takes the dodge half,
+    ///         <c>¼ / (2 − 1.2)</c>; pin light the lighten half, <c>max(¼, 0.2)</c>. ⚠ No two rows agree in
+    ///         both columns, though some share one — linear burn and colour burn both clip the first to black.
+    ///         Linear light is not here: on these operands it is signed add exactly, so it has a case of its own.
+    ///     </para>
     /// </remarks>
     public static TheoryData<int, int, int> Distinguishing =>
         new() {
@@ -87,7 +98,12 @@ public class TextureBlendDeviceTests(ITestOutputHelper output) {
             { (int)TextureBlendMode.Exclusion, 140, 115 },
             { (int)TextureBlendMode.ColourDodge, 159, 255 },
             { (int)TextureBlendMode.ColourBurn, 0, 149 },
-            { (int)TextureBlendMode.SignedAdd, 115, 242 }
+            { (int)TextureBlendMode.SignedAdd, 115, 242 },
+            { (int)TextureBlendMode.InverseDivide, 255, 204 },
+            { (int)TextureBlendMode.InverseSubtract, 89, 0 },
+            { (int)TextureBlendMode.LinearBurn, 0, 89 },
+            { (int)TextureBlendMode.VividLight, 80, 239 },
+            { (int)TextureBlendMode.PinLight, 64, 191 }
         };
 
     /// <summary>A quotient is a number, and a number past one is an ordinary one in a float graph.</summary>
@@ -307,6 +323,188 @@ public class TextureBlendDeviceTests(ITestOutputHelper output) {
         // The instrument: over is a different rule at the same texel, and this is the number the
         // atop branch used to give.
         Near(bake.Read(3), 128, "over a transparent 0.8 backdrop, red", device);
+    }
+
+    /// <summary>
+    ///     Replace composites the foreground whole where Copy reads its alpha, in both kernels (Patina #104).
+    /// </summary>
+    /// <remarks>
+    ///     The second bake is the instrument: the same foreground of half coverage under Copy is the lerp, so a
+    ///     kernel that ignored the mode — or a Replace case that forgot the alpha — gives 108 and not 153.
+    /// </remarks>
+    [Fact]
+    public void Replace_does_not_read_the_foreground_alpha() {
+        using var device = TextureKernelHarness.Open();
+        using var evaluator = new TexturePlanEvaluator(device);
+
+        foreach (var masked in new[] { false, true }) {
+            var plan = new TexturePlan {
+                BaseWidth = Side,
+                BaseHeight = Side,
+                Images = [
+                    new(TextureFormat.Rgba16Float),
+                    new(TextureFormat.Rgba16Float),
+                    new(TextureFormat.Rgba16Float),
+                    new(TextureFormat.Rgba8),
+                    new(TextureFormat.Rgba8)
+                ],
+                Ops = [
+                    TextureSources.Uniform(0, 0.25f),
+                    TextureSources.Uniform(1, 0.6f, 0.6f, 0.6f, 0.5f),
+                    TextureSources.Uniform(2, 1f),
+                    masked ? TextureBlend.Masked(3, 0, 1, 2, TextureBlendMode.Replace) : TextureBlend.Mix(3, 0, 1, TextureBlendMode.Replace),
+                    masked ? TextureBlend.Masked(4, 0, 1, 2) : TextureBlend.Mix(4, 0, 1)
+                ],
+                Outputs = [3, 4]
+            };
+
+            using var bake = evaluator.Evaluate(plan);
+
+            Near(bake.Read(3), 153, $"replace, half-covered 0.6 over ¼ (masked: {masked})", device);
+            Near(bake.Read(4), 108, $"copy, half-covered 0.6 over ¼ (masked: {masked})", device);
+        }
+    }
+
+    /// <summary>The three split modes below mid-grey, which a foreground of 0.6 never reaches.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Each of these is two operators chosen by the foreground</b>, and <see cref="Distinguishing" /> and the
+    ///     neutral both take the upper one, so a lower half written wrong is green there. Under 0.3: vivid light burns,
+    ///     <c>1 − (1 − ¼)/0.6</c> clipping to black and <c>1 − ¼/0.6</c>; pin light darkens to <c>min(a, 0.6)</c>;
+    ///     linear light is <c>a − 0.4</c>, clipped.
+    /// </remarks>
+    [Theory]
+    [InlineData((int)TextureBlendMode.VividLight, 0, 149)]
+    [InlineData((int)TextureBlendMode.PinLight, 64, 153)]
+    [InlineData((int)TextureBlendMode.LinearLight, 0, 89)]
+    public void A_split_mode_takes_its_lower_half_under_a_dark_foreground(int number, int overQuarter, int overThreeQuarters) {
+        var mode = (TextureBlendMode)number;
+
+        using var device = TextureKernelHarness.Open();
+        using var evaluator = new TexturePlanEvaluator(device);
+
+        var plan = new TexturePlan {
+            BaseWidth = Side,
+            BaseHeight = Side,
+            Images = [
+                new(TextureFormat.Rgba16Float),
+                new(TextureFormat.Rgba16Float),
+                new(TextureFormat.Rgba16Float),
+                new(TextureFormat.Rgba8),
+                new(TextureFormat.Rgba8)
+            ],
+            Ops = [
+                TextureSources.Uniform(0, 0.25f),
+                TextureSources.Uniform(1, 0.75f),
+                TextureSources.Uniform(2, 0.3f),
+                TextureBlend.Mix(3, 0, 2, mode),
+                TextureBlend.Mix(4, 1, 2, mode)
+            ],
+            Outputs = [3, 4]
+        };
+
+        using var bake = evaluator.Evaluate(plan);
+
+        Near(bake.Read(3), overQuarter, $"{mode} of ¼ under 0.3", device);
+        Near(bake.Read(4), overThreeQuarters, $"{mode} of ¾ under 0.3", device);
+    }
+
+    /// <summary>Linear light clips where signed add, the same sum, does not.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Read as floats</b>: on an eight-bit read both are white and the case proves nothing.
+    /// </remarks>
+    [Fact]
+    public void Linear_light_clips_and_signed_add_does_not() {
+        using var device = TextureKernelHarness.Open();
+        using var evaluator = new TexturePlanEvaluator(device);
+
+        var plan = new TexturePlan {
+            BaseWidth = Side,
+            BaseHeight = Side,
+            Images = [
+                new(TextureFormat.Rgba16Float),
+                new(TextureFormat.Rgba16Float),
+                new(TextureFormat.Rgba16Float),
+                new(TextureFormat.Rgba16Float)
+            ],
+            Ops = [
+                TextureSources.Uniform(0, 0.75f),
+                TextureSources.Uniform(1, 0.9f),
+                TextureBlend.Mix(2, 0, 1, TextureBlendMode.LinearLight),
+                TextureBlend.Mix(3, 0, 1, TextureBlendMode.SignedAdd)
+            ],
+            Outputs = [2, 3]
+        };
+
+        using var bake = evaluator.Evaluate(plan);
+
+        Assert.Equal(1f, (float)BitConverter.ToHalf(bake.ReadRaw(2).Texels.AsSpan(0, 2)), 0.01f);
+        Assert.Equal(1.55f, (float)BitConverter.ToHalf(bake.ReadRaw(3).Texels.AsSpan(0, 2)), 0.01f);
+    }
+
+    /// <summary>
+    ///     The four HSV modes and the three normal-map modes, each on two coloured operands, to closed forms worked from
+    ///     the reference definitions.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>HSV.</b> The backdrop <c>(0.8, 0.4, 0.2)</c> is hue 1/18, saturation ¾, value 0.8; the foreground
+    ///         <c>(0.2, 0.3, 0.9)</c> is hue 9/14, saturation 7/9, value 0.9. Hue keeps ¾ and 0.8 at the foreground's
+    ///         hue; colour keeps 0.8 at the foreground's hue and saturation; and so on. A grey cannot tell them apart,
+    ///         which is why they are not in <see cref="Distinguishing" />.
+    ///     </para>
+    ///     <para>
+    ///         <b>Normals.</b> The backdrop encodes the unit <c>(0.8, 0, 0.6)</c> and the foreground <c>(0, 0.8, 0.6)</c>.
+    ///         Whiteout is <c>normalize(0.8, 0.8, 0.36)</c>; detail turns the foreground to the backdrop's surface and
+    ///         inverse detail the other way, which is why their red and green swap.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData((int)TextureBlendMode.Hue, 0.8f, 0.4f, 0.2f, 0.2f, 0.3f, 0.9f, 51, 73, 204)]
+    [InlineData((int)TextureBlendMode.Saturation, 0.8f, 0.4f, 0.2f, 0.2f, 0.3f, 0.9f, 204, 98, 45)]
+    [InlineData((int)TextureBlendMode.Colour, 0.8f, 0.4f, 0.2f, 0.2f, 0.3f, 0.9f, 45, 68, 204)]
+    [InlineData((int)TextureBlendMode.Value, 0.8f, 0.4f, 0.2f, 0.2f, 0.3f, 0.9f, 230, 115, 57)]
+    [InlineData((int)TextureBlendMode.NormalMapCombine, 0.9f, 0.5f, 0.8f, 0.5f, 0.9f, 0.8f, 213, 213, 166)]
+    [InlineData((int)TextureBlendMode.NormalMapDetail, 0.9f, 0.5f, 0.8f, 0.5f, 0.9f, 0.8f, 189, 230, 173)]
+    [InlineData((int)TextureBlendMode.NormalMapInverseDetail, 0.9f, 0.5f, 0.8f, 0.5f, 0.9f, 0.8f, 230, 189, 173)]
+    [InlineData((int)TextureBlendMode.NormalMapCombine, 0.9f, 0.5f, 0.8f, 0.5f, 0.5f, 1f, 230, 128, 204)]
+    [InlineData((int)TextureBlendMode.NormalMapDetail, 0.9f, 0.5f, 0.8f, 0.5f, 0.5f, 1f, 230, 128, 204)]
+    [InlineData((int)TextureBlendMode.NormalMapInverseDetail, 0.9f, 0.5f, 0.8f, 0.5f, 0.5f, 1f, 230, 128, 204)]
+    public void A_component_or_normal_mode_takes_two_colours_to_one_known_colour(
+        int number,
+        float underRed,
+        float underGreen,
+        float underBlue,
+        float overRed,
+        float overGreen,
+        float overBlue,
+        int red,
+        int green,
+        int blue
+    ) {
+        var mode = (TextureBlendMode)number;
+
+        using var device = TextureKernelHarness.Open();
+        using var evaluator = new TexturePlanEvaluator(device);
+
+        var plan = new TexturePlan {
+            BaseWidth = Side,
+            BaseHeight = Side,
+            Images = [new(TextureFormat.Rgba16Float), new(TextureFormat.Rgba16Float), new(TextureFormat.Rgba8)],
+            Ops = [
+                TextureSources.Uniform(0, underRed, underGreen, underBlue),
+                TextureSources.Uniform(1, overRed, overGreen, overBlue),
+                TextureBlend.Mix(2, 0, 1, mode)
+            ],
+            Outputs = [2]
+        };
+
+        using var bake = evaluator.Evaluate(plan);
+
+        var picture = bake.Read(2);
+
+        NearChannel(picture, 0, red, $"{mode}, red", device);
+        NearChannel(picture, 1, green, $"{mode}, green", device);
+        NearChannel(picture, 2, blue, $"{mode}, blue", device);
     }
 
     static void Near(Bitmap picture, int expected, string what, VulkanDevice device) =>

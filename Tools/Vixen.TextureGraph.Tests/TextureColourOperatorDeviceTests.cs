@@ -62,6 +62,48 @@ public class TextureColourOperatorDeviceTests(ITestOutputHelper output) {
         Assert.Equal(0f, soft.At(40, 0, 0), Close);
     }
 
+    /// <summary>
+    ///     Each comparison holds exactly where its closed form says over a ramp, and the tolerance widens the two
+    ///     equalities and nothing else (Patina #110).
+    /// </summary>
+    [Theory]
+    [InlineData("Greater")]
+    [InlineData("GreaterOrEqual")]
+    [InlineData("Less")]
+    [InlineData("LessOrEqual")]
+    [InlineData("Equal")]
+    [InlineData("NotEqual")]
+    public void A_compare_holds_where_its_comparison_does(string operation) {
+        using var device = TextureKernelHarness.Open();
+        const float Value = 0.5f;
+        const float Tolerance = 0.1f;
+
+        var out_ = Bake(device, "Analysis/Compare", Side, Side, [new("Input", Ramp)], node => {
+            node.SetText("Operation", operation);
+            node.SetValue("Value", Value);
+            node.SetValue("Tolerance", Tolerance);
+        });
+
+        Each((x, y) => {
+            var v = RampAt(x, y);
+            var holds = operation switch {
+                "Greater" => v > Value,
+                "GreaterOrEqual" => v >= Value,
+                "Less" => v < Value,
+                "LessOrEqual" => v <= Value,
+                "Equal" => MathF.Abs(v - Value) <= Tolerance,
+                _ => MathF.Abs(v - Value) > Tolerance
+            };
+
+            // A ramp texel within a half-float step of an edge may land either side of it.
+            if (MathF.Abs(v - Value) < 0.002f || MathF.Abs(MathF.Abs(v - Value) - Tolerance) < 0.002f) {
+                return;
+            }
+
+            Assert.Equal(holds ? 1f : 0f, out_.At(x, y, 0));
+        });
+    }
+
     [Fact]
     public void A_quantise_puts_each_quarter_of_the_range_on_one_of_four_even_values() {
         using var device = TextureKernelHarness.Open();

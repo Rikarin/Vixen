@@ -236,14 +236,14 @@ public class TexturePlacementKernelTests {
     ///     catalogue is most exposed to, and it is invisible.</b> <c>Combine</c> falls through to the
     ///     foreground, so an unimplemented mode is a `Copy` — a picture, with the layer on top of the
     ///     one below it, which is exactly what somebody looking at a blend expects to see. Doc 48
-    ///     § 4.2 names sixteen; this counts them on both sides.
+    ///     § 4.2 named sixteen and Patina #104 added fourteen; this counts them on both sides.
     /// </remarks>
     [Fact]
     public void Every_blend_mode_named_in_C_sharp_has_a_case_in_the_kernel() {
         var modes = Enum.GetValues<TextureBlendMode>();
         var source = TextureKernels.Source("Blend");
 
-        Assert.Equal(16, modes.Length);
+        Assert.Equal(30, modes.Length);
 
         foreach (var mode in modes) {
             if (mode == TextureBlendMode.Copy) {
@@ -257,8 +257,13 @@ public class TexturePlacementKernelTests {
             Assert.Contains($"mode == {(int)mode})", source, StringComparison.Ordinal);
         }
 
-        // And no case for a number no name covers, which would be a mode reachable only by hand.
-        Assert.Equal(15, Regex.Count(source, @"mode == \d+\)"));
+        // And no case for a number no name covers, which would be a mode reachable only by hand. Distinct
+        // numbers, because Replace is read twice: once in `Combine` and once in `Main`, which is where its
+        // difference from Copy is.
+        Assert.Equal(
+            29,
+            Regex.Matches(source, @"mode == (\d+)\)").Select(static match => match.Groups[1].Value).Distinct().Count()
+        );
     }
 
     /// <summary>Both placement kernels call the shader library's hash rather than carrying one.</summary>

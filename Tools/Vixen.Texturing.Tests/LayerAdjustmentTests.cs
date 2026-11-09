@@ -39,6 +39,7 @@ public sealed class LayerAdjustmentTests {
     [InlineData("Source/Volume Gradient", false)]
     [InlineData("Surface/Normal Blend", false)]
     [InlineData("Utility/Frequency Split", false)]
+    [InlineData("Analysis/Compare", true)]
     public void An_image_in_and_one_out_is_an_adjustment_unless_the_node_or_the_stack_says_not(string path, bool offered) {
         var library = LayerStackCompiler.Library(out _);
 

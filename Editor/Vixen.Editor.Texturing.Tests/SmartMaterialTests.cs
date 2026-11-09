@@ -358,6 +358,46 @@ public class SmartMaterialTests {
         Assert.Equal("under 2", Assert.Single(target.Layers, layer => layer.Id == "under-2").AnchorPoint);
     }
 
+    /// <summary>
+    ///     A material applied twice renames its second layers, and an instance among them stands for the second copy of
+    ///     its source and not the first, with the filter's inputs and the mask's lane carried (Patina #108, #110, #113).
+    /// </summary>
+    [Fact]
+    public void A_renamed_layer_takes_its_instances_and_keeps_its_inputs_and_lane() {
+        LayerStackAsset material = new() {
+            Name = "Instanced",
+            Sets = [
+                new() {
+                    Name = "S",
+                    Channels = [new() { Usage = "baseColor" }],
+                    Layers = [
+                        new() {
+                            Id = "warp",
+                            Kind = LayerKind.Filter,
+                            FilterNode = "Filters/Warp",
+                            Inputs = { ["Field"] = new() { Source = LayerInputSource.Generator, Generator = "Source/Noise" } },
+                            Mask = new() { Source = LayerMaskSource.Bake, Map = "world", Lane = LayerMaskLane.Green }
+                        },
+                        new() { Id = "copy", Kind = LayerKind.Instance, Instance = new() { Layer = "warp" } }
+                    ]
+                }
+            ]
+        };
+
+        TextureSetAsset target = new() { Name = "Head", Channels = [new() { Usage = "baseColor" }] };
+
+        target.Layers.AddRange(SmartMaterial.Prepare(target, material).Layers);
+        target.Layers.AddRange(SmartMaterial.Prepare(target, material).Layers);
+
+        var warp = Assert.Single(target.Layers, static layer => layer.Id == "warp-2");
+
+        Assert.Equal("warp-2", Assert.Single(target.Layers, static layer => layer.Id == "copy-2").Instance.Layer);
+        Assert.Equal("warp", Assert.Single(target.Layers, static layer => layer.Id == "copy").Instance.Layer);
+        Assert.Equal("Source/Noise", warp.Inputs["Field"].Generator);
+        Assert.NotSame(material.Sets[0].Layers[0].Inputs, warp.Inputs);
+        Assert.Equal(LayerMaskLane.Green, warp.Mask.Lane);
+    }
+
     /// <summary><see cref="SmartMaterial.Prepare" /> reads the target and does not change it.</summary>
     /// <remarks>
     ///     ⚠ <b>Because the insertion is an undo entry.</b> A prepare that also inserted would put
