@@ -242,6 +242,9 @@ public sealed record BakeSettings {
     /// <remarks>
     ///     A ray starts this far out, so a hit closer than it is ignored and anything beyond still
     ///     counts — which is what keeps a dense source's own neighbouring triangles from darkening it.
+    ///     ⚠ <b>Less than <see cref="OcclusionRadius" /> when occlusion or the bent normal is baked</b>, or
+    ///     <see cref="MapBaker.Bake(EditMesh, EditMesh, BakeSettings)" /> refuses it: a ray starting past its
+    ///     reach sees nothing.
     /// </remarks>
     public float OcclusionMinimum { get; init; }
 
@@ -663,7 +666,10 @@ public static class MapBaker {
     /// <param name="settings">The size, the gutter and the search radius.</param>
     /// <returns>The pixels, and what was measured about them.</returns>
     /// <exception cref="ArgumentNullException">Any argument is null.</exception>
-    /// <exception cref="ArgumentOutOfRangeException">The resolution is not positive, or the gutter is negative.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">
+    ///     The resolution is not positive, the gutter is negative, or occlusion is baked with a minimum occluder
+    ///     distance at or past the occlusion radius.
+    /// </exception>
     /// <exception cref="ArgumentException">The target has no texture-coordinate layer to bake into.</exception>
     /// <remarks>
     ///     ⚠ <b>This overload cannot be stopped and says nothing while it runs</b>, which for a 4K
@@ -681,7 +687,10 @@ public static class MapBaker {
     /// <param name="cancellationToken">Checked once per atlas row.</param>
     /// <returns>The pixels, and what was measured about them.</returns>
     /// <exception cref="ArgumentNullException">Any argument but <paramref name="progress" /> is null.</exception>
-    /// <exception cref="ArgumentOutOfRangeException">The resolution is not positive, or the gutter is negative.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">
+    ///     The resolution is not positive, the gutter is negative, or occlusion is baked with a minimum occluder
+    ///     distance at or past the occlusion radius.
+    /// </exception>
     /// <exception cref="ArgumentException">The target has no texture-coordinate layer to bake into.</exception>
     /// <exception cref="OperationCanceledException"><paramref name="cancellationToken" /> was signalled.</exception>
     /// <remarks>
@@ -735,6 +744,17 @@ public static class MapBaker {
         ArgumentOutOfRangeException.ThrowIfGreaterThan(settings.OcclusionSpread, 90f);
         ArgumentOutOfRangeException.ThrowIfNegative(settings.OcclusionMinimum);
         ArgumentOutOfRangeException.ThrowIfNegative(settings.HeightScale);
+
+        // A ray that starts at or past its own reach sees nothing, so the occlusion would be white and the bent
+        // normal the normal, with no word of why. Thickness reads the radius alone.
+        if ((settings.Maps & (MeshMaps.AmbientOcclusion | MeshMaps.BentNormal)) != 0
+            && settings.OcclusionMinimum >= settings.OcclusionRadius) {
+            throw new ArgumentOutOfRangeException(
+                nameof(settings),
+                settings.OcclusionMinimum,
+                "The minimum occluder distance must be less than the occlusion radius, or every ray starts past its reach."
+            );
+        }
 
         if (target.TexCoords.Length != target.CornerCount) {
             throw new ArgumentException(
