@@ -165,7 +165,8 @@ public sealed class LayerStackEvaluator : IDisposable {
             BaseWidth = stack.BaseWidth,
             BaseHeight = stack.BaseHeight,
             Seed = stack.Seed,
-            SubGraphSource = subGraphs
+            SubGraphSource = subGraphs,
+            Drafting = Draft
         };
 
         var compilation = compiler.Compile(build.Graph);
