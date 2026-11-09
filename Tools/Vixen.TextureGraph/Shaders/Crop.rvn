@@ -43,6 +43,15 @@ shader Crop {
     /// 0 point-samples, 1 interpolates. Point is exact where the rect lands on texel boundaries.
     var filter: int = 0
 
+    /// Non-zero for a crop at the source's own scale — Patina #175's 1:1 crop. The rect's texels are copied
+    /// unscaled, its middle on the image's middle, and everything outside it is transparent.
+    ///
+    /// ⚠ **The size of the image does not change, and cannot.** `TextureImage` sizes an image by a power-of-two
+    /// level offset, so a crop to 37% of the width has nothing that size to write into. What a 1:1 crop is *for*
+    /// is a cut-out that keeps its texel density — a stamp for a sampler, a cell of an atlas, a patch of a photo —
+    /// and that is a copy of the rect's texels with nothing around them, at any size of target.
+    var actual: int = 0
+
     /// Non-zero when a read past the left or right edge comes back on the other side. The plan's, as
     /// `seed` is: see `Math.Address`.
     var wrapX: int = 0
@@ -85,6 +94,27 @@ shader Crop {
         val size = target.GetDimensions()
 
         if (coord.x >= size.x || coord.y >= size.y) {
+            return
+        }
+
+        if (actual != 0) {
+            // In the source's own texels: the rect's middle lands on the target's, one texel to one texel.
+            val extent = source.GetDimensions(0)
+            val left = rectX * float(extent.x)
+            val top = rectY * float(extent.y)
+            val width = rectW * float(extent.x)
+            val height = rectH * float(extent.y)
+            val px = left + width * 0.5f + float(coord.x) + 0.5f - float(size.x) * 0.5f
+            val py = top + height * 0.5f + float(coord.y) + 0.5f - float(size.y) * 0.5f
+
+            if (px < left || px >= left + width || py < top || py >= top + height) {
+                target.Store(coord, float4(0f, 0f, 0f, 0f))
+
+                return
+            }
+
+            target.Store(coord, Fetch(int(floor(px)), int(floor(py))))
+
             return
         }
 

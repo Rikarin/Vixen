@@ -170,6 +170,41 @@ public class TextureRemapDeviceTests(ITestOutputHelper output) {
         Assert.True(inside > 300, $"only {inside} texels inside the swirl moved");
     }
 
+    /// <summary>
+    ///     Patina #175's 1:1 crop: the rect's texels copied exactly, its middle on the image's middle, and nothing
+    ///     around it — where Stretch spreads the same quarter over the whole image.
+    /// </summary>
+    [Fact]
+    public void An_unscaled_crop_copies_the_rect_texel_for_texel_into_the_middle() {
+        using var device = TextureKernelHarness.Open();
+
+        static void Rect(Vixen.NodeGraph.GraphNode node, string fit) {
+            node.SetText("Fit", fit);
+            node.SetValue("Rect X", 0.125f);
+            node.SetValue("Rect Y", 0.25f);
+            node.SetValue("Rect W", 0.25f);
+            node.SetValue("Rect H", 0.5f);
+        }
+
+        var unscaled = Bake(device, "Space/Crop", Side, Side, [new("Input", Unique)], node => Rect(node, "Unscaled"));
+        var stretched = Bake(device, "Space/Crop", Side, Side, [new("Input", Unique)], node => Rect(node, "Stretch"));
+
+        // The rect is columns 8 to 23 and rows 16 to 47; its middle (16, 32) lands on the image's (32, 32).
+        Each((x, y) => {
+            var inside = x is >= 24 and < 40 && y is >= 16 and < 48;
+
+            if (inside) {
+                Near(UniqueAt(x - 16, y), unscaled.Texel(x, y), 0.0005f, $"({x}, {y}) inside the cut-out");
+            } else {
+                Near((0f, 0f, 0f, 0f), unscaled.Texel(x, y), 0.0005f, $"({x}, {y}) around the cut-out");
+            }
+        });
+
+        // Stretched, the same rect fills the image, so its corner texel is the rect's corner.
+        Near(UniqueAt(8, 16), stretched.Texel(0, 0), 0.0005f, "the stretched corner");
+        Assert.Equal(1f, stretched.Texel(Side - 1, Side - 1).A, 3);
+    }
+
     [Fact]
     public void Wedge_symmetry_repeats_a_quarter_turn_and_mirrors_about_its_first_edge() {
         using var device = TextureKernelHarness.Open();

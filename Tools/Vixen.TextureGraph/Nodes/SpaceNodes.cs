@@ -153,8 +153,18 @@ sealed partial class TileNode : TextureNode {
 ///         arithmetic is actually prone to.
 ///     </para>
 /// </remarks>
-[Node("Space/Crop", Preview = true, Summary = "A rectangle of the source, stretched onto the whole target.")]
+[Node("Space/Crop", Preview = true, Summary = "A rectangle of the source, stretched onto the image or cut out at its own scale.")]
 sealed partial class CropNode : TextureNode {
+    /// <summary>Whether the rect fills the image or keeps its own scale.</summary>
+    /// <remarks>
+    ///     ⚠ <b><c>Unscaled</c> is Patina #175's 1:1 crop, and it cannot change the image's size</b>, because
+    ///     <see cref="TextureImage.LevelOffset" /> is the only way an image is sized. It copies the rect's texels
+    ///     exactly, its middle on the image's middle, and leaves the rest transparent — the cut-out keeps its texel
+    ///     density, which is what a stamp, an atlas cell or a patch of a photo needs.
+    /// </remarks>
+    [Setting(AcceptedFrom = typeof(TextureCropFit), Summary = "Stretch fills the image with the rect; Unscaled cuts it out at the source's own scale, centred, with nothing around it.")]
+    public string Fit = "Stretch";
+
     /// <summary>How a sub-sample reads: <c>Point</c> or <c>Bilinear</c>. ⚠ Not <c>Box</c>.</summary>
     /// <remarks>
     ///     ⚠ <b>Listed rather than <c>AcceptedFrom = typeof(TextureFilter)</c>, because this node
@@ -196,6 +206,7 @@ sealed partial class CropNode : TextureNode {
         ArgumentNullException.ThrowIfNull(emitter);
 
         var filter = TextureSettings.Enum(emitter, nameof(Filter), TextureFilter.Point);
+        var fit = TextureSettings.Enum(emitter, nameof(Fit), TextureCropFit.Stretch);
         var source = emitter.Read("Input");
         var target = emitter.Write("Out");
 
@@ -232,11 +243,21 @@ sealed partial class CropNode : TextureNode {
                     new("rectY", emitter.Number("Rect Y")),
                     new("rectW", emitter.Number("Rect W")),
                     new("rectH", emitter.Number("Rect H")),
-                    new("filter", (float)filter)
+                    new("filter", (float)filter),
+                    new("actual", fit == TextureCropFit.Unscaled ? 1f : 0f)
                 ]
             }
         );
     }
+}
+
+/// <summary>How a <c>Space/Crop</c>'s rect is laid onto the image.</summary>
+enum TextureCropFit {
+    /// <summary>The rect fills the image, scaled in each axis.</summary>
+    Stretch,
+
+    /// <summary>The rect's texels as they are, its middle on the image's middle, transparent around it.</summary>
+    Unscaled
 }
 
 /// <summary>How far a <c>Resample</c> moves its output from the image it reads, in mip levels.</summary>
