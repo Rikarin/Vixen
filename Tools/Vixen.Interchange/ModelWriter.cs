@@ -595,21 +595,153 @@ public static class ModelWriter {
         return accessors.Count - 1;
     }
 
-    /// <summary>The <c>materials</c> member with its comma, or nothing for a file with none.</summary>
+    /// <summary>Writes materials alone as a glTF 2.0 document: no mesh, no buffer, only what a material reads.</summary>
+    /// <param name="materials">The materials, whose images are URIs relative to the file.</param>
+    /// <param name="name">What to call the scene, which is empty.</param>
+    /// <returns>The file's JSON text.</returns>
+    /// <remarks>
+    ///     <b>A library of materials, which is what a texturing tool hands a DCC beside its images.</b> glTF requires
+    ///     no mesh, so a reader that imports materials takes these and a scene with nothing in it.
+    /// </remarks>
+    /// <exception cref="ArgumentNullException"><paramref name="materials" /> is null.</exception>
+    public static string GltfMaterials(IReadOnlyList<ModelWriterMaterial> materials, string name = "Materials") {
+        ArgumentNullException.ThrowIfNull(materials);
+
+        return $$"""{"asset":{"version":"2.0","generator":"Vixen"},{{Materials(materials)}}"scene":0,"scenes":[{"name":{{Text(name)}},"nodes":[]}]}""";
+    }
+
+    /// <summary>
+    ///     The <c>materials</c>, <c>textures</c>, <c>images</c> and <c>samplers</c> members with their comma, or
+    ///     nothing for a file with no material.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>One texture per image, in the order the images are first named</b>, so a texture's index is its
+    ///     image's and an image two slots share, such as an occlusion-roughness-metallic file, is written once. A WebP
+    ///     image is reachable only through <c>EXT_texture_webp</c>, which is then required: a reader without it has no
+    ///     image to fall back to.
+    /// </remarks>
     static string Materials(IReadOnlyList<ModelWriterMaterial> materials) {
         if (materials.Count == 0) {
             return string.Empty;
         }
 
-        var written = materials.Select(static material => {
-            var colour = material.Factors.BaseColor;
-            var factors = $$"""{"baseColorFactor":[{{Number(colour.X)}},{{Number(colour.Y)}},{{Number(colour.Z)}},{{Number(colour.W)}}],"metallicFactor":{{Number(material.Factors.Metallic)}},"roughnessFactor":{{Number(material.Factors.Roughness)}}}""";
+        List<string> images = [];
+        SortedSet<string> used = new(StringComparer.Ordinal);
+        SortedSet<string> required = new(StringComparer.Ordinal);
 
-            return $$"""{"name":{{Text(material.Name)}},"pbrMetallicRoughness":{{factors}}}""";
-        });
+        int Image(string uri) {
+            var at = images.IndexOf(uri);
 
-        return $"\"materials\":[{string.Join(",", written)}],";
+            if (at < 0) {
+                at = images.Count;
+                images.Add(uri);
+            }
+
+            return at;
+        }
+
+        var written = materials.Select(material => Material(material, Image, used)).ToList();
+
+        var textures = images.Select(uri => {
+            if (!uri.EndsWith(".webp", StringComparison.OrdinalIgnoreCase)) {
+                return $$"""{"sampler":0,"source":{{Number(images.IndexOf(uri))}}}""";
+            }
+
+            used.Add("EXT_texture_webp");
+            required.Add("EXT_texture_webp");
+
+            return "{\"sampler\":0,\"extensions\":{\"EXT_texture_webp\":{\"source\":" + Number(images.IndexOf(uri)) + "}}}";
+        }).ToList();
+
+        var text = new StringBuilder();
+        text.Append($"\"materials\":[{string.Join(",", written)}],");
+
+        if (images.Count > 0) {
+            text.Append($"\"textures\":[{string.Join(",", textures)}],");
+            text.Append($"\"images\":[{string.Join(",", images.Select(static uri => $$"""{"uri":{{Text(Escape(uri))}}}"""))}],");
+            // Trilinear and repeat, which is what a texture that tiles over a UV layout wants.
+            text.Append("\"samplers\":[{\"magFilter\":9729,\"minFilter\":9987,\"wrapS\":10497,\"wrapT\":10497}],");
+        }
+
+        if (used.Count > 0) {
+            text.Append($"\"extensionsUsed\":[{string.Join(",", used.Select(Text))}],");
+        }
+
+        if (required.Count > 0) {
+            text.Append($"\"extensionsRequired\":[{string.Join(",", required.Select(Text))}],");
+        }
+
+        return text.ToString();
     }
+
+    /// <summary>One material, with each image it reads by the index <paramref name="image" /> gives it.</summary>
+    static string Material(ModelWriterMaterial material, Func<string, int> image, SortedSet<string> used) {
+        var colour = material.Factors.BaseColor;
+        var textures = material.Textures;
+        var pbr = new List<string> {
+            $"\"baseColorFactor\":[{Number(colour.X)},{Number(colour.Y)},{Number(colour.Z)},{Number(colour.W)}]",
+            $"\"metallicFactor\":{Number(material.Factors.Metallic)}",
+            $"\"roughnessFactor\":{Number(material.Factors.Roughness)}"
+        };
+        var members = new List<string> { $"\"name\":{Text(material.Name)}" };
+
+        if (textures is null) {
+            members.Add($"\"pbrMetallicRoughness\":{{{string.Join(",", pbr)}}}");
+
+            return $"{{{string.Join(",", members)}}}";
+        }
+
+        if (textures.BaseColor is { } baseColor) {
+            pbr.Add($"\"baseColorTexture\":{{\"index\":{Number(image(baseColor))}}}");
+        }
+
+        if (textures.MetallicRoughness is { } metallicRoughness) {
+            pbr.Add($"\"metallicRoughnessTexture\":{{\"index\":{Number(image(metallicRoughness))}}}");
+        }
+
+        members.Add($"\"pbrMetallicRoughness\":{{{string.Join(",", pbr)}}}");
+
+        if (textures.Normal is { } normal) {
+            members.Add($"\"normalTexture\":{{\"index\":{Number(image(normal))},\"scale\":{Number(textures.NormalScale)}}}");
+        }
+
+        if (textures.Occlusion is { } occlusion) {
+            members.Add($"\"occlusionTexture\":{{\"index\":{Number(image(occlusion))},\"strength\":{Number(textures.OcclusionStrength)}}}");
+        }
+
+        if (textures.Emissive is { } emissive) {
+            members.Add($"\"emissiveTexture\":{{\"index\":{Number(image(emissive))}}}");
+        }
+
+        var glow = textures.EmissiveFactor ?? (textures.Emissive is null ? Vector3.Zero : Vector3.One);
+
+        if (glow != Vector3.Zero) {
+            members.Add($"\"emissiveFactor\":[{Number(glow.X)},{Number(glow.Y)},{Number(glow.Z)}]");
+        }
+
+        if (textures.AlphaMode != ModelAlphaMode.Opaque) {
+            members.Add($"\"alphaMode\":{Text(textures.AlphaMode == ModelAlphaMode.Mask ? "MASK" : "BLEND")}");
+        }
+
+        if (textures.AlphaMode == ModelAlphaMode.Mask) {
+            members.Add($"\"alphaCutoff\":{Number(textures.AlphaCutoff)}");
+        }
+
+        if (textures.DoubleSided) {
+            members.Add("\"doubleSided\":true");
+        }
+
+        if (textures.EmissiveStrength > 1f) {
+            used.Add("KHR_materials_emissive_strength");
+            members.Add($"\"extensions\":{{\"KHR_materials_emissive_strength\":{{\"emissiveStrength\":{Number(textures.EmissiveStrength)}}}}}");
+        }
+
+        return $"{{{string.Join(",", members)}}}";
+    }
+
+    /// <summary>A relative path as a URI: each part percent-encoded, the slashes kept.</summary>
+    static string Escape(string path) =>
+        string.Join("/", path.Replace('\\', '/').Split('/').Select(Uri.EscapeDataString));
 
     static int Indices(List<byte> buffer, List<string> views, List<string> accessors, int[] indices) {
         var offset = Align(buffer);
