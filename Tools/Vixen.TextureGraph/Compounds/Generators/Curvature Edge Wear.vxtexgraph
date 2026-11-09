@@ -3,57 +3,93 @@ name: Curvature Edge Wear
 nodes:
   - id: 1
     type: Source/Mesh Map
-    x: -640
+    x: -960
     y: 0
     values: {}
     texts: { Map: curvature }
-  - id: 2
-    type: Utility/Histogram Scan
+  - id: 7
+    type: Filters/Blur HQ
+    x: -640
+    y: 0
+    values: {}
+    texts:
+      '=Sigma': smoothing
+  - id: 8
+    type: Colour/Histogram Equalise
     x: -320
     y: 0
-    values:
-      Black: [0.55]
-      White: [0.72]
+    values: {}
     texts: {}
-  - id: 3
-    type: Source/Noise
-    x: -640
-    y: 220
-    values:
-      Scale: [12]
-      Octaves: [4]
-    texts: { Basis: Gradient }
-  - id: 4
-    type: Colour/Levels
-    x: -320
-    y: 220
-    values:
-      Input Black: [0.35]
-      Input White: [0.9]
-    texts: {}
-  - id: 5
-    type: Colour/Blend
+  - id: 2
+    type: Utility/Histogram Scan
     x: 0
     y: 0
     values: {}
+    texts:
+      '=Black': 1f - amount * 0.4f - softness * 0.06f
+      '=White': 1f - amount * 0.4f + softness * 0.06f + 0.001f
+  - id: 9
+    type: Colour/Levels
+    x: 0
+    y: 160
+    values:
+      Input Black: [0.502]
+      Input White: [0.506]
+    texts: {}
+  - id: 10
+    type: Colour/Blend
+    x: 320
+    y: 0
+    values: {}
     texts: { Mode: Multiply }
+  - id: 3
+    type: Source/Noise
+    x: -320
+    y: 320
+    values:
+      Octaves: [4]
+    texts:
+      Basis: Gradient
+      '=Scale': scale
+      '=Seed': seed
+  - id: 4
+    type: Colour/Levels
+    x: 0
+    y: 320
+    values: {}
+    texts:
+      '=Input Black': 0.7f - breakup * 0.5f
+      '=Input White': 0.85f - breakup * 0.5f
+  - id: 11
+    type: Source/Uniform
+    x: 0
+    y: 480
+    values:
+      Colour: [0, 0, 0, 1]
+    texts: {}
+  - id: 5
+    type: Colour/Mix
+    x: 640
+    y: 0
+    values: {}
+    texts: { Mode: Copy, Coverage: Over }
   - id: 6
     type: Sub-graph/Output
-    x: 320
+    x: 960
     y: 0
     values: {}
     texts: {}
 edges:
-  - { fromNode: 1, fromPort: Out, toNode: 2, toPort: Input }
+  - { fromNode: 1, fromPort: Out, toNode: 7, toPort: Input }
+  - { fromNode: 7, fromPort: Out, toNode: 8, toPort: Input }
+  - { fromNode: 8, fromPort: Out, toNode: 2, toPort: Input }
+  - { fromNode: 7, fromPort: Out, toNode: 9, toPort: Input }
+  - { fromNode: 2, fromPort: Out, toNode: 10, toPort: Background }
+  - { fromNode: 9, fromPort: Out, toNode: 10, toPort: Foreground }
   - { fromNode: 3, fromPort: Out, toNode: 4, toPort: Input }
-  - fromNode: 2
-    fromPort: Out
-    toNode: 5
-    toPort: Background
-  - fromNode: 4
-    fromPort: Out
-    toNode: 5
-    toPort: Foreground
+  - { fromNode: 10, fromPort: Out, toNode: 5, toPort: Background }
+  - { fromNode: 11, fromPort: Out, toNode: 5, toPort: Foreground }
+  - { fromNode: 4, fromPort: Out, toNode: 5, toPort: Mask }
   - { fromNode: 5, fromPort: Out, toNode: 6, toPort: Out }
 groups: []
 comments: []
@@ -62,6 +98,54 @@ interface:
     direction: Output
     kind: Image
     default: []
-    summary: The wear mask.
+    summary: The wear mask. White where a convex edge has been worn.
 settings: { baseWidth: '1024', baseHeight: '1024', seed: '1', doesNotTile: 'Reads a mesh map, and an atlas has islands at its edges rather than a far side.' }
-parameters: []
+parameters:
+  - name: amount
+    label: Amount
+    default: '0.3'
+    summary: How much of the model's convex edges wear, sharpest first. It ranks the curvature, so it reads the same on any mesh.
+    kind: Float
+    minimum: 0
+    maximum: 1
+    group: Wear
+  - name: softness
+    label: Softness
+    default: '0.4'
+    summary: How gently the wear fades out down the edge.
+    kind: Float
+    minimum: 0
+    maximum: 1
+    group: Wear
+  - name: smoothing
+    label: Smoothing
+    default: '1.5'
+    summary: How far the curvature is blurred first, in texels. More keeps only broad edges and drops fine detail.
+    kind: Float
+    minimum: 0
+    maximum: 16
+    group: Wear
+  - name: breakup
+    label: Breakup
+    default: '0.3'
+    summary: How much of the edge the wear skips, so it does not read as a drawn outline.
+    kind: Float
+    minimum: 0
+    maximum: 1
+    group: Breakup
+  - name: scale
+    label: Breakup Scale
+    default: '12'
+    summary: How many patches of breakup run across the map.
+    kind: Float
+    minimum: 1
+    maximum: 64
+    group: Breakup
+  - name: seed
+    label: Seed
+    default: '0'
+    summary: Another draw of the breakup. Every whole number is a different pattern.
+    kind: Int
+    minimum: 0
+    maximum: 100
+    group: Breakup

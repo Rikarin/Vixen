@@ -6,9 +6,11 @@ nodes:
     x: -960
     y: 0
     values:
-      Scale: [6]
       Octaves: [5]
-    texts: { Basis: Gradient }
+    texts:
+      Basis: Gradient
+      '=Scale': scale
+      '=Seed': seed
   - id: 2
     type: Filters/Slope Blur
     x: -640
@@ -37,8 +39,8 @@ nodes:
     y: 260
     values:
       Input Black: [0.95]
-      Input White: [0.3]
-    texts: {}
+    texts:
+      '=Input White': 0.9f - reach * 0.6f
   - id: 6
     type: Colour/Blend
     x: 0
@@ -72,6 +74,30 @@ interface:
     direction: Output
     kind: Image
     default: []
-    summary: The grunge.
+    summary: A rough, streaky grime, heaviest where the light does not reach.
 settings: { baseWidth: '1024', baseHeight: '1024', seed: '1', doesNotTile: 'Reads a mesh map, and an atlas has islands at its edges rather than a far side.' }
-parameters: []
+parameters:
+  - name: reach
+    label: Reach
+    default: '0.75'
+    summary: How far out of the shadowed places the grime reaches.
+    kind: Float
+    minimum: 0
+    maximum: 1
+    group: Grunge
+  - name: scale
+    label: Scale
+    default: '6'
+    summary: How many patches of grunge run across the map.
+    kind: Float
+    minimum: 1
+    maximum: 64
+    group: Grunge
+  - name: seed
+    label: Seed
+    default: '0'
+    summary: Another draw of the grunge. Every whole number is a different pattern.
+    kind: Int
+    minimum: 0
+    maximum: 100
+    group: Grunge

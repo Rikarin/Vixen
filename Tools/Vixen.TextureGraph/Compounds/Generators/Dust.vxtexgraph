@@ -35,9 +35,10 @@ nodes:
     x: -960
     y: 60
     values:
-      Input Black: [0]
+      Input Black: [0.98]
     texts:
-      '=Input White': 1f - settle * 0.6f
+      '=Input White': 0.9f - settle * 0.4f
+      '=Output White': settle
   - id: 6
     type: Colour/Blend
     x: -320
@@ -49,9 +50,11 @@ nodes:
     x: -1280
     y: 340
     values:
-      Scale: [18]
       Octaves: [3]
-    texts: { Basis: Value }
+    texts:
+      Basis: Value
+      '=Scale': scale
+      '=Seed': seed
   - id: 8
     type: Colour/Levels
     x: -960
@@ -101,6 +104,7 @@ interface:
 settings: { baseWidth: '1024', baseHeight: '1024', seed: '1', doesNotTile: 'Reads a mesh map, and an atlas has islands at its edges rather than a far side.' }
 parameters:
   - name: facing
+    label: Facing
     default: '0.5'
     summary: How far off horizontal a surface may be and still collect dust.
     kind: Float
@@ -108,16 +112,34 @@ parameters:
     maximum: 1
     group: Settling
   - name: settle
+    label: Shelter
     default: '0.4'
-    summary: How much also gathers in sheltered places, whichever way they face.
+    summary: How much also gathers in sheltered places, whichever way they face. Nought is none.
     kind: Float
     minimum: 0
     maximum: 1
     group: Settling
   - name: breakup
+    label: Breakup
     default: '0.4'
     summary: How patchy the covering is.
     kind: Float
     minimum: 0
     maximum: 1
-    group: Settling
+    group: Breakup
+  - name: scale
+    label: Breakup Scale
+    default: '18'
+    summary: How many patches of breakup run across the map.
+    kind: Float
+    minimum: 1
+    maximum: 64
+    group: Breakup
+  - name: seed
+    label: Seed
+    default: '0'
+    summary: Another draw of the breakup. Every whole number is a different pattern.
+    kind: Int
+    minimum: 0
+    maximum: 100
+    group: Breakup
