@@ -332,4 +332,96 @@ public class PaintMeshSurfaceTests {
 
         return false;
     }
+
+    /// <summary>
+    ///     A plate two units across, and a strap a fifth of a unit wide lying 0.03 over its middle, each with an island
+    ///     of its own: the plate at 64 texels to a unit in the atlas's top left, the strap in its bottom right.
+    /// </summary>
+    static PaintMeshSurface Strapped() =>
+        new(
+            PaintProjection.Over(
+                [
+                    new(-1f, -1f, 0f), new(1f, -1f, 0f), new(1f, 1f, 0f), new(-1f, 1f, 0f),
+                    new(-0.5f, -0.1f, 0.03f), new(0.5f, -0.1f, 0.03f), new(0.5f, 0.1f, 0.03f), new(-0.5f, 0.1f, 0.03f)
+                ],
+                [
+                    new(0f, 0f), new(0.5f, 0f), new(0.5f, 0.5f), new(0f, 0.5f),
+                    new(0.6f, 0.6f), new(0.9f, 0.6f), new(0.9f, 0.7f), new(0.6f, 0.7f)
+                ],
+                [0, 1, 2, 0, 2, 3, 4, 5, 6, 4, 6, 7]
+            ),
+            Side,
+            Side
+        );
+
+    /// <summary>How many texels of the plate under the strap's middle a dab on the strap painted.</summary>
+    static int UnderTheStrap(PaintOcclusion occlusion, out int onTheStrap) {
+        var surface = Strapped();
+        PaintImage image = new(Side, Side);
+
+        // A radius of 16 is an eighth of a unit here: wider than the strap, and its depth reaches the plate.
+        Stroke(image, surface, surface.Through(Facing(4f, 512), occlusion: occlusion), 0).MoveTo(new(256f, 256f));
+
+        var under = 0;
+        onTheStrap = 0;
+
+        // The plate's point (x, y) is texel ((x + 1) · 64, (y + 1) · 64): the strap covers rows 58 to 70.
+        for (var y = 60; y < 69; y++) {
+            for (var x = 60; x < 69; x++) {
+                under += image.At(x, y) != 0u ? 1 : 0;
+            }
+        }
+
+        for (var at = 0; at < Side * Side; at++) {
+            onTheStrap += image[at] != 0u && at % Side >= (int)(0.6f * Side) ? 1 : 0;
+        }
+
+        return under;
+    }
+
+    /// <summary>
+    ///     #26: the depth under a brush reached the plate under a strap lying close over it, and painted it through the
+    ///     strap. Both halves: with no test the plate under it is painted whole, and with one it is left alone while
+    ///     the strap still takes the stamp.
+    /// </summary>
+    [Fact]
+    public void A_camera_leaves_a_face_hidden_close_under_another_alone() {
+        var through = UnderTheStrap(PaintOcclusion.None, out var strapThrough);
+        var seen = UnderTheStrap(PaintOcclusion.Default, out var strapSeen);
+
+        Assert.Equal(81, through);
+        Assert.Equal(0, seen);
+        Assert.True(strapSeen > 50, $"The strap took {strapSeen} texels, so the stamp missed it.");
+        Assert.Equal(strapThrough, strapSeen);
+    }
+
+    /// <summary>
+    ///     A tolerance past the gap says the strap is not the plate's occluder: what it hides is painted again. The
+    ///     strap is 0.03 over the plate, and the mesh's diagonal is about 2.83, so the gap is about 1% of it.
+    /// </summary>
+    [Fact]
+    public void A_tolerance_wider_than_a_gap_paints_through_it() {
+        Assert.Equal(0, UnderTheStrap(PaintOcclusion.Default with { Tolerance = 0.005f }, out _));
+        Assert.Equal(81, UnderTheStrap(PaintOcclusion.Default with { Tolerance = 0.02f }, out _));
+    }
+
+    /// <summary>
+    ///     A stroke casts each line of sight once and not once per stamp: stamps a sixth of a radius apart each look at
+    ///     about 2,300 cells, and the stroke's whole band is about 8,000. A cell cast per stamp would be over 100,000.
+    /// </summary>
+    [Fact]
+    public void A_stroke_casts_each_line_of_sight_once() {
+        var surface = Sheet();
+        var placement = surface.Through(Facing(4f, 512));
+        PaintImage image = new(Side, Side);
+        var stroke = Stroke(image, surface, placement, 0);
+
+        stroke.MoveTo(new(200f, 256f));
+        stroke.MoveTo(new(312f, 256f));
+
+        var rays = ((IPaintRays)placement).Rays;
+
+        Assert.True(stroke.StampCount > 30, $"{stroke.StampCount} stamps is too few for the count to say anything.");
+        Assert.InRange(rays, 1L, 10_000L);
+    }
 }

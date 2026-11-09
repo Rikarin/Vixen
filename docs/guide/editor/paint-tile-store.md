@@ -4,7 +4,7 @@ slug: editor/paint-tile-store
 kind: guide
 area: Editor
 summary: How a paint layer's pixels are held as sparse tiles, what a stroke costs, how a host evaluates a stack without an editor, and what a .vxpaint pack holds.
-api: [T:Vixen.Texturing.Painting.PaintImageSnapshot, T:Vixen.Texturing.Painting.PaintMeshSurface, T:Vixen.Texturing.Painting.PaintTransfer, T:Vixen.Texturing.Painting.PaintView, T:Vixen.Texturing.Painting.PaintSymmetryGroup, T:Vixen.Texturing.Painting.PaintIsometry, T:Vixen.Texturing.Painting.PaintSizeSpace, T:Vixen.Texturing.Painting.PaintScatterAxis, T:Vixen.Texturing.Painting.PaintStampBlend, T:Vixen.Texturing.Painting.IPaintPlacement, T:Vixen.Texturing.Painting.PaintStampTexels, T:Vixen.Texturing.Painting.PaintTexelMap`1, T:Vixen.Texturing.Painting.PaintTileCache, T:Vixen.Texturing.Layers.LayerStackEvaluator, T:Vixen.Texturing.Layers.LayerStackPictures, T:Vixen.TextureGraph.TextureRect, T:Vixen.TextureGraph.TextureRegions, T:Vixen.TextureGraph.TextureTileWrite, T:Vixen.TextureGraph.TextureImageChange, T:Vixen.TextureGraph.TextureLocality]
+api: [T:Vixen.Texturing.Painting.PaintImageSnapshot, T:Vixen.Texturing.Painting.PaintMeshSurface, T:Vixen.Texturing.Painting.PaintTransfer, T:Vixen.Texturing.Painting.PaintView, T:Vixen.Texturing.Painting.PaintSymmetryGroup, T:Vixen.Texturing.Painting.PaintIsometry, T:Vixen.Texturing.Painting.PaintSizeSpace, T:Vixen.Texturing.Painting.PaintScatterAxis, T:Vixen.Texturing.Painting.PaintStampBlend, T:Vixen.Texturing.Painting.IPaintPlacement, T:Vixen.Texturing.Painting.PaintStampTexels, T:Vixen.Texturing.Painting.PaintOcclusion, T:Vixen.Texturing.Painting.PaintFillMode, T:Vixen.Texturing.Painting.IPaintSource, T:Vixen.Texturing.Painting.IPaintStencil, T:Vixen.Texturing.Painting.PaintAtlasSource, T:Vixen.Texturing.Painting.PaintSmudge, T:Vixen.Texturing.Painting.PaintFrame, T:Vixen.Texturing.Painting.PaintProjectedPicture, T:Vixen.Texturing.Painting.PaintTexelMap`1, T:Vixen.Texturing.Painting.PaintTileCache, T:Vixen.Texturing.Layers.LayerStackEvaluator, T:Vixen.Texturing.Layers.LayerStackPictures, T:Vixen.TextureGraph.TextureRect, T:Vixen.TextureGraph.TextureRegions, T:Vixen.TextureGraph.TextureTileWrite, T:Vixen.TextureGraph.TextureImageChange, T:Vixen.TextureGraph.TextureLocality]
 tags: [editor, painting, material-authoring, texture-graph]
 since: 0.1
 status: preview
@@ -96,8 +96,11 @@ is what makes a seam nothing special: both sides of one are the same place.
 `Through(view, symmetry)` is a brush seen through a camera. A stamp's centre is a position on the picture, `PaintView`
 turns it into a ray, each triangle near the hit is clipped to the square the stamp makes on the picture, and a texel
 weighs what the brush weighs where it projects. So the disc on the screen stays a disc on any island, and a separate
-shell under the brush takes paint with the rest. A face turned away is skipped, and depth is a limit and not an
-occlusion test, so a texel hidden behind other geometry close under the brush is painted.
+shell under the brush takes paint with the rest. A face turned away is skipped, depth is a limit, and within it
+a texel the camera cannot see is left alone: `PaintOcclusion` tests it against the depth of the nearest surface along the
+lines of sight round it, cast once per cell of the picture for the whole stroke, with a tolerance for something lying a
+hair in front of it. Within a cell of a silhouette the far side is still let through; `PaintOcclusion.None` is the old
+behaviour.
 
 `AcrossSeams()` is a brush in the atlas. It paints the disc as it always did, then floods from the triangle under the
 stamp across edges the mesh really shares, carrying the stamp on to the other islands by distance along the surface. It
@@ -121,6 +124,23 @@ quarter flow is a quarter however slowly it is dragged.
 
 Either way a stroke dilates each island it reached separately, into the gutter of `PaintCoverage`, and reports one
 rectangle per island, since the union of two is everything between them.
+
+`Fill(mode, view)` is a polygon fill: each stamp is a click, given to `PaintStroke.Dab` so that two clicks are two places
+rather than a path, and it fills the piece of the mesh under the click whole, at a weight of one under the stroke's
+opacity. `PaintFillMode` says how much: the triangle, the flat polygon it is part of (found, as the triangles joined to
+it on the same island in the same plane, since a mesh here is triangles), every triangle of the mesh it came from
+(`PaintProjection.PartOf`, one part per `MeshData` it was opened from), or its whole island, the UV shell.
+
+A stroke's colour can come from somewhere other than one colour. An `IPaintSource` says what each texel mixes towards,
+and an `IPaintStencil` how much of the brush gets through where each texel lands on the stroke's picture; every
+placement reports that place (`PaintStampTexels.Pictures`), through a camera where the texel projects and in the atlas
+its own centre. `PaintAtlasSource` lays a picture over the atlas texel for texel at an offset, which is a material's map
+painted as it is or the composite read from elsewhere, a clone. `PaintProjectedPicture` is a picture fixed on the screen
+by a `PaintFrame` (moved, scaled, turned, perhaps tiled): as a source each texel takes its colour, and as a stencil its
+brightness masks the brush. `PaintSmudge` reads the canvas being painted, at the step the brush just took in the atlas,
+so each stamp drags what lies behind it; it is read for the whole stamp before any of it is written, and moves what is
+there rather than mixing from what the texel held before the stroke. A dilated texel takes the colour of the texel it
+grew from as it takes its reach.
 
 The per-texel numbers of a stroke live in `PaintTexelMap`, a tiled sparse array, because a hash table of millions of
 entries is a cache miss per lookup.

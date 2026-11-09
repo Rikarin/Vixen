@@ -319,11 +319,13 @@ public sealed class PaintProjection {
     readonly int[] indices;
     readonly TriangleTree tree;
     readonly float reach;
+    readonly int[] parts;
 
-    PaintProjection(Vector3[] positions, Vector2[] coordinates, int[] indices) {
+    PaintProjection(Vector3[] positions, Vector2[] coordinates, int[] indices, int[]? parts = null) {
         this.positions = positions;
         this.coordinates = coordinates;
         this.indices = indices;
+        this.parts = parts ?? new int[indices.Length / 3];
 
         tree = new(positions, indices);
 
@@ -336,6 +338,12 @@ public sealed class PaintProjection {
 
     /// <summary>The box the mesh fits inside, in its own space.</summary>
     public BoundingBox Bounds => tree.Bounds;
+
+    /// <summary>Which of the meshes it was opened from a triangle came from, in the order they were given.</summary>
+    /// <param name="triangle">Which triangle, as <see cref="PaintHit.Triangle" /> reports it.</param>
+    /// <returns>The mesh's place in that list: 0 for every triangle of a projection made <see cref="Over" /> one list.</returns>
+    /// <remarks>A mesh is what a polygon fill means by a part of the model, as a named mesh of a model file is.</remarks>
+    public int PartOf(int triangle) => parts[triangle];
 
     /// <summary>What ray meets what texel.</summary>
     /// <param name="ray">The ray, in the mesh's own space. Its direction need not be normalised.</param>
@@ -593,9 +601,11 @@ public sealed class PaintProjection {
         List<Vector3> points = [];
         List<Vector2> layout = [];
         List<int> triangles = [];
+        List<int> owners = [];
         var dropped = 0;
 
-        foreach (var mesh in meshes) {
+        for (var part = 0; part < meshes.Count; part++) {
+            var mesh = meshes[part];
             var offset = points.Count;
             var vertices = mesh.Positions;
             var uvs = mesh.TexCoords;
@@ -626,6 +636,7 @@ public sealed class PaintProjection {
                 triangles.Add(offset + a);
                 triangles.Add(offset + b);
                 triangles.Add(offset + c);
+                owners.Add(part);
             }
         }
 
@@ -639,7 +650,7 @@ public sealed class PaintProjection {
             return null;
         }
 
-        return new([.. points], [.. layout], [.. triangles]);
+        return new([.. points], [.. layout], [.. triangles], [.. owners]);
     }
 
     /// <summary>The triangles themselves, for a caller that has geometry and no import.</summary>
