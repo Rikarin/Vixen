@@ -466,8 +466,8 @@ sealed partial class Transform2DNode : TextureNode {
 ///     </para>
 ///     <para>
 ///         <b><c>Analysis/Distance Colour</c> is the same flood spreading a colour instead</b> (Patina
-///         #174). It is a node of its own rather than a second port here because this one is a filter
-///         and a mask step in a layer stack, which is one image in and one out.
+///         #174). It is a node of its own rather than a second port here because this one is a grey filter
+///         and a mask step in a layer stack, and that one spreads a colour.
 ///     </para>
 ///     <para>
 ///         <b><c>Metric</c> changes what "near" means</b>: <c>Euclidean</c> grows a shape with round
@@ -533,15 +533,16 @@ sealed partial class DistanceNode : TextureNode {
 ///         the nearest in-texel already, so this is one more read and no second chain.
 ///     </para>
 ///     <para>
-///         ⚠ <b>No filter layer and no mask step.</b> A stack's filter takes its first image as the subject, the
-///         picture beneath, and here that is <c>Mask</c>: a layer would spread a colour from the shape of the
-///         colour beneath it rather than spread that colour. Padding a layer's picture is a fill's graph for now.
+///         ⚠ <b><c>Source</c> is the first image, so a layer stack offers this as a filter</b> (Patina wave 6). A
+///         stack's filter takes its first image as the subject, the picture beneath, and the mask was first: a
+///         layer would have spread a colour from the shape of the colour beneath it rather than spread that colour.
+///         With the colour first, a filter layer pads the picture beneath out from a mask an input names — a bake, an
+///         anchor point, a texture — which is the padding filter.
 ///     </para>
 /// </remarks>
 [Node(
     "Analysis/Distance Colour",
     Preview = true,
-    Adjustment = false,
     Summary = "The colour of the nearest point of a mask's shape, spread outwards."
 )]
 sealed partial class DistanceColourNode : TextureNode {
@@ -549,13 +550,13 @@ sealed partial class DistanceColourNode : TextureNode {
     [Setting(AcceptedFrom = typeof(TextureDistanceMetric))]
     public string Metric = "Euclidean";
 
+    /// <summary>The colour spread, read where the shape is. First, so a layer's subject is the picture it pads.</summary>
+    [Input(Name = "Source")]
+    public Image Source;
+
     /// <summary>The shape the colour is spread from. A single channel.</summary>
     [Input(Name = "Mask")]
     public Image Mask;
-
-    /// <summary>The colour spread, read where the shape is.</summary>
-    [Input(Name = "Source")]
-    public Image Source;
 
     /// <summary>How far the colour reaches, as a fraction of the image's longer side.</summary>
     [Input(Name = "Max Distance", Minimum = 0f, SoftMaximum = 1f)]
