@@ -641,7 +641,10 @@ public class TextureCompoundBakeDeviceTests(ITestOutputHelper output) {
         graph.Connect(new(dust.Id, "Out"), new(output.Id, "Input"));
 
         TextureGraphCompiler compiler = new(registry) {
-            BaseWidth = Side, BaseHeight = Side, Seed = 7717, SubGraphSource = library
+            BaseWidth = Side,
+            BaseHeight = Side,
+            Seed = 7717,
+            SubGraphSource = library
         };
         var compilation = compiler.Compile(graph);
 
@@ -712,7 +715,10 @@ public class TextureCompoundBakeDeviceTests(ITestOutputHelper output) {
         graph.Connect(new(wear.Id, "Out"), new(output.Id, "Input"));
 
         TextureGraphCompiler compiler = new(registry) {
-            BaseWidth = Side, BaseHeight = Side, Seed = 7717, SubGraphSource = library
+            BaseWidth = Side,
+            BaseHeight = Side,
+            Seed = 7717,
+            SubGraphSource = library
         };
         var compilation = compiler.Compile(graph);
 
