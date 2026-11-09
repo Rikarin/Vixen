@@ -623,6 +623,134 @@ public class TextureCompoundBakeDeviceTests(ITestOutputHelper output) {
             .Single(output => string.Equals(output.Usage, usage, StringComparison.OrdinalIgnoreCase))
             .Image;
 
+    /// <summary>
+    ///     ⚠ <c>Generators/Dust</c> leaves an open, upright face clean and covers an open, upward one. It read occlusion
+    ///     the wrong way up, so its shelter term was white wherever the light reached and it dusted every open face.
+    /// </summary>
+    [Fact]
+    public void Dust_leaves_an_open_upright_face_clean_and_covers_an_open_upward_one() {
+        const int Side = 64;
+        using var device = TextureKernelHarness.Open();
+        using var evaluator = new TexturePlanEvaluator(device);
+        var registry = Registry();
+        var library = TextureCompoundLibrary.Publish(registry, folder: null, out _);
+        NodeGraphModel graph = new();
+        var dust = graph.Add("Generators/Dust");
+        var output = graph.Add("Output/Output");
+
+        graph.Connect(new(dust.Id, "Out"), new(output.Id, "Input"));
+
+        TextureGraphCompiler compiler = new(registry) {
+            BaseWidth = Side, BaseHeight = Side, Seed = 7717, SubGraphSource = library
+        };
+        var compilation = compiler.Compile(graph);
+
+        Assert.Empty(compilation.Diagnostics);
+
+        using TextureUploads uploads = new(device);
+        var owed = TextureGraphExternals.Upload(uploads, compilation.Value, compiler.Externals);
+
+        foreach (var external in owed) {
+            // The left half faces sideways and the right half straight up, and nothing anywhere is sheltered.
+            var texels = new byte[Side * Side * 4];
+
+            for (var at = 0; at < Side * Side; at++) {
+                var up = at % Side >= Side / 2;
+                var world = external.Asset.EndsWith(":world", StringComparison.Ordinal);
+
+                texels[at * 4] = world ? (byte)128 : byte.MaxValue;
+                texels[(at * 4) + 1] = world ? (up ? byte.MaxValue : (byte)128) : byte.MaxValue;
+                texels[(at * 4) + 2] = world ? (byte)128 : byte.MaxValue;
+                texels[(at * 4) + 3] = byte.MaxValue;
+            }
+
+            uploads.Add(compilation.Value, external.Image, Side, Side, texels);
+        }
+
+        Assert.Equal(2, owed.Length);
+
+        using var bake = evaluator.Evaluate(compilation.Value, uploads.Externals);
+        var picture = bake.Read(compilation.Value.Outputs[0]);
+        double upright = 0, upward = 0;
+
+        for (var y = 0; y < Side; y++) {
+            for (var x = 0; x < Side; x++) {
+                var value = picture.Pixels[((y * Side) + x) * 4] / 255.0;
+
+                if (x < Side / 2) {
+                    upright += value;
+                } else {
+                    upward += value;
+                }
+            }
+        }
+
+        upright /= Side * Side / 2;
+        upward /= Side * Side / 2;
+
+        Assert.True(upright < 0.02, $"An open upright face is {upright:0.000} dusty.");
+        Assert.True(upward > 0.3, $"An open upward face is only {upward:0.000} dusty.");
+    }
+
+    /// <summary>
+    ///     ⚠ <c>Generators/Curvature Edge Wear</c> finds a soft edge on a bake whose curvature is scaled by its sharpest
+    ///     texel. A real housing's rounded edges read 0.51 to 0.53 that way, and the generator thresholded at 0.55 and
+    ///     drew nothing; it ranks the curvature now, so an edge is an edge however the bake scaled it.
+    /// </summary>
+    [Fact]
+    public void Curvature_edge_wear_finds_a_soft_edge_on_a_bake_scaled_by_its_sharpest_texel() {
+        const int Side = 64;
+        using var device = TextureKernelHarness.Open();
+        using var evaluator = new TexturePlanEvaluator(device);
+        var registry = Registry();
+        var library = TextureCompoundLibrary.Publish(registry, folder: null, out _);
+        NodeGraphModel graph = new();
+        var wear = graph.Add("Generators/Curvature Edge Wear");
+        var output = graph.Add("Output/Output");
+
+        wear.SetText("breakup", "0");
+        graph.Connect(new(wear.Id, "Out"), new(output.Id, "Input"));
+
+        TextureGraphCompiler compiler = new(registry) {
+            BaseWidth = Side, BaseHeight = Side, Seed = 7717, SubGraphSource = library
+        };
+        var compilation = compiler.Compile(graph);
+
+        Assert.Empty(compilation.Diagnostics);
+
+        using TextureUploads uploads = new(device);
+        var texels = new byte[Side * Side * 4];
+
+        for (var at = 0; at < Side * Side; at++) {
+            // Flat at a half, a soft convex band eight texels wide at 0.52, and one texel at the top of the range,
+            // as the sharpest corner of a model leaves it.
+            var x = at % Side;
+            var value = at == 3 ? byte.MaxValue : x is >= 24 and < 32 ? (byte)133 : (byte)128;
+
+            texels[at * 4] = texels[(at * 4) + 1] = texels[(at * 4) + 2] = value;
+            texels[(at * 4) + 3] = byte.MaxValue;
+        }
+
+        var owed = TextureGraphExternals.Upload(uploads, compilation.Value, compiler.Externals);
+
+        uploads.Add(compilation.Value, Assert.Single(owed).Image, Side, Side, texels);
+
+        using var bake = evaluator.Evaluate(compilation.Value, uploads.Externals);
+        var picture = bake.Read(compilation.Value.Outputs[0]);
+        double band = 0, flat = 0;
+
+        for (var y = 8; y < Side - 8; y++) {
+            band += picture.Pixels[((y * Side) + 28) * 4] / 255.0;
+            flat += picture.Pixels[((y * Side) + 50) * 4] / 255.0;
+        }
+
+        band /= Side - 16;
+        flat /= Side - 16;
+
+        Assert.True(band > 0.8, $"The soft edge is only {band:0.000} worn.");
+        Assert.True(flat < 0.02, $"The flat is {flat:0.000} worn.");
+    }
+
     /// <summary>A registry holding the atomic node types.</summary>
     static NodeTypeRegistry Registry() {
         NodeTypeRegistry registry = new();
