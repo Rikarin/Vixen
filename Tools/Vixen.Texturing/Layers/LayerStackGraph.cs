@@ -357,6 +357,86 @@ public static class LayerStackGraph {
         return builder.Run();
     }
 
+    /// <summary>How much one layer covers, in each of the set's own channels, in the picture it is part of.</summary>
+    /// <param name="stack">The document.</param>
+    /// <param name="set">Which of its sets.</param>
+    /// <param name="layer">The <see cref="LayerAsset.Id" /> of the layer, after the set's instances are resolved.</param>
+    /// <param name="registry">The node types, as <see cref="Build" /> takes them.</param>
+    /// <param name="subGraphs">As <see cref="Build" /> takes them.</param>
+    /// <returns>The graph and what building it had to say: each channel's output is the layer's amount there.</returns>
+    /// <exception cref="ArgumentNullException">The stack or the set is null.</exception>
+    /// <exception cref="ArgumentException">The layer is empty, or no layer of the set has that id.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The other way to ask <see cref="Weights" />' question, for a layer whose mask reads the picture.</b>
+    ///         <see cref="Weights" /> takes a set holding the one layer, so a mask step or a generator that reads the
+    ///         layers beneath (Patina #113) reads nothing and an anchor resolves nothing, and the amount it answers is
+    ///         not the one the picture composites. Here the layers beneath it are built as the picture builds them,
+    ///         in colour, so every such read is the picture's own; the layers above it, which feed it nothing, are
+    ///         left out.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The layer and the folders around it composite with <c>Copy</c> over opaque black rather than over
+    ///         what is beneath.</b> What a layer covers is <c>opacity · mask · alpha</c>, and over black a white
+    ///         content composited by that amount <em>is</em> the amount, whatever colour the picture beneath has; a
+    ///         folder's own amount multiplies it the same way. A folder still isolates or passes through as its own
+    ///         operator says, so what its children read beneath is the picture's. Patina's Find Layer asks this.
+    ///     </para>
+    /// </remarks>
+    public static LayerStackBuild Amount(
+        LayerStackAsset stack,
+        TextureSetAsset set,
+        string layer,
+        NodeTypeRegistry? registry = null,
+        ISubGraphSource? subGraphs = null
+    ) {
+        ArgumentNullException.ThrowIfNull(stack);
+        ArgumentNullException.ThrowIfNull(set);
+        ArgumentException.ThrowIfNullOrEmpty(layer);
+
+        if (registry is null) {
+            registry = LayerStackCompiler.Library(out var published);
+            subGraphs ??= published;
+        }
+
+        var resolved = LayerStackInstances.Resolve(stack, set, out var found);
+        HashSet<string> around = new(StringComparer.Ordinal);
+
+        if (Beneath(resolved.Layers, layer, around) is not { } kept) {
+            throw new ArgumentException($"Texture set '{set.Name}' has no layer '{layer}'.", nameof(layer));
+        }
+
+        Builder builder = new(stack, resolved with { Layers = kept }, registry) {
+            Found = found,
+            SubGraphs = subGraphs,
+            Asked = layer,
+            Around = around
+        };
+
+        return builder.Run();
+    }
+
+    /// <summary>A list cut just above the layer, or above the folder that holds it, with the folders on the way.</summary>
+    static List<LayerAsset>? Beneath(List<LayerAsset> layers, string layer, HashSet<string> around) {
+        for (var at = 0; at < layers.Count; at++) {
+            var one = layers[at];
+
+            if (one.Id == layer) {
+                around.Add(one.Id);
+
+                return [.. layers.Take(at + 1)];
+            }
+
+            if (Beneath(one.Children, layer, around) is { } inside) {
+                around.Add(one.Id);
+
+                return [.. layers.Take(at), one with { Children = inside }];
+            }
+        }
+
+        return null;
+    }
+
     /// <summary>
     ///     The same stack, built so that every channel's output is one group's own composite — what that group is
     ///     flattened into (Patina #107).
@@ -656,6 +736,18 @@ public static class LayerStackGraph {
         /// <summary>What resolving the set's instances had to say, which this build reports as its own.</summary>
         public IReadOnlyList<LayerStackProblem> Found { get; init; } = [];
 
+        /// <summary>The layer whose amount every output is, or empty — see <see cref="Amount" />.</summary>
+        public string Asked { get; init; } = "";
+
+        /// <summary>The asked layer and the folders around it, which composite over black rather than the picture.</summary>
+        public IReadOnlySet<string> Around { get; init; } = new HashSet<string>();
+
+        /// <summary>Whether the walk is inside the asked layer, where a layer's content is its coverage.</summary>
+        bool inside;
+
+        /// <summary>Whether a layer's content is what it covers rather than its colour: everywhere while weighing.</summary>
+        bool Weighs => Weighing || inside;
+
         /// <summary>Says a slot is empty, which refuses unless this is a draft.</summary>
         void Unfilled(string layer, string message) =>
             problems.Add(
@@ -828,7 +920,7 @@ public static class LayerStackGraph {
 
         /// <summary>Whether the set's height reaches its normal, which it does for a picture and not for coverage.</summary>
         bool Relieved =>
-            !Weighing && Capturing.Length == 0 && set.Channels.Exists(static channel => channel.Usage == HeightUsage);
+            !Weighing && Asked.Length == 0 && Capturing.Length == 0 && set.Channels.Exists(static channel => channel.Usage == HeightUsage);
 
         /// <summary>The set's <c>normal</c> output: the height's slope, over the normal channel when there is one.</summary>
         /// <param name="height">The end of the height channel's chain.</param>
@@ -934,6 +1026,8 @@ public static class LayerStackGraph {
             Beneath(layer.Children, channel.Usage, cursor);
 
             owner = layer.Id;
+            var outside = inside;
+            inside |= layer.Id == Asked && Asked.Length > 0;
 
             try {
                 var result = Composite(layer, channel, cursor, depth);
@@ -948,6 +1042,7 @@ public static class LayerStackGraph {
                 return result;
             } finally {
                 owner = outer;
+                inside = outside;
             }
         }
 
@@ -1013,7 +1108,10 @@ public static class LayerStackGraph {
 
             var blend = Add("Colour/Blend");
 
-            blend.SetText("Mode", (replacing ? LayerBlendMode.Copy : layer.Blend).ToString());
+            // The asked layer and its folders: its amount over black, which is the amount — see `Amount`.
+            var weighed = Around.Contains(layer.Id);
+
+            blend.SetText("Mode", (replacing || weighed ? LayerBlendMode.Copy : layer.Blend).ToString());
             blend.SetValue("Opacity", opacity);
 
             // ⚠ **A filter layer's content *is* the backdrop, so it composites atop it and never over
@@ -1028,7 +1126,7 @@ public static class LayerStackGraph {
                 blend.SetText("Coverage", "Atop");
             }
 
-            graph.Connect(cursor, new(blend.Id, "Background"));
+            graph.Connect(weighed ? Black() : cursor, new(blend.Id, "Background"));
             graph.Connect(foreground, new(blend.Id, "Foreground"));
 
             PortRef result = new(blend.Id, "Out");
@@ -1052,18 +1150,18 @@ public static class LayerStackGraph {
         /// </summary>
         PortRef? Content(LayerAsset layer, ChannelAsset channel, PortRef cursor, int depth) =>
             layer.Kind switch {
-                LayerKind.Fill => Weighing ? Covers() : Fill(layer, channel),
+                LayerKind.Fill => Weighs ? Covers() : Fill(layer, channel),
 
                 // ⚠ Nothing, under `Weighing`. An adjustment is not a thing that covers a texel — it
                 // reads what is under it — and a filter layer taken as a fill would claim the whole
                 // surface, so a stack with a Levels layer on top would weigh as one layer everywhere.
-                LayerKind.Filter => Weighing ? null : Adjustment(layer, channel, cursor),
+                LayerKind.Filter => Weighs ? null : Adjustment(layer, channel, cursor),
                 // ⚠ A flattened group is its canvas, exactly as a paint layer is, and its children are not walked: that
                 // is the whole of what flattening buys. Except while it is being captured, which is how the canvas is made.
                 LayerKind.Group when layer.Flattened && layer.Id != Capturing =>
-                    Weighing ? Covered(Strokes(layer, channel)) : Paint(layer, channel),
+                    Weighs ? Covered(Strokes(layer, channel)) : Paint(layer, channel),
                 LayerKind.Group => Group(layer, channel, cursor, depth),
-                LayerKind.Paint => Weighing ? Covered(Strokes(layer, channel)) : Paint(layer, channel),
+                LayerKind.Paint => Weighs ? Covered(Strokes(layer, channel)) : Paint(layer, channel),
                 _ => throw new ArgumentOutOfRangeException(
                     nameof(layer),
                     layer.Kind,
@@ -1197,6 +1295,15 @@ public static class LayerStackGraph {
             graph.Connect(content, new(node.Id, "First"));
 
             return new(node.Id, "Out");
+        }
+
+        /// <summary>Opaque black, which a weighed layer composites over so that what it leaves is its amount.</summary>
+        PortRef Black() {
+            var black = Add("Source/Uniform");
+
+            black.SetValue("Colour", 0f, 0f, 0f, 1f);
+
+            return new(black.Id, "Out");
         }
 
         /// <summary>A group's children, passed through or isolated, or nothing when they add none.</summary>
@@ -1431,7 +1538,7 @@ public static class LayerStackGraph {
             // externals a coverage bake has no use for, and — worse — the constant-fill caution,
             // which would then be reported against a constant this build substituted rather than
             // against anything the author wrote.
-            if (Weighing) {
+            if (Weighs) {
                 return content;
             }
 
