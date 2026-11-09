@@ -166,7 +166,8 @@ public class TextureGraphDeviceTests(ITestOutputHelper output) {
                         new("minOctave", 0f),
                         new("lacunarity", 2f),
                         new("gain", 0.5f),
-                        new("profile", 0f)
+                        new("profile", 0f),
+                        new("variation", 0f)
                     ]
                 },
                 new() {
