@@ -32,8 +32,15 @@ namespace Vixen.Editor.Texturing.Tests;
 ///         ⚠ <b>Each case also asks the bare store afterwards, and that assertion is the
 ///         instrument.</b> Without it a fixture whose rewrite failed to move the stamp — the file
 ///         system's timestamp resolution is the usual way — would pass by answering the same canvas
-///         for the reason the test is not about. The rewrites here change the canvas's
-///         <em>size</em>, so the length moves whatever the clock did.
+///         for the reason the test is not about.
+///     </para>
+///     <para>
+///         ⚠ <b>The canvas case used to say its rewrite changed the length, and it did not.</b> A
+///         <c>.vxpaint</c> of untouched tiles is a header and no tiles, the same bytes long at 16² as
+///         at 32², so the stamp moved only if the clock did — and on Windows, where NTFS stamps a
+///         write with the system tick, it sometimes did not (Vixen run 42670028234). That case now
+///         lands its rewrite in the same tick on purpose, and the instrument is the store's check of
+///         a young stamp against the bytes.
 ///     </para>
 /// </remarks>
 public class TextureExternalPassTests : IDisposable {
@@ -62,8 +69,11 @@ public class TextureExternalPassTests : IDisposable {
     [Fact]
     public void A_canvas_rewritten_between_two_asks_of_one_pass_is_answered_from_the_first() {
         var file = Written("Hull.vxpaint", 16, 16);
+        var written = File.GetLastWriteTimeUtc(file);
+        var length = new FileInfo(file).Length;
 
-        PaintCanvasStore store = new();
+        // The clock stands at the write, so the store knows the stamp is too young to trust alone.
+        PaintCanvasStore store = new(PaintCanvasStore.DefaultBudget, new StoppedClock(written));
         TextureExternalPass pass = new(store);
 
         var first = pass.Canvas(file).Canvas;
@@ -71,16 +81,21 @@ public class TextureExternalPassTests : IDisposable {
         Assert.NotNull(first);
         Assert.Equal(16, first.Width);
 
+        // ⚠ What the Windows runner did once in a while, done every time: the rewrite lands in the
+        // same tick of the file system's clock, and at the same length.
         Written("Hull.vxpaint", 32, 32);
+        File.SetLastWriteTimeUtc(file, written);
+
+        Assert.Equal(length, new FileInfo(file).Length);
 
         var second = pass.Canvas(file).Canvas;
 
         Assert.Same(first, second);
 
-        // ⚠ The instrument: the rewrite really did move the stamp, so the sameness above is the
-        // memo rather than a store that failed to notice. This is also the behaviour the store is
-        // supposed to have, and the pass does not change it — it only stops one evaluation
-        // straddling it.
+        // ⚠ The instrument: the store notices the rewrite although the stamp did not move, so the
+        // sameness above is the memo rather than a store that failed to notice. This is also the
+        // behaviour the store is supposed to have, and the pass does not change it — it only stops
+        // one evaluation straddling it.
         var afterwards = store.Open(file);
 
         Assert.NotNull(afterwards);

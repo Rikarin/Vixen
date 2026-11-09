@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.IO.Hashing;
 using Vixen.Core.Imaging;
 
 namespace Vixen.Texturing.Painting;
@@ -47,6 +48,14 @@ namespace Vixen.Texturing.Painting;
 ///         all, and that is exactly #885's requirement rather than a leniency.
 ///     </para>
 ///     <para>
+///         ⚠ <b>And a stamp too young to have moved is checked against the bytes.</b> A rewrite
+///         inside the clock's tick keeps <c>LastWriteTimeUtc</c>, and a rewrite of the same layout
+///         keeps <c>Length</c> — a <c>.vxpaint</c> of untouched tiles is a fixed header whatever its
+///         width — so the pair alone missed a checkout landing in the same tick as a read. That was a
+///         Windows CI failure rather than a thought experiment: NTFS stamps a write with the system
+///         clock's tick. See <see cref="Resolution" />.
+///     </para>
+///     <para>
 ///         ⚠ <b>Bounded by bytes, and the entry a surface is painting into is exempt.</b> A 4K
 ///         canvas is 67 MB a channel, so a store that kept every canvas of a twelve-layer stack
 ///         would trade three reads a stroke for a gigabyte held for the session. The exemption is
@@ -71,9 +80,30 @@ public sealed class PaintCanvasStore {
     /// </remarks>
     public const long DefaultBudget = 256L * 1024L * 1024L;
 
+    /// <summary>How close to now a write may be before its stamp is not trusted to have moved.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Git's racy-clean rule, said for one file.</b> A stamp records a moment, and a second
+    ///         write inside the same tick of the file system's clock records the same moment. NTFS
+    ///         stamps with the system tick, 15.6 ms unless something raised the timer; ext4 with the
+    ///         kernel's coarse clock; HFS+ to the second and FAT to two. A stamp older than now by
+    ///         more than that cannot be repeated by a later write, so it is trusted alone. A younger
+    ///         one is held with a digest of the bytes, and every ask while it is young compares the
+    ///         bytes too.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Two seconds, which is FAT's resolution and slack for a network share's clock.</b>
+    ///         The cost is one extra read of the file per ask, and only while the file is younger
+    ///         than this — which in a session is the two seconds after a stroke's save. The first ask
+    ///         after that drops the digest, and the stamp is trusted alone from then on.
+    ///     </para>
+    /// </remarks>
+    static readonly TimeSpan Resolution = TimeSpan.FromSeconds(2);
+
     readonly Dictionary<string, Entry> entries = new(StringComparer.Ordinal);
     readonly List<string> order = [];
     readonly long budget;
+    readonly TimeProvider clock;
 
     string? pinned;
 
@@ -84,10 +114,17 @@ public sealed class PaintCanvasStore {
     ///     opening a canvas would be a way of not having it.
     /// </param>
     /// <exception cref="ArgumentOutOfRangeException">The budget is not positive.</exception>
-    public PaintCanvasStore(long budget = DefaultBudget) {
+    public PaintCanvasStore(long budget = DefaultBudget) : this(budget, TimeProvider.System) { }
+
+    /// <summary>A store with a byte budget and a clock, which a test stops at the moment of a write.</summary>
+    /// <param name="budget">How many bytes of canvas to keep.</param>
+    /// <param name="clock">What says how old a stamp is: see <see cref="Resolution" />.</param>
+    internal PaintCanvasStore(long budget, TimeProvider clock) {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(budget);
+        ArgumentNullException.ThrowIfNull(clock);
 
         this.budget = budget;
+        this.clock = clock;
     }
 
     /// <summary>How many times a canvas or a picture was read off the disk over this store's life.</summary>
@@ -143,9 +180,10 @@ public sealed class PaintCanvasStore {
 
         Opens++;
 
-        var stamp = Stamp(absolute);
+        var now = Now();
+        var seen = Look(absolute);
 
-        if (entries.TryGetValue(absolute, out var open) && open.Canvas is { } held && open.Stamp == stamp) {
+        if (entries.TryGetValue(absolute, out var open) && open.Canvas is { } held && Holds(absolute, open, seen)) {
             Hits++;
             Touch(absolute);
 
@@ -163,24 +201,27 @@ public sealed class PaintCanvasStore {
         // object is what `Pin` exists to keep single.
         Forget(absolute);
 
-        if (stamp is null) {
+        if (seen is not { } look) {
             // Never on disk and nothing open for it: this is a layer whose first stroke has not
             // happened. `Adopt` is how the canvas that stroke creates gets in here.
             return null;
         }
 
-        PaintCanvas canvas;
-
-        using (var stream = File.OpenRead(absolute)) {
-            canvas = PaintCanvas.Read(stream);
-        }
+        // ⚠ Into memory and closed before the parse, sharing write and delete while it is open. A
+        // handle held across a 4K inflate is a handle an artist's save runs into, and on Windows a
+        // writer that asks for the file alone is refused while any reader has it open.
+        var bytes = ReadShared(absolute);
+        var canvas = PaintCanvas.Read(new MemoryStream(bytes, writable: false));
 
         Reads++;
 
         // ⚠ Stamped from *before* the read rather than after it. A file rewritten while it was being
         // read would otherwise be recorded under the state it ended in, and the half-old canvas this
-        // read produced would be served as current for the rest of the session.
-        Put(absolute, new(canvas, null, stamp, Size(canvas)));
+        // read produced would be served as current for the rest of the session. The digest, when
+        // the stamp is too young to trust, is of the very bytes parsed.
+        var digest = Racy(look.Written, now) ? XxHash128.HashToUInt128(bytes) : (UInt128?)null;
+
+        Put(absolute, new(canvas, null, new(look.Written, look.Length, digest), Size(canvas)));
 
         return canvas;
     }
@@ -218,9 +259,9 @@ public sealed class PaintCanvasStore {
 
         Opens++;
 
-        var stamp = Stamp(absolute);
+        var seen = Look(absolute);
 
-        if (entries.TryGetValue(absolute, out var open) && open.Picture is { } held && open.Stamp == stamp) {
+        if (entries.TryGetValue(absolute, out var open) && open.Picture is { } held && Holds(absolute, open, seen)) {
             Hits++;
             Touch(absolute);
 
@@ -236,6 +277,9 @@ public sealed class PaintCanvasStore {
         // charged against the budget. The exception the caller sees is the same either way.
         Forget(absolute);
 
+        // ⚠ Digested *before* the decode, for the reason the stamp is taken before it: bytes that
+        // change under the decoder then fail the digest on the next ask rather than pass it.
+        var stamp = Stamped(absolute);
         var picture = decode(absolute);
 
         Reads++;
@@ -267,7 +311,7 @@ public sealed class PaintCanvasStore {
         ArgumentException.ThrowIfNullOrWhiteSpace(absolute);
         ArgumentNullException.ThrowIfNull(canvas);
 
-        Put(absolute, new(canvas, null, Stamp(absolute), Size(canvas)));
+        Put(absolute, new(canvas, null, Stamped(absolute), Size(canvas)));
     }
 
     /// <summary>Records that the canvas at a path has just been written, so it stays current.</summary>
@@ -293,7 +337,10 @@ public sealed class PaintCanvasStore {
         // to ask.
         Bytes += Size(open.Canvas) - open.Bytes;
 
-        entries[absolute] = open with { Stamp = Stamp(absolute), Bytes = Size(open.Canvas) };
+        // ⚠ A save is always younger than the stamp's resolution, so this digests the bytes just
+        // written, once per save. Without it the save's own stamp is the one a rewrite in the same
+        // tick keeps.
+        entries[absolute] = open with { Stamp = Stamped(absolute), Bytes = Size(open.Canvas) };
 
         Evict(absolute);
     }
@@ -370,18 +417,123 @@ public sealed class PaintCanvasStore {
         order.Add(absolute);
     }
 
+    /// <summary>Whether what an entry was read from is still what is on the disk.</summary>
+    /// <param name="absolute">The path.</param>
+    /// <param name="open">The entry held for it.</param>
+    /// <param name="seen">The file's time and length now, from <see cref="Look" />.</param>
+    /// <returns>Whether the entry may be served.</returns>
+    /// <remarks>
+    ///     ⚠ <b>A digest that cannot be taken answers by the stamp, as the store did before it had
+    ///     one.</b> The file is there with the stamp it had — <see cref="Look" /> just saw it — so a
+    ///     read that fails now is another program holding it, and a miss would throw away the open
+    ///     canvas, the object a pinned surface is painting into, for a file nobody has shown changed.
+    ///     The digest is kept, so the next ask checks again.
+    /// </remarks>
+    bool Holds(string absolute, Entry open, (DateTime Written, long Length)? seen) {
+        if (open.Stamp is not { } stamp) {
+            return seen is null;
+        }
+
+        if (seen != (stamp.Written, stamp.Length)) {
+            return false;
+        }
+
+        if (stamp.Content is not { } content) {
+            return true;
+        }
+
+        var now = Now();
+        UInt128 digest;
+
+        try {
+            digest = Digest(absolute);
+        } catch (Exception failure) when (failure is IOException or UnauthorizedAccessException) {
+            return true;
+        }
+
+        if (digest != content) {
+            return false;
+        }
+
+        if (!Racy(stamp.Written, now)) {
+            // Old enough now that a later write would have moved the time, and the bytes were
+            // checked after the clock passed it: the stamp alone holds from here.
+            entries[absolute] = open with { Stamp = stamp with { Content = null } };
+        }
+
+        return true;
+    }
+
+    /// <summary>The file's stamp now, with a digest of its bytes when the stamp is too young to trust.</summary>
+    /// <param name="absolute">The path.</param>
+    /// <returns>The stamp, or nothing when there is no file.</returns>
+    /// <exception cref="IOException">The file is there but would not read.</exception>
+    FileStamp? Stamped(string absolute) {
+        var now = Now();
+
+        if (Look(absolute) is not { } look) {
+            return null;
+        }
+
+        return new(look.Written, look.Length, Racy(look.Written, now) ? Digest(absolute) : null);
+    }
+
+    /// <summary>Whether a later write could still be stamped with <paramref name="written" />.</summary>
+    /// <param name="written">The file's <c>LastWriteTimeUtc</c>.</param>
+    /// <param name="now">The clock, read before the file was looked at.</param>
+    /// <remarks>
+    ///     ⚠ <b><paramref name="now" /> is read before the file is looked at, never after.</b> An
+    ///     earlier now only makes more stamps young, which costs a read; a later one could call a
+    ///     stamp old that a write just after the look repeats.
+    /// </remarks>
+    static bool Racy(DateTime written, DateTime now) => written >= now - Resolution;
+
+    DateTime Now() => clock.GetUtcNow().UtcDateTime;
+
     /// <summary>What the file looks like now, or nothing when there is none.</summary>
     /// <remarks>
     ///     ⚠ <b>Both halves, because either alone is a stamp a real edit slips past.</b> A painting
     ///     rewritten inside a file system's timestamp resolution keeps its <c>LastWriteTimeUtc</c>,
     ///     and a stroke that changes texels without changing the compressed length is ordinary rather
-    ///     than contrived — a <c>.vxpaint</c> is Deflate over a fixed-size buffer.
+    ///     than contrived — a <c>.vxpaint</c> is Deflate over a fixed-size buffer. ⚠ Both together
+    ///     still miss a rewrite in the same tick at the same length, which is what
+    ///     <see cref="FileStamp.Content" /> is for.
     /// </remarks>
-    static (DateTime Written, long Length)? Stamp(string absolute) {
+    static (DateTime Written, long Length)? Look(string absolute) {
         FileInfo file = new(absolute);
 
         return file.Exists ? (file.LastWriteTimeUtc, file.Length) : null;
     }
+
+    /// <summary>A digest of the file's bytes, read without standing in the way of a save.</summary>
+    static UInt128 Digest(string absolute) {
+        using var file = Shared(absolute);
+
+        XxHash128 hash = new();
+
+        hash.Append(file);
+
+        return hash.GetCurrentHashAsUInt128();
+    }
+
+    /// <summary>The whole file, with the handle closed before anything is made of it.</summary>
+    static byte[] ReadShared(string absolute) {
+        using var file = Shared(absolute);
+        using MemoryStream bytes = new();
+
+        file.CopyTo(bytes);
+
+        return bytes.ToArray();
+    }
+
+    /// <summary>Opens a file to read that another program may write, replace or delete meanwhile.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The share a reader of files other tools own has to ask for on Windows.</b>
+    ///     <c>File.OpenRead</c> shares reading only, so a save that arrives while it is open is a
+    ///     sharing violation for the saver — the class of #1326 and #1432.
+    /// </remarks>
+    static FileStream Shared(string absolute) =>
+        new(absolute, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
 
     static long Size(PaintCanvas canvas) => canvas.ResidentBytes;
 
@@ -399,7 +551,16 @@ public sealed class PaintCanvasStore {
     readonly record struct Entry(
         PaintCanvas? Canvas,
         TextureData? Picture,
-        (DateTime Written, long Length)? Stamp,
+        FileStamp? Stamp,
         long Bytes
     );
+
+    /// <summary>What a file looked like when something here was read from it.</summary>
+    /// <param name="Written">Its <c>LastWriteTimeUtc</c>.</param>
+    /// <param name="Length">Its length.</param>
+    /// <param name="Content">
+    ///     A digest of its bytes while <paramref name="Written" /> is too young for the time to be
+    ///     trusted, and null once it is old enough: see <see cref="Resolution" />.
+    /// </param>
+    readonly record struct FileStamp(DateTime Written, long Length, UInt128? Content);
 }

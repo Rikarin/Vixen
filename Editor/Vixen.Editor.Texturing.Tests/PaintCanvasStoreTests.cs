@@ -28,6 +28,9 @@ namespace Vixen.Editor.Texturing.Tests;
 ///     </para>
 /// </remarks>
 public class PaintCanvasStoreTests : IDisposable {
+    /// <summary>The moment the same-tick cases stamp their files with and stop their clock at.</summary>
+    static readonly DateTime Tick = new(2026, 7, 1, 12, 0, 0, DateTimeKind.Utc);
+
     readonly string folder = Path.Combine(Path.GetTempPath(), "vixen-tests", Guid.NewGuid().ToString("N"));
 
     /// <summary>Makes the throwaway folder the canvases are written into.</summary>
@@ -136,6 +139,153 @@ public class PaintCanvasStoreTests : IDisposable {
         Assert.NotSame(open, reread);
         Assert.Equal(2, store.Reads);
         Assert.Equal(0xFF102030u, reread.Channel("baseColor").At(0, 0));
+    }
+
+    /// <summary>⚠ A file rewritten in the same tick and at the same length is read again.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The rewrite <see cref="A_file_rewritten_underneath_is_read_again" /> steers clear
+    ///         of, and the one Windows CI found anyway</b> — Vixen run 42670028234, where
+    ///         <c>TextureExternalPassTests</c> rewrote a canvas inside one tick of NTFS's clock and
+    ///         its "different size" turned out to be the same length. A checkout or a second editor
+    ///         landing in the tick of a read is that, with an artist's work on the line.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Both halves of the stamp are forced, so the store has nothing but the bytes to go
+    ///         on.</b> The new canvas is a different colour of the same layout, which is a different
+    ///         file of the same length; the time is set back by hand; the clock stands at it.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_file_rewritten_in_the_same_tick_at_the_same_length_is_read_again() {
+        var file = Filled("Hull.vxpaint", 0xFF3366CCu);
+
+        PaintCanvasStore store = new(PaintCanvasStore.DefaultBudget, new StoppedClock(Tick));
+
+        var open = store.Open(file);
+
+        Assert.NotNull(open);
+
+        var length = new FileInfo(file).Length;
+
+        Filled("Hull.vxpaint", 0xFF102030u);
+
+        Assert.Equal(length, new FileInfo(file).Length);
+        Assert.Equal(Tick, File.GetLastWriteTimeUtc(file));
+
+        var reread = store.Open(file);
+
+        Assert.NotNull(reread);
+        Assert.NotSame(open, reread);
+        Assert.Equal(2, store.Reads);
+        Assert.Equal(0xFF102030u, reread.Channel("baseColor").At(0, 0));
+    }
+
+    /// <summary>⚠ A young stamp is checked against the bytes until it is old, and then trusted alone.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Both halves of the cost, and the second is the one that makes the first
+    ///         affordable.</b> While a file is younger than the file system could stamp apart, every
+    ///         ask reads it; once it is older, a later write must have moved the time, so the stamp
+    ///         alone answers and a settled stack costs no reads at all.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The rewrite in the middle is made while the stamp is young and asked about only
+    ///         after it is old</b>, which is the order that catches a store deciding by the clock
+    ///         alone: the digest it took when the file was young is still owed a comparison. The
+    ///         last rewrite, made after the stamp was trusted, is unseen — and that is the only way
+    ///         to observe a read <em>not</em> happening.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_young_stamp_is_checked_against_the_bytes_until_it_is_old_and_then_trusted() {
+        var file = Filled("Hull.vxpaint", 0xFF3366CCu);
+
+        StoppedClock clock = new(Tick);
+        PaintCanvasStore store = new(PaintCanvasStore.DefaultBudget, clock);
+
+        var young = store.Open(file);
+
+        Filled("Hull.vxpaint", 0xFF102030u);
+        clock.At = Tick + TimeSpan.FromMinutes(1);
+
+        var reread = store.Open(file);
+
+        Assert.NotNull(reread);
+        Assert.NotSame(young, reread);
+        Assert.Equal(0xFF102030u, reread.Channel("baseColor").At(0, 0));
+
+        Filled("Hull.vxpaint", 0xFF405060u);
+
+        Assert.Same(reread, store.Open(file));
+        Assert.Equal(2, store.Reads);
+    }
+
+    /// <summary>⚠ A canvas saved and then rewritten in the same tick is read again.</summary>
+    /// <remarks>
+    ///     <b>A save is always young</b>, so the stamp <see cref="PaintCanvasStore.Saved" /> records
+    ///     is the one most exposed to a rewrite that keeps it — a checkout landing just after a
+    ///     stroke. The store digests what the save wrote, and the next ask compares.
+    /// </remarks>
+    [Fact]
+    public void A_canvas_saved_and_rewritten_in_the_same_tick_is_read_again() {
+        var file = Path.Combine(folder, "Hull.vxpaint");
+
+        PaintCanvasStore store = new(PaintCanvasStore.DefaultBudget, new StoppedClock(Tick));
+        PaintCanvas canvas = new(16, 16);
+
+        canvas.Channel("baseColor").Fill(0xFF3366CCu);
+        store.Adopt(file, canvas);
+
+        using (var stream = File.Create(file)) {
+            canvas.Write(stream);
+        }
+
+        File.SetLastWriteTimeUtc(file, Tick);
+        store.Saved(file);
+
+        Assert.Same(canvas, store.Open(file));
+
+        Filled("Hull.vxpaint", 0xFF102030u);
+
+        var reread = store.Open(file);
+
+        Assert.NotNull(reread);
+        Assert.NotSame(canvas, reread);
+        Assert.Equal(0xFF102030u, reread.Channel("baseColor").At(0, 0));
+    }
+
+    /// <summary>⚠ A young stamp whose bytes cannot be read answers by the stamp, as before.</summary>
+    /// <remarks>
+    ///     <b>The digest is a check added to the stamp, and a check that cannot run is not evidence
+    ///     of a change.</b> The file is there with the stamp it had, so a read that fails is another
+    ///     program holding it — and a miss would read it too, fail the same way, and throw away the
+    ///     open canvas a pinned surface is painting into. The file is made unreadable through its
+    ///     Unix mode, which is how this runs off Windows; on Windows the same is a sharing violation,
+    ///     which no portable fixture can hold open across the call.
+    /// </remarks>
+    [Fact]
+    public void A_young_stamp_that_cannot_be_read_back_is_answered_by_the_stamp() {
+        Assert.SkipWhen(OperatingSystem.IsWindows(), "The file is made unreadable through its Unix mode.");
+
+        // The analyser's guard: it does not read the skip above as one.
+        if (OperatingSystem.IsWindows()) {
+            return;
+        }
+
+        var file = Filled("Hull.vxpaint", 0xFF3366CCu);
+
+        PaintCanvasStore store = new(PaintCanvasStore.DefaultBudget, new StoppedClock(Tick));
+
+        var open = store.Open(file);
+
+        File.SetUnixFileMode(file, UnixFileMode.None);
+
+        try {
+            Assert.Same(open, store.Open(file));
+        } finally {
+            File.SetUnixFileMode(file, UnixFileMode.UserRead | UnixFileMode.UserWrite);
+        }
     }
 
     /// <summary>⚠ Saving a canvas keeps it open rather than invalidating it.</summary>
@@ -333,6 +483,33 @@ public class PaintCanvasStoreTests : IDisposable {
         Assert.Equal(0, store.Hits);
     }
 
+    /// <summary>⚠ And a picture rewritten in the same tick at the same length is decoded again.</summary>
+    /// <remarks>
+    ///     <b>The same rule as <see cref="A_file_rewritten_in_the_same_tick_at_the_same_length_is_read_again" />
+    ///     through the other payload</b>, and the one an artist meets most: saving a texture in a
+    ///     paint program over itself keeps its dimensions, and an uncompressed format keeps its length.
+    /// </remarks>
+    [Fact]
+    public void A_picture_rewritten_in_the_same_tick_at_the_same_length_is_decoded_again() {
+        var file = Path.Combine(folder, "Rust.png");
+
+        File.WriteAllBytes(file, [1, 2, 3, 4]);
+        File.SetLastWriteTimeUtc(file, Tick);
+
+        PaintCanvasStore store = new(PaintCanvasStore.DefaultBudget, new StoppedClock(Tick));
+
+        var first = store.Picture(file, Decoded);
+
+        File.WriteAllBytes(file, [5, 6, 7, 8]);
+        File.SetLastWriteTimeUtc(file, Tick);
+
+        var second = store.Picture(file, Decoded);
+
+        Assert.NotSame(first, second);
+        Assert.Equal(2, store.Reads);
+        Assert.Equal(0, store.Hits);
+    }
+
     /// <summary>⚠ A picture with no file is handed back and not held, which is the asymmetry with a canvas.</summary>
     /// <remarks>
     ///     <b>An adopted canvas with no file is a layer whose first stroke is under the pointer, and
@@ -483,6 +660,27 @@ public class PaintCanvasStoreTests : IDisposable {
         using var stream = File.OpenRead(path);
 
         return new(PixelFormat.Rgba8UNorm, 2, 2, levelCount: 1);
+    }
+
+    /// <summary>
+    ///     Writes a 16² canvas of one colour stamped at <see cref="Tick" />, so two of them differ in
+    ///     their bytes and in nothing a stamp sees.
+    /// </summary>
+    string Filled(string name, uint colour) {
+        var file = Path.Combine(folder, name);
+
+        PaintCanvas canvas = new(16, 16);
+
+        // A fill is the channel's background and no tiles, so every colour is the same length.
+        canvas.Channel("baseColor").Fill(colour);
+
+        using (var stream = File.Create(file)) {
+            canvas.Write(stream);
+        }
+
+        File.SetLastWriteTimeUtc(file, Tick);
+
+        return file;
     }
 
     /// <summary>Writes a one-channel canvas into the throwaway folder and returns its absolute path.</summary>
