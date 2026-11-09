@@ -89,7 +89,7 @@ interface:
     kind: Image
     default: []
     summary: The height beneath with fine grooves along the brushing.
-settings: { baseWidth: '1024', baseHeight: '1024', seed: '1', summary: 'Metal brushed in one direction: fine streaks in the roughness and shallow grooves in the height.' }
+settings: { baseWidth: '1024', baseHeight: '1024', seed: '1', summary: 'Metal brushed in one direction: fine streaks in the roughness and shallow grooves in the height.', doesNotTile: 'It draws its own pattern where it lies, so the pattern stays put when the picture beneath moves. The pattern itself tiles.' }
 parameters:
   - name: angle
     label: Angle

@@ -87,7 +87,7 @@ interface:
     kind: Image
     default: []
     summary: The height beneath under the soft ripple of a sprayed and baked coat.
-settings: { baseWidth: '1024', baseHeight: '1024', seed: '1', summary: 'A sprayed and baked coat: an even satin roughness with a fine grain, over a soft orange-peel ripple.' }
+settings: { baseWidth: '1024', baseHeight: '1024', seed: '1', summary: 'A sprayed and baked coat: an even satin roughness with a fine grain, over a soft orange-peel ripple.', doesNotTile: 'It draws its own pattern where it lies, so the pattern stays put when the picture beneath moves. The pattern itself tiles.' }
 parameters:
   - name: grain
     label: Ripple Size

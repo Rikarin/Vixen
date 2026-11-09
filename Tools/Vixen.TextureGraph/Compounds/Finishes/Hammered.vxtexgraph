@@ -78,7 +78,7 @@ interface:
     kind: Image
     default: []
     summary: The height beneath with a shallow round dent at every blow.
-settings: { baseWidth: '1024', baseHeight: '1024', seed: '1', summary: 'Metal beaten by a round hammer: overlapping shallow dents, polished where each blow landed.' }
+settings: { baseWidth: '1024', baseHeight: '1024', seed: '1', summary: 'Metal beaten by a round hammer: overlapping shallow dents, polished where each blow landed.', doesNotTile: 'It draws its own pattern where it lies, so the pattern stays put when the picture beneath moves. The pattern itself tiles.' }
 parameters:
   - name: count
     label: Blows
