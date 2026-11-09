@@ -196,6 +196,34 @@ public class PaintSourceTests {
     }
 
     /// <summary>
+    ///     A grey stencil holds a stroke to its share however many stamps cross a texel: a share of each stamp alone was
+    ///     built back up by the next, and a stroke that accumulates painted through grey as if it were white.
+    /// </summary>
+    [Fact]
+    public void A_grey_stencil_holds_a_stroke_to_its_share_however_many_stamps_cross() {
+        var surface = new PaintMeshSurface(Folded(false), Side, Side);
+        PaintImage grey = new(1, 1);
+
+        grey.Put(0, 0, PaintImage.Pack(0.5f, 0.5f, 0.5f, 1f));
+
+        PaintImage image = new(Side, Side);
+        PaintStroke stroke = new(
+            image,
+            surface.Coverage,
+            Hard with { Spacing = 0.05f, Blend = PaintStampBlend.Accumulate },
+            Red,
+            0,
+            stencil: new PaintProjectedPicture(grey, new(Vector2.Zero, 1f, 0f, true))
+        );
+
+        stroke.MoveTo(new(14f, 20f));
+        stroke.MoveTo(new(30f, 20f));
+        stroke.MoveTo(new(14f, 20f));
+
+        Assert.InRange(PaintImage.Channel(image.At(22, 20), 0), 0.4f, 0.6f);
+    }
+
+    /// <summary>
     ///     A picture on the screen lands where each texel projects: through a camera facing the front square, the left
     ///     half of a two-colour picture paints the square's left half. As a stencil its black half holds the brush back.
     /// </summary>

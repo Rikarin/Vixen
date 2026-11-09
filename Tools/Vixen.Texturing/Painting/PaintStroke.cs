@@ -538,8 +538,16 @@ public sealed class PaintStroke {
         for (var at = 0; at < list.Count; at++) {
             var (index, weight) = list[at];
 
+            // ⚠ The stencil takes its share of the cap as well as of each stamp's weight. A share of the weight alone is
+            // built back up by the stamps that follow, so a stroke that accumulates painted through a grey stencil as
+            // if it were white.
+            var held = cap;
+
             if (stencil is not null) {
-                weight *= Math.Clamp(stencil.At(pictures[at]), 0f, 1f);
+                var through = Math.Clamp(stencil.At(pictures[at]), 0f, 1f);
+
+                weight *= through;
+                held *= through;
             }
 
             if (!(weight > 0f)) {
@@ -547,13 +555,13 @@ public sealed class PaintStroke {
             }
 
             if (source is null) {
-                Deposit(index, weight, cap, colour);
+                Deposit(index, weight, held, colour);
             } else if (smear) {
                 if (gathered[at].Has) {
-                    Smear(index, Math.Min(weight, cap), gathered[at].Colour);
+                    Smear(index, Math.Min(weight, held), gathered[at].Colour);
                 }
             } else if (source.TryColour(index, pictures[at], out var found)) {
-                Deposit(index, weight, cap, found);
+                Deposit(index, weight, held, found);
             }
         }
     }

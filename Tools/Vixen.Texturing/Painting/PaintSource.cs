@@ -133,18 +133,42 @@ public sealed class PaintSmudge(PaintImage canvas, PaintCoverage coverage) : IPa
             return false;
         }
 
-        var column = (int)MathF.Round((texel % canvas.Width) - motion.X);
-        var row = (int)MathF.Round((texel / canvas.Width) - motion.Y);
+        // ⚠ Between texels and not at the nearest: a step is rarely a whole number of texels, and rounding it moves some
+        // columns one texel and their neighbours none, which combs the edge of the smear.
+        var x = (texel % canvas.Width) - motion.X;
+        var y = (texel / canvas.Width) - motion.Y;
+        var left = (int)MathF.Floor(x);
+        var top = (int)MathF.Floor(y);
+        var across = x - left;
+        var down = y - top;
+        var upper = Between(Tap(left, top), Tap(left + 1, top), across);
+        var lower = Between(Tap(left, top + 1), Tap(left + 1, top + 1), across);
+        var found = Between(upper, lower, down);
 
-        if (column < 0 || row < 0 || column >= canvas.Width || row >= canvas.Height
-            || !coverage.IsCovered((row * canvas.Width) + column)) {
+        if (found is not { } mixed) {
             return false;
         }
 
-        colour = canvas.At(column, row);
+        colour = mixed;
 
         return true;
     }
+
+    /// <summary>A texel of the canvas that is surface, or nothing.</summary>
+    uint? Tap(int column, int row) =>
+        column < 0 || row < 0 || column >= canvas.Width || row >= canvas.Height
+        || !coverage.IsCovered((row * canvas.Width) + column)
+            ? null
+            : canvas.At(column, row);
+
+    /// <summary>Two taps mixed, or the one there is.</summary>
+    static uint? Between(uint? first, uint? second, float share) =>
+        (first, second) switch {
+            ({ } a, { } b) => PaintImage.Mix(a, b, share),
+            ({ } a, null) => a,
+            (null, { } b) => b,
+            _ => null
+        };
 }
 
 /// <summary>Where a picture stands on a stroke's own picture: moved, scaled and turned, and perhaps tiled.</summary>
