@@ -85,6 +85,10 @@ public class PaintCanvasStoreWiringTests {
         // a channel appears on its first stroke and a file can change behind the store. That is what
         // notices either, and `CanvasReads` below is what says none of them reached the disk.
         //
+        // ⚠ And more again since each refresh asks whether every watched canvas is still the size the
+        // device holds it at (`PaintTileCache.Fits`, Patina #106): a canvas a set's resize enlarged is a
+        // new image its tiles do not fit. 46, 76 and 75 became 67, 125 and 124, every one a hit.
+        //
         // ⚠ These numbers are the shape of this scripted session and not the claim. A change to the
         // module's refresh policy moves them; what must not change is that they are exact, and a run
         // that updates them has to show `CanvasReads` still zero and the second test in this file
@@ -93,16 +97,16 @@ public class PaintCanvasStoreWiringTests {
 
         Drag(fixture, image, new Vector2(16f, 16f), new Vector2(40f, 40f));
 
-        Assert.Equal(46, module.CanvasOpens);
+        Assert.Equal(67, module.CanvasOpens);
 
         Drag(fixture, image, new Vector2(20f, 44f), new Vector2(44f, 20f));
 
-        Assert.Equal(76, module.CanvasOpens);
+        Assert.Equal(125, module.CanvasOpens);
 
         // And every one of them was answered from memory: one miss, which is the pane's first look
         // at a layer that had never been painted, and no reads at all.
         Assert.Equal(0, module.CanvasReads);
-        Assert.Equal(75, module.CanvasHits);
+        Assert.Equal(124, module.CanvasHits);
 
         // And the stroke really reached the disk, so "no reads" is not "no painting". The file is
         // opened here rather than through the store, which is the only reading of it in this test.
