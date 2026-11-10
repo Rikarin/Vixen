@@ -166,6 +166,10 @@ public static class LayerStackYaml {
             mapping.Set("anchorPoint", Text(layer.AnchorPoint));
         }
 
+        if (layer.Tag != LayerTag.None) {
+            mapping.Set("tag", Text(layer.Tag.ToString()));
+        }
+
         if (!layer.Enabled) {
             mapping.Set("enabled", new YamlScalar("false", YamlScalarStyle.Plain));
         }
@@ -648,6 +652,14 @@ public static class LayerStackYaml {
 
         WriteSources(mapping, "inputs", effect.Inputs);
 
+        if (effect.Blend != LayerBlendMode.Copy) {
+            mapping.Set("blend", Text(effect.Blend.ToString()));
+        }
+
+        if (effect.Opacity is < 1f or > 1f) {
+            mapping.Set("opacity", Number(effect.Opacity));
+        }
+
         return mapping;
     }
 
@@ -866,6 +878,7 @@ public static class LayerStackYaml {
             Id = String(mapping, "id", path),
             Name = String(mapping, "name", path),
             AnchorPoint = String(mapping, "anchorPoint", path),
+            Tag = Choice(mapping, "tag", LayerTag.None, path),
             Kind = Choice(mapping, "kind", LayerKind.Fill, path),
             Enabled = Flag(mapping, "enabled", true, path),
             Opacity = Single(mapping, "opacity", 1f, path),
@@ -990,7 +1003,9 @@ public static class LayerStackYaml {
             Enabled = Flag(mapping, "enabled", true, path),
             Values = Colours(mapping, "values", path),
             Texts = Strings(mapping, "texts", path),
-            Inputs = ReadSources(mapping, "inputs", path)
+            Inputs = ReadSources(mapping, "inputs", path),
+            Blend = Choice(mapping, "blend", LayerBlendMode.Copy, path),
+            Opacity = Single(mapping, "opacity", 1f, path)
         };
     }
 

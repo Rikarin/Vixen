@@ -707,6 +707,33 @@ public sealed record LayerInputAsset {
     public static LayerInputAsset BeneathIn(string channel) => new() { Channel = channel };
 }
 
+/// <summary>A colour an artist marks a layer with, so that a long stack sorts by eye (Patina #106).</summary>
+public enum LayerTag {
+    /// <summary>No mark.</summary>
+    None = 0,
+
+    /// <summary>Red.</summary>
+    Red,
+
+    /// <summary>Orange.</summary>
+    Orange,
+
+    /// <summary>Yellow.</summary>
+    Yellow,
+
+    /// <summary>Green.</summary>
+    Green,
+
+    /// <summary>Blue.</summary>
+    Blue,
+
+    /// <summary>Violet.</summary>
+    Violet,
+
+    /// <summary>Grey.</summary>
+    Grey
+}
+
 /// <summary>Which lane of its source's picture a mask, or an entry of one, reads (Patina #110).</summary>
 /// <remarks>
 ///     <b>Red is every mask's lane by default</b>, which is right for a grey and for a canvas painted in white. A mesh map
@@ -847,6 +874,16 @@ public sealed record MaskEffectAsset {
     ///     an input named by one of the set's channels and left out here reads the stack beneath in that channel.
     /// </summary>
     public Dictionary<string, LayerInputAsset> Inputs { get; init; } = [];
+
+    /// <summary>How its result composites over the mask it read: <see cref="LayerBlendMode.Copy" /> replaces it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Copy at full opacity is the step as it always was</b>, one node and no blend after it (Patina #109), so a
+    ///     file that says neither compiles to the graph it did before these two members.
+    /// </remarks>
+    public LayerBlendMode Blend { get; init; } = LayerBlendMode.Copy;
+
+    /// <summary>How much of its result composites, 0 to 1. Under 1 the mask it read shows through.</summary>
+    public float Opacity { get; init; } = 1f;
 }
 
 /// <summary>One layer's mask: a base, a small stack over it, and the effects on the result.</summary>
@@ -962,6 +999,10 @@ public sealed record LayerAsset {
     ///     <see cref="AnchorReference" /> for what a reference reads.
     /// </summary>
     public string AnchorPoint { get; init; } = "";
+
+    /// <summary>The colour an artist marks the layer with in a list, or <see cref="LayerTag.None" />.</summary>
+    /// <remarks>Read by nothing that composites: a tag sorts a long stack by eye, and the picture is the same with any.</remarks>
+    public LayerTag Tag { get; init; } = LayerTag.None;
 
     /// <summary>Which of the four kinds.</summary>
     public LayerKind Kind { get; init; } = LayerKind.Fill;
