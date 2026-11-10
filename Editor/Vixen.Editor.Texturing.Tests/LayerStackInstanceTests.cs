@@ -154,6 +154,40 @@ public class LayerStackInstanceTests {
     }
 
     /// <summary>
+    ///     A decal's box and a path's points are the instance's own copies too (Patina #133, #130), so moving the
+    ///     source's decal or point in place after the stack resolved does not move the instance's.
+    /// </summary>
+    [Fact]
+    public void An_instance_of_a_decal_or_a_path_shares_no_number_with_its_source() {
+        var decal = Fill("decal", Red) with {
+            Projection = LayerProjection.Decal,
+            Decal = new() { Centre = [0.5f, 0.5f, 0.5f], Box = [0, 0, 0, 1, 1, 1], Warp = [.. new float[18]] }
+        };
+        var path = Fill("path", Red) with {
+            Projection = LayerProjection.Path,
+            SurfacePath = new() { Points = [new(0, 0, 0, 0, 0, 1, 1), new(1, 0, 0, 0, 0, 1, 1)], Box = [0, 0, 0, 1, 1, 1] }
+        };
+        var stack = Stack(decal, path, Instance("decal copy", "decal"), Instance("path copy", "path"));
+
+        var resolved = LayerStackInstances.Resolve(stack, stack.Sets[0], out var problems);
+        var (decalCopy, pathCopy) = (resolved.Layers[2], resolved.Layers[3]);
+
+        Assert.Empty(problems);
+        Assert.Equal(decal.Decal.Centre, decalCopy.Decal!.Centre);
+        Assert.NotSame(decal.Decal.Centre, decalCopy.Decal.Centre);
+        Assert.NotSame(decal.Decal.Warp, decalCopy.Decal.Warp);
+        Assert.NotSame(path.SurfacePath.Points, pathCopy.SurfacePath!.Points);
+
+        decalCopy.Decal.Centre[0] = 0.9f;
+        decalCopy.Decal.Box[3] = 2f;
+        pathCopy.SurfacePath.Box[3] = 2f;
+
+        Assert.Equal(0.5f, decal.Decal.Centre[0]);
+        Assert.Equal(1f, decal.Decal.Box[3]);
+        Assert.Equal(1f, path.SurfacePath.Box[3]);
+    }
+
+    /// <summary>
     ///     An input reading an anchor point through an instance reads the source's point in the source's own set, and is
     ///     refused with a warning naming the point when the source is in another set, whose points are not this set's.
     /// </summary>

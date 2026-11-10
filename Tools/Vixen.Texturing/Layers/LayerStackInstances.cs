@@ -246,6 +246,19 @@ public static class LayerStackInstances {
     /// </remarks>
     static LayerAsset Owned(LayerAsset layer) =>
         layer with {
+            // A decal's box and a path's points are arrays and a list too (Patina #133, #130).
+            Decal = layer.Decal is { } decal
+                ? decal with {
+                    Centre = [.. decal.Centre],
+                    Facing = [.. decal.Facing],
+                    Up = [.. decal.Up],
+                    Box = [.. decal.Box],
+                    Warp = [.. decal.Warp]
+                }
+                : null,
+            SurfacePath = layer.SurfacePath is { } curve
+                ? curve with { Points = [.. curve.Points], Box = [.. curve.Box] }
+                : null,
             Channels = [.. layer.Channels],
             Values = Numbers(layer.Values),
             Textures = new(layer.Textures, StringComparer.Ordinal),
