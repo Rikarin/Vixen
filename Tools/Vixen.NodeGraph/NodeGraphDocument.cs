@@ -258,6 +258,22 @@ public sealed record NodeGraphAsset {
 
     /// <summary>Named sets of values for <see cref="Parameters" />.</summary>
     public GraphPresetAsset[] Presets { get; init; } = [];
+
+    /// <summary>What it makes and how it is meant to be used. See <see cref="GraphInfo" />.</summary>
+    /// <remarks>
+    ///     Four flat fields rather than one nested record, for <see cref="GraphEdgeAsset" />'s reason:
+    ///     a changed description or a new tag is one line in a diff.
+    /// </remarks>
+    public string Description { get; init; } = string.Empty;
+
+    /// <summary>Who made it.</summary>
+    public string Author { get; init; } = string.Empty;
+
+    /// <summary>Words to find it by.</summary>
+    public string[] Tags { get; init; } = [];
+
+    /// <summary>The width and height one tile stands for, in centimetres, or empty when it says nothing.</summary>
+    public float[] PhysicalSize { get; init; } = [];
 }
 
 /// <summary>Between the model and the file shape.</summary>
@@ -372,7 +388,13 @@ public static class NodeGraphDocument {
             Interface = [.. ports],
             Settings = new(graph.Settings, StringComparer.Ordinal),
             Parameters = [.. parameters],
-            Presets = [.. presets]
+            Presets = [.. presets],
+            Description = graph.Info.Description,
+            Author = graph.Info.Author,
+            Tags = [.. graph.Info.Tags],
+            PhysicalSize = graph.Info.PhysicalSize == default
+                ? []
+                : [graph.Info.PhysicalSize.X, graph.Info.PhysicalSize.Y]
         };
     }
 
@@ -452,6 +474,8 @@ public static class NodeGraphDocument {
                 )
             );
         }
+
+        graph.Info = InfoOf(asset, found);
 
         HashSet<string> presets = new(StringComparer.Ordinal);
 
@@ -589,5 +613,42 @@ public static class NodeGraphDocument {
         diagnostics = found;
 
         return graph;
+    }
+
+    /// <summary>What a file says about its graph, with blank and repeated tags dropped.</summary>
+    /// <remarks>
+    ///     A physical size that is not two positive numbers is dropped with <c>NG0106</c> rather than
+    ///     kept, because a reader that takes a tile for zero or minus one centimetre across would
+    ///     place the material at a size nobody wrote. A tag is dropped quietly: a blank or repeated
+    ///     word finds nothing a kept one does not.
+    /// </remarks>
+    static GraphInfo InfoOf(NodeGraphAsset asset, List<NodeDiagnostic> found) {
+        List<string> tags = [];
+
+        foreach (var tag in asset.Tags) {
+            var word = tag.Trim();
+
+            if (word.Length > 0 && !tags.Contains(word, StringComparer.OrdinalIgnoreCase)) {
+                tags.Add(word);
+            }
+        }
+
+        Vector2 size = default;
+
+        if (asset.PhysicalSize is [var width, var height]
+            && float.IsFinite(width)
+            && float.IsFinite(height)
+            && width > 0f
+            && height > 0f) {
+            size = new(width, height);
+        } else if (asset.PhysicalSize.Length > 0) {
+            found.Add(new(
+                "NG0106",
+                "The graph's physical size is not a width and a height above zero, in centimetres. It was dropped.",
+                NodeId.None
+            ));
+        }
+
+        return new(asset.Description, asset.Author, tags, size);
     }
 }

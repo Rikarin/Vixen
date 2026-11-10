@@ -4,7 +4,7 @@ slug: editor/graph-authoring
 kind: guide
 area: Editor
 summary: Switching a node off, bending a wire, describing a graph's exposed parameters and saving presets of them — what an author says about a graph besides its wiring, and where each of those lives.
-api: [T:Vixen.NodeGraph.NodeBypass, T:Vixen.NodeGraph.Reroutes, T:Vixen.NodeGraph.GraphPreset, T:Vixen.NodeGraph.GraphPresetAsset, T:Vixen.NodeGraph.SettingWidget, T:Vixen.NodeGraph.SettingCondition]
+api: [T:Vixen.NodeGraph.NodeBypass, T:Vixen.NodeGraph.Reroutes, T:Vixen.NodeGraph.GraphPreset, T:Vixen.NodeGraph.GraphPresetAsset, T:Vixen.NodeGraph.SettingWidget, T:Vixen.NodeGraph.SettingCondition, T:Vixen.NodeGraph.GraphInfo]
 tags: [editor, node-graph, texture-graph, parameters, presets]
 since: 0.2
 status: preview
@@ -13,7 +13,7 @@ related: [editor/sub-graph-values, editor/node-port-editing, editor/texture-grap
 
 ## What it is
 
-Five things in `Vixen.NodeGraph` that a graph's author sets and a compiler or an inspector reads:
+Six things in `Vixen.NodeGraph` that a graph's author sets and a compiler or an inspector reads:
 
 - `GraphNode.Bypassed`, a node switched off. `NodeBypass` is the rewrite that honours it.
 - `Reroutes`, the reroute dot: a node of type `Reroute` that only bends a wire.
@@ -21,6 +21,8 @@ Five things in `Vixen.NodeGraph` that a graph's author sets and a compiler or an
   turns it — `SettingWidget` is the control, `SettingCondition` the visibility rule.
 - `GraphPreset`, a named set of parameter values kept in the graph, written as `GraphPresetAsset`.
 - `GraphGroup.Color` and `Description`, a frame's colour and what its nodes do together.
+- `GraphInfo`, what a graph says about itself on a shelf: a description, an author, tags and the physical
+  size one tile stands for, in centimetres. No compiler reads it.
 
 ## What it is for
 
