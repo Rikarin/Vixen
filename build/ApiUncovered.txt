@@ -157,6 +157,7 @@ Editor/Vixen.Editor.ShaderGraph/Vixen.Editor.ShaderGraph.csproj editor-undecided
 Editor/Vixen.Editor.Terrain/Vixen.Editor.Terrain.csproj editor-undecided
 Editor/Vixen.Editor.Terrain.Physics/Vixen.Editor.Terrain.Physics.csproj editor-undecided
 Tools/Vixen.TextureGraph/Vixen.TextureGraph.csproj editor-undecided
+Tools/Vixen.TextureGraph.Drawing/Vixen.TextureGraph.Drawing.csproj editor-undecided
 Tools/Vixen.Authoring/Vixen.Authoring.csproj editor-undecided
 Tools/Vixen.Interchange/Vixen.Interchange.csproj editor-undecided
 Tools/Vixen.NodeGraph/Vixen.NodeGraph.csproj editor-undecided
