@@ -263,14 +263,18 @@ public sealed class LayerStackEvaluator : IDisposable {
         return [.. fitted];
     }
 
-    /// <summary>Whether what is compiled was compiled for this stack's size, seed and library.</summary>
+    /// <summary>
+    ///     Whether what is compiled was compiled for this stack's size, seed and library, and its painted images are
+    ///     still the size they were uploaded at.
+    /// </summary>
     bool Current(LayerStackAsset stack, NodeTypeRegistry registry, ISubGraphSource? subGraphs) {
         if (uploads is null
             || compiler is not { } held
             || held.BaseWidth != stack.BaseWidth
             || held.BaseHeight != stack.BaseHeight
             || !ReferenceEquals(compiledFor, registry)
-            || !ReferenceEquals(held.SubGraphSource, subGraphs)) {
+            || !ReferenceEquals(held.SubGraphSource, subGraphs)
+            || !tiles.Fits(uploads)) {
             return false;
         }
 

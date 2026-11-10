@@ -103,6 +103,51 @@ public sealed class LayerStackEvaluatorDeviceTests : IDisposable {
         }
     }
 
+    /// <summary>
+    ///     A canvas made larger in its store, as a set whose size changed enlarges what was painted before on its next
+    ///     stroke (Patina #106, #241), is uploaded again at its new size: its tiles do not fit the texture the smaller
+    ///     one went to, and the repair has to equal a clean evaluation where the new texels are.
+    /// </summary>
+    [Fact]
+    public void A_canvas_enlarged_in_its_store_is_uploaded_again_at_its_size() {
+        using var device = OpenDevice();
+        using var evaluator = new TexturePlanEvaluator(device);
+        var store = new PaintCanvasStore(long.MaxValue);
+        var paint = Path.Combine(folder, "small.vxpaint");
+        PaintCanvas small = new(Size / 2, Size / 2);
+        small.Channel(Usage).Put(5, 5, 0xFF00FF00u);
+        store.Adopt(paint, small);
+
+        LayerStackAsset stack = new() {
+            Name = "Stack",
+            BaseWidth = Size,
+            BaseHeight = Size,
+            Sets = [
+                new() {
+                    Name = "Body",
+                    Channels = [new() { Usage = Usage, Default = [0f, 0f, 0f, 1f] }],
+                    Layers = [
+                        new() { Id = "under", Kind = LayerKind.Fill, Values = { [Usage] = [0.25f, 0.5f, 0.75f, 1f] } },
+                        new() { Id = "painted", Kind = LayerKind.Paint, Paint = "small.vxpaint" }
+                    ]
+                }
+            ]
+        };
+
+        using var run = new LayerStackEvaluator(evaluator, store, Path.Combine(folder, "stack.vxlayers"));
+
+        Assert.Empty(run.Prepare(stack, stack.Sets[0], Library.Registry, Library.SubGraphs));
+        Same(run, "with its canvas half the set's size");
+
+        var large = small.Enlarged(Size, Size);
+        store.Adopt(paint, large);
+        Paint(large.Channel(Usage), Size - 40, Size - 40, 0xFF2080E0u, 10f);
+
+        Assert.Empty(run.Prepare(stack, stack.Sets[0], Library.Registry, Library.SubGraphs));
+        Assert.True(run.Compiled, "the plan kept the smaller canvas's texture");
+        Same(run, "after its canvas was enlarged and painted beyond the smaller one");
+    }
+
     /// <summary>A blur reads its neighbours, so it runs whole and asks for whole inputs.</summary>
     [Fact]
     public void A_filter_that_reads_its_neighbours_runs_whole_above_a_stroke() {

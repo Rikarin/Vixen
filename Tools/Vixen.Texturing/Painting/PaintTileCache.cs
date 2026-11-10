@@ -47,6 +47,28 @@ public sealed class PaintTileCache {
     /// <summary>Stops watching everything: the plan is gone.</summary>
     public void Clear() => images.Clear();
 
+    /// <summary>Whether every image it watches is still the size the device holds it at.</summary>
+    /// <param name="uploads">Where the images are.</param>
+    /// <returns>False when one has another size, which only uploading the plan's images again can follow.</returns>
+    /// <remarks>
+    ///     ⚠ <b>A canvas made larger is a new image of another size</b> (Patina #106, #241): a set whose size
+    ///     changed enlarges a canvas painted before it on its next stroke. Its tiles do not fit the texture the
+    ///     smaller one was uploaded to, so <see cref="Sync" /> would refuse them.
+    /// </remarks>
+    public bool Fits(TextureUploads uploads) {
+        ArgumentNullException.ThrowIfNull(uploads);
+
+        foreach (var watched in images) {
+            if (watched.Source() is { } image
+                && uploads.Externals.TryGetValue(watched.Image, out var held)
+                && (held.Size.X != image.Width || held.Size.Y != image.Height)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     /// <summary>Brings the device up to date.</summary>
     /// <param name="uploads">Where the images are.</param>
     /// <returns>Each image that moved, and the rectangles of it that did.</returns>
