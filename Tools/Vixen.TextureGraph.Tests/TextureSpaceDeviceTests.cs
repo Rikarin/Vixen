@@ -552,7 +552,7 @@ public class TextureSpaceDeviceTests(ITestOutputHelper output) {
                 [0],
                 [
                     new("rectX", 0f), new("rectY", 0f), new("rectW", 1f), new("rectH", 1f),
-                    new("filter", filter)
+                    new("filter", filter), new("actual", 0f)
                 ]
             )
         );
@@ -589,7 +589,7 @@ public class TextureSpaceDeviceTests(ITestOutputHelper output) {
                 [0],
                 [
                     new("rectX", 0f), new("rectY", 0f), new("rectW", 0.5f), new("rectH", 0.5f),
-                    new("filter", (float)TextureFilter.Point)
+                    new("filter", (float)TextureFilter.Point), new("actual", 0f)
                 ]
             ),
             1

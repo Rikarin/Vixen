@@ -1,0 +1,181 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+package Vixen.TextureGraph.Shaders
+
+import Vixen.Shaders.Core
+
+// The image rebuilt out of round patches of itself, each taken from somewhere else and turned — Patina
+// #218's anti-repetition and #178's patch-based make-it-tile, which are one gather.
+//
+// A grid of `cells` × `cells` patches covers the target. Each cell's patch sits near its middle,
+// wandering by `jitter`, and shows the source around a point the cell's hash picks, turned by up to
+// `turn`. A texel is the blend of the patches over it, the nearer ones weighing more, and where none
+// reaches it — a corner between wandering patches — the nearest patch alone.
+//
+// ⚠ **The cell index folds into the grid before it is hashed, and that is the whole of why it tiles.**
+// The patches are a function of the folded cell, so the cell one grid to the right of the last is the
+// first again, and a patch overhanging the target's edge is the same patch found again a period over:
+// the target tiles whether or not the source did. `margin` keeps every patch's source inside the
+// source's own edges, which is what makes a photo that does not tile into a picture that does.
+//
+// ⚠ **The blend keeps contrast where patches overlap**, by Heitz and Neyret's variance-preserving
+// mix: `mean + Σ wᵢ(xᵢ − mean) / √Σ wᵢ²` with the weights summing to one. A plain weighted mean of two
+// unrelated patches is half as contrasty as either, so every seam between them would be a soft grey
+// band — the repetition this exists to hide, replaced by a grid of blurs. `contrast` fades from the
+// plain mean (0) to the preserving one (1).
+
+shader PatchScatter {
+    var source: Texture2D
+
+    /// The source's average, a 1×1 image a `MeanReduce` ladder ended on.
+    var mean: Texture2D
+
+    /// How many patches across the target, and down it.
+    var cells: int = 4
+
+    /// A patch's diameter, in cells. At most 3, which with `jitter` at most a half keeps every patch that
+    /// reaches a texel within the two cells either way the loop visits. ⚠ Under `(0.5 + jitter)·2√2` some
+    /// texels are reached by no patch and take the nearest one alone, a hard edge; the default clears that
+    /// for the default jitter, which is why it is not the more obvious 1.5.
+    var size: float = 2.4f
+
+    /// How far a patch's middle wanders from its cell's, in cells.
+    var jitter: float = 0.3f
+
+    /// The largest random turn of a patch, in radians either way.
+    var turn: float = 3.14159f
+
+    /// How far from the source's edges a patch's source stays, as a fraction of the source. 0 lets a
+    /// patch read across the source's edge, which is right for a source that tiles.
+    var margin: float = 0f
+
+    /// How soft a patch's edge is: 0 hard-edged, a mosaic; 1 a broad blend.
+    var softness: float = 0.6f
+
+    /// 0 blends patches by their weighted mean, 1 keeps their contrast where they overlap.
+    var contrast: float = 1f
+
+    /// The op's own seed, already mixed. See `TexturePlan.SeedFor`.
+    var seed: float = 0f
+
+    /// The author's other draw of the same patches, as `Noise.rvn`'s is: nought is the draw the seed gives.
+    var variation: float = 0f
+
+    var wrapX: int = 0
+
+    var wrapY: int = 0
+
+    [Format("rgba16f")] var target: RWTexture2D<float4>
+
+    func Fetch(x: int, y: int): float4 {
+        val extent = source.GetDimensions(0)
+
+        return source.Load(int3(Math.Address(x, extent.x, wrapX), Math.Address(y, extent.y, wrapY), 0))
+    }
+
+    /// The source at a normalised position, bilinear, measured from texel centres.
+    func At(u: float, v: float): float4 {
+        val extent = source.GetDimensions(0)
+        val px = u * float(extent.x) - 0.5f
+        val py = v * float(extent.y) - 0.5f
+        val x0 = int(floor(px))
+        val y0 = int(floor(py))
+        val tx = px - float(x0)
+        val ty = py - float(y0)
+
+        val top = lerp(Fetch(x0, y0), Fetch(x0 + 1, y0), float4(tx, tx, tx, tx))
+        val bottom = lerp(Fetch(x0, y0 + 1), Fetch(x0 + 1, y0 + 1), float4(tx, tx, tx, tx))
+
+        return lerp(top, bottom, float4(ty, ty, ty, ty))
+    }
+
+    /// One of a cell's random numbers, from 0 to 1. The cell is folded into the grid first.
+    func Draw(cx: int, cy: int, salt: uint): float {
+        val n = max(cells, 1)
+        val fx = uint(((cx % n) + n) % n)
+        val fy = uint(((cy % n) + n) % n)
+
+        var own = uint(int(max(seed, 0f)))
+
+        if (variation >= 0.5f) {
+            own = Random.Combine(own, uint(int(variation + 0.5f)))
+        }
+
+        return Random.ToFloat01(Random.Combine(Random.Hash3(fx, fy, own), salt))
+    }
+
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val coord = int2(int(id.x), int(id.y))
+        val extent = target.GetDimensions()
+
+        if (coord.x >= extent.x || coord.y >= extent.y) {
+            return
+        }
+
+        val n = float(max(cells, 1))
+        val p = float2((float(coord.x) + 0.5f) / float(extent.x) * n, (float(coord.y) + 0.5f) / float(extent.y) * n)
+        val home = int2(int(floor(p.x)), int(floor(p.y)))
+        val radius = clamp(size, 0.01f, 3f) * 0.5f
+        val sharp = 1f + 7f * (1f - saturate(softness))
+        val keep = clamp(margin, 0f, 0.5f)
+        val average = mean.Load(int3(0, 0, 0))
+
+        var sum = float4(0f, 0f, 0f, 0f)
+        var weights = 0f
+        var squares = 0f
+        var nearest = float4(0f, 0f, 0f, 0f)
+        var closest = 1000000f
+
+        // Two cells either way bounds a patch of up to three cells across wandering half a cell: the
+        // furthest middle that can reach a texel is radius + jitter = 2 cells from it.
+        for (row in 0 .. 4) {
+            for (column in 0 .. 4) {
+                val cx = home.x + column - 2
+                val cy = home.y + row - 2
+                val wander = clamp(jitter, 0f, 0.5f)
+                val middle = float2(
+                    float(cx) + 0.5f + (Draw(cx, cy, 1u) * 2f - 1f) * wander,
+                    float(cy) + 0.5f + (Draw(cx, cy, 2u) * 2f - 1f) * wander
+                )
+                val offset = p - middle
+                val reach = sqrt(dot(offset, offset)) / radius
+
+                val angle = (Draw(cx, cy, 3u) * 2f - 1f) * turn
+                val c = cos(angle)
+                val s = sin(angle)
+                val turned = float2(offset.x * c - offset.y * s, offset.x * s + offset.y * c) / n
+                val from = float2(lerp(keep, 1f - keep, Draw(cx, cy, 4u)), lerp(keep, 1f - keep, Draw(cx, cy, 5u)))
+                val texel = At(from.x + turned.x, from.y + turned.y)
+
+                if (reach < closest) {
+                    closest = reach
+                    nearest = texel
+                }
+
+                if (reach < 1f) {
+                    val w = pow(1f - reach, sharp)
+
+                    sum = sum + texel * w
+                    weights = weights + w
+                    squares = squares + w * w
+                }
+            }
+        }
+
+        if (weights <= 0.000001f) {
+            target.Store(coord, nearest)
+
+            return
+        }
+
+        val blended = sum / weights
+
+        // Σ(w/Σw)² is one where one patch has the texel to itself, so a lone patch is never rescaled.
+        val spread = sqrt(squares) / weights
+        val preserved = average + (blended - average) / max(spread, 0.0001f)
+
+        target.Store(coord, lerp(blended, preserved, float4(contrast, contrast, contrast, contrast)))
+    }
+}

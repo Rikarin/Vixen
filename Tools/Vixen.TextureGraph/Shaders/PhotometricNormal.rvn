@@ -1,0 +1,90 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+package Vixen.TextureGraph.Shaders
+
+import Vixen.Shaders.Core
+
+// A normal map and an albedo from four photos of one surface lit from the left, right, top and bottom —
+// Patina #178's photometric normal, by photometric stereo.
+//
+// A matte surface lit from direction `l` is as bright as `ρ · n·l`. With four lights at one elevation
+// `e` above the surface, a quarter turn apart, the differences and the sum solve for the normal in
+// closed form:
+//
+//     nx = (right − left) / 2cos e      ny = (bottom − top) / 2cos e      nz = (Σ) / 4 sin e
+//
+// all times `ρ`, which the normalise takes away and the albedo keeps. `ny` is down the image because
+// a normal map's green is: `MaterialSurface.rvn` reads `v` growing downwards with no flip.
+//
+// ⚠ **A matte surface and no shadows are the assumptions, stated rather than hidden.** A highlight
+// reads as a slope towards the light that made it, and a cast shadow as a slope away; a photo set
+// shot under a polariser, with the lights high, keeps both small. That is the photographer's half.
+
+shader PhotometricNormal {
+    var left: Texture2D
+
+    var right: Texture2D
+
+    var top: Texture2D
+
+    var bottom: Texture2D
+
+    /// How high the lights stood above the surface, in radians: 0 grazing, π/2 overhead.
+    var elevation: float = 0.7853982f
+
+    /// 0 writes the normal, encoded as a normal map; 1 writes the albedo the four photos agree on.
+    var albedo: int = 0
+
+    [Format("rgba16f")] var target: RWTexture2D<float4>
+
+    /// Where a target texel falls in a photo of another size: the texel under its centre.
+    func Place(coord: int2, size: int2, extent: int2): int3 {
+        val x = min(int((float(coord.x) + 0.5f) / float(size.x) * float(extent.x)), extent.x - 1)
+        val y = min(int((float(coord.y) + 0.5f) / float(size.y) * float(extent.y)), extent.y - 1)
+
+        return int3(x, y, 0)
+    }
+
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val coord = int2(int(id.x), int(id.y))
+        val size = target.GetDimensions()
+
+        if (coord.x >= size.x || coord.y >= size.y) {
+            return
+        }
+
+        val l = left.Load(Place(coord, size, left.GetDimensions(0)))
+        val r = right.Load(Place(coord, size, right.GetDimensions(0)))
+        val t = top.Load(Place(coord, size, top.GetDimensions(0)))
+        val b = bottom.Load(Place(coord, size, bottom.GetDimensions(0)))
+        val li = ColorSpaces.Luminance(l.xyz)
+        val ri = ColorSpaces.Luminance(r.xyz)
+        val ti = ColorSpaces.Luminance(t.xyz)
+        val bi = ColorSpaces.Luminance(b.xyz)
+
+        val e = clamp(elevation, 0.05f, 1.52f)
+        val across = 2f * cos(e)
+        val m = float3((ri - li) / across, (bi - ti) / across, (li + ri + ti + bi) / (4f * sin(e)))
+        val length = sqrt(dot(m, m))
+        var n = float3(0f, 0f, 1f)
+
+        if (length > 0.000001f) {
+            n = m / length
+        }
+
+        if (albedo != 0) {
+            // Each photo is ρ·(n·l), so their sum is ρ·4 sin e·nz. A face turned nearly edge-on is held off
+            // a division by nothing.
+            val facing = max(n.z, 0.2f) * 4f * sin(e)
+            val colour = (l.xyz + r.xyz + t.xyz + b.xyz) / facing
+
+            target.Store(coord, float4(colour.x, colour.y, colour.z, 1f))
+
+            return
+        }
+
+        target.Store(coord, float4(n.x * 0.5f + 0.5f, n.y * 0.5f + 0.5f, n.z * 0.5f + 0.5f, 1f))
+    }
+}

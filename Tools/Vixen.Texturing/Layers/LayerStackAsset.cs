@@ -461,7 +461,7 @@ public enum LayerMaskSource {
     Paint = 6
 }
 
-/// <summary>Which of the thirty operators a layer composites with.</summary>
+/// <summary>Which of the thirty-one operators a layer composites with.</summary>
 /// <remarks>
 ///     <para>
 ///         ⚠ <b>The names and the numbers are <c>Vixen.TextureGraph</c>'s
@@ -576,7 +576,13 @@ public enum LayerBlendMode {
     NormalMapDetail = 28,
 
     /// <summary>The backdrop's normals reoriented to follow the foreground's surface. Neutral at the flat normal.</summary>
-    NormalMapInverseDetail = 29
+    NormalMapInverseDetail = 29,
+
+    /// <summary>
+    ///     The foreground's luminance with the backdrop's hue and saturation: the compositing specification's
+    ///     non-separable mode, over Rec. 709 luminance, so a blue and a white of one value are told apart.
+    /// </summary>
+    Luminosity = 30
 }
 
 /// <summary>A reference to a named anchor point, in one of the set's channels.</summary>

@@ -453,6 +453,13 @@ public class TextureBlendDeviceTests(ITestOutputHelper output) {
     ///         which is why they are not in <see cref="Distinguishing" />.
     ///     </para>
     ///     <para>
+    ///         <b>Luminosity</b> is the compositing specification's, over Rec. 709. The first backdrop's luminance is
+    ///         0.4706 and the foreground's 0.3221, so every channel drops by 0.1485 and the spread survives. The second
+    ///         lifts a red of luminance 0.27 to 0.9: red passes one and is pulled back along the line to the grey of
+    ///         0.9, which keeps the luminance and lands green and blue on 0.873 rather than leaving them at 0.73. The
+    ///         third drops a green to 0.05, where red would go negative and is pulled up to zero along the same line.
+    ///     </para>
+    ///     <para>
     ///         <b>Normals.</b> The backdrop encodes the unit <c>(0.8, 0, 0.6)</c> and the foreground <c>(0, 0.8, 0.6)</c>.
     ///         Whiteout is <c>normalize(0.8, 0.8, 0.36)</c>; detail turns the foreground to the backdrop's surface and
     ///         inverse detail the other way, which is why their red and green swap.
@@ -463,6 +470,9 @@ public class TextureBlendDeviceTests(ITestOutputHelper output) {
     [InlineData((int)TextureBlendMode.Saturation, 0.8f, 0.4f, 0.2f, 0.2f, 0.3f, 0.9f, 204, 98, 45)]
     [InlineData((int)TextureBlendMode.Colour, 0.8f, 0.4f, 0.2f, 0.2f, 0.3f, 0.9f, 45, 68, 204)]
     [InlineData((int)TextureBlendMode.Value, 0.8f, 0.4f, 0.2f, 0.2f, 0.3f, 0.9f, 230, 115, 57)]
+    [InlineData((int)TextureBlendMode.Luminosity, 0.8f, 0.4f, 0.2f, 0.2f, 0.3f, 0.9f, 166, 64, 13)]
+    [InlineData((int)TextureBlendMode.Luminosity, 0.9f, 0.1f, 0.1f, 0.9f, 0.9f, 0.9f, 255, 223, 223)]
+    [InlineData((int)TextureBlendMode.Luminosity, 0.1f, 0.6f, 0.2f, 0.05f, 0.05f, 0.05f, 0, 17, 3)]
     [InlineData((int)TextureBlendMode.NormalMapCombine, 0.9f, 0.5f, 0.8f, 0.5f, 0.9f, 0.8f, 213, 213, 166)]
     [InlineData((int)TextureBlendMode.NormalMapDetail, 0.9f, 0.5f, 0.8f, 0.5f, 0.9f, 0.8f, 189, 230, 173)]
     [InlineData((int)TextureBlendMode.NormalMapInverseDetail, 0.9f, 0.5f, 0.8f, 0.5f, 0.9f, 0.8f, 230, 189, 173)]

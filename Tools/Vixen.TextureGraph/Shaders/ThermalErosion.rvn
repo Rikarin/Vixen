@@ -1,0 +1,80 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+package Vixen.TextureGraph.Shaders
+
+import Vixen.Shaders.Core
+
+// One step of thermal erosion: where a slope is steeper than it can stand, material slides down it —
+// Patina #218's terrain node.
+//
+// Between a texel and each of its eight neighbours, the part of the drop past `talus` moves downhill by
+// `rate`. A texel loses what slides off it and gains what slides onto it from above.
+//
+// ⚠ **Written as a gather of a pairwise exchange, so it conserves material exactly.** What leaves `a`
+// for `b` is a function of the pair alone, and `b` computes the same number from its side and adds what
+// `a` subtracts, so every flow is counted once with each sign and the sum of the field never moves. A
+// scatter cannot be written on a storage image, and a gather that weighed the flows by the giver's
+// other neighbours — the textbook form — creates or destroys material wherever two texels disagree
+// about a third.
+//
+// ⚠ **The talus is a slope over the whole image, not per texel**: a height change of `talus` across the
+// width. Per texel it is divided by the image's own width, so a 4K bake keeps the same steepest slope as
+// a 1K one. The *number of steps* is not resolution-independent — material moves at most a texel a step —
+// and that is the node's to say.
+
+shader ThermalErosion {
+    var source: Texture2D
+
+    /// The steepest slope that stands, as a height change across the image's width.
+    var talus: float = 2f
+
+    /// The fraction of the excess drop that moves in one step. Past an eighth, a texel with eight
+    /// lower neighbours could give more than it has, so the node caps it there.
+    var rate: float = 0.1f
+
+    var wrapX: int = 0
+
+    var wrapY: int = 0
+
+    [Format("rgba16f")] var target: RWTexture2D<float4>
+
+    func Height(x: int, y: int): float {
+        val extent = source.GetDimensions(0)
+
+        return source.Load(int3(Math.Address(x, extent.x, wrapX), Math.Address(y, extent.y, wrapY), 0)).x
+    }
+
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val coord = int2(int(id.x), int(id.y))
+        val size = target.GetDimensions()
+
+        if (coord.x >= size.x || coord.y >= size.y) {
+            return
+        }
+
+        val here = source.Load(int3(coord.x, coord.y, 0))
+        val h = here.x
+        val step = max(talus, 0f) / float(size.x)
+        val share = clamp(rate, 0f, 0.125f)
+        var change = 0f
+
+        for (row in 0 .. 2) {
+            for (column in 0 .. 2) {
+                val dx = column - 1
+                val dy = row - 1
+
+                if (dx != 0 || dy != 0) {
+                    val neighbour = Height(coord.x + dx, coord.y + dy)
+                    val reach = step * sqrt(float(dx * dx + dy * dy))
+
+                    // What slides onto this texel, less what slides off it: one of the two is nought.
+                    change = change + share * (max(neighbour - h - reach, 0f) - max(h - neighbour - reach, 0f))
+                }
+            }
+        }
+
+        target.Store(coord, float4(h + change, h + change, h + change, here.w))
+    }
+}

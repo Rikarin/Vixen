@@ -47,7 +47,9 @@ Components currently in use:
     OFL-1.1 — https://github.com/googlefonts/opensans
     Vendored, and the only font anything that ships embeds: the editor embeds
     OpenSans-Regular.ttf and OpenSans-SemiBold.ttf from
-    Editor/Vixen.Editor.App/Fonts/, where OFL.txt is the licence as it ships.
+    Editor/Vixen.Editor.App/Fonts/, where OFL.txt is the licence as it ships,
+    and Vixen.TextureGraph.Drawing embeds the same OpenSans-Regular.ttf, linked
+    from there, as the face a Source/Text node draws with when it names none.
     (Test code embeds fonts too, none of it packed or shipped: the
     text-rendering-tests faces under "Conformance corpora" below, which several
     suites link out of Core/Vixen.Ui.Text.Tests/Fonts/, and Vixen's own synthetic

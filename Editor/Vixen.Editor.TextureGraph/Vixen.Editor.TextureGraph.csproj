@@ -15,7 +15,6 @@
         <ProjectReference Include="..\..\Tools\Vixen.TextureGraph\Vixen.TextureGraph.csproj" />
         <ProjectReference Include="..\Vixen.Editor.Core\Vixen.Editor.Core.csproj" />
         <ProjectReference Include="..\Vixen.Editor.NodeGraph\Vixen.Editor.NodeGraph.csproj" />
-        <ProjectReference Include="..\..\Core\Vixen.Ui.Text\Vixen.Ui.Text.csproj" />
     </ItemGroup>
 
     <ItemGroup>

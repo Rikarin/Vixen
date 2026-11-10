@@ -214,6 +214,9 @@
         <InternalsVisibleTo Include="Vixen.TextureGraph.Tests" />
         <InternalsVisibleTo Include="Vixen.Editor.TextureGraph" />
         <InternalsVisibleTo Include="Vixen.Editor.TextureGraph.Tests" />
+        <!-- Reads a Source/Text or Source/Vector reference back, so the two halves of Patina #139 share one codec. -->
+        <InternalsVisibleTo Include="Vixen.TextureGraph.Drawing" />
+        <InternalsVisibleTo Include="Vixen.TextureGraph.Drawing.Tests" />
     </ItemGroup>
 
 </Project>

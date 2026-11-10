@@ -5,7 +5,7 @@ using System.Collections.Immutable;
 
 namespace Vixen.TextureGraph;
 
-/// <summary>Which of the thirty operators a <c>Blend</c> op composites with.</summary>
+/// <summary>Which of the thirty-one operators a <c>Blend</c> op composites with.</summary>
 /// <remarks>
 ///     <para>
 ///         ⚠ <b>The numbers are the contract with <c>Shaders/Blend.rvn</c>'s <c>mode</c>, which
@@ -117,7 +117,13 @@ internal enum TextureBlendMode {
     NormalMapDetail = 28,
 
     /// <summary>The backdrop's normals reoriented to follow the foreground's surface. Neutral at the flat normal.</summary>
-    NormalMapInverseDetail = 29
+    NormalMapInverseDetail = 29,
+
+    /// <summary>
+    ///     The foreground's luminance with the backdrop's hue and saturation: the compositing specification's
+    ///     non-separable mode, over Rec. 709 luminance, so a blue and a white of one value are told apart.
+    /// </summary>
+    Luminosity = 30
 }
 
 /// <summary>Whether a <c>Blend</c>'s foreground arrives on top of its backdrop or reinterprets it.</summary>
@@ -215,7 +221,7 @@ internal static class TextureBlend {
     ///         ⚠ <b>The mask multiplies <paramref name="opacity" />, it does not replace it.</b> A
     ///         white mask is exactly <see cref="Mix" /> at the same opacity — asserted on a device,
     ///         because "the two kernels agree where the mask says nothing" is the only thing that
-    ///         makes a second transcription of thirty operators safe to have.
+    ///         makes a second transcription of thirty-one operators safe to have.
     ///     </para>
     /// </remarks>
     public static TextureOp Masked(

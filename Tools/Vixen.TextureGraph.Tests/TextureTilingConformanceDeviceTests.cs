@@ -103,6 +103,10 @@ public class TextureTilingConformanceDeviceTests(ITestOutputHelper output) {
             ("Filters/Vector Warp", "Vectors") or ("Analysis/Colour Select", _) => Colour,
             ("Surface/Normal Combine", _) => Normal,
             ("Surface/Curvature", _) or ("Surface/Normal Transform", _) or ("Surface/Normal to Height", _) => Normal,
+            // Four photos of one surface: one picture on all four is a flat surface, a normal with nothing in it.
+            ("Photo/Normal from Lighting", "Lit from Right") => $"float4({Field("1.1f")}, 0f, 0f, 1f)",
+            ("Photo/Normal from Lighting", "Lit from Top") => $"float4({Field("2.3f")}, 0f, 0f, 1f)",
+            ("Photo/Normal from Lighting", "Lit from Bottom") => $"float4({Field("3.7f")}, 0f, 0f, 1f)",
             _ => Grey
         };
 
@@ -158,7 +162,12 @@ public class TextureTilingConformanceDeviceTests(ITestOutputHelper output) {
         // holds; rolling the input moves the picture under the twist and not the twist.
         "Space/Swirl",
         "Utility/Make It Tile",
-        "Utility/Safe Transform"
+        "Utility/Safe Transform",
+        // Patina #178 and #218: patches of the input, each read from where its cell's hash put it. Rolling the
+        // input moves what every patch shows and not the patches; that the grid tiles is the seam's to hold, and
+        // it goes red when the cell is hashed without being folded.
+        "Photo/Tile from Patches",
+        "Space/Break Up Tiling"
     ];
 
     /// <summary>Everything the registry declares and everything that ships.</summary>
@@ -484,6 +493,10 @@ public class TextureTilingConformanceDeviceTests(ITestOutputHelper output) {
             subject.SetText("Source", "stimulus");
         }
 
+        if (path == "Source/Vector") {
+            subject.SetText("File", "stimulus.svg");
+        }
+
         foreach (var (port, value) in Exercised(path)) {
             subject.SetValue(port, value);
         }
@@ -542,6 +555,21 @@ public class TextureTilingConformanceDeviceTests(ITestOutputHelper output) {
         using TextureUploads uploads = new(device);
 
         foreach (var owed in TextureGraphExternals.Upload(uploads, plan, compiler.Externals)) {
+            if (path is "Source/Text" or "Source/Vector") {
+                // ⚠ A drawing is a picture its host fills, and the fill is `Vixen.TextureGraph.Drawing`'s, which
+                // this assembly may not load (#720). What is held here is the node's own op over a picture that
+                // tiles; that the fill folds ink across a wrapping edge is `TextureDrawingDeviceTests`' to hold.
+                var periodic = Periodic(Side / 2);
+
+                if (plan.Images[owed.Image].Format == TextureFormat.R8) {
+                    uploads.AddCoverage(plan, owed.Image, Side / 2, Side / 2, [.. Enumerable.Range(0, periodic.Length / 4).Select(at => periodic[at * 4] / 255f)]);
+                } else {
+                    uploads.Add(plan, owed.Image, Side / 2, Side / 2, periodic);
+                }
+
+                continue;
+            }
+
             // A bitmap is whatever was imported, and here that tiles. Anything else is a mesh map, and
             // an atlas has no reason to.
             uploads.Add(
