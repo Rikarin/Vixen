@@ -75,6 +75,11 @@ public sealed class PaintPath {
     /// </remarks>
     readonly List<Vector2> piece = [];
 
+    /// <summary>The points at nought depth, and one segment's curve in that space: reused, for <see cref="piece" />'s reason.</summary>
+    readonly List<Vector3> raised = [];
+
+    readonly List<Vector3> lifted = [];
+
     /// <summary>The points an artist has placed, in texels of the atlas.</summary>
     public IReadOnlyList<Vector2> Points => points;
 
@@ -348,12 +353,87 @@ public sealed class PaintPath {
     ///     deliberately.
     /// </remarks>
     void Fill(List<Vector2> into, int segment, float tolerance) {
-        var before = points[Math.Max(segment - 1, 0)];
-        var start = points[segment];
-        var end = points[segment + 1];
-        var after = points[Math.Min(segment + 2, points.Count - 1)];
+        raised.Clear();
+
+        foreach (var point in points) {
+            raised.Add(new(point.X, point.Y, 0f));
+        }
+
+        lifted.Clear();
+        Fill(lifted, raised, segment, tolerance);
+
+        foreach (var point in lifted) {
+            into.Add(new(point.X, point.Y));
+        }
+    }
+
+    /// <summary>One segment's interior points of a curve through any points, flat or not.</summary>
+    /// <remarks>
+    ///     ⚠ <b>One curve for the atlas and for the model</b> (Patina #130): a path on the atlas is this curve with every
+    ///     point at nought depth, which changes no deviation, so a path laid on the surface bends exactly as one laid
+    ///     on the map does.
+    /// </remarks>
+    static void Fill(List<Vector3> into, IReadOnlyList<Vector3> through, int segment, float tolerance) {
+        var before = through[Math.Max(segment - 1, 0)];
+        var start = through[segment];
+        var end = through[segment + 1];
+        var after = through[Math.Min(segment + 2, through.Count - 1)];
 
         Split(into, before, start, end, after, 0f, 1f, start, end, tolerance, 0);
+    }
+
+    /// <summary>A curve through points anywhere in space, as a polyline, and where along the points each sample is.</summary>
+    /// <param name="through">The points the curve passes through, in order.</param>
+    /// <param name="tolerance">How far the polyline may sit from the curve, in the points' own units. Above zero.</param>
+    /// <param name="into">Cleared, then filled with the polyline, the first point first.</param>
+    /// <param name="along">
+    ///     Cleared, then filled with one number to a sample: the segment it is on, plus how far along that segment it is
+    ///     by distance, 0 to 1. A caller lerps whatever each point carries — a normal, a pressure — by it.
+    /// </param>
+    /// <exception cref="ArgumentNullException">A list is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="tolerance" /> is not above zero.</exception>
+    /// <remarks>
+    ///     By distance along each segment and not by sample, for <see cref="Sample(List{Vector2}, List{float}, float)" />'s
+    ///     reason: how many samples a stretch gets is the tolerance's business, and a fade laid out per sample would run
+    ///     faster round the bends.
+    /// </remarks>
+    public static void Sample(IReadOnlyList<Vector3> through, float tolerance, List<Vector3> into, List<float> along) {
+        ArgumentNullException.ThrowIfNull(through);
+        ArgumentNullException.ThrowIfNull(into);
+        ArgumentNullException.ThrowIfNull(along);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(tolerance);
+
+        into.Clear();
+        along.Clear();
+
+        if (through.Count == 0) {
+            return;
+        }
+
+        into.Add(through[0]);
+        along.Add(0f);
+
+        for (var segment = 0; segment + 1 < through.Count; segment++) {
+            var start = into.Count - 1;
+
+            Fill(into, through, segment, tolerance);
+            into.Add(through[segment + 1]);
+
+            var length = 0f;
+
+            for (var index = start + 1; index < into.Count; index++) {
+                length += (into[index] - into[index - 1]).Length();
+            }
+
+            var walked = 0f;
+
+            for (var index = start + 1; index + 1 < into.Count; index++) {
+                walked += (into[index] - into[index - 1]).Length();
+                along.Add(segment + (length > 0f ? walked / length : 1f));
+            }
+
+            along.Add(segment + 1f);
+        }
     }
 
     /// <summary>Halves a stretch of one segment until its chord is inside the tolerance.</summary>
@@ -375,15 +455,15 @@ public sealed class PaintPath {
     ///     </para>
     /// </remarks>
     static void Split(
-        List<Vector2> into,
-        Vector2 before,
-        Vector2 start,
-        Vector2 end,
-        Vector2 after,
+        List<Vector3> into,
+        Vector3 before,
+        Vector3 start,
+        Vector3 end,
+        Vector3 after,
         float from,
         float to,
-        Vector2 at,
-        Vector2 until,
+        Vector3 at,
+        Vector3 until,
         float tolerance,
         int depth
     ) {
@@ -416,7 +496,7 @@ public sealed class PaintPath {
     /// <param name="from">Where the chord starts.</param>
     /// <param name="until">Where it ends.</param>
     /// <returns>The distance, in texels.</returns>
-    static float Deviation(Vector2 point, Vector2 from, Vector2 until) => Closest(point, from, until, out _);
+    static float Deviation(Vector3 point, Vector3 from, Vector3 until) => Closest(point, from, until, out _);
 
     /// <summary>How far a point is from a segment, and which place on it is nearest.</summary>
     /// <param name="point">The point.</param>
@@ -431,6 +511,15 @@ public sealed class PaintPath {
     ///     into a segment the artist was nowhere near.
     /// </remarks>
     static float Closest(Vector2 point, Vector2 from, Vector2 until, out Vector2 on) {
+        var distance = Closest(new Vector3(point.X, point.Y, 0f), new Vector3(from.X, from.Y, 0f), new Vector3(until.X, until.Y, 0f), out Vector3 raised);
+
+        on = new(raised.X, raised.Y);
+
+        return distance;
+    }
+
+    /// <summary>How far a point is from a segment in space, and which place on it is nearest.</summary>
+    static float Closest(Vector3 point, Vector3 from, Vector3 until, out Vector3 on) {
         var span = until - from;
         var length = span.LengthSquared();
 
@@ -440,7 +529,7 @@ public sealed class PaintPath {
             return (point - from).Length();
         }
 
-        var t = Math.Clamp(Vector2.Dot(point - from, span) / length, 0f, 1f);
+        var t = Math.Clamp(Vector3.Dot(point - from, span) / length, 0f, 1f);
 
         on = from + (span * t);
 
@@ -463,7 +552,7 @@ public sealed class PaintPath {
     ///     falls back to its left end where the interval has no width, rather than returning a NaN
     ///     that would propagate into a stamp centre and paint nothing anywhere.
     /// </remarks>
-    static Vector2 Evaluate(Vector2 before, Vector2 start, Vector2 end, Vector2 after, float t) {
+    static Vector3 Evaluate(Vector3 before, Vector3 start, Vector3 end, Vector3 after, float t) {
         var t0 = 0f;
         var t1 = t0 + Knot(before, start);
         var t2 = t1 + Knot(start, end);
@@ -486,10 +575,10 @@ public sealed class PaintPath {
     ///     stops a double-click producing a curve of NaNs. It is far below a texel, so no path an
     ///     artist can see is moved by it.
     /// </remarks>
-    static float Knot(Vector2 from, Vector2 to) =>
+    static float Knot(Vector3 from, Vector3 to) =>
         MathF.Max(MathF.Sqrt((to - from).Length()), 1e-4f);
 
-    static Vector2 Mix(Vector2 from, Vector2 to, float at, float until, float t) {
+    static Vector3 Mix(Vector3 from, Vector3 to, float at, float until, float t) {
         var width = until - at;
 
         return width <= 0f ? from : from + ((to - from) * ((t - at) / width));

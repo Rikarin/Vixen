@@ -77,7 +77,165 @@ public enum LayerProjection {
     Spherical = 3,
 
     /// <summary>Wrapped around a cylinder along <see cref="LayerAsset.PlanarAxis" />.</summary>
-    Cylindrical = 4
+    Cylindrical = 4,
+
+    /// <summary>
+    ///     Put on by a box placed on the model, which <see cref="LayerAsset.Decal" /> says (Patina #133): the picture
+    ///     lands where the box meets the surface and nowhere else, so the layer is a decal that can be moved later.
+    /// </summary>
+    Decal = 5,
+
+    /// <summary>
+    ///     Laid along a curve on the model, which <see cref="LayerAsset.SurfacePath" /> says (Patina #130, #131): the
+    ///     layer shows within the path's width of it, as a stroke, or its picture runs along it, as a ribbon.
+    /// </summary>
+    Path = 6
+}
+
+/// <summary>How a projection reads its picture between pixels.</summary>
+public enum LayerSampling {
+    /// <summary>Mixed from the four nearest pixels.</summary>
+    Bilinear = 0,
+
+    /// <summary>The nearest pixel, so a pixel-art picture keeps its edges.</summary>
+    Point = 1
+}
+
+/// <summary>
+///     A box on the model that a <see cref="LayerProjection.Decal" /> fill is projected through (Patina #133): kept as
+///     numbers in the stack, never stamped into pixels, so it can be moved, scaled and turned again.
+/// </summary>
+/// <remarks>
+///     <para>
+///         ⚠ <b>In the model's own space, with the box the position bake is normalised in beside it.</b> The
+///         <c>position</c> map is 0 to 1 along each axis of the mesh's bounds, so a decal written in that space would be
+///         stretched wherever the bounds are not a cube. <see cref="Box" /> turns a texel's position back into the
+///         model's units, so the decal is square where it was placed square and a viewport's gizmo speaks the same
+///         numbers. An empty box is the unit cube, which is the position map itself.
+///     </para>
+///     <para>
+///         The picture's right is <see cref="Up" /> crossed with <see cref="Facing" />, so it reads the right way round
+///         seen from the side the decal faces. <see cref="Up" /> need not be square to the facing: the compiler squares
+///         it, so a client can send the camera's up.
+///     </para>
+/// </remarks>
+public sealed record LayerDecal {
+    /// <summary>The middle of the box, in the model's units: three numbers.</summary>
+    public float[] Centre { get; init; } = [0.5f, 0.5f, 0.5f];
+
+    /// <summary>The way the decal faces, out of the surface it lands on: three numbers, any length.</summary>
+    public float[] Facing { get; init; } = [0f, 0f, 1f];
+
+    /// <summary>Which way is up on the picture: three numbers, squared to <see cref="Facing" /> when compiled.</summary>
+    public float[] Up { get; init; } = [0f, 1f, 0f];
+
+    /// <summary>How wide the picture lands, in the model's units. Above zero.</summary>
+    public float Width { get; init; } = 0.25f;
+
+    /// <summary>How tall it lands, in the model's units. Above zero.</summary>
+    public float Height { get; init; } = 0.25f;
+
+    /// <summary>How deep the box reaches, through and out of the surface, in the model's units. Above zero.</summary>
+    public float Depth { get; init; } = 0.25f;
+
+    /// <summary>
+    ///     How far a face may turn from <see cref="Facing" /> and still take the picture, in radians: the backface cull.
+    ///     Past a right angle the decal reaches round the back of a thin part too.
+    /// </summary>
+    public float Angle { get; init; } = 1.3f;
+
+    /// <summary>How much of the box's depth, from each face inwards, the picture fades over, 0 to 1.</summary>
+    public float Fade { get; init; } = 0.25f;
+
+    /// <summary>Whether the picture repeats past its edges, or is nothing there.</summary>
+    public bool Tiled { get; init; }
+
+    /// <summary>How the picture is read between its pixels.</summary>
+    public LayerSampling Sampling { get; init; } = LayerSampling.Bilinear;
+
+    /// <summary>
+    ///     The box the <c>position</c> map is normalised in, in the model's units: the least corner's three numbers,
+    ///     then the greatest's. Empty is the unit cube.
+    /// </summary>
+    public float[] Box { get; init; } = [];
+
+    /// <summary>
+    ///     A warp (Patina #134): where each point of a 3 by 3 grid over the picture lands on the decal's square, row by
+    ///     row from the top left, as eighteen numbers 0 to 1 across and down. Empty bends nothing.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Where the picture's grid <em>lands</em>, and not where each texel reads from</b>, so dragging a point
+    ///     drags the picture with it. The kernel inverts each of the four cells in closed form, which is the four-corner
+    ///     warp's arithmetic four times; where a cell is folded over itself the first answer found is shown.
+    /// </remarks>
+    public float[] Warp { get; init; } = [];
+}
+
+/// <summary>One point a <see cref="LayerSurfacePath" /> passes through: where it is on the model and which way it faces.</summary>
+/// <param name="X">Its first coordinate, in the model's units.</param>
+/// <param name="Y">Its second.</param>
+/// <param name="Z">Its third.</param>
+/// <param name="NormalX">The surface's normal there: its first coordinate.</param>
+/// <param name="NormalY">Its second.</param>
+/// <param name="NormalZ">Its third.</param>
+/// <param name="Pressure">How much of the width and the strength the path has here, 0 to 1.</param>
+public sealed record LayerSurfacePoint(
+    float X,
+    float Y,
+    float Z,
+    float NormalX,
+    float NormalY,
+    float NormalZ,
+    float Pressure = 1f
+);
+
+/// <summary>
+///     A curve on the model that a <see cref="LayerProjection.Path" /> fill is laid along (Patina #130, #131): points
+///     clicked on the surface, kept in the stack as numbers, so they can be moved after the stroke is seen.
+/// </summary>
+/// <remarks>
+///     <para>
+///         ⚠ <b>A path is evaluated, never stamped.</b> The curve is a centripetal Catmull-Rom through the points, as
+///         <c>PaintPath</c> draws one on the atlas; each texel is covered where its place on the model lies within the
+///         width of the curve, measured in the model's own space. So a path has no resolution, an edit to a point is an
+///         edit to the document that undoes like any other, and nothing about it lives in a <c>.vxpaint</c>.
+///     </para>
+///     <para>
+///         ⚠ <b>Distance in space, and not along the surface, with the normal as the guard.</b> Two faces close together
+///         in space — a thin wall, a lip — are close to the curve whichever one it was drawn on, so a texel only takes
+///         the path where its own normal is within <see cref="Angle" /> of the path's.
+///     </para>
+/// </remarks>
+public sealed record LayerSurfacePath {
+    /// <summary>The points the curve passes through, in order.</summary>
+    public List<LayerSurfacePoint> Points { get; init; } = [];
+
+    /// <summary>Half the path's width at full pressure, in the model's units. Above zero.</summary>
+    public float Radius { get; init; } = 0.01f;
+
+    /// <summary>How much of the width is at full strength before the edge falls away, 0 to 1.</summary>
+    public float Hardness { get; init; } = 0.5f;
+
+    /// <summary>
+    ///     Whether the layer's picture runs along the path, its height across the path's width (a ribbon), rather than
+    ///     showing through the path where it lies on the atlas (a stroke).
+    /// </summary>
+    public bool Ribbon { get; init; }
+
+    /// <summary>
+    ///     For a ribbon, how far along the path one repeat of the picture runs, in the model's units. Zero keeps the
+    ///     picture's own shape at the path's width.
+    /// </summary>
+    public float Repeat { get; init; }
+
+    /// <summary>How far a face may turn from the path's normal and still take it, in radians.</summary>
+    public float Angle { get; init; } = 1.3f;
+
+    /// <summary>
+    ///     The box the <c>position</c> map is normalised in, in the model's units: the least corner's three numbers,
+    ///     then the greatest's. Empty is the unit cube.
+    /// </summary>
+    public float[] Box { get; init; } = [];
 }
 
 /// <summary>Where a fill sits on the surface, in whichever projection it uses.</summary>
@@ -809,6 +967,14 @@ public sealed record LayerAsset {
 
     /// <summary>Where a fill sits on the surface.</summary>
     public LayerPlacement Placement { get; init; } = new();
+
+    /// <summary>The box a <see cref="LayerProjection.Decal" /> fill is projected through, or null for none yet.</summary>
+    /// <remarks>Kept when the projection moves off Decal, so that moving it back finds the decal where it was.</remarks>
+    public LayerDecal? Decal { get; init; }
+
+    /// <summary>The curve a <see cref="LayerProjection.Path" /> fill is laid along, or null for none yet.</summary>
+    /// <remarks>Kept when the projection moves off Path, for the reason <see cref="Decal" /> is.</remarks>
+    public LayerSurfacePath? SurfacePath { get; init; }
 
     /// <summary>
     ///     Which of the set's channels this layer writes, by usage. Empty means every one of them.

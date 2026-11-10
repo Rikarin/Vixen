@@ -1,0 +1,229 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+package Vixen.TextureGraph.Shaders
+
+// A stroke or a ribbon along a curve on the model — Patina #130 and #131.
+//
+// ## The table
+//
+// `points` is a table two rows high and one column per point of the polyline, written on the CPU from
+// the curve the artist placed: row 0 is the point in the model's units and its pressure, row 1 its normal
+// and how far along the path it is. `count` says how many columns are real. The kernel finds, for each
+// texel, the nearest place on the polyline among the segments whose normal agrees with the texel's, and
+// covers it by how far that is against the width there.
+//
+// ## Distance in space
+//
+// A texel's place on the model is the `position` bake, 0..1 over a box of its own, turned back into the
+// model's units by `boxMin` and `boxSize` — the decal's reason: a distance in the bake's box is longer
+// along a long side. ⚠ Distance in space is not distance along the surface, so a thin wall is near the
+// curve on both of its sides. The normal is the guard: a segment whose normal is turned further than
+// the angle whose cosine is `facing` from the texel's own is not that texel's to take.
+//
+// ## Stroke and ribbon
+//
+// A stroke (`ribbon` 0) shows the source as it lies on the atlas, through the path, so a constant colour
+// or a material lands as a brush along a curve would leave it. A ribbon (`ribbon` 1) reads the source
+// along the path instead: across the picture is how far along the path the nearest place is, over
+// `period`, and down it is the side of the path the texel is on, the picture's top on the left as the
+// path runs. ⚠ The picture wraps along the path and clamps across it, so it tiles end to end and never
+// reads its other edge.
+//
+// ## The bound
+//
+// `reachMin` and `reachMax` are the polyline's box grown by its widest radius, and a texel outside it
+// takes nothing without reading the table. Most of an atlas is outside any one path, so this is most of
+// what keeps a path cheap.
+
+shader SurfacePath {
+    /// The picture: read through the path for a stroke, along it for a ribbon.
+    var source: Texture2D
+
+    /// The `position` bake: unsigned, 0..1 over its own box.
+    var position: Texture2D
+
+    /// The `world` bake: signed, `0.5 + 0.5·n`.
+    var world: Texture2D
+
+    /// The polyline: row 0 the points and their pressure, row 1 their normals and distance along the path.
+    var points: Texture2D
+
+    /// How many points the table holds.
+    var count: int = 0
+
+    var boxMinX: float = 0f
+    var boxMinY: float = 0f
+    var boxMinZ: float = 0f
+    var boxSizeX: float = 1f
+    var boxSizeY: float = 1f
+    var boxSizeZ: float = 1f
+
+    var reachMinX: float = 0f
+    var reachMinY: float = 0f
+    var reachMinZ: float = 0f
+    var reachMaxX: float = 0f
+    var reachMaxY: float = 0f
+    var reachMaxZ: float = 0f
+
+    /// Half the path's width at full pressure, in the model's units.
+    var radius: float = 0.01f
+
+    /// How much of the width is at full strength before the edge falls away.
+    var hardness: float = 0.5f
+
+    /// The cosine of the widest angle a face may turn from the path's normal and still take it.
+    var facing: float = 0.2674989f
+
+    /// 1 reads the picture along the path; 0 reads it where the texel is on the atlas.
+    var ribbon: int = 0
+
+    /// How far along the path one repeat of a ribbon's picture runs, in the model's units. Zero keeps the
+    /// picture's own shape at the path's width.
+    var period: float = 0f
+
+    [Format("rgba16f")] var target: RWTexture2D<float4>
+
+    const val MaxPoints: int = 1024
+
+    /// One pixel of the picture, wrapped across and clamped down.
+    func Tap(x: int, y: int): float4 {
+        val extent = source.GetDimensions(0)
+        val wx = ((x % extent.x) + extent.x) % extent.x
+
+        return source.Load(int3(wx, clamp(y, 0, extent.y - 1), 0))
+    }
+
+    /// The picture at a place on it, 0..1 across and down, bilinearly.
+    func At(u: float, v: float): float4 {
+        val extent = source.GetDimensions(0)
+        val px = u * float(extent.x) - 0.5f
+        val py = v * float(extent.y) - 0.5f
+        val x0 = int(floor(px))
+        val y0 = int(floor(py))
+        val tx = px - float(x0)
+        val ty = py - float(y0)
+
+        val top = lerp(Tap(x0, y0), Tap(x0 + 1, y0), float4(tx, tx, tx, tx))
+        val bottom = lerp(Tap(x0, y0 + 1), Tap(x0 + 1, y0 + 1), float4(tx, tx, tx, tx))
+
+        return lerp(top, bottom, float4(ty, ty, ty, ty))
+    }
+
+    /// One texel of a map that may be a different size from the image being written.
+    func Read(map: Texture2D, coord: int2, size: int2): float4 {
+        val extent = map.GetDimensions(0)
+        val x = int(floor((float(coord.x) + 0.5f) * float(extent.x) / float(size.x)))
+        val y = int(floor((float(coord.y) + 0.5f) * float(extent.y) / float(size.y)))
+
+        return map.Load(int3(clamp(x, 0, extent.x - 1), clamp(y, 0, extent.y - 1), 0))
+    }
+
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val coord = int2(int(id.x), int(id.y))
+        val size = target.GetDimensions()
+
+        if (coord.x >= size.x || coord.y >= size.y) {
+            return
+        }
+
+        val nothing = float4(0f, 0f, 0f, 0f)
+        val place = Read(position, coord, size)
+        val p = float3(boxMinX + place.x * boxSizeX, boxMinY + place.y * boxSizeY, boxMinZ + place.z * boxSizeZ)
+
+        if (count < 1 || p.x < reachMinX || p.y < reachMinY || p.z < reachMinZ || p.x > reachMaxX || p.y > reachMaxY || p.z > reachMaxZ) {
+            target.Store(coord, nothing)
+
+            return
+        }
+
+        val encoded = Read(world, coord, size)
+        val n = float3(encoded.x * 2f - 1f, encoded.y * 2f - 1f, encoded.z * 2f - 1f)
+        val reach = sqrt(dot(n, n))
+
+        if (reach <= 0.000001f) {
+            target.Store(coord, nothing)
+
+            return
+        }
+
+        val texelNormal = n / reach
+
+        // The nearest place, as a share of its own width: below one is covered.
+        var best = 2f
+        var along = 0f
+        var side = 0f
+        var strength = 0f
+        var across = 0f
+
+        for (i in 0 .. MaxPoints - 1) {
+            if (i >= count) {
+                break
+            }
+
+            // A table of one point is a dot: the segment from it to itself.
+            val j = min(i + 1, count - 1)
+
+            if (i > 0 && j == i) {
+                break
+            }
+
+            val a = points.Load(int3(i, 0, 0))
+            val b = points.Load(int3(j, 0, 0))
+            val na = points.Load(int3(i, 1, 0))
+            val nb = points.Load(int3(j, 1, 0))
+
+            val from = float3(a.x, a.y, a.z)
+            val span = float3(b.x, b.y, b.z) - from
+            val length = dot(span, span)
+            val t = length > 0f ? saturate(dot(p - from, span) / length) : 0f
+            val on = from + span * t
+            val pathNormal = float3(na.x, na.y, na.z) * (1f - t) + float3(nb.x, nb.y, nb.z) * t
+            val normalReach = sqrt(dot(pathNormal, pathNormal))
+
+            if (normalReach <= 0.000001f || dot(pathNormal, texelNormal) / normalReach < facing) {
+                continue
+            }
+
+            val pressure = a.w * (1f - t) + b.w * t
+            val wide = max(radius * pressure, 0.000001f)
+            val offset = p - on
+            val share = sqrt(dot(offset, offset)) / wide
+
+            if (share < best) {
+                best = share
+                along = na.w * (1f - t) + nb.w * t
+                strength = pressure
+
+                // The side the texel is on, with the path running along `span` over a surface facing `pathNormal`.
+                val leftward = cross(pathNormal / normalReach, length > 0f ? span / sqrt(length) : float3(0f, 0f, 0f))
+
+                side = dot(offset, leftward) / wide
+                across = wide
+            }
+        }
+
+        if (best >= 1f) {
+            target.Store(coord, nothing)
+
+            return
+        }
+
+        val soft = max(1f - hardness, 0.000001f)
+        val coverage = saturate((1f - best) / soft) * saturate(strength)
+
+        var picture = float4(0f, 0f, 0f, 0f)
+
+        if (ribbon != 0) {
+            val extent = source.GetDimensions(0)
+            val run = period > 0f ? period : 2f * across * float(extent.x) / float(max(extent.y, 1))
+
+            picture = At(along / max(run, 0.000001f), 0.5f - side * 0.5f)
+        } else {
+            picture = At((float(coord.x) + 0.5f) / float(size.x), (float(coord.y) + 0.5f) / float(size.y))
+        }
+
+        target.Store(coord, float4(picture.x, picture.y, picture.z, picture.w * coverage))
+    }
+}

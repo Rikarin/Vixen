@@ -1,0 +1,341 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+package Vixen.TextureGraph.Shaders
+
+// A picture projected through a box placed on the model — Patina #133's decal, with #134's warp.
+//
+// ## What the box is
+//
+// The box has a centre, three square axes and a size, all in the model's own units: `right` and `up` span
+// the picture and `forward` points out of the surface the decal faces. A texel's place on the model is
+// read from the `position` bake, which is 0..1 along each axis of a box of its own, so `boxMin` and
+// `boxSize` turn it back into the model's units first. ⚠ Without that a decal on a long thin model is
+// stretched along it, since the bake's box is not a cube; the caller sends the unit box when the decal
+// was written in the bake's own space.
+//
+// ## Where the picture lands
+//
+// Across the box, `s = 0.5 + d·right / width` and down it `t = 0.5 - d·up / height`, so the picture's
+// rows grow downwards as an image's do. Through the box, `z = d·forward / (depth / 2)`, and a texel
+// further than the box's half depth from its middle plane takes nothing. Inside it the picture fades over
+// the outer `fade` of the depth from each face, so the decal does not end in a hard line where it wraps
+// round a corner.
+//
+// ## Which faces take it
+//
+// The `world` bake's normal, decoded from `0.5 + 0.5·n`, against `forward`: a face turned further than
+// the angle whose cosine is `facing` takes nothing. That is the backface cull, and it is what keeps a
+// decal on the front of a thin plate off its back, which is inside the box too. The edge is softened over
+// a twentieth of a cosine so the cull is not a stair of texels.
+//
+// ## The warp
+//
+// `warp` 1 bends the picture with a 3 × 3 grid: point `k` (row `k / 3`, column `k % 3`) is where the
+// picture's own grid point lands on the decal's square. Each of the four cells is a bilinear quad, and a
+// texel asks each quad in turn which point of its cell it is, in closed form — the four-corner warp's
+// quadratic. The first cell that holds it answers. ⚠ This is the inverse of a forward map, so dragging a
+// grid point drags the picture with it; reading the picture *at* the moved points instead would move it
+// the other way.
+//
+// ## Reading the picture
+//
+// Bilinear, or the nearest pixel when `nearest` is 1. Clamped, so nothing past the picture's edge is read
+// — and past it the decal is transparent unless `tiled` is 1, when it wraps.
+
+shader Decal {
+    /// The picture to project.
+    var source: Texture2D
+
+    /// The `position` bake: unsigned, 0..1 over its own box.
+    var position: Texture2D
+
+    /// The `world` bake: signed, `0.5 + 0.5·n`.
+    var world: Texture2D
+
+    var boxMinX: float = 0f
+    var boxMinY: float = 0f
+    var boxMinZ: float = 0f
+    var boxSizeX: float = 1f
+    var boxSizeY: float = 1f
+    var boxSizeZ: float = 1f
+
+    var centreX: float = 0.5f
+    var centreY: float = 0.5f
+    var centreZ: float = 0.5f
+
+    var rightX: float = 1f
+    var rightY: float = 0f
+    var rightZ: float = 0f
+
+    var upX: float = 0f
+    var upY: float = 1f
+    var upZ: float = 0f
+
+    var forwardX: float = 0f
+    var forwardY: float = 0f
+    var forwardZ: float = 1f
+
+    /// How wide the picture lands, in the model's units.
+    var width: float = 0.25f
+
+    /// How tall it lands.
+    var height: float = 0.25f
+
+    /// How deep the box is, through the surface and out of it.
+    var depth: float = 0.25f
+
+    /// The cosine of the widest angle a face may turn from `forward` and still take the picture.
+    var facing: float = 0.2674989f
+
+    /// How much of the half depth, from each face inwards, the picture fades over.
+    var fade: float = 0.25f
+
+    /// 1 repeats the picture past its edges; 0 leaves nothing there.
+    var tiled: int = 0
+
+    /// 1 reads the nearest pixel; 0 mixes four.
+    var nearest: int = 0
+
+    /// 1 bends the picture by the grid below; 0 leaves it square.
+    var warp: int = 0
+
+    var warp0X: float = 0f
+    var warp0Y: float = 0f
+    var warp1X: float = 0.5f
+    var warp1Y: float = 0f
+    var warp2X: float = 1f
+    var warp2Y: float = 0f
+    var warp3X: float = 0f
+    var warp3Y: float = 0.5f
+    var warp4X: float = 0.5f
+    var warp4Y: float = 0.5f
+    var warp5X: float = 1f
+    var warp5Y: float = 0.5f
+    var warp6X: float = 0f
+    var warp6Y: float = 1f
+    var warp7X: float = 0.5f
+    var warp7Y: float = 1f
+    var warp8X: float = 1f
+    var warp8Y: float = 1f
+
+    [Format("rgba16f")] var target: RWTexture2D<float4>
+
+    /// One pixel of the picture, wrapped or clamped.
+    func Tap(x: int, y: int): float4 {
+        val extent = source.GetDimensions(0)
+
+        if (tiled != 0) {
+            val wx = ((x % extent.x) + extent.x) % extent.x
+            val wy = ((y % extent.y) + extent.y) % extent.y
+
+            return source.Load(int3(wx, wy, 0))
+        }
+
+        return source.Load(int3(clamp(x, 0, extent.x - 1), clamp(y, 0, extent.y - 1), 0))
+    }
+
+    /// The picture at a place on it, 0..1 across and down.
+    func At(u: float, v: float): float4 {
+        val extent = source.GetDimensions(0)
+        val px = u * float(extent.x) - 0.5f
+        val py = v * float(extent.y) - 0.5f
+
+        if (nearest != 0) {
+            return Tap(int(floor(px + 0.5f)), int(floor(py + 0.5f)))
+        }
+
+        val x0 = int(floor(px))
+        val y0 = int(floor(py))
+        val tx = px - float(x0)
+        val ty = py - float(y0)
+
+        val top = lerp(Tap(x0, y0), Tap(x0 + 1, y0), float4(tx, tx, tx, tx))
+        val bottom = lerp(Tap(x0, y0 + 1), Tap(x0 + 1, y0 + 1), float4(tx, tx, tx, tx))
+
+        return lerp(top, bottom, float4(ty, ty, ty, ty))
+    }
+
+    /// One texel of a map that may be a different size from the image being written.
+    func Read(map: Texture2D, coord: int2, size: int2): float4 {
+        val extent = map.GetDimensions(0)
+        val x = int(floor((float(coord.x) + 0.5f) * float(extent.x) / float(size.x)))
+        val y = int(floor((float(coord.y) + 0.5f) * float(extent.y) / float(size.y)))
+
+        return map.Load(int3(clamp(x, 0, extent.x - 1), clamp(y, 0, extent.y - 1), 0))
+    }
+
+    /// One point of the warp's grid, where the picture's point `k` lands.
+    func Grid(k: int): float2 {
+        if (k == 0) {
+            return float2(warp0X, warp0Y)
+        }
+
+        if (k == 1) {
+            return float2(warp1X, warp1Y)
+        }
+
+        if (k == 2) {
+            return float2(warp2X, warp2Y)
+        }
+
+        if (k == 3) {
+            return float2(warp3X, warp3Y)
+        }
+
+        if (k == 4) {
+            return float2(warp4X, warp4Y)
+        }
+
+        if (k == 5) {
+            return float2(warp5X, warp5Y)
+        }
+
+        if (k == 6) {
+            return float2(warp6X, warp6Y)
+        }
+
+        if (k == 7) {
+            return float2(warp7X, warp7Y)
+        }
+
+        return float2(warp8X, warp8Y)
+    }
+
+    func Cross(a: float2, b: float2): float => a.x * b.y - a.y * b.x
+
+    /// The first coordinate of a bilinear quad, given the second, from whichever axis is better conditioned.
+    func Across(h: float2, e: float2, f: float2, g: float2, v: float): float {
+        val dx = e.x + g.x * v
+        val dy = e.y + g.y * v
+
+        if (abs(dx) > abs(dy)) {
+            return (h.x - f.x * v) / dx
+        }
+
+        return (h.y - f.y * v) / max(abs(dy), 0.000001f) * sign(dy)
+    }
+
+    func Inside(st: float2): bool => st.x >= -0.0001f && st.x <= 1.0001f && st.y >= -0.0001f && st.y <= 1.0001f
+
+    /// Where `p` is in the quad `a b c d` (top left, top right, bottom right, bottom left), or (-1, -1).
+    func Unwarp(p: float2, a: float2, b: float2, c: float2, d: float2): float2 {
+        // p = a + e·s + f·t + g·s·t, solved for (s, t).
+        val e = b - a
+        val f = d - a
+        val g = a - b + c - d
+        val h = p - a
+
+        val k2 = Cross(g, f)
+        val k1 = Cross(e, f) + Cross(h, g)
+        val k0 = Cross(h, e)
+
+        if (abs(k2) < 0.000001f) {
+            if (abs(k1) > 0.000001f) {
+                val t = -k0 / k1
+
+                return float2(Across(h, e, f, g, t), t)
+            }
+
+            return float2(-1f, -1f)
+        }
+
+        val discriminant = k1 * k1 - 4f * k0 * k2
+
+        if (discriminant < 0f) {
+            return float2(-1f, -1f)
+        }
+
+        val root = sqrt(discriminant)
+        val t1 = (-k1 - root) / (2f * k2)
+        val first = float2(Across(h, e, f, g, t1), t1)
+
+        if (Inside(first)) {
+            return first
+        }
+
+        val t2 = (-k1 + root) / (2f * k2)
+
+        return float2(Across(h, e, f, g, t2), t2)
+    }
+
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val coord = int2(int(id.x), int(id.y))
+        val size = target.GetDimensions()
+
+        if (coord.x >= size.x || coord.y >= size.y) {
+            return
+        }
+
+        val nothing = float4(0f, 0f, 0f, 0f)
+        val place = Read(position, coord, size)
+        val encoded = Read(world, coord, size)
+
+        val p = float3(boxMinX + place.x * boxSizeX, boxMinY + place.y * boxSizeY, boxMinZ + place.z * boxSizeZ)
+        val d = p - float3(centreX, centreY, centreZ)
+        val right = float3(rightX, rightY, rightZ)
+        val up = float3(upX, upY, upZ)
+        val forward = float3(forwardX, forwardY, forwardZ)
+
+        val through = dot(d, forward) / max(depth * 0.5f, 0.000001f)
+
+        if (abs(through) > 1f) {
+            target.Store(coord, nothing)
+
+            return
+        }
+
+        // ⚠ A normal the bake never wrote decodes to (-1, -1, -1) or to nothing at all, and either is a face
+        // that turns away: a texel off every chart takes no decal rather than a NaN.
+        val n = float3(encoded.x * 2f - 1f, encoded.y * 2f - 1f, encoded.z * 2f - 1f)
+        val reach = sqrt(dot(n, n))
+        val cosine = reach > 0.000001f ? dot(n, forward) / reach : -1f
+        val faces = saturate((cosine - facing) * 20f)
+
+        if (faces <= 0f) {
+            target.Store(coord, nothing)
+
+            return
+        }
+
+        var st = float2(0.5f + dot(d, right) / max(width, 0.000001f), 0.5f - dot(d, up) / max(height, 0.000001f))
+
+        if (warp != 0) {
+            var found = float2(-1f, -1f)
+
+            for (cell in 0 .. 3) {
+                val row = cell / 2
+                val column = cell % 2
+                val k = row * 3 + column
+                val local = Unwarp(st, Grid(k), Grid(k + 1), Grid(k + 4), Grid(k + 3))
+
+                if (Inside(local)) {
+                    found = float2((float(column) + saturate(local.x)) * 0.5f, (float(row) + saturate(local.y)) * 0.5f)
+
+                    break
+                }
+            }
+
+            if (found.x < 0f) {
+                target.Store(coord, nothing)
+
+                return
+            }
+
+            st = found
+        }
+
+        if (tiled == 0 && (st.x < 0f || st.x > 1f || st.y < 0f || st.y > 1f)) {
+            target.Store(coord, nothing)
+
+            return
+        }
+
+        val edge = max(fade, 0.000001f)
+        val deep = fade > 0f ? saturate((1f - abs(through)) / edge) : 1f
+        val picture = At(st.x, st.y)
+
+        target.Store(coord, float4(picture.x, picture.y, picture.z, picture.w * deep * faces))
+    }
+}

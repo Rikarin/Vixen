@@ -58,6 +58,10 @@ public class SmartMaterialTests {
                             Kind = LayerKind.Fill,
                             Values = { ["baseColor"] = [0.3f, 0.3f, 0.3f, 1f] },
 
+                            // Kept with a projection that does not read them, as moving off Decal or Path keeps them.
+                            Decal = new(),
+                            SurfacePath = new() { Points = [new(0f, 0f, 0f, 0f, 0f, 1f)] },
+
                             // Portable: a mesh map is bound by what it measures, so the same mask
                             // reads the next model's own bakes with no rewiring.
                             Mask = new() { Source = LayerMaskSource.Bake, Map = "curvature" }
@@ -252,6 +256,11 @@ public class SmartMaterialTests {
             }
 
             foreach (var property in mutable) {
+                // A member that holds nothing has nothing to share: a layer with no decal (Patina #133).
+                if (property.GetValue(source) is null) {
+                    continue;
+                }
+
                 Assert.False(
                     ReferenceEquals(property.GetValue(source), property.GetValue(copy)),
                     $"layer '{source.Id}' shares its {property.Name} with the stack it was extracted from, so "

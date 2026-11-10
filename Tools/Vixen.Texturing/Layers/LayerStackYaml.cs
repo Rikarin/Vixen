@@ -188,6 +188,14 @@ public static class LayerStackYaml {
             mapping.Set("placement", Write(layer.Placement));
         }
 
+        if (layer.Decal is { } decal) {
+            mapping.Set("decal", Write(decal));
+        }
+
+        if (layer.SurfacePath is { } surfacePath) {
+            mapping.Set("path", Write(surfacePath));
+        }
+
         if (layer.Channels.Count > 0) {
             YamlSequence channels = new() { Style = YamlCollectionStyle.Flow };
 
@@ -335,6 +343,152 @@ public static class LayerStackYaml {
             OffsetY = Single(entries, "offsetY", bare.OffsetY, $"{path}.placement"),
             Sharpness = Single(entries, "sharpness", bare.Sharpness, $"{path}.placement")
         };
+    }
+
+    /// <summary>A decal's box, every member written so a person reading the file sees the whole of it.</summary>
+    static YamlMapping Write(LayerDecal decal) {
+        YamlMapping mapping = [];
+
+        mapping.Set("centre", Numbers(decal.Centre));
+        mapping.Set("facing", Numbers(decal.Facing));
+        mapping.Set("up", Numbers(decal.Up));
+        mapping.Set("width", Number(decal.Width));
+        mapping.Set("height", Number(decal.Height));
+        mapping.Set("depth", Number(decal.Depth));
+        mapping.Set("angle", Number(decal.Angle));
+        mapping.Set("fade", Number(decal.Fade));
+
+        if (decal.Tiled) {
+            mapping.Set("tiled", new YamlScalar("true", YamlScalarStyle.Plain));
+        }
+
+        if (decal.Sampling != LayerSampling.Bilinear) {
+            mapping.Set("sampling", Text(decal.Sampling.ToString()));
+        }
+
+        if (decal.Box.Length > 0) {
+            mapping.Set("box", Numbers(decal.Box));
+        }
+
+        if (decal.Warp.Length > 0) {
+            mapping.Set("warp", Numbers(decal.Warp));
+        }
+
+        return mapping;
+    }
+
+    static LayerDecal ReadDecal(YamlNode node, string path) {
+        var entries = Mapping(node, path);
+        LayerDecal bare = new();
+
+        return new() {
+            Centre = Vector(entries, "centre", bare.Centre, path),
+            Facing = Vector(entries, "facing", bare.Facing, path),
+            Up = Vector(entries, "up", bare.Up, path),
+            Width = Single(entries, "width", bare.Width, path),
+            Height = Single(entries, "height", bare.Height, path),
+            Depth = Single(entries, "depth", bare.Depth, path),
+            Angle = Single(entries, "angle", bare.Angle, path),
+            Fade = Single(entries, "fade", bare.Fade, path),
+            Tiled = Flag(entries, "tiled", false, path),
+            Sampling = Choice(entries, "sampling", LayerSampling.Bilinear, path),
+            Box = entries.TryGet("box", out var box) ? Numbers(box, $"{path}.box") : [],
+            Warp = entries.TryGet("warp", out var warp) ? Numbers(warp, $"{path}.warp") : []
+        };
+    }
+
+    /// <summary>A path's curve: one flow sequence of seven numbers to a point, so a merge conflict is one point.</summary>
+    static YamlMapping Write(LayerSurfacePath curve) {
+        YamlMapping mapping = [];
+        YamlSequence points = new();
+
+        foreach (var point in curve.Points) {
+            points.Add(
+                Numbers(
+                    [point.X, point.Y, point.Z, point.NormalX, point.NormalY, point.NormalZ, point.Pressure]
+                )
+            );
+        }
+
+        mapping.Set("points", points);
+        mapping.Set("radius", Number(curve.Radius));
+        mapping.Set("hardness", Number(curve.Hardness));
+        mapping.Set("angle", Number(curve.Angle));
+
+        if (curve.Ribbon) {
+            mapping.Set("ribbon", new YamlScalar("true", YamlScalarStyle.Plain));
+        }
+
+        if (curve.Repeat != 0f) {
+            mapping.Set("repeat", Number(curve.Repeat));
+        }
+
+        if (curve.Box.Length > 0) {
+            mapping.Set("box", Numbers(curve.Box));
+        }
+
+        return mapping;
+    }
+
+    static LayerSurfacePath ReadPath(YamlNode node, string path) {
+        var entries = Mapping(node, path);
+        LayerSurfacePath bare = new();
+        List<LayerSurfacePoint> points = [];
+
+        if (entries.TryGet("points", out var listed)) {
+            var index = 0;
+
+            foreach (var item in Sequence(listed, $"{path}.points")) {
+                var at = $"{path}.points[{index++}]";
+                var numbers = Numbers(item, at);
+
+                if (numbers.Length is not (6 or 7)) {
+                    throw new YamlBindingException(
+                        at,
+                        $"a point is a place and a normal, six numbers, and a pressure if it has one; this has "
+                        + $"{numbers.Length.ToString(CultureInfo.InvariantCulture)}."
+                    );
+                }
+
+                points.Add(
+                    new(
+                        numbers[0],
+                        numbers[1],
+                        numbers[2],
+                        numbers[3],
+                        numbers[4],
+                        numbers[5],
+                        numbers.Length == 7 ? numbers[6] : 1f
+                    )
+                );
+            }
+        }
+
+        return new() {
+            Points = points,
+            Radius = Single(entries, "radius", bare.Radius, path),
+            Hardness = Single(entries, "hardness", bare.Hardness, path),
+            Angle = Single(entries, "angle", bare.Angle, path),
+            Ribbon = Flag(entries, "ribbon", false, path),
+            Repeat = Single(entries, "repeat", 0f, path),
+            Box = entries.TryGet("box", out var box) ? Numbers(box, $"{path}.box") : []
+        };
+    }
+
+    /// <summary>Three numbers, refused as anything else, or the fallback when the key is missing.</summary>
+    static float[] Vector(YamlMapping mapping, string key, float[] fallback, string path) {
+        if (!mapping.TryGet(key, out var node)) {
+            return fallback;
+        }
+
+        var numbers = Numbers(node, $"{path}.{key}");
+
+        return numbers.Length == 3
+            ? numbers
+            : throw new YamlBindingException(
+                $"{path}.{key}",
+                $"expected three numbers and found {numbers.Length.ToString(CultureInfo.InvariantCulture)}."
+            );
     }
 
     static YamlMapping Write(MaskAsset mask) {
@@ -709,6 +863,8 @@ public static class LayerStackYaml {
             Projection = Choice(mapping, "projection", LayerProjection.Uv, path),
             PlanarAxis = Choice(mapping, "axis", LayerAxis.Y, path),
             Placement = Placement(mapping, path),
+            Decal = mapping.TryGet("decal", out var decal) ? ReadDecal(decal, $"{path}.decal") : null,
+            SurfacePath = mapping.TryGet("path", out var curve) ? ReadPath(curve, $"{path}.path") : null,
             Channels = channels,
             Fill = Choice(mapping, "fill", LayerFillSource.Constant, path),
             Values = Colours(mapping, "values", path),

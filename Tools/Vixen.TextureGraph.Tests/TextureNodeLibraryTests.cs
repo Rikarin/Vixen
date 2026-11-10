@@ -81,6 +81,15 @@ public class TextureNodeLibraryTests {
     ///     than merely different.
     /// </remarks>
     static readonly Dictionary<(string Kernel, string Parameter), string> Deliberate = new() {
+        [("SurfacePath", "count")] = "Not a default: how many points the node's table holds, which an empty path "
+            + "makes one point at no pressure so that the table is never empty.",
+        [("SurfacePath", "reachMinX")] = "Not a default: the polyline's box grown by its radius, which the node "
+            + "works out from the points; an empty path's is a box no texel is inside.",
+        [("SurfacePath", "reachMinY")] = "As reachMinX.",
+        [("SurfacePath", "reachMinZ")] = "As reachMinX.",
+        [("SurfacePath", "reachMaxX")] = "As reachMinX.",
+        [("SurfacePath", "reachMaxY")] = "As reachMinX.",
+        [("SurfacePath", "reachMaxZ")] = "As reachMinX.",
         [("Uniform", "red")] = "A source node dropped in unwired should be visible. The kernel's zero is black, "
             + "which is indistinguishable from a node that never ran.",
         [("Uniform", "green")] = "As red.",
@@ -837,6 +846,15 @@ public class TextureNodeLibraryTests {
         graph.Connect(hsl, "Out", triplanar, "Input");
         graph.Connect(place, "Out", triplanar, "Position");
         graph.Connect(facing, "Out", triplanar, "Normal");
+
+        // Patina #133's decal and #130's path, wired to the same two bakes the layer stack gives them.
+        foreach (var path in (string[])["Space/Decal", "Space/Surface Path"]) {
+            var surfaced = graph.Add(path);
+
+            graph.Connect(hsl, "Out", surfaced, "Input");
+            graph.Connect(place, "Out", surfaced, "Position");
+            graph.Connect(facing, "Out", surfaced, "Normal");
+        }
 
         // Patina #179's three readers of the same position bake, each ending in no Output node.
         foreach (var path in (string[])["Source/Volume Noise", "Source/Volume Mask", "Source/Volume Gradient"]) {
