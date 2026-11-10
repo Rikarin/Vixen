@@ -165,6 +165,61 @@ public class PaintStrokeTests {
         Assert.Equal(coarse.ToTexels(), fine.ToTexels());
     }
 
+    /// <summary>
+    ///     A stroke that carries another on from where its brush stands lays what one unbroken stroke lays: no second
+    ///     stamp where the two meet, and the spacing running on across the lift.
+    /// </summary>
+    [Fact]
+    public void A_stroke_carried_on_lays_no_stamp_twice_where_the_two_meet() {
+        var coverage = PaintCoverage.Everywhere(128, 64);
+        var brush = Hard(4f) with { Spacing = 0.5f };
+        PaintImage whole = new(128, 64);
+        PaintImage lifted = new(128, 64);
+
+        PaintStroke unbroken = new(whole, coverage, brush, Opaque, gutter: 0);
+        unbroken.MoveTo(new(20f, 20f));
+        unbroken.MoveTo(new(60f, 20f));
+        unbroken.MoveTo(new(100f, 20f));
+
+        PaintStroke before = new(lifted, coverage, brush, Opaque, gutter: 0);
+        before.MoveTo(new(20f, 20f));
+        before.MoveTo(new(60f, 20f));
+        PaintStroke after = new(lifted, coverage, brush, Opaque, gutter: 0, resume: new Vector2(60f, 20f));
+        after.MoveTo(new(60f, 20f));
+        after.MoveTo(new(100f, 20f));
+
+        Assert.Equal(unbroken.StampCount, before.StampCount + after.StampCount);
+        Assert.Equal(whole.ToTexels(), lifted.ToTexels());
+    }
+
+    /// <summary>A lazy brush carried on keeps its string: a pointer put down within reach of it lays nothing yet.</summary>
+    [Fact]
+    public void A_lazy_stroke_carried_on_keeps_its_string() {
+        var coverage = PaintCoverage.Everywhere(128, 64);
+        var brush = Hard(4f) with { Spacing = 0.5f };
+
+        PaintStroke fresh = new(new(128, 64), coverage, brush, Opaque, gutter: 0, lazy: 20f);
+        PaintStroke resumed = new(
+            new(128, 64),
+            coverage,
+            brush,
+            Opaque,
+            gutter: 0,
+            lazy: 20f,
+            resume: new Vector2(60f, 20f)
+        );
+
+        fresh.MoveTo(new(70f, 20f));
+        resumed.MoveTo(new(70f, 20f));
+
+        Assert.Equal(1, fresh.StampCount);
+        Assert.Equal(0, resumed.StampCount);
+
+        // Pulled past its length, it paints on from where it stood, not from where the pointer went down.
+        resumed.MoveTo(new(90f, 20f));
+        Assert.Equal(5, resumed.StampCount);
+    }
+
     /// <summary>The string's arithmetic, which a host that draws where the brush is can call too.</summary>
     [Fact]
     public void A_string_holds_the_brush_until_the_pointer_pulls_it_straight() {

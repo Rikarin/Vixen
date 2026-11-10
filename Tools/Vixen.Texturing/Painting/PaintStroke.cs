@@ -94,6 +94,9 @@ public sealed class PaintStroke {
     float pressed = 1f;
     bool started;
 
+    /// <summary>Whether the stroke carries one on and has not moved yet, so its first stamps take the first pressure.</summary>
+    bool resumed;
+
     /// <summary>Where the last stamp was on the path, before any jitter: which way the path runs, for scatter.</summary>
     Vector2? previous;
 
@@ -123,6 +126,12 @@ public sealed class PaintStroke {
     ///     offset, a picture on the screen, or the canvas itself smeared along the stroke. Null paints the colour.
     /// </param>
     /// <param name="stencil">What masks the brush where each texel lands on the stroke's picture, or null.</param>
+    /// <param name="resume">
+    ///     Where the brush already stands, in the units of <see cref="MoveTo" />'s positions, when this stroke carries on
+    ///     one before it: the stroke starts there without a stamp, as a pen lifted in the middle of one stroke and put
+    ///     down again, so its first stamp comes a step along and a lazy brush keeps its string. Null starts with a stamp
+    ///     under the first position.
+    /// </param>
     /// <exception cref="ArgumentException">The coverage map is not the image's size.</exception>
     public PaintStroke(
         PaintImage image,
@@ -135,7 +144,8 @@ public sealed class PaintStroke {
         PaintImageSnapshot? origin = null,
         IPaintPlacement? placement = null,
         IPaintSource? source = null,
-        IPaintStencil? stencil = null
+        IPaintStencil? stencil = null,
+        Vector2? resume = null
     ) {
         ArgumentNullException.ThrowIfNull(image);
         ArgumentNullException.ThrowIfNull(coverage);
@@ -183,6 +193,17 @@ public sealed class PaintStroke {
         this.lazy = float.IsFinite(lazy) ? Math.Max(lazy, 0f) : 0f;
 
         path = new(brush.Kernel, seed);
+
+        if (resume is { } standing && float.IsFinite(standing.X) && float.IsFinite(standing.Y)) {
+            // ⚠ A path's first move always stamps, so it is walked to where the brush stands and that stamp is thrown
+            // away: what follows is spaced from there, which is the whole of carrying a stroke on.
+            path.MoveTo(standing, spaced);
+            spaced.Clear();
+            smoothed = standing;
+            previous = standing;
+            started = true;
+            resumed = true;
+        }
     }
 
     /// <summary>Everything the stroke has touched, including its dilation.</summary>
@@ -275,6 +296,12 @@ public sealed class PaintStroke {
         var first = !started;
         var travel = (smoothed - from).Length();
         var hard = Math.Clamp(pressure, 0f, 1f);
+
+        // A pen put down again has no pressure from before it was lifted to taper from.
+        if (resumed) {
+            pressed = hard;
+            resumed = false;
+        }
 
         started = true;
 

@@ -648,6 +648,8 @@ public sealed class PaintMeshSurface {
             Pyramid(camera, stamp.Centre, across, ray.Direction, sides);
             projection.Overlapping(hit.Point, sphere, near);
 
+            var least = occlusion.LeastFacing;
+
             foreach (var triangle in near) {
                 projection.Triangle(triangle, out var a, out var b, out var c, out _, out _, out _);
 
@@ -657,6 +659,16 @@ public sealed class PaintMeshSurface {
 
                 if (Vector3.Dot(normal, a - camera.Eye) * facing <= 0f) {
                     continue;
+                }
+
+                // How square the face is to the line of sight to its middle; past the brush's angle it is left alone.
+                if (least > -1f) {
+                    var sight = camera.Eye - ((a + b + c) / 3f);
+                    var lengths = normal.Length() * sight.Length();
+
+                    if (!(lengths > 0f) || MathF.Abs(Vector3.Dot(normal, sight)) < least * lengths) {
+                        continue;
+                    }
                 }
 
                 var visible = surface.Seen(triangle, sides, camera.Eye, camera.Forward);
@@ -1123,12 +1135,24 @@ internal interface IPaintRays {
 ///     How far in front of a texel something may be and still not hide it, as a share of the mesh's bounding diagonal:
 ///     a decal floating a hair over a face, or two faces that touch, are not each other's occluders.
 /// </param>
-public readonly record struct PaintOcclusion(bool Tests, float Tolerance) {
+/// <param name="Facing">
+///     How far a face may turn away from the camera and still be painted, in radians, from the line of sight to the
+///     face: a half turn (<see cref="Facing" /> at π/2) paints every face the camera looks at, and less keeps a stroke
+///     off the faces it only grazes, where a stamp smears into a long streak. Measured per triangle, at its centre.
+///     It holds whether or not <paramref name="Tests" /> does.
+/// </param>
+public readonly record struct PaintOcclusion(bool Tests, float Tolerance, float Facing = PaintOcclusion.AnyFacing) {
+    /// <summary>The <see cref="Facing" /> that keeps no face the camera looks at from a stroke.</summary>
+    public const float AnyFacing = MathF.PI / 2f;
+
     /// <summary>What a stroke does unless asked otherwise: only what is seen, to a five-hundredth of the model's size.</summary>
     public static PaintOcclusion Default { get; } = new(true, 0.002f);
 
     /// <summary>Every texel within the depth under the brush, seen or not, which is what a stroke did before the test.</summary>
     public static PaintOcclusion None { get; } = new(false, 0f);
+
+    /// <summary>The least cosine a face's turn from the camera may have, or below -1 when every face is painted.</summary>
+    internal float LeastFacing => Facing is >= AnyFacing or float.NaN ? -2f : MathF.Cos(MathF.Max(Facing, 0f));
 }
 
 /// <summary>How much of a mesh one click of a polygon fill takes.</summary>

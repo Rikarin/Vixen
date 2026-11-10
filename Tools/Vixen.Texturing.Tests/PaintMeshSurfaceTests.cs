@@ -224,6 +224,44 @@ public class PaintMeshSurfaceTests {
         Assert.InRange(stroke.WeightsEvaluated, painted, painted * 2L);
     }
 
+    /// <summary>
+    ///     A facing angle keeps a stroke off a face it only grazes: the sheet seen eighty degrees from square takes a
+    ///     stamp with every facing allowed and none with seventy, while the same seventy still paints it seen square on.
+    /// </summary>
+    [Fact]
+    public void A_facing_angle_keeps_a_stroke_off_a_face_it_only_grazes() {
+        var surface = Sheet();
+        var (sine, cosine) = MathF.SinCos(1.4f);
+        PaintView side = new(
+            new(sine * 4f, 0f, cosine * 4f),
+            new(cosine, 0f, -sine),
+            new(0f, 1f, 0f),
+            new(-sine, 0f, -cosine),
+            2f * MathF.Atan(0.5f),
+            512,
+            512
+        );
+        var steep = PaintOcclusion.Default with { Facing = 70f * MathF.PI / 180f };
+
+        int Painted(PaintView view, PaintOcclusion occlusion, Vector2 at) {
+            PaintImage image = new(Side, Side);
+            Stroke(image, surface, surface.Through(view, occlusion: occlusion), 0).MoveTo(at);
+            var count = 0;
+
+            for (var texel = 0; texel < Side * Side; texel++) {
+                count += image[texel] != 0u ? 1 : 0;
+            }
+
+            return count;
+        }
+
+        var aim = side.Project(new(0f, 0f, 0f));
+
+        Assert.True(Painted(side, PaintOcclusion.Default, aim) > 0, "The stamp missed, so the zero below says nothing.");
+        Assert.Equal(0, Painted(side, steep, aim));
+        Assert.True(Painted(Facing(4f, 512), steep, new(256f, 256f)) > 0);
+    }
+
     [Fact]
     public void A_camera_paints_the_side_it_can_see_and_not_the_back_of_a_thin_wall() {
         var surface = Wall();
