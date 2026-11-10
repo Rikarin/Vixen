@@ -360,7 +360,10 @@ public static class ModelReader {
         }
 
         return new(model, meshes, skeleton, animations) {
-            MaterialFactors = factors, MaterialTextures = textures, TexCoordSets = sets, UnitScaleFactor = UnitScale(scene)
+            MaterialFactors = factors,
+            MaterialTextures = textures,
+            TexCoordSets = sets,
+            UnitScaleFactor = UnitScale(scene)
         };
     }
 
