@@ -45,9 +45,15 @@ public class TextureFormatDeviceTests(ITestOutputHelper output) {
     ///     that a flip is rare — a texel in 256 — rather than absent; a format that moved the step itself would
     ///     flip a band, not a speck. Patina #176's <c>Surface/Height Shadow</c> is a step too at its default
     ///     hardness: a horizon a hair above the light's elevation at one depth is a hair below it at the other.
+    ///     ⚠ <b>Patina #170's displacement map puts <c>Placement/Tile Sampler</c> on the list.</b> With every image port
+    ///     wired to a noise, each instance moves by the noise, so its hard square edge lands anywhere rather than on a
+    ///     cell boundary, and a half's rounding of the noise moves an edge across one of a texel's sixteen sub-samples:
+    ///     a sixteenth of a step, in a texel here and there. Turning the displacement off alone made the two depths
+    ///     agree, which is how it was found.
     /// </remarks>
     static readonly HashSet<string> Stepped = [
-        "Analysis/Compare", "Colour/Palette", "Colour/Quantise", "Colour/Threshold", "Surface/Height Shadow"
+        "Analysis/Compare", "Colour/Palette", "Colour/Quantise", "Colour/Threshold", "Placement/Tile Sampler",
+        "Surface/Height Shadow"
     ];
 
     /// <summary>Every node a graph with nothing but wires can hold, one graph each.</summary>

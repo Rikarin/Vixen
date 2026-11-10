@@ -19,6 +19,47 @@ public class TextureNodeFamilySheetTests(ITestOutputHelper output) {
 
     static readonly byte[] Ramp = Grey(Side, Side, (x, y) => (((y * Side) + x) / (float)(Side * Side)) * (((y * Side) + x) / (float)(Side * Side)));
 
+    /// <summary>Five discs of different sizes and a bar, the mask the distance and flood subjects measure.</summary>
+    static readonly byte[] Discs = Grey(Side, Side, (x, y) => {
+        (float X, float Y, float R)[] discs = [(60, 60, 40), (180, 70, 28), (90, 180, 50), (200, 190, 20), (128, 128, 12)];
+
+        foreach (var (cx, cy, r) in discs) {
+            if (((x - cx) * (x - cx)) + ((y - cy) * (y - cy)) < r * r) {
+                return 1f;
+            }
+        }
+
+        return x is > 150 and < 240 && y is > 120 and < 140 ? 1f : 0f;
+    });
+
+    /// <summary>A coloured board of eight by eight squares, for something to remap.</summary>
+    static readonly byte[] Board = Picture(Side, Side, (x, y) => {
+        var odd = ((x / 32) + (y / 32)) % 2 == 1;
+
+        return odd ? (x / (float)Side, 0.3f, y / (float)Side, 1f) : (0.9f, 0.9f, 0.2f, 1f);
+    });
+
+    /// <summary>A UV field turned about the centre, red across and green down.</summary>
+    static readonly byte[] Swirled = Picture(Side, Side, (x, y) => {
+        var (u, v) = ((x + 0.5f) / Side - 0.5f, (y + 0.5f) / Side - 0.5f);
+        var turn = 2f * MathF.Max(0f, 0.5f - MathF.Sqrt((u * u) + (v * v)));
+        var (c, s) = (MathF.Cos(turn), MathF.Sin(turn));
+
+        return ((u * c) - (v * s) + 0.5f, (u * s) + (v * c) + 0.5f, 0.5f, 1f);
+    });
+
+    /// <summary>A profile of three steps rising left to right.</summary>
+    static readonly byte[] Steps = Grey(Side, Side, (x, _) => MathF.Floor(x * 4f / Side) / 3f);
+
+    /// <summary>A Tile Sampler's Index output at its default eight by eight grid.</summary>
+    static readonly byte[] Numbered = Grey(Side, Side, (x, y) => ((x / 32) + ((y / 32) * 8) + 0.5f) / 64f);
+
+    /// <summary>A mid grey to glow over.</summary>
+    static readonly byte[] Dim = Grey(Side, Side, (_, _) => 0.15f);
+
+    /// <summary>A light grey to cast a shadow on.</summary>
+    static readonly byte[] Light = Grey(Side, Side, (_, _) => 0.85f);
+
     static readonly (string Name, string Path, Wire[] Wires, Action<GraphNode>? Numbers)[] Subjects = [
         ("noise gaussian", "Source/Noise", [], node => {
             node.SetText("Basis", "Gaussian");
@@ -109,7 +150,47 @@ public class TextureNodeFamilySheetTests(ITestOutputHelper output) {
         ("weave", "Patterns/Weave", [], null),
         ("hex cells", "Patterns/Hex Cells", [], null),
         ("triangle grid", "Patterns/Triangle Grid", [], null),
-        ("varied brick", "Patterns/Varied Brick", [], null)
+        ("varied brick", "Patterns/Varied Brick", [], null),
+
+        // Patina wave 8: #167's blue noise and the rest of the noise row, #168's patterns, #170's maps and
+        // #174's distance and flood nodes.
+        ("blue noise", "Source/Blue Noise", [], node => node.SetValue("Scale", 4f)),
+        ("blue noise cut", "Colour/Threshold", [new("Input", [], Grey: true, Source: "Source/Blue Noise")], node => node.SetValue("Level", 0.9f)),
+        ("directional noise", "Noise/Directional Noise", [], node => node.SetValue("Angle", 0.5f)),
+        ("gaussian blobs", "Noise/Gaussian Blobs", [], null),
+        ("plasma", "Noise/Plasma", [], null),
+        ("caustics", "Noise/Caustics", [], null),
+        ("moisture", "Noise/Moisture", [], null),
+        ("fur", "Noise/Fur", [], null),
+        ("fibres", "Noise/Fibres", [], null),
+        ("waveform bars", "Noise/Waveform Bars", [], null),
+        ("creased cloth", "Noise/Creased Cloth", [], null),
+        ("microscope view", "Noise/Microscope View", [], null),
+        ("mesh grid", "Patterns/Mesh Grid", [], null),
+        ("fan pavement", "Patterns/Fan Pavement", [], null),
+        ("arc pavement", "Patterns/Arc Pavement", [], null),
+        ("triangulated", "Patterns/Triangulated Surface", [], null),
+        ("directional distance", "Analysis/Directional Distance", [new("Mask", Discs, Grey: true)], node => node.SetValue("Angle", 0.6f)),
+        ("height extrude", "Surface/Height Extrude", [new("Height", Discs, Grey: true)], node => {
+            node.SetValue("Length", 0.15f);
+            node.SetValue("Falloff", 0.6f);
+        }),
+        ("uv remap", "Space/UV Remap", [new("Input", Board, Grey: false), new("UV", Swirled)], null),
+        ("outline", "Adjust/Outline", [new("Mask", Discs, Grey: true)], null),
+        ("outer glow", "Adjust/Outer Glow", [new("Input", Dim), new("Mask", Discs, Grey: true)], null),
+        ("cast shadow", "Adjust/Cast Shadow", [new("Input", Light), new("Shape", Discs, Grey: true)], null),
+        ("bevel profile", "Surface/Bevel Profile", [new("Mask", Discs, Grey: true), new("Profile", Steps)], null),
+        ("island remap", "Utility/Island Remap", [new("Mask", Discs, Grey: true), new("Pattern", Board)], null),
+        ("fill from edges", "Utility/Fill from Edges", [new("Mask", Discs, Grey: true)], null),
+        ("instance range", "Utility/Instance Range", [new("Index", Numbered, Grey: true)], null),
+        ("atlas pack", "Utility/Atlas Pack", [new("First", Discs), new("Second", Board), new("Third", Swirled), new("Fourth", Steps)], null),
+        ("sampler maps", "Placement/Tile Sampler", [
+            new("Pattern", Discs), new("Pattern 2", Board), new("Vector Map", Swirled), new("Colour Map", Swirled),
+            new("Displacement Map", [], Source: "Source/Noise")
+        ], node => node.SetValue("Scale", 0.8f)),
+        ("sampler index map", "Placement/Tile Sampler", [
+            new("Pattern", Discs), new("Pattern 2", Board), new("Pattern 3", Steps), new("Index Map", Ramp, Grey: true)
+        ], node => node.SetValue("Scale", 0.8f))
     ];
 
     [Fact]

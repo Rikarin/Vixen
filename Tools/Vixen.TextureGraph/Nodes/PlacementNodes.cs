@@ -16,17 +16,69 @@ static class Placements {
     ///     ⚠ A grey pattern resolves the node to grey, and a grey target keeps one lane of three: a random
     ///     colour per instance written there is a random grey, and a UV is its red alone.
     /// </remarks>
-    public static int Target(TextureEmitter emitter, TexturePlacementOutput draws) =>
-        draws is TexturePlacementOutput.Colour or TexturePlacementOutput.Uv
+    /// <param name="tinted">Whether a colour map is wired, which tints a grey pattern into colour.</param>
+    public static int Target(TextureEmitter emitter, TexturePlacementOutput draws, bool tinted = false) =>
+        tinted || draws is TexturePlacementOutput.Colour or TexturePlacementOutput.Uv
             ? emitter.Write("Out", TextureChannels.Colour)
             : emitter.Write("Out");
+
+    /// <summary>The Tile Sampler's maps and further patterns, each null where nothing is wired.</summary>
+    /// <param name="node">The node, whose binding says what is wired.</param>
+    /// <param name="emitter">Where to read.</param>
+    /// <returns>The maps, and whether a wired port produced no image.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Asked per port, so an amount only counts when its map is wired</b>, which is what lets the
+    ///     amounts default to something that does a thing: an unwired slot is bound as the pattern and its amount
+    ///     written as zero by <c>TexturePlacement.TileSampler</c>. The further patterns are packed in the order
+    ///     they are wired, so wiring only <c>Pattern 3</c> makes it the second.
+    /// </remarks>
+    public static (TileSamplerMaps Value, bool Refused) Maps(Node node, TextureEmitter emitter) {
+        var refused = false;
+
+        int? Wired(string port) {
+            if (!node.Binding.IsConnected(port)) {
+                return null;
+            }
+
+            var image = emitter.Read(port);
+
+            refused |= image < 0;
+
+            return image;
+        }
+
+        var displacement = Wired("Displacement Map");
+        var vector = Wired("Vector Map");
+        var colour = Wired("Colour Map");
+        var index = Wired("Index Map");
+        var patterns = ImmutableArray.CreateBuilder<int>();
+
+        foreach (var port in (string[])["Pattern 2", "Pattern 3", "Pattern 4"]) {
+            if (Wired(port) is { } image) {
+                patterns.Add(image);
+            }
+        }
+
+        var maps = new TileSamplerMaps(
+            displacement,
+            emitter.Number("Displacement Amount"),
+            vector,
+            emitter.Number("Vector Amount"),
+            colour,
+            emitter.Number("Colour Amount"),
+            index,
+            patterns.ToImmutable()
+        );
+
+        return (maps, refused);
+    }
 }
 
 /// <summary>A grid of cells with one instance of a pattern in each.</summary>
 /// <remarks>
 ///     <para>
-///         <b>Only the pattern has to be wired.</b> The three map ports are
-///         <see cref="TexturePorts.Optional" />: the kernel declares four textures and the evaluator
+///         <b>Only the pattern has to be wired.</b> The map ports and the further patterns are
+///         <see cref="TexturePorts.Optional" />: the kernel declares eleven textures and the evaluator
 ///         binds them positionally, so an unfilled slot takes the pattern and its own
 ///         <c>…Amount</c> — zero by default — is what says nothing reads it. A mask threshold of
 ///         zero never culls, because a coverage is never below zero.
@@ -60,6 +112,14 @@ static class Placements {
 ///         pattern's coverage. They are what a tint per tile, a mask from a range of instances
 ///         (<c>Index</c> through a <c>Utility/Histogram Select</c>) or a ramp across every instance is made of.
 ///     </para>
+///     <para>
+///         <b>Four more maps and three more patterns</b> (Patina #170), each read at an instance's centre: a
+///         displacement moves it by up to <c>Displacement Amount</c> cells, a vector turns it to face along the
+///         map, a colour multiplies it, and an index map chooses which of the patterns and columns it draws. ⚠
+///         <b>Their amounts default to doing something</b>, unlike the first two maps', because the node writes
+///         an amount as nought whenever its map is unwired — so wiring a map is enough, and an unwired one is
+///         never read. A wired colour map makes the output colour, whatever the pattern is.
+///     </para>
 /// </remarks>
 [Node("Placement/Tile Sampler", Preview = true, Adjustment = false, Summary = "A grid of cells with one jittered instance of a pattern in each.")]
 sealed partial class TileSamplerNode : TextureNode {
@@ -89,6 +149,34 @@ sealed partial class TileSamplerNode : TextureNode {
     /// <summary>Read at each instance's centre; turns it, under <c>Rotation Map Amount</c>.</summary>
     [Input(Name = "Rotation Map")]
     public Image RotationMap;
+
+    /// <summary>Read at each instance's centre; red and green about a half move it, under <c>Displacement Amount</c>.</summary>
+    [Input(Name = "Displacement Map")]
+    public Image DisplacementMap;
+
+    /// <summary>Read at each instance's centre; red and green about a half are a direction it turns to face.</summary>
+    [Input(Name = "Vector Map")]
+    public Image VectorMap;
+
+    /// <summary>Read at each instance's centre; multiplies its colour, so a grey pattern comes out in colour.</summary>
+    [Input(Name = "Colour Map")]
+    public Image ColourMap;
+
+    /// <summary>Read at each instance's centre; its value chooses which pattern and column the instance draws.</summary>
+    [Input(Name = "Index Map")]
+    public Image IndexMap;
+
+    /// <summary>A second pattern an instance may be drawn from.</summary>
+    [Input(Name = "Pattern 2")]
+    public Image Pattern2;
+
+    /// <summary>A third pattern an instance may be drawn from.</summary>
+    [Input(Name = "Pattern 3")]
+    public Image Pattern3;
+
+    /// <summary>A fourth pattern an instance may be drawn from.</summary>
+    [Input(Name = "Pattern 4")]
+    public Image Pattern4;
 
     /// <summary>How many cells across.</summary>
     [Input(Name = "Grid X", Minimum = 1f)]
@@ -160,6 +248,18 @@ sealed partial class TileSamplerNode : TextureNode {
     [Input(Name = "Rotation Map Amount", SoftMinimum = 0f, SoftMaximum = MathF.Tau)]
     public Scalar RotationMapAmount = 0f;
 
+    /// <summary>How far a fully deflected displacement map moves an instance, in cells.</summary>
+    [Input(Name = "Displacement Amount", Minimum = 0f, Maximum = TexturePlacement.MaxSearch)]
+    public Scalar DisplacementAmount = 0.25f;
+
+    /// <summary>How much of the vector map's direction an instance turns to face, 0–1.</summary>
+    [Input(Name = "Vector Amount", Minimum = 0f, Maximum = 1f)]
+    public Scalar VectorAmount = 1f;
+
+    /// <summary>How much of the colour map's colour an instance takes, 0–1.</summary>
+    [Input(Name = "Colour Amount", Minimum = 0f, Maximum = 1f)]
+    public Scalar ColourAmount = 1f;
+
     /// <summary>How much of each instance reaches the result.</summary>
     [Input(Minimum = 0f, Maximum = 1f)]
     public Scalar Opacity = 1f;
@@ -178,9 +278,10 @@ sealed partial class TileSamplerNode : TextureNode {
         var mask = TexturePorts.Optional(this, emitter, "Mask", pattern);
         var sizeMap = TexturePorts.Optional(this, emitter, "Size Map", pattern);
         var rotationMap = TexturePorts.Optional(this, emitter, "Rotation Map", pattern);
-        var target = Placements.Target(emitter, draws);
+        var (maps, refused) = Placements.Maps(this, emitter);
+        var target = Placements.Target(emitter, draws, maps.Colour is not null);
 
-        if (pattern < 0 || mask < 0 || sizeMap < 0 || rotationMap < 0) {
+        if (pattern < 0 || mask < 0 || sizeMap < 0 || rotationMap < 0 || refused) {
             return;
         }
 
@@ -208,7 +309,8 @@ sealed partial class TileSamplerNode : TextureNode {
                     accumulation,
                     emitter.Number(nameof(Opacity)),
                     draws,
-                    emitter.Number("Row Offset")
+                    emitter.Number("Row Offset"),
+                    maps
                 )
             );
         } catch (ArgumentException refusal) {

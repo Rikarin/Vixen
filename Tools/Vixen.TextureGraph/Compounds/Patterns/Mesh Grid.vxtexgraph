@@ -1,0 +1,117 @@
+version: 1
+name: Mesh Grid
+nodes:
+  - id: 1
+    type: Sub-graph/Input
+    x: -1280
+    y: 0
+    values: {}
+    texts: {}
+  - id: 2
+    type: Source/Gradient
+    x: -1280
+    y: 0
+    values: {}
+    texts: {}
+  - id: 3
+    type: Colour/Grayscale
+    x: -960
+    y: 0
+    values:
+      Weight R: [1]
+      Weight G: [0]
+      Weight B: [0]
+    texts: {}
+  - id: 7
+    type: Space/Mirror
+    x: -640
+    y: 0
+    values:
+      Offset: [0.5]
+    texts:
+      Axis: X
+      Mode: Reflect
+  - id: 8
+    type: Space/Tile
+    x: -320
+    y: 0
+    values:
+      Repeat Y: [1]
+    texts: {}
+  - id: 9
+    type: Colour/Threshold
+    x: 0
+    y: 0
+    values: {}
+    texts:
+      '=Level': 'wire * 0.5f'
+      '=Softness': softness
+  - id: 10
+    type: Colour/Invert
+    x: 320
+    y: 0
+    values: {}
+    texts: {}
+  - id: 4
+    type: Space/Transform 2D
+    x: 320
+    y: 240
+    values:
+      Rotation: [1.570796325]
+    texts:
+      Tiling: Wrap
+  - id: 5
+    type: Colour/Blend
+    x: 640
+    y: 0
+    values: {}
+    texts:
+      Mode: Lighten
+  - id: 6
+    type: Sub-graph/Output
+    x: 960
+    y: 0
+    values: {}
+    texts: {}
+edges:
+  - { fromNode: 2, fromPort: Out, toNode: 3, toPort: Input }
+  - { fromNode: 3, fromPort: Out, toNode: 7, toPort: Input }
+  - { fromNode: 7, fromPort: Out, toNode: 8, toPort: Input }
+  - { fromNode: 1, fromPort: Count, toNode: 8, toPort: Repeat X }
+  - { fromNode: 8, fromPort: Out, toNode: 9, toPort: Input }
+  - { fromNode: 9, fromPort: Out, toNode: 10, toPort: Input }
+  - { fromNode: 10, fromPort: Out, toNode: 4, toPort: Input }
+  - { fromNode: 10, fromPort: Out, toNode: 5, toPort: Background }
+  - { fromNode: 4, fromPort: Out, toNode: 5, toPort: Foreground }
+  - { fromNode: 5, fromPort: Out, toNode: 6, toPort: Out }
+groups: []
+comments: []
+interface:
+  - name: Count
+    direction: Input
+    kind: Int
+    default: [12]
+    summary: How many wires each way across the image.
+  - name: Out
+    direction: Output
+    kind: Image
+    default: []
+    summary: 'A square grid of wires: one on a wire, nought in the openings.'
+settings: { baseWidth: '1024', baseHeight: '1024', seed: '1', summary: 'A square grid of wires, like a mesh or a fence.' }
+parameters:
+  - name: wire
+    label: Wire
+    default: '0.2'
+    summary: 'How much of each opening''s pitch a wire takes.'
+    kind: Float
+    minimum: 0.01
+    maximum: 1
+    group: Mesh Grid
+  - name: softness
+    label: Softness
+    default: '0.03'
+    summary: 'How soft a wire''s edge is, as a share of the pitch.'
+    kind: Float
+    minimum: 0
+    maximum: 0.5
+    group: Mesh Grid

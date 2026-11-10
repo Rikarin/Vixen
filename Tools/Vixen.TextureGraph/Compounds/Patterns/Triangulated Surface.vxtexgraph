@@ -1,0 +1,75 @@
+version: 1
+name: Triangulated Surface
+nodes:
+  - id: 1
+    type: Sub-graph/Input
+    x: -1280
+    y: 0
+    values: {}
+    texts: {}
+  - id: 2
+    type: Patterns/Triangle Grid
+    x: -1280
+    y: 0
+    values: {}
+    texts:
+      gap: 0.02
+      bevel: 0.001
+  - id: 6
+    type: Space/Tile
+    x: -960
+    y: 0
+    values: {}
+    texts: {}
+  - id: 3
+    type: Analysis/Flood Fill
+    x: -640
+    y: 0
+    values:
+      Angle Variation: [6.2831853]
+    texts:
+      Kind: Gradient
+  - id: 4
+    type: Colour/Levels
+    x: -320
+    y: 0
+    values: {}
+    texts:
+      '=Output Black': '0.5f - tilt * 0.5f'
+      '=Output White': '0.5f + tilt * 0.5f'
+  - id: 5
+    type: Sub-graph/Output
+    x: 0
+    y: 0
+    values: {}
+    texts: {}
+edges:
+  - { fromNode: 2, fromPort: Out, toNode: 6, toPort: Input }
+  - { fromNode: 1, fromPort: Repeat, toNode: 6, toPort: Repeat X }
+  - { fromNode: 1, fromPort: Repeat, toNode: 6, toPort: Repeat Y }
+  - { fromNode: 6, fromPort: Out, toNode: 3, toPort: Mask }
+  - { fromNode: 3, fromPort: Out, toNode: 4, toPort: Input }
+  - { fromNode: 4, fromPort: Out, toNode: 5, toPort: Out }
+groups: []
+comments: []
+interface:
+  - name: Repeat
+    direction: Input
+    kind: Int
+    default: [1]
+    summary: 'How many times the facets repeat across and down, each repeat a smaller copy.'
+  - name: Out
+    direction: Output
+    kind: Image
+    default: []
+    summary: 'A height of flat triangular facets, each tilted its own way, like a low-polygon surface; nought in the joints.'
+settings: { baseWidth: '1024', baseHeight: '1024', seed: '1', summary: 'Flat triangular facets each tilted its own way, like a low-polygon surface.' }
+parameters:
+  - name: tilt
+    label: Tilt
+    default: '0.8'
+    summary: 'How steeply a facet may lean: nought is every facet flat at a half.'
+    kind: Float
+    minimum: 0
+    maximum: 1
+    group: Triangulated Surface

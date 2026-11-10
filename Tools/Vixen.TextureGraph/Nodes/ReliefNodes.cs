@@ -76,6 +76,64 @@ sealed partial class HeightShadowNode : TextureNode {
     }
 }
 
+/// <summary>A height field pushed out along one direction, every raised shape trailing a side.</summary>
+/// <remarks>
+///     <para>
+///         <b>Each texel takes the highest of the heights behind it along <c>Angle</c>, up to <c>Length</c> away,
+///         each lowered by how far back it is</b> (Patina #168's height extrude). At a <c>Falloff</c> of nought a
+///         shape is drawn out at its full height, a block's side seen at an angle; at one its side ramps down to
+///         nought at the full length, a slope. Nothing ends lower than it was.
+///     </para>
+///     <para>
+///         ⚠ <b>A bounded walk</b>, <c>Analysis/Directional Distance</c>'s: at most 512 taps a texel, so a length
+///         longer than 512 texels strides further than one. It wraps on a graph that tiles.
+///     </para>
+/// </remarks>
+[Node("Surface/Height Extrude", Preview = true, Summary = "Pushes a height field's shapes out along one direction, each trailing a side.")]
+sealed partial class HeightExtrudeNode : TextureNode {
+    /// <summary>The height field. A single channel.</summary>
+    [Input(Name = "Height")]
+    public Image HeightMap;
+
+    /// <summary>The direction the shapes are pushed, in radians: 0 is to the right, π/2 down.</summary>
+    [Input(SoftMinimum = -MathF.PI, SoftMaximum = MathF.PI)]
+    public Scalar Angle = MathF.PI / 4f;
+
+    /// <summary>How far they are pushed, as a fraction of the image's longer side.</summary>
+    [Input(Minimum = 0f, SoftMaximum = 0.5f)]
+    public Scalar Length = 0.05f;
+
+    /// <summary>How far the side falls over the length: 0 keeps every shape's height, 1 ramps it to nought.</summary>
+    [Input(Minimum = 0f, Maximum = 1f)]
+    public Scalar Falloff = 0f;
+
+    /// <summary>The extruded height.</summary>
+    [Output(Name = "Out")]
+    public Image Out;
+
+    /// <inheritdoc />
+    protected internal override void Compile(TextureEmitter emitter) {
+        ArgumentNullException.ThrowIfNull(emitter);
+
+        var height = emitter.ReadGrey("Height");
+        var target = emitter.Write("Out", TextureChannels.Grey);
+
+        if (height < 0) {
+            return;
+        }
+
+        emitter.Dispatch(
+            TextureRelief.HeightExtrude(
+                target,
+                height,
+                emitter.Number(nameof(Angle)),
+                emitter.Number(nameof(Length)),
+                emitter.Number(nameof(Falloff))
+            )
+        );
+    }
+}
+
 /// <summary>One normal map faded into another, as directions.</summary>
 /// <remarks>
 ///     <para>

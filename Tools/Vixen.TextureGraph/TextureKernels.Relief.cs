@@ -18,8 +18,11 @@ internal static class TextureReliefKernels {
     /// <summary>One normal map faded into another as unit vectors, by an opacity and a mask.</summary>
     public const string NormalBlend = "NormalBlend";
 
+    /// <summary>A height field pushed out along one direction, by a bounded walk keeping the highest — Patina #168.</summary>
+    public const string HeightExtrude = "HeightExtrude";
+
     /// <summary>Every kernel this slice registers, which is what the roll call enumerates.</summary>
-    public static IReadOnlyList<string> All { get; } = [HeightShadow, NormalBlend];
+    public static IReadOnlyList<string> All { get; } = [HeightExtrude, HeightShadow, NormalBlend];
 }
 
 /// <summary>The ops Patina #176's surface and lighting nodes are.</summary>
@@ -75,6 +78,29 @@ internal static class TextureRelief {
             Parameters = [new("opacity", opacity), new("masked", mask >= 0 ? 1f : 0f)]
         };
 
+    /// <summary>Patina #168's height extrude.</summary>
+    /// <param name="output">The image to write.</param>
+    /// <param name="height">The height field, read from its red channel.</param>
+    /// <param name="angle">The direction the shapes are pushed, in radians: 0 toward +x, π/2 toward +y.</param>
+    /// <param name="length">How far, as a fraction of the image's longer side.</param>
+    /// <param name="falloff">How far the side falls over the length, 0–1.</param>
+    /// <returns>The op.</returns>
+    /// <remarks>
+    ///     ⚠ <b>The length is a fraction of the image and not texels at the base</b>, as a distance's reach is, so it
+    ///     is the same extrusion at every bake without § D8's scaling.
+    /// </remarks>
+    public static TextureOp HeightExtrude(int output, int height, float angle = 0.785398f, float length = 0.05f, float falloff = 0f) =>
+        new() {
+            Kernel = TextureReliefKernels.HeightExtrude,
+            Output = output,
+            Inputs = [height],
+            Parameters = [
+                new("angle", angle),
+                new("length", length),
+                new("falloff", falloff)
+            ]
+        };
+
     /// <summary>Every op this class can build, for a test that wants to walk them.</summary>
-    public static ImmutableArray<TextureOp> All { get; } = [HeightShadow(0, 1), NormalBlend(0, 1, 2)];
+    public static ImmutableArray<TextureOp> All { get; } = [HeightExtrude(0, 1), HeightShadow(0, 1), NormalBlend(0, 1, 2)];
 }

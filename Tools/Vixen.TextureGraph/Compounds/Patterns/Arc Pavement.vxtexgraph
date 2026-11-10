@@ -1,0 +1,120 @@
+version: 1
+name: Arc Pavement
+nodes:
+  - id: 1
+    type: Sub-graph/Input
+    x: -1280
+    y: 0
+    values: {}
+    texts: {}
+  - id: 2
+    type: Source/Gradient
+    x: -1280
+    y: 0
+    values:
+      Scale: [1]
+    texts:
+      Kind: Radial
+  - id: 10
+    type: Colour/Grayscale
+    x: -1120
+    y: 0
+    values:
+      Weight R: [1]
+      Weight G: [0]
+      Weight B: [0]
+    texts: {}
+  - id: 3
+    type: Colour/Gradient Map
+    x: -960
+    y: 0
+    values: {}
+    texts:
+      Ramp: 'ramp:0 ffffffff,0.52 ffffffff,0.55 404040ff,0.58 ffffffff,0.68 ffffffff,0.71 404040ff,0.74 ffffffff,0.84 ffffffff,0.87 404040ff,0.9 ffffffff,1 ffffffff'
+  - id: 5
+    type: Source/Shape
+    x: -960
+    y: 240
+    values: {}
+    texts:
+      Kind: Disc
+      '=Falloff': bevel
+  - id: 8
+    type: Colour/Blend
+    x: -800
+    y: 0
+    values: {}
+    texts:
+      Mode: Multiply
+  - id: 6
+    type: Colour/Channel Shuffle
+    x: -640
+    y: 0
+    values: {}
+    texts:
+      Alpha From: SecondRed
+  - id: 9
+    type: Placement/Tile Sampler
+    x: -480
+    y: 0
+    values:
+      Row Offset: [0.5]
+      Scale: [1.8]
+      Alpha Coverage: [1]
+    texts:
+      Accumulation: Blend
+  - id: 7
+    type: Colour/Grayscale
+    x: -320
+    y: 0
+    values:
+      Weight R: [1]
+      Weight G: [0]
+      Weight B: [0]
+    texts: {}
+  - id: 4
+    type: Sub-graph/Output
+    x: -160
+    y: 0
+    values: {}
+    texts: {}
+edges:
+  - { fromNode: 2, fromPort: Out, toNode: 10, toPort: Input }
+  - { fromNode: 10, fromPort: Out, toNode: 3, toPort: Input }
+  - { fromNode: 3, fromPort: Out, toNode: 8, toPort: Background }
+  - { fromNode: 5, fromPort: Out, toNode: 8, toPort: Foreground }
+  - { fromNode: 8, fromPort: Out, toNode: 6, toPort: First }
+  - { fromNode: 5, fromPort: Out, toNode: 6, toPort: Second }
+  - { fromNode: 6, fromPort: Out, toNode: 9, toPort: Pattern }
+  - { fromNode: 1, fromPort: Columns, toNode: 9, toPort: Grid X }
+  - { fromNode: 1, fromPort: Rows, toNode: 9, toPort: Grid Y }
+  - { fromNode: 9, fromPort: Out, toNode: 7, toPort: Input }
+  - { fromNode: 7, fromPort: Out, toNode: 4, toPort: Out }
+groups: []
+comments: []
+interface:
+  - name: Columns
+    direction: Input
+    kind: Int
+    default: [6]
+    summary: How many arcs across the image.
+  - name: Rows
+    direction: Input
+    kind: Int
+    default: [8]
+    summary: How many rows of arcs down the image. An even number keeps the bond across the seam.
+  - name: Out
+    direction: Output
+    kind: Image
+    default: []
+    summary: 'Rows of shallow arcs of setts, each row half an arc along and laid over the one above, with dark joints between the courses.'
+settings: { baseWidth: '1024', baseHeight: '1024', seed: '1', summary: 'Rows of shallow overlapping arcs of setts, like a segmental arc pavement.' }
+parameters:
+  - name: bevel
+    label: Bevel
+    default: '0.02'
+    summary: 'How soft an arc''s outer edge is.'
+    kind: Float
+    minimum: 0
+    maximum: 0.5
+    group: Arc Pavement

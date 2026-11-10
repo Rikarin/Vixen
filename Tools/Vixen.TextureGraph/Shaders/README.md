@@ -1,6 +1,6 @@
 # Shaders
 
-The texture graph's atomic kernels, in Raven. **Eighty-four `.rvn` files**, which is
+The texture graph's atomic kernels, in Raven. **Ninety-five `.rvn` files**, which is
 [doc 48 § 4.11](../../../docs/plan/48-material-authoring.md)'s forty-one adjusted seven ways — and
 every adjustment is a fact about the catalogue rather than an arithmetic slip:
 
@@ -16,7 +16,9 @@ every adjustment is a fact about the catalogue rather than an arithmetic slip:
 | + Patina's audit, wave 5: `HeightShadow`, `NormalBlend`, `VolumeNoise`, `VolumeShape` | +4 | Patina #176's lighting and #179's position-driven sources, in `TextureReliefKernels` and `TextureVolumeKernels` |
 | + Patina's layers, wave 5: `Compare` | +1 | Patina #110's Compare Mask, in `TextureColourOperators` |
 | + Patina's layers, wave 7: `Decal`, `SurfacePath` | +2 | Patina #130, #131, #133 and #134's decal and path projections, in `TextureProjectionKernels` |
-| = files in this folder | **87** | `TextureKernels.Names` at run time |
+| + Patina wave 7's photo and terrain nodes: `FlattenLight`, `PatchScatter`, `PhotometricNormal`, `ThermalErosion` | +4 | Patina #178 and #218, in `TexturePhotoKernels`. ⚠ The fifth time this table fell behind: they shipped with the count left at 87 |
+| + Patina wave 8: `BlueNoise`, `DirectionalDistance`, `UvRemap`, `HeightExtrude` | +4 | Patina #167's blue noise in `TextureSources`, #174's directional distance and UV remap in `TextureAnalysisKernels` and `TextureRemapKernels`, and #168's height extrude in `TextureReliefKernels` |
+| = files in this folder | **95** | `TextureKernels.Names` at run time |
 
 ⚠ **This number read forty-five while the folder held forty-seven, and it is the third time a count
 here has fallen behind the directory.** `Triplanar` and `ColourSelect` shipped and nobody came back.
@@ -188,6 +190,15 @@ the cell into its grid before hashing it, which is all that makes the result til
 Neyret's variance-preserving mix about a `MeanReduce` mean, since a plain mean of unrelated patches halves their
 contrast along every overlap. ⚠ `ThermalErosion` is a gather of a pairwise exchange, so it conserves material to
 the last bit; the textbook form, which weighs a giver's flows by its other neighbours, does not.
+
+**Patina's eighth wave — four more, in four surfaces.** `BlueNoise` (Patina #167) reads a void-and-cluster tile
+`TextureBlueNoise` makes once on the CPU, point sampled because a filtered blue noise is a low-passed one, and turns
+a seed into a shift and one of the square's eight symmetries rather than a new tile. `DirectionalDistance` (#174)
+is a bounded walk of at most 512 taps back against an angle, `Distance`'s convention along one direction only, and
+`UvRemap` (#174) reads its source at the coordinate a second image holds, the absolute half of `VectorWarp`.
+`HeightExtrude` (#168) is the same walk over a height, keeping the highest height behind a texel lowered by a falloff. And
+`TileSampler` binds eleven textures now — four further maps and three further patterns, every one bound as the
+pattern when unwired and read only under an amount above nought.
 
 **Patina's fourth wave — five more, in one surface, and two sources widened.** `TextureStatisticsKernels`
 (Patina #172): `HistogramCount` · `HistogramTable` · `HistogramPlot` · `HistogramEqualise` · `SummedArea`.

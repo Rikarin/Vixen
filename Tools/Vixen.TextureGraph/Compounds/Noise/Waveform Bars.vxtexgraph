@@ -1,0 +1,153 @@
+version: 1
+name: Waveform Bars
+nodes:
+  - id: 1
+    type: Sub-graph/Input
+    x: -1280
+    y: 0
+    values: {}
+    texts: {}
+  - id: 2
+    type: Source/Noise
+    x: -960
+    y: 0
+    values:
+      Scale: [1]
+      Scale Y: [1]
+    texts:
+      Basis: White
+  - id: 3
+    type: Colour/Levels
+    x: -640
+    y: 0
+    values: {}
+    texts:
+      '=Output Black': floor
+  - id: 4
+    type: Source/Gradient
+    x: -640
+    y: 240
+    values:
+      Angle: [1.570796325]
+    texts:
+      Kind: Reflected
+  - id: 5
+    type: Colour/Grayscale
+    x: -320
+    y: 240
+    values:
+      Weight R: [1]
+      Weight G: [0]
+      Weight B: [0]
+    texts: {}
+  - id: 6
+    type: Colour/Blend
+    x: -320
+    y: 0
+    values: {}
+    texts:
+      Mode: Subtract
+  - id: 7
+    type: Colour/Threshold
+    x: 0
+    y: 0
+    values:
+      Level: [0.001]
+    texts:
+      '=Softness': softness
+  - id: 8
+    type: Source/Gradient
+    x: -640
+    y: 480
+    values: {}
+    texts: {}
+  - id: 11
+    type: Colour/Grayscale
+    x: -320
+    y: 480
+    values:
+      Weight R: [1]
+      Weight G: [0]
+      Weight B: [0]
+    texts: {}
+  - id: 12
+    type: Space/Tile
+    x: 0
+    y: 480
+    values:
+      Repeat Y: [1]
+    texts: {}
+  - id: 13
+    type: Colour/Threshold
+    x: 0
+    y: 240
+    values: {}
+    texts:
+      '=Level': 1f - fill
+      '=Softness': softness
+  - id: 9
+    type: Colour/Blend
+    x: 320
+    y: 0
+    values: {}
+    texts:
+      Mode: Multiply
+  - id: 10
+    type: Sub-graph/Output
+    x: 640
+    y: 0
+    values: {}
+    texts: {}
+edges:
+  - { fromNode: 1, fromPort: Bars, toNode: 2, toPort: Scale X }
+  - { fromNode: 2, fromPort: Out, toNode: 3, toPort: Input }
+  - { fromNode: 4, fromPort: Out, toNode: 5, toPort: Input }
+  - { fromNode: 3, fromPort: Out, toNode: 6, toPort: Background }
+  - { fromNode: 5, fromPort: Out, toNode: 6, toPort: Foreground }
+  - { fromNode: 6, fromPort: Out, toNode: 7, toPort: Input }
+  - { fromNode: 8, fromPort: Out, toNode: 11, toPort: Input }
+  - { fromNode: 11, fromPort: Out, toNode: 12, toPort: Input }
+  - { fromNode: 1, fromPort: Bars, toNode: 12, toPort: Repeat X }
+  - { fromNode: 12, fromPort: Out, toNode: 13, toPort: Input }
+  - { fromNode: 7, fromPort: Out, toNode: 9, toPort: Background }
+  - { fromNode: 13, fromPort: Out, toNode: 9, toPort: Foreground }
+  - { fromNode: 9, fromPort: Out, toNode: 10, toPort: Out }
+groups: []
+comments: []
+interface:
+  - name: Bars
+    direction: Input
+    kind: Int
+    default: [32]
+    summary: How many bars across the image.
+  - name: Out
+    direction: Output
+    kind: Image
+    default: []
+    summary: 'Vertical bars of random height about the middle row, like a sound''s waveform: one on a bar, nought between.'
+settings: { baseWidth: '1024', baseHeight: '1024', seed: '1', summary: 'Bars of random height about the middle, like a waveform.' }
+parameters:
+  - name: floor
+    label: Least Height
+    default: '0.05'
+    summary: 'How tall the shortest bar is, as a share of the full height.'
+    kind: Float
+    minimum: 0
+    maximum: 1
+    group: Waveform Bars
+  - name: fill
+    label: Bar Width
+    default: '0.7'
+    summary: How much of each column a bar takes.
+    kind: Float
+    minimum: 0.05
+    maximum: 1
+    group: Waveform Bars
+  - name: softness
+    label: Softness
+    default: '0.02'
+    summary: 'How soft the ends and sides of a bar are, as a share of the height and of a column.'
+    kind: Float
+    minimum: 0
+    maximum: 0.5
+    group: Waveform Bars

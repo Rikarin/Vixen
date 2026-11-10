@@ -1,0 +1,82 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+package Vixen.TextureGraph.Shaders
+
+import Vixen.Shaders.Core
+
+// `Space/UV Remap`: every texel reads the source at the coordinate a second image holds for it, red
+// across and green down, both in 0..1 of the source (Patina #174).
+//
+// This is the absolute half of `Filters/Vector Warp`, which reads its map as an offset from where the
+// texel already is. A UV map says where to read outright, so a `Flood Fill` in `LocalUv` puts a whole
+// picture in every island, and an `Output` of `Uv` from a placement node puts one in every instance.
+//
+// ⚠ **The read wraps on an axis that tiles and clamps on one that does not**, as every remap here does,
+// so a coordinate of 1.25 is a quarter of the way in on a tiling graph and the far edge on another.
+//
+// `amount` mixes the coordinate between where the texel is (0) and what the map says (1), so the node
+// can fade a remap in rather than switch it.
+
+shader UvRemap {
+    /// The picture read.
+    var source: Texture2D
+
+    /// Where to read it: red is across and green down, in 0..1 of the source.
+    var uv: Texture2D
+
+    /// How much of the map's coordinate replaces the texel's own, 0..1.
+    var amount: float = 1f
+
+    var wrapX: int = 0
+
+    var wrapY: int = 0
+
+    [Format("rgba16f")] var target: RWTexture2D<float4>
+
+    func Fetch(x: int, y: int): float4 {
+        val extent = source.GetDimensions(0)
+
+        return source.Load(int3(Math.Address(x, extent.x, wrapX), Math.Address(y, extent.y, wrapY), 0))
+    }
+
+    func At(px: float, py: float): float4 {
+        val x0 = int(floor(px))
+        val y0 = int(floor(py))
+        val tx = px - float(x0)
+        val ty = py - float(y0)
+
+        val top = lerp(Fetch(x0, y0), Fetch(x0 + 1, y0), float4(tx, tx, tx, tx))
+        val bottom = lerp(Fetch(x0, y0 + 1), Fetch(x0 + 1, y0 + 1), float4(tx, tx, tx, tx))
+
+        return lerp(top, bottom, float4(ty, ty, ty, ty))
+    }
+
+    /// The coordinate the map holds for one target texel, read at the nearest map texel.
+    func Coordinate(coord: int2): float2 {
+        val size = target.GetDimensions()
+        val extent = uv.GetDimensions(0)
+        val x = int(floor((float(coord.x) + 0.5f) * float(extent.x) / float(size.x)))
+        val y = int(floor((float(coord.y) + 0.5f) * float(extent.y) / float(size.y)))
+        val texel = uv.Load(int3(Math.Address(x, extent.x, wrapX), Math.Address(y, extent.y, wrapY), 0))
+
+        return float2(texel.x, texel.y)
+    }
+
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val coord = int2(int(id.x), int(id.y))
+        val size = target.GetDimensions()
+
+        if (coord.x >= size.x || coord.y >= size.y) {
+            return
+        }
+
+        val extent = source.GetDimensions(0)
+        val own = float2((float(coord.x) + 0.5f) / float(size.x), (float(coord.y) + 0.5f) / float(size.y))
+        val share = saturate(amount)
+        val read = lerp(own, Coordinate(coord), float2(share, share))
+
+        target.Store(coord, At(read.x * float(extent.x) - 0.5f, read.y * float(extent.y) - 0.5f))
+    }
+}

@@ -107,6 +107,9 @@ internal static class TextureAnalysisKernels {
     /// <summary>A Sobel magnitude with a tap spacing and a soft threshold.</summary>
     public const string EdgeDetect = "EdgeDetect";
 
+    /// <summary>How far a texel is from a mask along one direction, by a bounded walk — Patina #174.</summary>
+    public const string DirectionalDistance = "DirectionalDistance";
+
     /// <summary>One iteration of the bounds propagation behind <c>Flood Fill</c>.</summary>
     public const string FloodBounds = "FloodBounds";
 
@@ -118,6 +121,7 @@ internal static class TextureAnalysisKernels {
 
     /// <summary>Every kernel this slice registers, which is what the roll call enumerates.</summary>
     public static IReadOnlyList<string> All { get; } = [
+        DirectionalDistance,
         Distance,
         EdgeDetect,
         FloodBounds,
@@ -313,6 +317,35 @@ internal static class TextureAnalysis {
             ]
         };
 
+    /// <summary>Patina #174's <c>Directional Distance</c>: how far a texel is from a mask along one direction.</summary>
+    /// <param name="output">The image to write.</param>
+    /// <param name="mask">The shape measured from, read from its red channel.</param>
+    /// <param name="angle">Which way the shape streaks, in radians from +x towards +y.</param>
+    /// <param name="maxDistance">How far the field reaches, as a fraction of the image's longer side.</param>
+    /// <param name="threshold">What counts as inside the mask.</param>
+    /// <returns>The op.</returns>
+    /// <remarks>
+    ///     ⚠ <b>The reach is a fraction of the image and not texels at the base</b>, as <c>Distance</c>'s is, so
+    ///     it is the same field at every bake without § D8's scaling.
+    /// </remarks>
+    public static TextureOp DirectionalDistance(
+        int output,
+        int mask,
+        float angle = 0f,
+        float maxDistance = 0.25f,
+        float threshold = 0.5f
+    ) =>
+        new() {
+            Kernel = TextureAnalysisKernels.DirectionalDistance,
+            Output = output,
+            Inputs = [mask],
+            Parameters = [
+                new("angle", angle),
+                new("maxDistance", maxDistance),
+                new("threshold", threshold)
+            ]
+        };
+
     /// <summary>Doc 48 § 4.5's <c>Flood Fill</c>: the propagation and the read.</summary>
     /// <param name="output">The image the node writes.</param>
     /// <param name="mask">The mask whose islands are found.</param>
@@ -469,6 +502,7 @@ internal static class TextureAnalysis {
     public static ImmutableArray<TextureOp> All { get; } = [
         .. Distance(0, 1, [2, 3, 4, 5, 6, 7], 64, 64),
         EdgeDetect(0, 1),
+        DirectionalDistance(0, 1),
         .. FloodFill(0, 1, [2, 3], 64, 64),
         Residual(0, 1, 2)
     ];

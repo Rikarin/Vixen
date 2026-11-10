@@ -213,4 +213,61 @@ public class TextureDistanceFamilyDeviceTests(ITestOutputHelper output) {
         Assert.False(stillDiffers);
         Assert.True(turnedDiffers);
     }
+
+    /// <summary>
+    ///     Patina #174's directional distance: a texel's distance from the shape measured back against the angle,
+    ///     the walked length over the reach, and one wherever the walk never meets the shape.
+    /// </summary>
+    /// <remarks>
+    ///     One lit column at x = 10. Along angle nought a texel to the right of it is its distance from the column
+    ///     over the reach, and every texel to its left is one, because walking left never reaches it. ⚠ The
+    ///     second half is what tells this from <c>Analysis/Distance</c>, which would draw the left side as
+    ///     close as the right.
+    /// </remarks>
+    [Theory]
+    [InlineData(0f)]
+    [InlineData(MathF.PI)]
+    public void A_directional_distance_measures_only_against_its_angle(float angle) {
+        using var device = TextureKernelHarness.Open();
+
+        const float MaxDistance = 0.5f;
+
+        var column = Grey(Side, Side, (x, _) => x == 32 ? 1f : 0f);
+        var field = Bake(
+            device,
+            "Analysis/Directional Distance",
+            Side,
+            Side,
+            [new("Mask", column, Grey: true)],
+            node => {
+                node.SetValue("Angle", angle);
+                node.SetValue("Max Distance", MaxDistance);
+            },
+            tiling: false
+        );
+
+        var reach = MaxDistance * Side;
+        var downstream = angle == 0f ? 1 : -1;
+
+        Assert.Equal(0f, field.At(32, 20, 0), 0.0005f);
+
+        foreach (var steps in (int[])[3, 7, 12, 20]) {
+            var x = 32 + (downstream * steps);
+
+            Assert.Equal(steps / reach, field.At(x, 20, 0), 0.04f);
+            Assert.Equal(1f, field.At(32 - (downstream * steps), 20, 0), 0.0005f);
+        }
+    }
+
+    /// <summary>On a tiling graph the walk wraps, so a streak leaving the right edge comes in at the left.</summary>
+    [Fact]
+    public void A_directional_distance_wraps_on_a_tiling_graph() {
+        using var device = TextureKernelHarness.Open();
+
+        var column = Grey(Side, Side, (x, _) => x == 60 ? 1f : 0f);
+        var field = Bake(device, "Analysis/Directional Distance", Side, Side, [new("Mask", column, Grey: true)]);
+
+        // Eight texels past the column, four of them across the seam.
+        Assert.Equal(8f / (0.25f * Side), field.At(4, 30, 0), 0.04f);
+    }
 }

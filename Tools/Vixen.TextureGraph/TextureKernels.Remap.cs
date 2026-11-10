@@ -37,6 +37,9 @@ static class TextureRemapKernels {
     /// <summary>One wedge of the image repeated round a centre, mirrored every other time.</summary>
     public const string WedgeSymmetry = "WedgeSymmetry";
 
+    /// <summary>The image read at the coordinate a second image holds for each texel — Patina #174.</summary>
+    public const string UvRemap = "UvRemap";
+
     /// <summary>One rung of the box that holds an image's content.</summary>
     public const string BoundsReduce = "BoundsReduce";
 
@@ -51,6 +54,7 @@ static class TextureRemapKernels {
         RotateByMap,
         Swirl,
         Trim,
+        UvRemap,
         WedgeSymmetry
     ];
 }

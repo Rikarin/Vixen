@@ -1,0 +1,111 @@
+version: 1
+name: Creased Cloth
+nodes:
+  - id: 1
+    type: Sub-graph/Input
+    x: -1280
+    y: 0
+    values: {}
+    texts: {}
+  - id: 2
+    type: Source/Shape
+    x: -1280
+    y: 240
+    values:
+      Scale: [0.5]
+    texts:
+      Kind: Cone
+  - id: 3
+    type: Space/Transform 2D
+    x: -960
+    y: 240
+    values:
+      Scale X: [12]
+    texts:
+      Tiling: Clamp
+  - id: 4
+    type: Placement/Splatter
+    x: -640
+    y: 0
+    values:
+      Rotation Jitter: [6.2831853]
+      Scale Jitter: [0.6]
+      Colour Jitter: [0.7]
+    texts:
+      Accumulation: Add
+      '=Scale': length
+  - id: 5
+    type: Source/Noise
+    x: -640
+    y: 240
+    values:
+      Scale: [2]
+      Octaves: [3]
+    texts:
+      Basis: Gradient
+  - id: 9
+    type: Colour/Levels
+    x: -320
+    y: 240
+    values: {}
+    texts:
+      '=Output White': folds
+  - id: 6
+    type: Colour/Blend
+    x: -320
+    y: 0
+    values: {}
+    texts:
+      Mode: Add
+  - id: 7
+    type: Colour/Auto Levels
+    x: 0
+    y: 0
+    values: {}
+    texts: {}
+  - id: 8
+    type: Sub-graph/Output
+    x: 320
+    y: 0
+    values: {}
+    texts: {}
+edges:
+  - { fromNode: 2, fromPort: Out, toNode: 3, toPort: Input }
+  - { fromNode: 3, fromPort: Out, toNode: 4, toPort: Pattern }
+  - { fromNode: 1, fromPort: Creases, toNode: 4, toPort: Count }
+  - { fromNode: 5, fromPort: Out, toNode: 9, toPort: Input }
+  - { fromNode: 4, fromPort: Out, toNode: 6, toPort: Background }
+  - { fromNode: 9, fromPort: Out, toNode: 6, toPort: Foreground }
+  - { fromNode: 6, fromPort: Out, toNode: 7, toPort: Input }
+  - { fromNode: 7, fromPort: Out, toNode: 8, toPort: Out }
+groups: []
+comments: []
+interface:
+  - name: Creases
+    direction: Input
+    kind: Int
+    default: [90]
+    summary: How many creases.
+  - name: Out
+    direction: Output
+    kind: Image
+    default: []
+    summary: 'A height of sharp straight creases running every way over slow soft folds, like cloth that has been crushed and pulled flat.'
+settings: { baseWidth: '1024', baseHeight: '1024', seed: '1', summary: 'Sharp straight creases every way over soft folds, like crushed cloth.' }
+parameters:
+  - name: length
+    label: Length
+    default: '0.45'
+    summary: 'How long the longest crease is, as a fraction of the image.'
+    kind: Float
+    minimum: 0.05
+    maximum: 1
+    group: Creased Cloth
+  - name: folds
+    label: Folds
+    default: '0.6'
+    summary: 'How tall the soft folds under the creases are, beside the creases themselves.'
+    kind: Float
+    minimum: 0
+    maximum: 4
+    group: Creased Cloth

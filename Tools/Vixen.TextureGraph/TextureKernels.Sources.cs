@@ -398,6 +398,23 @@ internal static class TextureSources {
             ]
         };
 
+    /// <summary>A blue noise, read out of the void-and-cluster tile <c>TextureBlueNoise</c> makes.</summary>
+    /// <param name="output">The image to write.</param>
+    /// <param name="tile">The tile, as an external image.</param>
+    /// <param name="scale">Tiles across the image, and down.</param>
+    /// <param name="variation">Another draw: a shift and a symmetry of the same tile. Nought is the op's own seed.</param>
+    /// <returns>The op.</returns>
+    public static TextureOp BlueNoise(int output, int tile, int scale = 16, int variation = 0) =>
+        new() {
+            Kernel = "BlueNoise",
+            Output = output,
+            Inputs = [tile],
+            Parameters = [
+                new("scale", scale),
+                new("variation", variation)
+            ]
+        };
+
     /// <summary>Every op this class can build, for a test that wants to walk them.</summary>
     /// <remarks>
     ///     ⚠ <b>Ask what a test over the builders prints on the day one of them is forgotten.</b> A
@@ -411,6 +428,7 @@ internal static class TextureSources {
         Gradient(0, 1),
         Shape(0),
         Noise(0),
-        Checker(0)
+        Checker(0),
+        BlueNoise(0, 1)
     ];
 }

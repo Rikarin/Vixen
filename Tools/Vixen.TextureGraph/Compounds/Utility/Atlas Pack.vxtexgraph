@@ -1,0 +1,179 @@
+version: 1
+name: Atlas Pack
+nodes:
+  - id: 1
+    type: Sub-graph/Input
+    x: -1280
+    y: 0
+    values: {}
+    texts: {}
+  - id: 2
+    type: Source/Gradient
+    x: -1280
+    y: 960
+    values: {}
+    texts: {}
+  - id: 3
+    type: Colour/Grayscale
+    x: -960
+    y: 960
+    values:
+      Weight R: [1]
+      Weight G: [0]
+      Weight B: [0]
+    texts: {}
+  - id: 4
+    type: Colour/Quantise
+    x: -640
+    y: 960
+    values:
+      Levels: [4]
+    texts: {}
+  - id: 5
+    type: Space/Tile
+    x: -640
+    y: 0
+    values:
+      Repeat X: [4]
+    texts: {}
+  - id: 6
+    type: Space/Tile
+    x: -640
+    y: 240
+    values:
+      Repeat X: [4]
+    texts: {}
+  - id: 7
+    type: Space/Tile
+    x: -640
+    y: 480
+    values:
+      Repeat X: [4]
+    texts: {}
+  - id: 8
+    type: Space/Tile
+    x: -640
+    y: 720
+    values:
+      Repeat X: [4]
+    texts: {}
+  - id: 9
+    type: Analysis/Compare
+    x: -320
+    y: 960
+    values:
+      Value: [0]
+      Tolerance: [0.1]
+    texts:
+      Operation: Equal
+  - id: 10
+    type: Analysis/Compare
+    x: -320
+    y: 1200
+    values:
+      Value: [0.333333]
+      Tolerance: [0.1]
+    texts:
+      Operation: Equal
+  - id: 11
+    type: Analysis/Compare
+    x: -320
+    y: 1440
+    values:
+      Value: [0.666667]
+      Tolerance: [0.1]
+    texts:
+      Operation: Equal
+  - id: 12
+    type: Analysis/Compare
+    x: -320
+    y: 1680
+    values:
+      Value: [1]
+      Tolerance: [0.1]
+    texts:
+      Operation: Equal
+  - id: 13
+    type: Colour/Blend
+    x: 0
+    y: 0
+    values: {}
+    texts:
+      Mode: Multiply
+  - id: 14
+    type: Colour/Mix
+    x: 320
+    y: 240
+    values: {}
+    texts: {}
+  - id: 15
+    type: Colour/Mix
+    x: 640
+    y: 480
+    values: {}
+    texts: {}
+  - id: 16
+    type: Colour/Mix
+    x: 960
+    y: 720
+    values: {}
+    texts: {}
+  - id: 17
+    type: Sub-graph/Output
+    x: 1280
+    y: 0
+    values: {}
+    texts: {}
+edges:
+  - { fromNode: 2, fromPort: Out, toNode: 3, toPort: Input }
+  - { fromNode: 3, fromPort: Out, toNode: 4, toPort: Input }
+  - { fromNode: 4, fromPort: Out, toNode: 9, toPort: Input }
+  - { fromNode: 4, fromPort: Out, toNode: 10, toPort: Input }
+  - { fromNode: 4, fromPort: Out, toNode: 11, toPort: Input }
+  - { fromNode: 4, fromPort: Out, toNode: 12, toPort: Input }
+  - { fromNode: 1, fromPort: First, toNode: 5, toPort: Input }
+  - { fromNode: 1, fromPort: Second, toNode: 6, toPort: Input }
+  - { fromNode: 1, fromPort: Third, toNode: 7, toPort: Input }
+  - { fromNode: 1, fromPort: Fourth, toNode: 8, toPort: Input }
+  - { fromNode: 5, fromPort: Out, toNode: 13, toPort: Background }
+  - { fromNode: 9, fromPort: Out, toNode: 13, toPort: Foreground }
+  - { fromNode: 13, fromPort: Out, toNode: 14, toPort: Background }
+  - { fromNode: 6, fromPort: Out, toNode: 14, toPort: Foreground }
+  - { fromNode: 10, fromPort: Out, toNode: 14, toPort: Mask }
+  - { fromNode: 14, fromPort: Out, toNode: 15, toPort: Background }
+  - { fromNode: 7, fromPort: Out, toNode: 15, toPort: Foreground }
+  - { fromNode: 11, fromPort: Out, toNode: 15, toPort: Mask }
+  - { fromNode: 15, fromPort: Out, toNode: 16, toPort: Background }
+  - { fromNode: 8, fromPort: Out, toNode: 16, toPort: Foreground }
+  - { fromNode: 12, fromPort: Out, toNode: 16, toPort: Mask }
+  - { fromNode: 16, fromPort: Out, toNode: 17, toPort: Out }
+groups: []
+comments: []
+interface:
+  - name: First
+    direction: Input
+    kind: Image
+    default: []
+    summary: The picture in the first column.
+  - name: Second
+    direction: Input
+    kind: Image
+    default: []
+    summary: The picture in the second column.
+  - name: Third
+    direction: Input
+    kind: Image
+    default: []
+    summary: The picture in the third column.
+  - name: Fourth
+    direction: Input
+    kind: Image
+    default: []
+    summary: The picture in the fourth column.
+  - name: Out
+    direction: Output
+    kind: Image
+    default: []
+    summary: 'The four pictures side by side, each squeezed into a quarter of the width: the atlas a Tile Sampler or Splatter reads with a Pattern Count of 4.'
+settings: { baseWidth: '1024', baseHeight: '1024', seed: '1', summary: 'Packs four pictures into one atlas of four columns, for a placement node''s Pattern Count.', adjustment: 'false' }
+parameters: []

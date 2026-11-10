@@ -181,4 +181,47 @@ public class TextureReliefDeviceTests(ITestOutputHelper output) {
         Assert.Equal(expected.Y, actual.Y, 0.003f);
         Assert.Equal(expected.Z, actual.Z, 0.003f);
     }
+
+    /// <summary>
+    ///     Patina #168's height extrude: a block of height 0.8 pushed right keeps its height along the push at no
+    ///     falloff, falls linearly to nought at the full length at a falloff of one, and leaves the side it moves
+    ///     away from alone.
+    /// </summary>
+    [Fact]
+    public void A_height_extrudes_along_its_angle_and_falls_by_its_falloff() {
+        using var device = TextureKernelHarness.Open();
+
+        output.WriteLine($"adapter: {TextureKernelHarness.Adapter(device)}");
+
+        // A block over x 20..27; a length of a quarter of 64 is sixteen texels.
+        var block = Grey(Side, Side, (x, y) => x is >= 20 and < 28 && y is >= 20 and < 44 ? 0.8f : 0f);
+
+        TextureNodeBench.Lanes Extrude(float falloff) =>
+            Bake(
+                device,
+                "Surface/Height Extrude",
+                Side,
+                Side,
+                [new("Height", block, Grey: true)],
+                node => {
+                    node.SetValue("Angle", 0f);
+                    node.SetValue("Length", 0.25f);
+                    node.SetValue("Falloff", falloff);
+                },
+                tiling: false
+            );
+
+        var prism = Extrude(0f);
+        var slope = Extrude(1f);
+
+        Assert.Equal(0.8f, prism.At(24, 30, 0), 0.01f);
+        Assert.Equal(0.8f, prism.At(27 + 12, 30, 0), 0.01f);
+        Assert.Equal(0f, prism.At(27 + 18, 30, 0), 0.01f);
+        Assert.Equal(0f, prism.At(15, 30, 0), 0.01f);
+        Assert.Equal(0f, prism.At(35, 50, 0), 0.01f);
+
+        // Eight texels past the block's last column the nearest block texel is eight back: half the length.
+        Assert.Equal(0.8f * (1f - (8f / 16f)), slope.At(27 + 8, 30, 0), 0.03f);
+        Assert.Equal(0.8f, slope.At(24, 30, 0), 0.01f);
+    }
 }

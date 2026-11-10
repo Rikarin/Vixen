@@ -357,7 +357,11 @@ public static class TextureGraphParameters {
         // property over its own positional parameter — that is what normalises a default
         // `ImmutableArray` to empty — and a redeclared positional member has no setter, so a `with`
         // on it does not compile.
-        return new(ports.Path, ports.Ports, ports.Create, ports.Summary, ports.Preview, settings);
+        //
+        // ⚠ Every positional member is passed, `Adjustment` among them. It was left off, so it took its default of
+        // true, and a published compound's `adjustment: false` reached no host: `SubGraphs.Definition` read it and
+        // this rebuild threw it away (Patina wave 8, found when Utility/Atlas Pack still came back as a filter).
+        return new(ports.Path, ports.Ports, ports.Create, ports.Summary, ports.Preview, settings, ports.Adjustment);
     }
 
     /// <summary>The parameters as the framework's settings.</summary>

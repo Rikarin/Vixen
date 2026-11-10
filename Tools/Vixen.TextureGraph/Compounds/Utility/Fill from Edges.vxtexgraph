@@ -1,0 +1,120 @@
+version: 1
+name: Fill from Edges
+nodes:
+  - id: 1
+    type: Sub-graph/Input
+    x: -1280
+    y: 0
+    values: {}
+    texts: {}
+  - id: 2
+    type: Analysis/Distance
+    x: -960
+    y: 0
+    values:
+      Max Distance: [1]
+    texts:
+      Mode: Inside
+  - id: 3
+    type: Analysis/Flood Fill
+    x: -960
+    y: 240
+    values: {}
+    texts:
+      Kind: Size
+  - id: 4
+    type: Colour/Grayscale
+    x: -640
+    y: 240
+    values:
+      Weight R: [1]
+      Weight G: [0]
+      Weight B: [0]
+    texts: {}
+  - id: 5
+    type: Colour/Grayscale
+    x: -640
+    y: 480
+    values:
+      Weight R: [0]
+      Weight G: [1]
+      Weight B: [0]
+    texts: {}
+  - id: 6
+    type: Colour/Blend
+    x: -320
+    y: 240
+    values: {}
+    texts:
+      Mode: Darken
+  - id: 7
+    type: Colour/Blend
+    x: 0
+    y: 0
+    values: {}
+    texts:
+      Mode: Divide
+  - id: 8
+    type: Colour/Levels
+    x: 320
+    y: 0
+    values:
+      Input White: [0.5]
+    texts:
+      '=Gamma': curve
+  - id: 9
+    type: Colour/Blend
+    x: 640
+    y: 0
+    values: {}
+    texts:
+      Mode: Multiply
+  - id: 10
+    type: Sub-graph/Output
+    x: 960
+    y: 0
+    values: {}
+    texts: {}
+edges:
+  - { fromNode: 1, fromPort: Mask, toNode: 2, toPort: Mask }
+  - { fromNode: 1, fromPort: Mask, toNode: 3, toPort: Mask }
+  - { fromNode: 1, fromPort: Threshold, toNode: 2, toPort: Threshold }
+  - { fromNode: 1, fromPort: Threshold, toNode: 3, toPort: Threshold }
+  - { fromNode: 3, fromPort: Out, toNode: 4, toPort: Input }
+  - { fromNode: 3, fromPort: Out, toNode: 5, toPort: Input }
+  - { fromNode: 4, fromPort: Out, toNode: 6, toPort: Background }
+  - { fromNode: 5, fromPort: Out, toNode: 6, toPort: Foreground }
+  - { fromNode: 2, fromPort: Out, toNode: 7, toPort: Background }
+  - { fromNode: 6, fromPort: Out, toNode: 7, toPort: Foreground }
+  - { fromNode: 7, fromPort: Out, toNode: 8, toPort: Input }
+  - { fromNode: 8, fromPort: Out, toNode: 9, toPort: Background }
+  - { fromNode: 1, fromPort: Mask, toNode: 9, toPort: Foreground }
+  - { fromNode: 9, fromPort: Out, toNode: 10, toPort: Out }
+groups: []
+comments: []
+interface:
+  - name: Mask
+    direction: Input
+    kind: Image
+    default: []
+    summary: 'The islands. A single channel: at or above the threshold is inside.'
+  - name: Threshold
+    direction: Input
+    kind: Float
+    default: [0.5]
+    summary: What counts as inside an island.
+  - name: Out
+    direction: Output
+    kind: Image
+    default: []
+    summary: 'Each island filled from its edges inwards: nought at the edge, one half its narrower side in, whatever its size.'
+settings: { baseWidth: '1024', baseHeight: '1024', seed: '1', summary: 'Fills every island from its edges inwards, scaled to the island so a small one reaches one too.' }
+parameters:
+  - name: curve
+    label: Curve
+    default: '1'
+    summary: 'How the fill rises: below one it climbs fast near the edge, above one it stays low and rises late.'
+    kind: Float
+    minimum: 0.1
+    maximum: 4
+    group: Fill from Edges

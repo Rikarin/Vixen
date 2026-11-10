@@ -1,0 +1,85 @@
+version: 1
+name: Instance Range
+nodes:
+  - id: 1
+    type: Sub-graph/Input
+    x: -1280
+    y: 0
+    values: {}
+    texts: {}
+  - id: 2
+    type: Analysis/Compare
+    x: -640
+    y: 0
+    values:
+      Tolerance: [0]
+    texts:
+      Operation: Greater
+      '=Value': first / count
+  - id: 3
+    type: Analysis/Compare
+    x: -640
+    y: 240
+    values:
+      Tolerance: [0]
+    texts:
+      Operation: Less
+      '=Value': (last + 1f) / count
+  - id: 4
+    type: Colour/Blend
+    x: -320
+    y: 0
+    values: {}
+    texts:
+      Mode: Multiply
+  - id: 5
+    type: Sub-graph/Output
+    x: 0
+    y: 0
+    values: {}
+    texts: {}
+edges:
+  - { fromNode: 1, fromPort: Index, toNode: 2, toPort: Input }
+  - { fromNode: 1, fromPort: Index, toNode: 3, toPort: Input }
+  - { fromNode: 2, fromPort: Out, toNode: 4, toPort: Background }
+  - { fromNode: 3, fromPort: Out, toNode: 4, toPort: Foreground }
+  - { fromNode: 4, fromPort: Out, toNode: 5, toPort: Out }
+groups: []
+comments: []
+interface:
+  - name: Index
+    direction: Input
+    kind: Image
+    default: []
+    summary: 'A Tile Sampler or Splatter drawing its Index: each instance''s number, centred in its share of nought to one.'
+  - name: Out
+    direction: Output
+    kind: Image
+    default: []
+    summary: 'One over the instances numbered first to last, counted from nought, and nought everywhere else.'
+settings: { baseWidth: '1024', baseHeight: '1024', seed: '1', summary: A mask of the instances of a placement numbered within a range., adjustment: 'false' }
+parameters:
+  - name: count
+    label: Count
+    default: '64'
+    summary: 'How many instances the placement draws: its grid''s cells, or its count.'
+    kind: Float
+    minimum: 1
+    maximum: 4096
+    group: Instance Range
+  - name: first
+    label: First
+    default: '0'
+    summary: 'The first instance selected, counted from nought.'
+    kind: Float
+    minimum: 0
+    maximum: 4096
+    group: Instance Range
+  - name: last
+    label: Last
+    default: '7'
+    summary: The last instance selected.
+    kind: Float
+    minimum: 0
+    maximum: 4096
+    group: Instance Range

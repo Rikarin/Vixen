@@ -219,6 +219,131 @@ public class TexturePlacementOutputDeviceTests(ITestOutputHelper output) {
         Assert.Equal(16, TexturePlacement.SplatterChain(0, [.. Enumerable.Range(2, 15)], TexturePlacement.Splatter(0, 1), TexturePlacement.MaxBatchedInstances).Length);
     }
 
+    /// <summary>A 4×4 grid at a scale of a half with maps wired, each instance eight texels about its cell's centre.</summary>
+    static TextureNodeBench.Lanes Mapped(Vixen.Graphics.Vulkan.VulkanDevice device, Wire[] wires, Action<Vixen.NodeGraph.GraphNode>? more = null) =>
+        Bake(
+            device,
+            "Placement/Tile Sampler",
+            Side,
+            Side,
+            wires,
+            node => {
+                node.SetValue("Grid X", 4f);
+                node.SetValue("Grid Y", 4f);
+                node.SetValue("Scale", 0.5f);
+                more?.Invoke(node);
+            }
+        );
+
+    /// <summary>
+    ///     An index map chooses each instance's pattern by its value at the instance's centre, across the further
+    ///     pattern inputs, and with no map the seed chooses among the same inputs.
+    /// </summary>
+    /// <remarks>
+    ///     Three patterns of three greys, and an index map that is a third in the left half and five sixths in the
+    ///     right: of three choices those are the second and the third. ⚠ With the map unwired every grey must
+    ///     still be one of the three and more than one must appear, or the further inputs were never read.
+    /// </remarks>
+    [Fact]
+    public void An_index_map_chooses_among_the_patterns_and_the_seed_does_without_one() {
+        using var device = TextureKernelHarness.Open();
+
+        Wire[] patterns = [
+            new("Pattern", Solid(Side, Side, 0.2f, 0.2f, 0.2f)),
+            new("Pattern 2", Solid(Side, Side, 0.5f, 0.5f, 0.5f)),
+            new("Pattern 3", Solid(Side, Side, 0.8f, 0.8f, 0.8f))
+        ];
+
+        var chosen = Mapped(device, [.. patterns, new("Index Map", Grey(Side, Side, (x, _) => x < Side / 2 ? 0.34f : 0.84f), Grey: true)]);
+        var seeded = Mapped(device, patterns);
+        HashSet<float> greys = [];
+
+        for (var j = 0; j < 4; j++) {
+            for (var i = 0; i < 4; i++) {
+                var (cx, cy) = ((i * Cell) + 8, (j * Cell) + 8);
+
+                Assert.Equal(i < 2 ? 0.5f : 0.8f, chosen.At(cx, cy, 0), 0.002f);
+
+                var grey = MathF.Round(seeded.At(cx, cy, 0) * 10f) / 10f;
+
+                Assert.Contains(grey, (float[])[0.2f, 0.5f, 0.8f]);
+                greys.Add(grey);
+            }
+        }
+
+        Assert.True(greys.Count > 1, "Sixteen instances drew one pattern of three: the further inputs were not read.");
+    }
+
+    /// <summary>A colour map tints a white pattern by its colour at each centre, and the node writes colour for it.</summary>
+    [Fact]
+    public void A_colour_map_tints_each_instance_by_its_centre() {
+        using var device = TextureKernelHarness.Open();
+
+        var tints = Picture(Side, Side, (x, y) => (x < Side / 2 ? 1f : 0f, y < Side / 2 ? 1f : 0f, 0.5f, 1f));
+        var tinted = Mapped(device, [new("Pattern", White), new("Colour Map", tints)]);
+        var half = Mapped(device, [new("Pattern", White), new("Colour Map", tints)], node => node.SetValue("Colour Amount", 0.5f));
+
+        for (var j = 0; j < 4; j++) {
+            for (var i = 0; i < 4; i++) {
+                var (cx, cy) = ((i * Cell) + 8, (j * Cell) + 8);
+                var (red, green) = (i < 2 ? 1f : 0f, j < 2 ? 1f : 0f);
+
+                Assert.Equal(red, tinted.At(cx, cy, 0), 0.002f);
+                Assert.Equal(green, tinted.At(cx, cy, 1), 0.002f);
+                Assert.Equal(0.5f, tinted.At(cx, cy, 2), 0.002f);
+                Assert.Equal(0.5f + (red * 0.5f), half.At(cx, cy, 0), 0.002f);
+            }
+        }
+    }
+
+    /// <summary>A displacement map moves every instance by its value about a half, in cells, and nought where unwired.</summary>
+    /// <remarks>
+    ///     A map of three quarters on red and a half on green moves every instance half of <c>Displacement Amount</c>
+    ///     cells right: at an amount of a half, four texels. So the texel four left of the cell's centre, inside
+    ///     the instance before, is now its left edge's neighbour outside it, and four past the old right edge is in.
+    /// </remarks>
+    [Fact]
+    public void A_displacement_map_moves_each_instance_in_cells() {
+        using var device = TextureKernelHarness.Open();
+
+        var push = Solid(Side, Side, 0.75f, 0.5f, 0.5f);
+        var still = Mapped(device, [new("Pattern", White)]);
+        var moved = Mapped(device, [new("Pattern", White), new("Displacement Map", push)], node => node.SetValue("Displacement Amount", 0.5f));
+
+        for (var j = 0; j < 4; j++) {
+            for (var i = 0; i < 4; i++) {
+                var (cx, cy) = ((i * Cell) + 8, (j * Cell) + 8);
+
+                // Unmoved, the instance spans cx − 4 … cx + 3. Moved four right, cx … cx + 7.
+                Assert.Equal(1f, still.At(cx - 3, cy, 0), 0.002f);
+                Assert.Equal(0f, still.At(cx + 5, cy, 0), 0.002f);
+                Assert.Equal(0f, moved.At(cx - 3, cy, 0), 0.002f);
+                Assert.Equal(1f, moved.At(cx + 5, cy, 0), 0.002f);
+            }
+        }
+    }
+
+    /// <summary>A vector map turns each instance to face along it: a long thin pattern pointing down stands upright.</summary>
+    [Fact]
+    public void A_vector_map_turns_each_instance_to_face_along_it() {
+        using var device = TextureKernelHarness.Open();
+
+        // A bar across the middle of the pattern, the full width and a quarter of the height.
+        var bar = Grey(Side, Side, (_, y) => y is >= 24 and < 40 ? 1f : 0f);
+        var down = Solid(Side, Side, 0.5f, 1f, 0.5f);
+        var flat = Mapped(device, [new("Pattern", bar)]);
+        var turned = Mapped(device, [new("Pattern", bar), new("Vector Map", down)]);
+
+        // An instance is eight texels; its bar is two tall across all eight, and turned a quarter it is two
+        // wide down all eight.
+        var (cx, cy) = (8, 8);
+
+        Assert.Equal(1f, flat.At(cx - 3, cy, 0), 0.002f);
+        Assert.Equal(0f, flat.At(cx, cy - 3, 0), 0.002f);
+        Assert.Equal(0f, turned.At(cx - 3, cy, 0), 0.002f);
+        Assert.Equal(1f, turned.At(cx, cy - 3, 0), 0.002f);
+    }
+
     static TextureNodeBench.Lanes Ring(Vixen.Graphics.Vulkan.VulkanDevice device, bool follow, byte[]? pattern = null, string draws = "Index") =>
         Bake(
             device,

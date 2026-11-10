@@ -1,0 +1,73 @@
+version: 1
+name: Gaussian Blobs
+nodes:
+  - id: 1
+    type: Sub-graph/Input
+    x: -1280
+    y: 0
+    values: {}
+    texts: {}
+  - id: 2
+    type: Source/Shape
+    x: -960
+    y: 0
+    values: {}
+    texts:
+      Kind: Gaussian
+  - id: 3
+    type: Placement/Splatter
+    x: -640
+    y: 0
+    values: {}
+    texts:
+      Accumulation: Add
+      '=Scale': size
+      '=Scale Jitter': variation
+  - id: 4
+    type: Colour/Auto Levels
+    x: -320
+    y: 0
+    values: {}
+    texts: {}
+  - id: 5
+    type: Sub-graph/Output
+    x: 0
+    y: 0
+    values: {}
+    texts: {}
+edges:
+  - { fromNode: 2, fromPort: Out, toNode: 3, toPort: Pattern }
+  - { fromNode: 1, fromPort: Count, toNode: 3, toPort: Count }
+  - { fromNode: 3, fromPort: Out, toNode: 4, toPort: Input }
+  - { fromNode: 4, fromPort: Out, toNode: 5, toPort: Out }
+groups: []
+comments: []
+interface:
+  - name: Count
+    direction: Input
+    kind: Int
+    default: [48]
+    summary: How many blobs.
+  - name: Out
+    direction: Output
+    kind: Image
+    default: []
+    summary: 'Soft round blobs scattered at random, adding where they overlap, stretched to fill nought to one.'
+settings: { baseWidth: '1024', baseHeight: '1024', seed: '1', summary: Soft gaussian blobs scattered at random and summed. }
+parameters:
+  - name: size
+    label: Size
+    default: '0.18'
+    summary: 'How wide the largest blob is, as a fraction of the image.'
+    kind: Float
+    minimum: 0.01
+    maximum: 1
+    group: Gaussian Blobs
+  - name: variation
+    label: Variation
+    default: '0.6'
+    summary: 'How much smaller a blob may be drawn, at random.'
+    kind: Float
+    minimum: 0
+    maximum: 1
+    group: Gaussian Blobs
