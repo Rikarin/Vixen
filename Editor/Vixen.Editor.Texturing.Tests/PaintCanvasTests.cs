@@ -10,6 +10,36 @@ namespace Vixen.Editor.Texturing.Tests;
 
 /// <summary>The <c>.vxpaint</c> beside the stack: the pixels the stack deliberately does not hold.</summary>
 public class PaintCanvasTests {
+    /// <summary>
+    ///     An enlarged canvas invents no value and loses none: each two-by-two block of the double is the texel it came
+    ///     from, so averaging it gives the original back exactly. A background stays a background.
+    /// </summary>
+    [Fact]
+    public void An_enlarged_canvas_gives_the_original_back_exactly() {
+        PaintCanvas canvas = new(48, 32);
+        var colour = canvas.Channel("baseColor");
+        PaintStroke stroke = new(colour, PaintCoverage.Everywhere(48, 32), PaintStrokeTests.Hard(5f), 0xFF3366CCu);
+        stroke.MoveTo(new(12f, 16f));
+        stroke.MoveTo(new(36f, 10f));
+        canvas.Channel("roughness").Fill(0xFF808080u);
+
+        var enlarged = canvas.Enlarged(96, 64);
+
+        Assert.Equal(canvas.Channels, enlarged.Channels);
+        Assert.Equal(0xFF808080u, enlarged.Channel("roughness").Background);
+        var big = enlarged.Channel("baseColor");
+        for (var y = 0; y < 32; y++) {
+            for (var x = 0; x < 48; x++) {
+                var texel = colour.At(x, y);
+
+                Assert.Equal(texel, big.At(x * 2, y * 2));
+                Assert.Equal(texel, big.At(x * 2 + 1, y * 2));
+                Assert.Equal(texel, big.At(x * 2, y * 2 + 1));
+                Assert.Equal(texel, big.At(x * 2 + 1, y * 2 + 1));
+            }
+        }
+    }
+
     /// <summary>A painted canvas survives a round trip, to the byte.</summary>
     [Fact]
     public void A_canvas_round_trips() {
