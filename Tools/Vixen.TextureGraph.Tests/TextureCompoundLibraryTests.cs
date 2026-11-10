@@ -310,6 +310,25 @@ public sealed class TextureCompoundLibraryTests : IDisposable {
         Assert.All(TextureCompoundLibrary.Shipped, path => Assert.DoesNotContain('.', path));
     }
 
+    /// <summary>A compound that says it is no adjustment publishes as none, and one that says nothing as one.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The setting was read and then dropped</b>: <c>TextureGraphParameters.Definition</c> rebuilt the
+    ///     node type without <c>Adjustment</c>, so <c>adjustment: false</c> took the record's default of true and a
+    ///     layer stack offered <c>Utility/Atlas Pack</c> as a filter. Removing <c>ports.Adjustment</c> from that
+    ///     rebuild turns the first assertion red.
+    /// </remarks>
+    [Fact]
+    public void A_compound_that_is_no_adjustment_publishes_as_none() {
+        var registry = Registry();
+
+        TextureCompoundLibrary.Publish(registry, folder: null, out var problems);
+
+        Assert.Empty(problems);
+        Assert.False(registry.Types.Single(type => type.Path == "Utility/Atlas Pack").Adjustment);
+        Assert.False(registry.Types.Single(type => type.Path == "Utility/Instance Range").Adjustment);
+        Assert.True(registry.Types.Single(type => type.Path == "Utility/Island Remap").Adjustment);
+    }
+
     /// <summary>
     ///     Every shipped compound publishes with no complaint and compiles inside another graph.
     /// </summary>
