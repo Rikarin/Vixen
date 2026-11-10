@@ -78,6 +78,8 @@ nodes:
 edges:
   - { fromNode: 1, fromPort: Mask, toNode: 2, toPort: Mask }
   - { fromNode: 1, fromPort: Mask, toNode: 3, toPort: Mask }
+  - { fromNode: 1, fromPort: Threshold, toNode: 2, toPort: Threshold }
+  - { fromNode: 1, fromPort: Threshold, toNode: 3, toPort: Threshold }
   - { fromNode: 3, fromPort: Out, toNode: 4, toPort: Input }
   - { fromNode: 3, fromPort: Out, toNode: 5, toPort: Input }
   - { fromNode: 4, fromPort: Out, toNode: 6, toPort: Background }
@@ -95,7 +97,12 @@ interface:
     direction: Input
     kind: Image
     default: []
-    summary: 'The islands. A single channel: above a half is inside.'
+    summary: 'The islands. A single channel: at or above the threshold is inside.'
+  - name: Threshold
+    direction: Input
+    kind: Float
+    default: [0.5]
+    summary: What counts as inside an island.
   - name: Out
     direction: Output
     kind: Image
