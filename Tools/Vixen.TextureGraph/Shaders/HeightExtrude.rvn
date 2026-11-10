@@ -1,0 +1,90 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+package Vixen.TextureGraph.Shaders
+
+import Vixen.Shaders.Core
+
+// `Surface/Height Extrude`: a height field pushed out along one direction, every raised shape trailing a side
+// that runs from it (Patina #168).
+//
+// Each texel takes the highest of the heights behind it along `angle`, up to `length` away, each lowered by how
+// far back it is: `max over t of h(p − d·t) · (1 − falloff · t / length)`. At a falloff of nought a shape is a
+// prism drawn out to its full height, the side of a block seen from an angle; at one the side ramps down to nought
+// at the full length, a slope. Nothing is ever lower than it was, because `t = 0` is the texel itself.
+//
+// ⚠ **A bounded walk, `DirectionalDistance`'s**: at most `MaxSteps` taps per texel, so a length longer than that
+// many texels strides further than one. The walk wraps on an axis that tiles, so an extrusion leaving the right
+// edge comes in at the left.
+
+shader HeightExtrude {
+    /// The height field. One channel.
+    var height: Texture2D
+
+    /// The direction the shapes are pushed, in radians: 0 is to the right, π/2 down.
+    var angle: float = 0.785398f
+
+    /// How far they are pushed, as a fraction of the image's longer side.
+    var length: float = 0.05f
+
+    /// How far the side falls over the length: 0 keeps every shape's height, 1 falls to nought.
+    var falloff: float = 0f
+
+    var wrapX: int = 0
+
+    var wrapY: int = 0
+
+    [Format("rgba16f")] var target: RWTexture2D<float4>
+
+    /// The most taps one texel takes.
+    const val MaxSteps: int = 512
+
+    func Height(x: int, y: int): float {
+        val extent = height.GetDimensions(0)
+
+        if (wrapX == 0 && (x < 0 || x >= extent.x)) {
+            return 0f
+        }
+
+        if (wrapY == 0 && (y < 0 || y >= extent.y)) {
+            return 0f
+        }
+
+        return height.Load(int3(Math.Address(x, extent.x, wrapX), Math.Address(y, extent.y, wrapY), 0)).x
+    }
+
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val coord = int2(int(id.x), int(id.y))
+        val size = target.GetDimensions()
+
+        if (coord.x >= size.x || coord.y >= size.y) {
+            return
+        }
+
+        val extent = height.GetDimensions(0)
+        val scale = float2(float(extent.x) / float(size.x), float(extent.y) / float(size.y))
+        val at = float2((float(coord.x) + 0.5f) * scale.x, (float(coord.y) + 0.5f) * scale.y)
+        val reach = max(length * float(max(extent.x, extent.y)), 0f)
+        val steps = clamp(int(ceil(reach)), 0, MaxSteps)
+        val stride = reach / float(max(steps, 1))
+        val back = float2(-cos(angle), -sin(angle))
+        val fall = saturate(falloff)
+
+        var highest = Height(int(floor(at.x)), int(floor(at.y)))
+
+        for (tap in 1 .. MaxSteps) {
+            if (tap > steps) {
+                break
+            }
+
+            val travelled = float(tap) * stride
+            val p = at + back * travelled
+            val kept = 1f - fall * travelled / max(reach, 0.000001f)
+
+            highest = max(highest, Height(int(floor(p.x)), int(floor(p.y))) * kept)
+        }
+
+        target.Store(coord, float4(highest, highest, highest, 1f))
+    }
+}

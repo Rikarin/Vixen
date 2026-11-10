@@ -171,6 +171,10 @@ public class TextureNodeFamilySheetTests(ITestOutputHelper output) {
         ("arc pavement", "Patterns/Arc Pavement", [], null),
         ("triangulated", "Patterns/Triangulated Surface", [], null),
         ("directional distance", "Analysis/Directional Distance", [new("Mask", Discs, Grey: true)], node => node.SetValue("Angle", 0.6f)),
+        ("height extrude", "Surface/Height Extrude", [new("Height", Discs, Grey: true)], node => {
+            node.SetValue("Length", 0.15f);
+            node.SetValue("Falloff", 0.6f);
+        }),
         ("uv remap", "Space/UV Remap", [new("Input", Board, Grey: false), new("UV", Swirled)], null),
         ("outline", "Adjust/Outline", [new("Mask", Discs, Grey: true)], null),
         ("outer glow", "Adjust/Outer Glow", [new("Input", Dim), new("Mask", Discs, Grey: true)], null),

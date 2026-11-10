@@ -946,6 +946,7 @@ public class TextureNodeLibraryTests {
         graph.Connect(invert, "Out", uvRemap, "Input");
         graph.Connect(hsl, "Out", uvRemap, "UV");
         graph.Connect(blur, "Out", graph.Add("Analysis/Directional Distance"), "Mask");
+        graph.Connect(blur, "Out", graph.Add("Surface/Height Extrude"), "Height");
 
         // Patina #178's photo nodes and #218's anti-repetition and terrain ones. Normal from Lighting reads four
         // photos, and one picture wired to all four is a flat surface, which is still a plan.
