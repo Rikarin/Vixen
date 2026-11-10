@@ -179,6 +179,21 @@ public class LayerStackShapeTests {
         );
     }
 
+    /// <summary>A layer's colour tag survives the file, and a layer with none writes no key (Patina #106).</summary>
+    [Fact]
+    public void A_tag_survives_the_file_and_none_writes_no_key() {
+        var stack = LayerStackDifferential.Stack();
+        var layer = stack.Sets[0].Layers[0];
+        var tagged = stack with { Sets = [stack.Sets[0] with { Layers = [layer with { Tag = LayerTag.Violet }] }] };
+
+        Assert.Equal(LayerTag.Violet, LayerStackYaml.Read(LayerStackYaml.Write(tagged)).Sets[0].Layers[0].Tag);
+
+        var bare = LayerStackYaml.Write(stack with { Sets = [stack.Sets[0] with { Layers = [layer with { Tag = LayerTag.None }] }] });
+
+        Assert.DoesNotContain("tag:", bare, StringComparison.Ordinal);
+        Assert.Equal(LayerTag.None, LayerStackYaml.Read(bare).Sets[0].Layers[0].Tag);
+    }
+
     /// <summary>An anchor survives the round trip as the id it names.</summary>
     [Fact]
     public void An_anchor_survives_the_file() {

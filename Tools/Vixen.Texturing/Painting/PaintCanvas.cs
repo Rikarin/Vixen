@@ -173,6 +173,106 @@ public sealed class PaintCanvas {
         return enlarged;
     }
 
+    /// <summary>This canvas at a smaller resolution, each texel the average of the texels it now covers.</summary>
+    /// <param name="width">The new width, at most this one's and at least 1.</param>
+    /// <param name="height">The new height, at most this one's and at least 1.</param>
+    /// <returns>A new canvas with every channel this one has.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">A dimension is larger than this one's, or below 1.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         <b>A box average, weighted by coverage, which is the inverse of <see cref="Enlarged" /></b> (Patina #106):
+    ///         at a whole factor each new texel is the block it covers, so a canvas enlarged and brought back down is the
+    ///         canvas it was, to the byte. Colour is averaged under its alpha, so a transparent texel's colour, which
+    ///         nothing shows, does not bleed into a painted neighbour; a block that is transparent throughout keeps the
+    ///         plain average.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Detail goes, which is why nothing does this on its own.</b> A set made smaller samples a larger canvas
+    ///         at its size and keeps it; this is for a copy taken deliberately into a smaller set, where the canvas has
+    ///         to be painted at that set's size.
+    ///     </para>
+    /// </remarks>
+    public PaintCanvas Reduced(int width, int height) {
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(width, Width);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(height, Height);
+        ArgumentOutOfRangeException.ThrowIfLessThan(width, 1);
+        ArgumentOutOfRangeException.ThrowIfLessThan(height, 1);
+
+        PaintCanvas reduced = new(width, height);
+
+        foreach (var usage in order) {
+            var from = channels[usage];
+            var into = reduced.Channel(usage);
+
+            into.Fill(from.Background);
+
+            for (var y = 0; y < height; y++) {
+                var top = (int)((long)y * Height / height);
+                var bottom = Math.Max(top + 1, (int)((long)(y + 1) * Height / height));
+
+                for (var x = 0; x < width; x++) {
+                    var left = (int)((long)x * Width / width);
+                    var right = Math.Max(left + 1, (int)((long)(x + 1) * Width / width));
+                    var value = Average(from, left, top, right, bottom);
+
+                    if (value != from.Background) {
+                        into.Put(x, y, value);
+                    }
+                }
+            }
+        }
+
+        return reduced;
+    }
+
+    /// <summary>This canvas at another resolution: <see cref="Enlarged" /> where it grows, <see cref="Reduced" /> where it shrinks.</summary>
+    /// <param name="width">The new width.</param>
+    /// <param name="height">The new height.</param>
+    /// <returns>A new canvas with every channel this one has.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">A dimension is below 1.</exception>
+    public PaintCanvas Resampled(int width, int height) {
+        ArgumentOutOfRangeException.ThrowIfLessThan(width, 1);
+        ArgumentOutOfRangeException.ThrowIfLessThan(height, 1);
+
+        var grown = Enlarged(Math.Max(width, Width), Math.Max(height, Height));
+
+        return grown.Width == width && grown.Height == height ? grown : grown.Reduced(width, height);
+    }
+
+    /// <summary>The coverage-weighted average of a block of texels.</summary>
+    static uint Average(PaintImage from, int left, int top, int right, int bottom) {
+        double red = 0, green = 0, blue = 0, alpha = 0, plainRed = 0, plainGreen = 0, plainBlue = 0;
+        var count = 0;
+
+        for (var y = top; y < bottom; y++) {
+            for (var x = left; x < right; x++) {
+                var texel = from.At(x, y);
+                var a = (texel >> 24) & 0xFF;
+                var r = texel & 0xFF;
+                var g = (texel >> 8) & 0xFF;
+                var b = (texel >> 16) & 0xFF;
+
+                red += r * a;
+                green += g * a;
+                blue += b * a;
+                alpha += a;
+                plainRed += r;
+                plainGreen += g;
+                plainBlue += b;
+                count++;
+            }
+        }
+
+        return alpha > 0
+            ? Packed(red / alpha, green / alpha, blue / alpha, alpha / count)
+            : Packed(plainRed / count, plainGreen / count, plainBlue / count, 0);
+    }
+
+    static uint Packed(double red, double green, double blue, double alpha) =>
+        Byte(red) | (Byte(green) << 8) | (Byte(blue) << 16) | (Byte(alpha) << 24);
+
+    static uint Byte(double value) => (uint)Math.Clamp(Math.Round(value, MidpointRounding.AwayFromZero), 0, 255);
+
     /// <summary>Writes the canvas.</summary>
     /// <param name="stream">Where to.</param>
     /// <remarks>

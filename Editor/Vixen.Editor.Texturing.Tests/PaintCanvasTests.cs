@@ -40,6 +40,46 @@ public class PaintCanvasTests {
         }
     }
 
+    /// <summary>
+    ///     A reduced canvas is the inverse of an enlarged one (Patina #106): brought back down by the same whole factor, a
+    ///     canvas is what it was to the byte, background and all.
+    /// </summary>
+    [Fact]
+    public void A_reduced_canvas_undoes_an_enlarged_one_exactly() {
+        PaintCanvas canvas = new(48, 32);
+        var colour = canvas.Channel("baseColor");
+        PaintStroke stroke = new(colour, PaintCoverage.Everywhere(48, 32), PaintStrokeTests.Hard(5f), 0xFF3366CCu);
+        stroke.MoveTo(new(12f, 16f));
+        stroke.MoveTo(new(36f, 10f));
+        canvas.Channel("roughness").Fill(0xFF808080u);
+
+        var back = canvas.Enlarged(96, 64).Reduced(48, 32);
+
+        Assert.Equal(canvas.Channels, back.Channels);
+        Assert.Equal(0xFF808080u, back.Channel("roughness").Background);
+        Assert.Equal(colour.ToTexels(), back.Channel("baseColor").ToTexels());
+    }
+
+    /// <summary>
+    ///     Each reduced texel is its block's average, colour weighted by alpha: a transparent texel's colour shows
+    ///     nowhere, so it does not tint a painted neighbour.
+    /// </summary>
+    [Fact]
+    public void A_reduced_texel_averages_its_block_under_its_alpha() {
+        PaintCanvas canvas = new(2, 2);
+        var colour = canvas.Channel("baseColor");
+        colour.Put(0, 0, 0xFF0000FFu);
+        colour.Put(1, 0, 0xFF0000FFu);
+        colour.Put(0, 1, 0x00FF0000u);
+        colour.Put(1, 1, 0x00FF0000u);
+
+        var texel = canvas.Reduced(1, 1).Channel("baseColor").At(0, 0);
+
+        Assert.Equal(0xFFu, texel & 0xFF);
+        Assert.Equal(0u, (texel >> 16) & 0xFF);
+        Assert.Equal(128u, texel >> 24);
+    }
+
     /// <summary>A painted canvas survives a round trip, to the byte.</summary>
     [Fact]
     public void A_canvas_round_trips() {

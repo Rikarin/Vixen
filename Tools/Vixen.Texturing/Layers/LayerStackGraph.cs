@@ -2449,7 +2449,7 @@ public static class LayerStackGraph {
 
             foreach (var effect in mask.Enabled ? mask.Effects : []) {
                 if (effect.Enabled) {
-                    composited = Effect(composited, effect, layer.Id, channel);
+                    composited = Blended(composited, Effect(composited, effect, layer.Id, channel), effect);
                 }
             }
 
@@ -3018,6 +3018,27 @@ public static class LayerStackGraph {
             graph.Connect(new(covered.Id, "Out"), new(product.Id, "Foreground"));
 
             return new(product.Id, "Out");
+        }
+
+        /// <summary>
+        ///     A mask step's result composited over the mask it read, by its blend and opacity, as a mask entry is over
+        ///     the entries beneath it (Patina #109). Copy at full opacity, or a step that was passed over, is the result
+        ///     alone.
+        /// </summary>
+        MaskSlot Blended(MaskSlot read, MaskSlot result, MaskEffectAsset effect) {
+            if (result.Port == read.Port || (effect.Blend == LayerBlendMode.Copy && effect.Opacity >= 1f)) {
+                return result;
+            }
+
+            var blend = Add("Colour/Blend");
+
+            blend.SetText("Mode", effect.Blend.ToString());
+            blend.SetValue("Opacity", Math.Clamp(effect.Opacity, 0f, 1f));
+
+            graph.Connect(Opaque(read).Port, new(blend.Id, "Background"));
+            graph.Connect(Opaque(result).Port, new(blend.Id, "Foreground"));
+
+            return new(new PortRef(blend.Id, "Out"), true);
         }
 
         /// <summary>One adjustment over a mask, as any node with one image in and one image out.</summary>
