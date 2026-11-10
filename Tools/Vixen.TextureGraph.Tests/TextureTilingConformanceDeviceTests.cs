@@ -156,6 +156,16 @@ public class TextureTilingConformanceDeviceTests(ITestOutputHelper output) {
         "Patterns/Tile Random",
         "Space/Mirror",
         "Space/Crop",
+        // Patina #174: the UV map is read as where to look, so rolling it moves what every texel reads and not
+        // the picture. It tiles when its map does, which the seam holds.
+        "Space/UV Remap",
+        "Utility/Island Remap",
+        // Patina #174: the profile is a table read by value, as Image Ramp's is, so rolling it changes the height
+        // every texel looks up.
+        "Surface/Bevel Profile",
+        // Patina #170: each picture is squeezed into a quarter of the width, so rolling one moves it a quarter as far
+        // inside its column. The atlas tiles when its pictures do, which the seam holds.
+        "Utility/Atlas Pack",
         "Space/Tile",
         "Space/Transform 2D",
         // A twist about one centre. It tiles while its disc stays inside the image, which the seam
@@ -449,11 +459,15 @@ public class TextureTilingConformanceDeviceTests(ITestOutputHelper output) {
                     || (changed < 0.0005f && path.StartsWith("Filters/", StringComparison.Ordinal)
                         && path != "Filters/Pixel Processor");
 
-                broken |= seamed || drifted;
+                // The instrument: a picture with any contrast changes from some texel to its neighbour on at least
+                // one axis, so nought on both is the measure gone blind rather than a flat picture (#1531).
+                var blind = picture.Contrast() >= 0.01f && stepX == 0f && stepY == 0f;
+
+                broken |= seamed || drifted || blind;
 
                 line.Append(
                     CultureInfo.InvariantCulture,
-                    $"{(seamed || drifted ? "SEAM" : "ok  ")} {path,-36} {name,-6} x {seamX:F4}/{stepX:F4} y {seamY:F4}/{stepY:F4} roll {moved:F4} contrast {picture.Contrast():F3} changed {changed:F4}\n"
+                    $"{(blind ? "BLND" : seamed || drifted ? "SEAM" : "ok  ")} {path,-36} {name,-6} x {seamX:F4}/{stepX:F4} y {seamY:F4}/{stepY:F4} roll {moved:F4} contrast {picture.Contrast():F3} changed {changed:F4}\n"
                 );
             }
 
@@ -700,7 +714,11 @@ public class TextureTilingConformanceDeviceTests(ITestOutputHelper output) {
                     step = MathF.Max(step, Mean(at, at + 1));
                 }
 
-                if (seam > worst.Seam) {
+                // ⚠ A tie on the seam keeps the larger step — Rikarin/Vixen#1531. A pattern that meets itself
+                // exactly has a seam of nought on every lane, and `>` alone never replaced the starting (0, 0),
+                // so Brick, Panels, Rivets, Hex Cells and Triangle Grid printed a vertical step of nought down
+                // pictures made of rows.
+                if (seam > worst.Seam || (seam == worst.Seam && step > worst.Step)) {
                     worst = (seam, step);
                 }
             }

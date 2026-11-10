@@ -1,0 +1,90 @@
+version: 1
+name: Bevel Profile
+nodes:
+  - id: 1
+    type: Sub-graph/Input
+    x: -1280
+    y: 0
+    values: {}
+    texts: {}
+  - id: 2
+    type: Analysis/Distance
+    x: -960
+    y: 0
+    values: {}
+    texts:
+      Mode: Inside
+      '=Max Distance': width
+  - id: 3
+    type: Colour/Image Ramp
+    x: -640
+    y: 0
+    values: {}
+    texts:
+      '=Row': row
+  - id: 4
+    type: Colour/Grayscale
+    x: -320
+    y: 0
+    values:
+      Weight R: [1]
+      Weight G: [0]
+      Weight B: [0]
+    texts: {}
+  - id: 5
+    type: Colour/Blend
+    x: 0
+    y: 0
+    values: {}
+    texts:
+      Mode: Multiply
+  - id: 6
+    type: Sub-graph/Output
+    x: 320
+    y: 0
+    values: {}
+    texts: {}
+edges:
+  - { fromNode: 1, fromPort: Mask, toNode: 2, toPort: Mask }
+  - { fromNode: 2, fromPort: Out, toNode: 3, toPort: Input }
+  - { fromNode: 1, fromPort: Profile, toNode: 3, toPort: Ramp }
+  - { fromNode: 3, fromPort: Out, toNode: 4, toPort: Input }
+  - { fromNode: 4, fromPort: Out, toNode: 5, toPort: Background }
+  - { fromNode: 1, fromPort: Mask, toNode: 5, toPort: Foreground }
+  - { fromNode: 5, fromPort: Out, toNode: 6, toPort: Out }
+groups: []
+comments: []
+interface:
+  - name: Mask
+    direction: Input
+    kind: Image
+    default: []
+    summary: 'The shape to bevel. A single channel: above a half is inside.'
+  - name: Profile
+    direction: Input
+    kind: Image
+    default: []
+    summary: 'The bevel''s cross-section, read along one row: its left is the height at the shape''s edge and its right the height at the bevel''s full width and beyond. A ramp is a chamfer, a curve a round.'
+  - name: Out
+    direction: Output
+    kind: Image
+    default: []
+    summary: 'The shape as a height whose edge follows the profile over the bevel''s width, nought outside the shape.'
+settings: { baseWidth: '1024', baseHeight: '1024', seed: '1', summary: A bevel whose cross-section is drawn in a picture rather than chosen from a list. }
+parameters:
+  - name: width
+    label: Width
+    default: '0.05'
+    summary: 'How far in from the edge the profile reaches, as a fraction of the image.'
+    kind: Float
+    minimum: 0
+    maximum: 0.5
+    group: Bevel Profile
+  - name: row
+    label: Row
+    default: '0.5'
+    summary: 'Which row of the profile is read, from the top.'
+    kind: Float
+    minimum: 0
+    maximum: 1
+    group: Bevel Profile

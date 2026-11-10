@@ -77,8 +77,8 @@ static class Placements {
 /// <summary>A grid of cells with one instance of a pattern in each.</summary>
 /// <remarks>
 ///     <para>
-///         <b>Only the pattern has to be wired.</b> The three map ports are
-///         <see cref="TexturePorts.Optional" />: the kernel declares four textures and the evaluator
+///         <b>Only the pattern has to be wired.</b> The map ports and the further patterns are
+///         <see cref="TexturePorts.Optional" />: the kernel declares eleven textures and the evaluator
 ///         binds them positionally, so an unfilled slot takes the pattern and its own
 ///         <c>…Amount</c> — zero by default — is what says nothing reads it. A mask threshold of
 ///         zero never culls, because a coverage is never below zero.
@@ -111,6 +111,14 @@ static class Placements {
 ///         random grey or colour per instance, its number over the count, or its own UV, each shaped by the
 ///         pattern's coverage. They are what a tint per tile, a mask from a range of instances
 ///         (<c>Index</c> through a <c>Utility/Histogram Select</c>) or a ramp across every instance is made of.
+///     </para>
+///     <para>
+///         <b>Four more maps and three more patterns</b> (Patina #170), each read at an instance's centre: a
+///         displacement moves it by up to <c>Displacement Amount</c> cells, a vector turns it to face along the
+///         map, a colour multiplies it, and an index map chooses which of the patterns and columns it draws. ⚠
+///         <b>Their amounts default to doing something</b>, unlike the first two maps', because the node writes
+///         an amount as nought whenever its map is unwired — so wiring a map is enough, and an unwired one is
+///         never read. A wired colour map makes the output colour, whatever the pattern is.
 ///     </para>
 /// </remarks>
 [Node("Placement/Tile Sampler", Preview = true, Adjustment = false, Summary = "A grid of cells with one jittered instance of a pattern in each.")]

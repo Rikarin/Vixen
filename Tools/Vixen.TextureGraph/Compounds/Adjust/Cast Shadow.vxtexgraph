@@ -1,0 +1,116 @@
+version: 1
+name: Cast Shadow
+nodes:
+  - id: 1
+    type: Sub-graph/Input
+    x: -1280
+    y: 0
+    values: {}
+    texts: {}
+  - id: 2
+    type: Analysis/Directional Distance
+    x: -960
+    y: 0
+    values: {}
+    texts:
+      '=Max Distance': length
+  - id: 3
+    type: Colour/Invert
+    x: -640
+    y: 0
+    values: {}
+    texts: {}
+  - id: 4
+    type: Colour/Levels
+    x: -320
+    y: 0
+    values: {}
+    texts:
+      '=Gamma': falloff
+  - id: 5
+    type: Colour/Blend
+    x: 0
+    y: 240
+    values: {}
+    texts:
+      Mode: Subtract
+  - id: 6
+    type: Source/Uniform
+    x: 0
+    y: 480
+    values:
+      Colour: [0, 0, 0, 1]
+    texts: {}
+  - id: 7
+    type: Colour/Mix
+    x: 320
+    y: 0
+    values: {}
+    texts:
+      '=Opacity': opacity
+  - id: 8
+    type: Sub-graph/Output
+    x: 640
+    y: 0
+    values: {}
+    texts: {}
+edges:
+  - { fromNode: 1, fromPort: Shape, toNode: 2, toPort: Mask }
+  - { fromNode: 1, fromPort: Angle, toNode: 2, toPort: Angle }
+  - { fromNode: 2, fromPort: Out, toNode: 3, toPort: Input }
+  - { fromNode: 3, fromPort: Out, toNode: 4, toPort: Input }
+  - { fromNode: 4, fromPort: Out, toNode: 5, toPort: Background }
+  - { fromNode: 1, fromPort: Shape, toNode: 5, toPort: Foreground }
+  - { fromNode: 1, fromPort: Input, toNode: 7, toPort: Background }
+  - { fromNode: 6, fromPort: Out, toNode: 7, toPort: Foreground }
+  - { fromNode: 5, fromPort: Out, toNode: 7, toPort: Mask }
+  - { fromNode: 7, fromPort: Out, toNode: 8, toPort: Out }
+groups: []
+comments: []
+interface:
+  - name: Input
+    direction: Input
+    kind: Image
+    default: []
+    summary: The picture the shadow falls on.
+  - name: Shape
+    direction: Input
+    kind: Image
+    default: []
+    summary: 'What casts the shadow, white where it stands. A single channel.'
+  - name: Angle
+    direction: Input
+    kind: Float
+    default: [0.785398]
+    summary: 'Which way the shadow falls, in radians from the right towards the bottom.'
+  - name: Out
+    direction: Output
+    kind: Image
+    default: []
+    summary: 'The picture darkened along a shadow the shape throws one way, darkest against the shape and fading with distance.'
+settings: { baseWidth: '1024', baseHeight: '1024', seed: '1', summary: 'A shadow a shape casts one way, measured by distance along the light.' }
+parameters:
+  - name: length
+    label: Length
+    default: '0.08'
+    summary: 'How far the shadow reaches, as a fraction of the image.'
+    kind: Float
+    minimum: 0
+    maximum: 0.5
+    group: Cast Shadow
+  - name: falloff
+    label: Falloff
+    default: '1'
+    summary: 'How the shadow fades: below one it thins fast, above one it holds dark and then ends.'
+    kind: Float
+    minimum: 0.1
+    maximum: 4
+    group: Cast Shadow
+  - name: opacity
+    label: Opacity
+    default: '0.7'
+    summary: How dark the shadow is against the shape.
+    kind: Float
+    minimum: 0
+    maximum: 1
+    group: Cast Shadow

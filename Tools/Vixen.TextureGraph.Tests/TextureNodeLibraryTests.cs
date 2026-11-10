@@ -938,11 +938,13 @@ public class TextureNodeLibraryTests {
         graph.Connect(grayscale, "Out", rotateByMap, "Rotation");
 
         // Patina wave 8: #167's blue noise, a source whose tile arrives as an external image, and #174's
-        // directional distance over a mask and UV remap reading a flood's island coordinates.
+        // directional distance over a mask and UV remap, a colour read at colour coordinates. ⚠ Both colour, so
+        // no promotion adds a third ChannelShuffle to the two the optional-map case below counts.
         var uvRemap = graph.Add("Space/UV Remap");
 
-        graph.Connect(graph.Add("Source/Blue Noise"), "Out", uvRemap, "Input");
-        graph.Connect(flood, "Out", uvRemap, "UV");
+        graph.Add("Source/Blue Noise");
+        graph.Connect(invert, "Out", uvRemap, "Input");
+        graph.Connect(hsl, "Out", uvRemap, "UV");
         graph.Connect(blur, "Out", graph.Add("Analysis/Directional Distance"), "Mask");
 
         // Patina #178's photo nodes and #218's anti-repetition and terrain ones. Normal from Lighting reads four

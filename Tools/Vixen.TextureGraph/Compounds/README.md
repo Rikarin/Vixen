@@ -27,6 +27,10 @@ authored, and what it cost to author the things that could**.
 | | Equalize | `Highpass` at a coarse radius, then `Contrast Luminosity`. ⚠ **This is § 4.9's *Delight / Equalize* ●, and the slash there is an alias rather than an enumeration** — doc 40 § D2's second row names one technique ("high-pass over a large-radius blur") twice, exactly as its neighbour names one compound *make-it-tile / smart auto-tile*. There is no second file owed ([#1110](https://github.com/Rikarin/Vixen/issues/1110)) |
 | | Safe Transform | `Transform 2D` under `Wrap`, quarter turns and whole tile counts |
 | | Make It Tile | offset-wrap, a mirrored `Gradation` cross for the seam mask, a masked composite |
+| | Island Remap | `Flood Fill` in `LocalUv` → `Space/UV Remap`, so the pattern fills every island's box (Patina #174) |
+| | Fill from Edges | `Distance` inside, divided by a `Flood Fill`'s `Size` taken at its narrower side through a `Darken`, so every island reaches one at its middle (Patina #174) |
+| | Instance Range | two `Compare`s on a placement's `Index`, their thresholds folded from `first`, `last` and `count` (Patina #170) |
+| | Atlas Pack | four `Tile`s squeezing four pictures into quarter-width columns, chosen by `Compare`s on a quantised sweep through `Colour/Mix` (Patina #170) |
 | `Patterns` | Brick | `Shape Square` → `Tile` with a half-tile row offset |
 | | Panels | `Shape Square` → `Tile` → `Blur` for the bevel |
 | | Tile Random | `Tile Sampler`, jitter on size, turn and position |
@@ -39,12 +43,26 @@ authored, and what it cost to author the things that could**.
 | | Hex Cells | a six-sided `Shape` widened by √3 in `Transform 2D`, laid again half a tile on, `Lighten`, `Tile` — a whole number of rows, so as regular as that allows |
 | | Triangle Grid | a point-up and a point-down `Triangle` stretched by 2/√3, `Tile` with a half shift per row and an even row count |
 | | Varied Brick | `Brick`'s two nodes and a tone per brick: two `White` noises with a lattice of `Columns` × `Rows`, the second shifted half a cell, picked per course by a row-parity `Checker`, through `Levels` and a `Multiply`. ⚠ A file of its own rather than a knob on `Brick`, because Patina's end-to-end suite opens `Brick` and counts its wires |
+| | Mesh Grid | a `Gradient` `Mirror`ed into a triangle wave, `Tile`d and cut by `Threshold`, laid again a quarter turn on and `Lighten`ed |
+| | Fan Pavement | stepped radial rings through `Quantise` in a `Disc`, the disc shuffled in as alpha so a `Tile Sampler` in `Blend` lays each row over the last |
+| | Arc Pavement | a radial `Gradient Map` of joints in a larger disc, laid the same way, so each shows as a shallow arc |
+| | Triangulated Surface | `Triangle Grid` → `Flood Fill` in `Gradient` at a free angle per island → `Levels` |
 | `Noise` | Clouds | seven octaves of `Gaussian` noise → `Auto Levels` |
 | | Cell Walls | `Worley` F2 − F1 through `Grayscale` weights, `Levels` to a width, `Invert` |
 | | Fractal Cells | `Worley` summed over octaves, its F1 → `Auto Levels` |
 | | Streaks | `Gradient` noise with `Scale Y` the stretch → `Auto Levels` |
 | | Spots | `Worley` F1 → `Levels` to a radius → `Invert`: a cone about every point, a half at the radius |
 | | Liquid | a noise through `Warp` along a coarser noise's slopes |
+| | Directional Noise | `Gradient` noise → `Directional Blur`, which wraps at any angle → `Auto Levels` |
+| | Gaussian Blobs | a `Gaussian` `Shape` → `Splatter` in `Add` → `Auto Levels` |
+| | Plasma | a noise `Warp`ed by another → `Histogram Equalise` → a `Gradient Map` folding the middle bright |
+| | Caustics | Worley `F2 − F1` through `Grayscale` → `Warp` → `Levels` → `Invert`, squared by a `Multiply` |
+| | Moisture | `Gaussian` noise → `Auto Levels` → a soft `Threshold` → `Blur HQ`, times a fine grain |
+| | Fur | a `Gaussian` stretched by `Transform 2D` under `Clamp`, `Splatter`ed mostly one way |
+| | Fibres | a `Disc` stretched forty times, `Splatter`ed every way and bent by a gentle `Warp` |
+| | Waveform Bars | a `White` noise with one cell per column through `Levels`, less a `Reflected` sweep, `Threshold`ed and cut into bars by a tiled sweep |
+| | Creased Cloth | a `Cone` stretched into a ridge, `Splatter`ed every way in `Add`, over a `Levels`-scaled noise for the folds |
+| | Microscope View | one `Worley` read twice — `F2 − F1` for the membranes and `F1` for the nuclei — multiplied over a grain |
 | `Generators` | Dirt · Curvature Edge Wear · Grunge Rough Dirty | mesh maps, by usage |
 | | Mask Editor | curvature, occlusion and noise under four sliders |
 | | Metal Edge Wear | curvature, broken away by a noise through `Colour/Mix`, gated by occlusion |
@@ -56,11 +74,15 @@ authored, and what it cost to author the things that could**.
 | | Bevel Height | `Bevel`'s first two nodes, ending at the height. ⚠ A sibling and not a second output on `Bevel`, because a layer stack's filter is one image in and one out, and `Bevel` is one (Patina #176) |
 | | Curvature Smooth | `Blur HQ` → `Height to Normal` → `Curvature` |
 | | Height to AO | `Ambient Occlusion` → `Blur` → `Levels` |
+| | Bevel Profile | `Distance` inside → `Colour/Image Ramp` over a second image, the cross-section, so a profile is drawn rather than chosen (Patina #174) |
 | | Metal Reflectance | `Colour/Metal Reflectance` on a `Metal` name port, mixed over a base by a mask through `Colour/Mix` — the row that was blocked on [#1096](https://github.com/Rikarin/Vixen/issues/1096) until the atomic node landed |
 | `Adjust` | Colour Correct | `Levels` for brightness, contrast and gamma (the gamma inverted, so above one brightens as photo tools do) → `HSL` |
 | | Colour Balance | three `Pixel Processor`s, each adding a tint weighted to the shadows, the midtones or the highlights by the luminance |
 | | Smoothstep · Histogram Shift · Height Adjust | one `Pixel Processor` each, its numbers from the graph's parameters |
 | | Drop Shadow | a second image, the shape, through `Transform 2D` and `Blur HQ`, multiplied in by a `Pixel Processor` |
+| | Outline | `Distance` outside → `Invert` → a steep `Levels`, less the shape (Patina #174) |
+| | Outer Glow | the same band with a `Gamma` falloff, `Screen`ed over the picture |
+| | Cast Shadow | `Analysis/Directional Distance` along the light → `Invert` → `Levels`, less the shape, mixing black into the picture |
 | | PBR Validate | a `Pixel Processor` reading `baseColor` and `metalness` by usage and writing `baseColor` alone — a *material filter*, which a layer runs in the channels it has an output named for |
 | `Finishes` | Brushed | `Noise` stretched along one axis → `Transform 2D` → `Auto Levels`, into a roughness and a height `Pixel Processor` |
 | | Hammered | a `Worley` noise → `Auto Levels`, its square the dents and its value the polish |
@@ -434,6 +456,31 @@ moving: a flat still ties at one value.
 dusted every open face; `Dirt` multiplied crease by occlusion, so a texel needed both. Every generator takes a
 seed through `Source/Noise`'s `Seed`, which folds into the hash rather than the op's identity, so turning it
 refreshes rather than recompiles.
+
+### 10 · The sixth round: twenty-two rows for Patina wave 8
+
+Twenty-two files over the noise, pattern, distance and placement rows, and two atoms the rows could not do
+without. What the round measured:
+
+⚠ **A nested compound's knob takes a number and not an expression.** `Mesh Grid` and `Waveform Bars` were first
+written as two `Patterns/Stripes` with `width: wire`, meaning the outer knob; a knob override is read by
+`TextureGraphParameters.Read`, which parses a number, so `wire` is a `TG0015` warning and the stripes keep their
+default of a half — a mesh with three quarters wire and no error. Only a *port* takes an expression of the scope
+around it. The two build their stripes inline now, four nodes each, which is the shape every other row already
+had for the same reason. Filed as a gap rather than worked round in the compiler, because whether a knob should
+fold an outer expression is a file-format question.
+
+⚠ **Overlap needs an alpha, and a grey pattern has none.** The two pavements lay each row over the last in
+`Tile Sampler`'s `Blend`, and with the coverage read from the luminance a darker ring is a more transparent one,
+so the first pictures were rows of grey haze. A `Channel Shuffle` puts the disc into the alpha and `Alpha Coverage`
+reads it there: one node, and the only way a stamp can be opaque and dark at once.
+
+**What could not be a compound at all.** Blue noise is a rank *order* with no low frequencies, and nothing in the
+atomic set orders ranks: a filtered white noise has the spectrum and not the order. It is `Source/Blue Noise`, a
+void-and-cluster tile made on the CPU. A distance along one direction is a walk the jump flood cannot take, so it is
+`Analysis/Directional Distance`, and `Cast Shadow` stands on it; and an island's picture needs a read *at* a
+coordinate, which `Vector Warp`'s offset cannot express, so `Space/UV Remap` is the third atom and `Island Remap`
+the row over it.
 
 ### What a compound costs the roll call
 

@@ -1,0 +1,83 @@
+version: 1
+name: Fur
+nodes:
+  - id: 1
+    type: Sub-graph/Input
+    x: -1280
+    y: 0
+    values: {}
+    texts: {}
+  - id: 2
+    type: Source/Shape
+    x: -1280
+    y: 240
+    values:
+      Scale: [0.35]
+    texts:
+      Kind: Gaussian
+  - id: 3
+    type: Space/Transform 2D
+    x: -960
+    y: 240
+    values:
+      Scale Y: [4]
+    texts:
+      Tiling: Clamp
+  - id: 4
+    type: Placement/Splatter
+    x: -640
+    y: 0
+    values:
+      Colour Jitter: [0.7]
+      Scale Jitter: [0.5]
+    texts:
+      '=Scale': length
+      '=Rotation Jitter': wildness
+  - id: 5
+    type: Sub-graph/Output
+    x: -320
+    y: 0
+    values: {}
+    texts: {}
+edges:
+  - { fromNode: 2, fromPort: Out, toNode: 3, toPort: Input }
+  - { fromNode: 3, fromPort: Out, toNode: 4, toPort: Pattern }
+  - { fromNode: 1, fromPort: Count, toNode: 4, toPort: Count }
+  - { fromNode: 1, fromPort: Angle, toNode: 4, toPort: Rotation }
+  - { fromNode: 4, fromPort: Out, toNode: 5, toPort: Out }
+groups: []
+comments: []
+interface:
+  - name: Count
+    direction: Input
+    kind: Int
+    default: [2048]
+    summary: How many strands. At most 4096.
+  - name: Angle
+    direction: Input
+    kind: Float
+    default: [0]
+    summary: 'Which way the strands lie, in radians: nought is straight down the image.'
+  - name: Out
+    direction: Output
+    kind: Image
+    default: []
+    summary: 'Short soft strands of differing brightness, lying mostly one way, like fur or short hair.'
+settings: { baseWidth: '1024', baseHeight: '1024', seed: '1', summary: 'Short soft strands lying mostly one way, like fur.' }
+parameters:
+  - name: length
+    label: Length
+    default: '0.12'
+    summary: 'How long a strand is, as a fraction of the image.'
+    kind: Float
+    minimum: 0.01
+    maximum: 0.5
+    group: Fur
+  - name: wildness
+    label: Wildness
+    default: '0.5'
+    summary: 'How far a strand may turn from the others, in radians.'
+    kind: Float
+    minimum: 0
+    maximum: 6.2831853
+    group: Fur

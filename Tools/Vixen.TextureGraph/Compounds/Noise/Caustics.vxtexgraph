@@ -1,0 +1,109 @@
+version: 1
+name: Caustics
+nodes:
+  - id: 1
+    type: Sub-graph/Input
+    x: -1280
+    y: 0
+    values: {}
+    texts: {}
+  - id: 2
+    type: Source/Noise
+    x: -960
+    y: 0
+    values: {}
+    texts:
+      Basis: Worley
+  - id: 3
+    type: Colour/Grayscale
+    x: -640
+    y: 0
+    values:
+      Weight R: [-1]
+      Weight G: [1]
+      Weight B: [0]
+      Normalise: [0]
+    texts: {}
+  - id: 4
+    type: Source/Noise
+    x: -960
+    y: 240
+    values:
+      Scale: [4]
+      Octaves: [2]
+    texts:
+      Basis: Gradient
+  - id: 5
+    type: Filters/Warp
+    x: -320
+    y: 0
+    values: {}
+    texts:
+      '=Intensity': ripple
+  - id: 6
+    type: Colour/Levels
+    x: 0
+    y: 0
+    values: {}
+    texts:
+      '=Input White': '0.02f + thinness * 0.3f'
+  - id: 7
+    type: Colour/Invert
+    x: 320
+    y: 0
+    values: {}
+    texts: {}
+  - id: 8
+    type: Colour/Blend
+    x: 640
+    y: 0
+    values: {}
+    texts:
+      Mode: Multiply
+  - id: 9
+    type: Sub-graph/Output
+    x: 960
+    y: 0
+    values: {}
+    texts: {}
+edges:
+  - { fromNode: 1, fromPort: Cells, toNode: 2, toPort: Scale }
+  - { fromNode: 2, fromPort: Out, toNode: 3, toPort: Input }
+  - { fromNode: 3, fromPort: Out, toNode: 5, toPort: Input }
+  - { fromNode: 4, fromPort: Out, toNode: 5, toPort: Warp }
+  - { fromNode: 5, fromPort: Out, toNode: 6, toPort: Input }
+  - { fromNode: 6, fromPort: Out, toNode: 7, toPort: Input }
+  - { fromNode: 7, fromPort: Out, toNode: 8, toPort: Background }
+  - { fromNode: 7, fromPort: Out, toNode: 8, toPort: Foreground }
+  - { fromNode: 8, fromPort: Out, toNode: 9, toPort: Out }
+groups: []
+comments: []
+interface:
+  - name: Cells
+    direction: Input
+    kind: Float
+    default: [6]
+    summary: How many light cells across the image.
+  - name: Out
+    direction: Output
+    kind: Image
+    default: []
+    summary: 'A web of thin bright lines where light gathers under rippling water, nought between them.'
+settings: { baseWidth: '1024', baseHeight: '1024', seed: '1', summary: The web of bright lines light makes under rippling water. }
+parameters:
+  - name: thinness
+    label: Width
+    default: '0.25'
+    summary: 'How wide the bright lines are: low is a hairline, high a soft band.'
+    kind: Float
+    minimum: 0
+    maximum: 1
+    group: Caustics
+  - name: ripple
+    label: Ripple
+    default: '24'
+    summary: 'How far the web is bent by the water''s ripples, in texels at the base resolution.'
+    kind: Float
+    minimum: 0
+    maximum: 128
+    group: Caustics

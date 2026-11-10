@@ -61,7 +61,8 @@ import Vixen.Shaders.Core
 shader TileSampler {
     /// The stamp. ⚠ Read as an **atlas of `patternCount` columns**, so one input carries the several
     /// § 4.7 asks for — the evaluator binds an op's inputs positionally and refuses a count mismatch,
-    /// so six optional pattern ports would be six images every plan had to supply.
+    /// so every further pattern is a slot every plan supplies: `pattern2` to `pattern4` below are bound as this one
+    /// when nothing is wired to them, and `patternInputs` says how many are real (Patina #170).
     var pattern: Texture2D
 
     /// Sampled once per instance, at the instance's centre: an instance whose mask is below

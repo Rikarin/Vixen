@@ -1,0 +1,104 @@
+version: 1
+name: Fibres
+nodes:
+  - id: 1
+    type: Sub-graph/Input
+    x: -1280
+    y: 0
+    values: {}
+    texts: {}
+  - id: 2
+    type: Source/Shape
+    x: -1280
+    y: 240
+    values:
+      Falloff: [0.2]
+    texts:
+      Kind: Disc
+      '=Scale': '0.01f + thickness * 0.04f'
+  - id: 3
+    type: Space/Transform 2D
+    x: -960
+    y: 240
+    values:
+      Scale X: [40]
+    texts:
+      Tiling: Clamp
+  - id: 4
+    type: Placement/Splatter
+    x: -640
+    y: 0
+    values:
+      Rotation Jitter: [6.2831853]
+      Colour Jitter: [0.6]
+      Scale Jitter: [0.5]
+    texts:
+      '=Scale': length
+  - id: 5
+    type: Source/Noise
+    x: -640
+    y: 240
+    values:
+      Scale: [2]
+      Octaves: [1]
+    texts:
+      Basis: Gradient
+  - id: 6
+    type: Filters/Warp
+    x: -320
+    y: 0
+    values: {}
+    texts:
+      '=Intensity': curl
+  - id: 7
+    type: Sub-graph/Output
+    x: 0
+    y: 0
+    values: {}
+    texts: {}
+edges:
+  - { fromNode: 2, fromPort: Out, toNode: 3, toPort: Input }
+  - { fromNode: 3, fromPort: Out, toNode: 4, toPort: Pattern }
+  - { fromNode: 1, fromPort: Count, toNode: 4, toPort: Count }
+  - { fromNode: 4, fromPort: Out, toNode: 6, toPort: Input }
+  - { fromNode: 5, fromPort: Out, toNode: 6, toPort: Warp }
+  - { fromNode: 6, fromPort: Out, toNode: 7, toPort: Out }
+groups: []
+comments: []
+interface:
+  - name: Count
+    direction: Input
+    kind: Int
+    default: [250]
+    summary: How many fibres. At most 4096.
+  - name: Out
+    direction: Output
+    kind: Image
+    default: []
+    summary: 'Thin curling fibres lying every which way, like paper pulp or felt.'
+settings: { baseWidth: '1024', baseHeight: '1024', seed: '1', summary: 'Thin curling fibres in every direction, like paper or felt.' }
+parameters:
+  - name: thickness
+    label: Thickness
+    default: '0.25'
+    summary: How thick a fibre is.
+    kind: Float
+    minimum: 0
+    maximum: 1
+    group: Fibres
+  - name: length
+    label: Length
+    default: '0.25'
+    summary: 'How long a fibre is, as a fraction of the image.'
+    kind: Float
+    minimum: 0.02
+    maximum: 1
+    group: Fibres
+  - name: curl
+    label: Curl
+    default: '3'
+    summary: 'How much the fibres bend, in texels at the base resolution.'
+    kind: Float
+    minimum: 0
+    maximum: 128
+    group: Fibres

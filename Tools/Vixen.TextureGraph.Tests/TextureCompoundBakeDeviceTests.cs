@@ -92,6 +92,14 @@ public class TextureCompoundBakeDeviceTests(ITestOutputHelper output) {
     /// </remarks>
     const int RollCallSide = 1024;
 
+    /// <summary>Compounds whose answer is a selection, one or nought, so two values is the picture and not a fill.</summary>
+    /// <remarks>
+    ///     Patina #170's <c>Utility/Instance Range</c> picks instances by number, and a mask of the chosen ones has no
+    ///     third value to draw. It is still held to drawing both, and <c>TextureDistanceCompoundDeviceTests</c> holds
+    ///     which instances it picks.
+    /// </remarks>
+    static readonly HashSet<string> Selections = ["Utility/Instance Range"];
+
     /// <summary>Every shipped compound, inside a graph, evaluated, and none of them is a flat fill.</summary>
     /// <remarks>
     ///     <para>
@@ -145,7 +153,7 @@ public class TextureCompoundBakeDeviceTests(ITestOutputHelper output) {
             output.WriteLine($"{adapter}: {path} → {distinct} distinct values over {RollCallSide}×{RollCallSide}");
 
             Assert.True(
-                distinct > 3,
+                Selections.Contains(path) ? distinct >= 2 : distinct > 3,
                 $"{adapter}: '{path}' baked to {distinct} distinct values over {RollCallSide}×{RollCallSide}, "
                 + "which is a flat fill. A compound is an arrangement of nodes "
                 + "that has to compute something."

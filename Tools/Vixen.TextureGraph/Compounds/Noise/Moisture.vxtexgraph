@@ -1,0 +1,114 @@
+version: 1
+name: Moisture
+nodes:
+  - id: 1
+    type: Sub-graph/Input
+    x: -1280
+    y: 0
+    values: {}
+    texts: {}
+  - id: 2
+    type: Source/Noise
+    x: -960
+    y: 0
+    values:
+      Octaves: [5]
+    texts:
+      Basis: Gaussian
+  - id: 3
+    type: Colour/Auto Levels
+    x: -640
+    y: 0
+    values: {}
+    texts: {}
+  - id: 4
+    type: Colour/Threshold
+    x: -320
+    y: 0
+    values: {}
+    texts:
+      '=Level': 1f - coverage
+      '=Softness': softness
+  - id: 5
+    type: Filters/Blur HQ
+    x: 0
+    y: 0
+    values: {}
+    texts:
+      '=Sigma': blur
+  - id: 6
+    type: Source/Noise
+    x: -320
+    y: 240
+    values:
+      Scale: [96]
+      Octaves: [2]
+    texts: {}
+  - id: 7
+    type: Colour/Levels
+    x: 0
+    y: 240
+    values:
+      Output Black: [0.75]
+    texts: {}
+  - id: 8
+    type: Colour/Blend
+    x: 320
+    y: 0
+    values: {}
+    texts:
+      Mode: Multiply
+  - id: 9
+    type: Sub-graph/Output
+    x: 640
+    y: 0
+    values: {}
+    texts: {}
+edges:
+  - { fromNode: 1, fromPort: Scale, toNode: 2, toPort: Scale }
+  - { fromNode: 2, fromPort: Out, toNode: 3, toPort: Input }
+  - { fromNode: 3, fromPort: Out, toNode: 4, toPort: Input }
+  - { fromNode: 4, fromPort: Out, toNode: 5, toPort: Input }
+  - { fromNode: 6, fromPort: Out, toNode: 7, toPort: Input }
+  - { fromNode: 5, fromPort: Out, toNode: 8, toPort: Background }
+  - { fromNode: 7, fromPort: Out, toNode: 8, toPort: Foreground }
+  - { fromNode: 8, fromPort: Out, toNode: 9, toPort: Out }
+groups: []
+comments: []
+interface:
+  - name: Scale
+    direction: Input
+    kind: Float
+    default: [4]
+    summary: How many damp patches across the image.
+  - name: Out
+    direction: Output
+    kind: Image
+    default: []
+    summary: 'Soft-edged damp patches with a fine grain in them: one where a surface is wet, nought where it is dry.'
+settings: { baseWidth: '1024', baseHeight: '1024', seed: '1', summary: 'Soft damp patches, as a mask for darkening and gloss.' }
+parameters:
+  - name: coverage
+    label: Coverage
+    default: '0.4'
+    summary: How much of the surface is damp.
+    kind: Float
+    minimum: 0
+    maximum: 1
+    group: Moisture
+  - name: softness
+    label: Softness
+    default: '0.12'
+    summary: 'How gradually a patch dries out at its edge, as a share of the noise''s range.'
+    kind: Float
+    minimum: 0
+    maximum: 0.5
+    group: Moisture
+  - name: blur
+    label: Blur
+    default: '6'
+    summary: 'How far the edge is softened again, in texels at the base resolution.'
+    kind: Float
+    minimum: 0
+    maximum: 32
+    group: Moisture

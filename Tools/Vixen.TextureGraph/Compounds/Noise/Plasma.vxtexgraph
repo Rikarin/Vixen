@@ -1,0 +1,92 @@
+version: 1
+name: Plasma
+nodes:
+  - id: 1
+    type: Sub-graph/Input
+    x: -1280
+    y: 0
+    values: {}
+    texts: {}
+  - id: 2
+    type: Source/Noise
+    x: -960
+    y: 0
+    values:
+      Octaves: [2]
+    texts:
+      Basis: Gradient
+  - id: 3
+    type: Source/Noise
+    x: -960
+    y: 240
+    values:
+      Scale: [2]
+      Octaves: [1]
+    texts:
+      Basis: Gradient
+  - id: 4
+    type: Filters/Warp
+    x: -640
+    y: 0
+    values: {}
+    texts:
+      '=Intensity': swirl
+  - id: 5
+    type: Colour/Histogram Equalise
+    x: -320
+    y: 0
+    values: {}
+    texts: {}
+  - id: 6
+    type: Colour/Gradient Map
+    x: 0
+    y: 0
+    values: {}
+    texts:
+      Ramp: 'ramp:0 000000ff,0.5 ffffffff,1 000000ff'
+  - id: 7
+    type: Colour/Grayscale
+    x: 320
+    y: 0
+    values:
+      Weight R: [1]
+      Weight G: [0]
+      Weight B: [0]
+    texts: {}
+  - id: 8
+    type: Sub-graph/Output
+    x: 640
+    y: 0
+    values: {}
+    texts: {}
+edges:
+  - { fromNode: 1, fromPort: Scale, toNode: 2, toPort: Scale }
+  - { fromNode: 2, fromPort: Out, toNode: 4, toPort: Input }
+  - { fromNode: 3, fromPort: Out, toNode: 4, toPort: Warp }
+  - { fromNode: 4, fromPort: Out, toNode: 5, toPort: Input }
+  - { fromNode: 5, fromPort: Out, toNode: 6, toPort: Input }
+  - { fromNode: 6, fromPort: Out, toNode: 7, toPort: Input }
+  - { fromNode: 7, fromPort: Out, toNode: 8, toPort: Out }
+groups: []
+comments: []
+interface:
+  - name: Scale
+    direction: Input
+    kind: Float
+    default: [3]
+    summary: How many swirls across the image.
+  - name: Out
+    direction: Output
+    kind: Image
+    default: []
+    summary: 'Bands of light and dark that follow a stirred noise, bright where the stirred noise is at its middle and dark at either end, like a plasma.'
+settings: { baseWidth: '1024', baseHeight: '1024', seed: '1', summary: 'A stirred noise folded into bright bands, like a plasma.' }
+parameters:
+  - name: swirl
+    label: Swirl
+    default: '120'
+    summary: 'How far the noise is stirred before it is banded, in texels at the base resolution.'
+    kind: Float
+    minimum: 0
+    maximum: 512
+    group: Plasma

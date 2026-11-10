@@ -1,0 +1,81 @@
+version: 1
+name: Outline
+nodes:
+  - id: 1
+    type: Sub-graph/Input
+    x: -1280
+    y: 0
+    values: {}
+    texts: {}
+  - id: 2
+    type: Analysis/Distance
+    x: -960
+    y: 0
+    values: {}
+    texts:
+      Mode: Outside
+      '=Max Distance': width
+  - id: 3
+    type: Colour/Invert
+    x: -640
+    y: 0
+    values: {}
+    texts: {}
+  - id: 4
+    type: Colour/Levels
+    x: -320
+    y: 0
+    values: {}
+    texts:
+      '=Input White': 0.001f + softness
+  - id: 5
+    type: Colour/Blend
+    x: 0
+    y: 0
+    values: {}
+    texts:
+      Mode: Subtract
+  - id: 6
+    type: Sub-graph/Output
+    x: 320
+    y: 0
+    values: {}
+    texts: {}
+edges:
+  - { fromNode: 1, fromPort: Mask, toNode: 2, toPort: Mask }
+  - { fromNode: 2, fromPort: Out, toNode: 3, toPort: Input }
+  - { fromNode: 3, fromPort: Out, toNode: 4, toPort: Input }
+  - { fromNode: 4, fromPort: Out, toNode: 5, toPort: Background }
+  - { fromNode: 1, fromPort: Mask, toNode: 5, toPort: Foreground }
+  - { fromNode: 5, fromPort: Out, toNode: 6, toPort: Out }
+groups: []
+comments: []
+interface:
+  - name: Mask
+    direction: Input
+    kind: Image
+    default: []
+    summary: 'The shape to outline. A single channel: above a half is inside.'
+  - name: Out
+    direction: Output
+    kind: Image
+    default: []
+    summary: 'A band round the outside of the shape, one on the band and nought inside the shape and beyond the band.'
+settings: { baseWidth: '1024', baseHeight: '1024', seed: '1', summary: 'A band round the outside of a shape, as a stroke is.' }
+parameters:
+  - name: width
+    label: Width
+    default: '0.01'
+    summary: 'How wide the outline is, as a fraction of the image.'
+    kind: Float
+    minimum: 0
+    maximum: 0.25
+    group: Outline
+  - name: softness
+    label: Softness
+    default: '0.1'
+    summary: How much of the band fades out at its far edge.
+    kind: Float
+    minimum: 0
+    maximum: 1
+    group: Outline

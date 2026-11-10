@@ -1,0 +1,104 @@
+version: 1
+name: Outer Glow
+nodes:
+  - id: 1
+    type: Sub-graph/Input
+    x: -1280
+    y: 0
+    values: {}
+    texts: {}
+  - id: 2
+    type: Analysis/Distance
+    x: -960
+    y: 0
+    values: {}
+    texts:
+      Mode: Outside
+      '=Max Distance': size
+  - id: 3
+    type: Colour/Invert
+    x: -640
+    y: 0
+    values: {}
+    texts: {}
+  - id: 4
+    type: Colour/Levels
+    x: -320
+    y: 0
+    values: {}
+    texts:
+      '=Gamma': falloff
+      '=Output White': intensity
+  - id: 5
+    type: Colour/Blend
+    x: 0
+    y: 240
+    values: {}
+    texts:
+      Mode: Subtract
+  - id: 6
+    type: Colour/Blend
+    x: 320
+    y: 0
+    values: {}
+    texts:
+      Mode: Screen
+  - id: 7
+    type: Sub-graph/Output
+    x: 640
+    y: 0
+    values: {}
+    texts: {}
+edges:
+  - { fromNode: 1, fromPort: Mask, toNode: 2, toPort: Mask }
+  - { fromNode: 2, fromPort: Out, toNode: 3, toPort: Input }
+  - { fromNode: 3, fromPort: Out, toNode: 4, toPort: Input }
+  - { fromNode: 4, fromPort: Out, toNode: 5, toPort: Background }
+  - { fromNode: 1, fromPort: Mask, toNode: 5, toPort: Foreground }
+  - { fromNode: 1, fromPort: Input, toNode: 6, toPort: Background }
+  - { fromNode: 5, fromPort: Out, toNode: 6, toPort: Foreground }
+  - { fromNode: 6, fromPort: Out, toNode: 7, toPort: Out }
+groups: []
+comments: []
+interface:
+  - name: Input
+    direction: Input
+    kind: Image
+    default: []
+    summary: The picture the glow is laid over.
+  - name: Mask
+    direction: Input
+    kind: Image
+    default: []
+    summary: 'The shape that glows. A single channel: above a half is inside.'
+  - name: Out
+    direction: Output
+    kind: Image
+    default: []
+    summary: 'The picture with a soft light screened over it round the outside of the shape, brightest at its edge.'
+settings: { baseWidth: '1024', baseHeight: '1024', seed: '1', summary: 'A soft light round the outside of a shape, screened over the picture.' }
+parameters:
+  - name: size
+    label: Size
+    default: '0.05'
+    summary: 'How far the glow reaches from the shape, as a fraction of the image.'
+    kind: Float
+    minimum: 0
+    maximum: 0.5
+    group: Outer Glow
+  - name: falloff
+    label: Falloff
+    default: '0.5'
+    summary: 'How the glow fades: below one it falls away fast at the edge, above one it holds and then drops.'
+    kind: Float
+    minimum: 0.1
+    maximum: 4
+    group: Outer Glow
+  - name: intensity
+    label: Intensity
+    default: '0.8'
+    summary: 'How bright the glow is at the shape''s edge.'
+    kind: Float
+    minimum: 0
+    maximum: 1
+    group: Outer Glow

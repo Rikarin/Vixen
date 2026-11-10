@@ -1,0 +1,146 @@
+version: 1
+name: Microscope View
+nodes:
+  - id: 1
+    type: Sub-graph/Input
+    x: -1280
+    y: 0
+    values: {}
+    texts: {}
+  - id: 2
+    type: Source/Noise
+    x: -1280
+    y: 0
+    values: {}
+    texts:
+      Basis: Worley
+  - id: 3
+    type: Colour/Grayscale
+    x: -960
+    y: 0
+    values:
+      Weight R: [-1]
+      Weight G: [1]
+      Weight B: [0]
+      Normalise: [0]
+    texts: {}
+  - id: 4
+    type: Colour/Levels
+    x: -640
+    y: 0
+    values: {}
+    texts:
+      '=Input White': '0.01f + membrane * 0.2f'
+  - id: 5
+    type: Colour/Levels
+    x: -320
+    y: 0
+    values:
+      Output Black: [0.35]
+    texts: {}
+  - id: 6
+    type: Colour/Grayscale
+    x: -960
+    y: 240
+    values:
+      Weight R: [1]
+      Weight G: [0]
+      Weight B: [0]
+    texts: {}
+  - id: 7
+    type: Colour/Threshold
+    x: -640
+    y: 240
+    values:
+      Softness: [0.04]
+    texts:
+      '=Level': 'nucleus * 0.3f'
+  - id: 8
+    type: Colour/Levels
+    x: -320
+    y: 240
+    values:
+      Output Black: [0.25]
+    texts: {}
+  - id: 9
+    type: Source/Noise
+    x: -960
+    y: 480
+    values:
+      Scale: [48]
+      Octaves: [3]
+    texts:
+      Basis: Gaussian
+  - id: 10
+    type: Colour/Levels
+    x: -640
+    y: 480
+    values:
+      Output Black: [0.6]
+      Output White: [0.9]
+    texts: {}
+  - id: 11
+    type: Colour/Blend
+    x: 0
+    y: 0
+    values: {}
+    texts:
+      Mode: Multiply
+  - id: 12
+    type: Colour/Blend
+    x: 320
+    y: 0
+    values: {}
+    texts:
+      Mode: Multiply
+  - id: 13
+    type: Sub-graph/Output
+    x: 640
+    y: 0
+    values: {}
+    texts: {}
+edges:
+  - { fromNode: 1, fromPort: Cells, toNode: 2, toPort: Scale }
+  - { fromNode: 2, fromPort: Out, toNode: 3, toPort: Input }
+  - { fromNode: 3, fromPort: Out, toNode: 4, toPort: Input }
+  - { fromNode: 4, fromPort: Out, toNode: 5, toPort: Input }
+  - { fromNode: 2, fromPort: Out, toNode: 6, toPort: Input }
+  - { fromNode: 6, fromPort: Out, toNode: 7, toPort: Input }
+  - { fromNode: 7, fromPort: Out, toNode: 8, toPort: Input }
+  - { fromNode: 9, fromPort: Out, toNode: 10, toPort: Input }
+  - { fromNode: 10, fromPort: Out, toNode: 11, toPort: Background }
+  - { fromNode: 5, fromPort: Out, toNode: 11, toPort: Foreground }
+  - { fromNode: 11, fromPort: Out, toNode: 12, toPort: Background }
+  - { fromNode: 8, fromPort: Out, toNode: 12, toPort: Foreground }
+  - { fromNode: 12, fromPort: Out, toNode: 13, toPort: Out }
+groups: []
+comments: []
+interface:
+  - name: Cells
+    direction: Input
+    kind: Float
+    default: [8]
+    summary: How many cells across the image.
+  - name: Out
+    direction: Output
+    kind: Image
+    default: []
+    summary: 'Cells as a stained slide shows them: a grainy light cytoplasm, dark membranes between cells and a dark nucleus in each.'
+settings: { baseWidth: '1024', baseHeight: '1024', seed: '1', summary: 'Cells as a stained slide shows them, each with a membrane and a nucleus.' }
+parameters:
+  - name: membrane
+    label: Membrane
+    default: '0.3'
+    summary: How thick the dark wall between two cells is.
+    kind: Float
+    minimum: 0
+    maximum: 1
+    group: Microscope View
+  - name: nucleus
+    label: Nucleus
+    default: '0.4'
+    summary: How large the dark nucleus in each cell is.
+    kind: Float
+    minimum: 0
+    maximum: 1
+    group: Microscope View

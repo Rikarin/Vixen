@@ -205,36 +205,43 @@ public sealed class TextureCompoundLibraryTests : IDisposable {
         // one row where the plan and the folder legitimately disagree says why in both places.
         var rows = new (string Folder, string[] Marked, string Why)[] {
                 ("Adjust/", [
-                    "Colour Balance", "Colour Correct", "Drop Shadow", "Height Adjust", "Histogram Shift",
-                    "PBR Validate", "Smoothstep"
-                ], "§ 4.9's Adjust row marks these seven ● — Patina #115's tone and colour filters and #116's "
-                    + "shape and validation ones, the filters a layer reaches for daily"),
+                    "Cast Shadow", "Colour Balance", "Colour Correct", "Drop Shadow", "Height Adjust", "Histogram Shift",
+                    "Outer Glow", "Outline", "PBR Validate", "Smoothstep"
+                ], "§ 4.9's Adjust row marks these ten ● — Patina #115's tone and colour filters and #116's "
+                    + "shape and validation ones, the filters a layer reaches for daily, and #174's three by distance"),
                 ("Finishes/", [
                     "Brushed", "Hammered", "Powder Coat"
                 ], "§ 4.9's Finishes row marks these three ● — Patina #117's surface finishes, each writing a "
                     + "layer's roughness and height through outputs named after those channels"),
                 ("Utility/", [
-                    "Contrast Luminosity", "Equalize", "Frequency Split", "Glow", "Highpass", "Histogram Range",
-                    "Histogram Scan", "Histogram Select", "Make It Tile", "Safe Transform"
-                ], "§ 4.9's Utility row marks ten ●, Frequency Split Patina #176's. ⚠ `Equalize` is the one written there as "
+                    "Atlas Pack", "Contrast Luminosity", "Equalize", "Fill from Edges", "Frequency Split", "Glow",
+                    "Highpass", "Histogram Range", "Histogram Scan", "Histogram Select", "Instance Range", "Island Remap",
+                    "Make It Tile", "Safe Transform"
+                ], "§ 4.9's Utility row marks fourteen ●, Frequency Split Patina #176's, Atlas Pack and Instance Range "
+                    + "#170's and Island Remap and Fill from Edges #174's. ⚠ `Equalize` is the one written there as "
                     + "'Delight / Equalize' — one compound under both of doc 40 § D2's names, not two"),
                 ("Patterns/", [
-                    "Brick", "Cells", "Hex Cells", "Panels", "Rivets", "Scratches", "Stripes", "Tile Random",
-                    "Triangle Grid", "Varied Brick", "Weave", "Wood Grain"
-                ], "§ 4.9's Patterns row marks these twelve ● and no others; Weave, Hex Cells, Stripes, "
-                    + "Triangle Grid and Varied Brick are Patina #168's, and Hex Cells is the row's 'Hexagon Grid'"),
+                    "Arc Pavement", "Brick", "Cells", "Fan Pavement", "Hex Cells", "Mesh Grid", "Panels", "Rivets",
+                    "Scratches", "Stripes", "Tile Random", "Triangle Grid", "Triangulated Surface", "Varied Brick",
+                    "Weave", "Wood Grain"
+                ], "§ 4.9's Patterns row marks these sixteen ● and no others; Weave, Hex Cells, Stripes, "
+                    + "Triangle Grid, Varied Brick, Mesh Grid, Fan Pavement, Arc Pavement and Triangulated Surface are "
+                    + "Patina #168's, and Hex Cells is the row's 'Hexagon Grid'"),
                 ("Noise/", [
-                    "Cell Walls", "Clouds", "Fractal Cells", "Liquid", "Spots", "Streaks"
-                ], "§ 4.9's Noise row marks these six ● — Patina #167's compounds over the widened Source/Noise"),
+                    "Caustics", "Cell Walls", "Clouds", "Creased Cloth", "Directional Noise", "Fibres", "Fractal Cells",
+                    "Fur", "Gaussian Blobs", "Liquid", "Microscope View", "Moisture", "Plasma", "Spots", "Streaks",
+                    "Waveform Bars"
+                ], "§ 4.9's Noise row marks these sixteen ● — Patina #167's compounds over the widened Source/Noise"),
                 ("Grunges/", [
                     "Grunge Clouds", "Grunge Concrete", "Grunge Damage", "Grunge Fibres", "Grunge Leaks",
                     "Grunge Rust", "Grunge Scratches", "Grunge Smears"
                 ], "§ 4.9's Grunges row is the one that used to be a single ● 'family of eight' — it now "
                     + "names them, so the glyph count and the compound count cannot drift apart again"),
                 ("Surface/", [
-                    "Bevel", "Bevel Height", "Curvature Smooth", "Height Blend", "Height to AO", "Metal Reflectance"
-                ], "§ 4.9's Surface row marks six ●, and Metal Reflectance stopped being refused on "
-                    + "2026-09-09 when #1096's atomic node landed; Bevel Height is Patina #176's"),
+                    "Bevel", "Bevel Height", "Bevel Profile", "Curvature Smooth", "Height Blend", "Height to AO",
+                    "Metal Reflectance"
+                ], "§ 4.9's Surface row marks seven ●, and Metal Reflectance stopped being refused on "
+                    + "2026-09-09 when #1096's atomic node landed; Bevel Height is Patina #176's and Bevel Profile #174's"),
                 ("Generators/", [
                     "Curvature Edge Wear", "Dirt", "Dust", "Grunge Rough Dirty", "Mask Editor",
                     "Metal Edge Wear", "Position Gradient"
