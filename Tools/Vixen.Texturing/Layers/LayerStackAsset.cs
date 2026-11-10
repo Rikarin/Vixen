@@ -311,6 +311,26 @@ public enum LayerHeightNormal {
     Smooth = 1
 }
 
+/// <summary>How a set's baked mesh map reaches the map of the same kind the set writes: its normal, or its occlusion.</summary>
+/// <remarks>
+///     A bake is the floor of a texture set's shading: a low mesh lit with its high mesh's normal and shadowed by its
+///     occlusion. Without this a set with no normal channel showed and exported a flat normal however well its mesh was
+///     baked. The bake is read only when the host has one, so a set that has never been baked is unchanged.
+/// </remarks>
+public enum LayerBakeMix {
+    /// <summary>
+    ///     Over the layers: the painted normal reoriented into the baked one, and the painted occlusion multiplied by
+    ///     the baked. The default, and what a set with no such channel writes.
+    /// </summary>
+    Combine = 0,
+
+    /// <summary>The bake is where the channel starts, and a layer that paints the channel covers it as it covers a colour.</summary>
+    Replace = 1,
+
+    /// <summary>The bake is not read, and the set's map is its layers' alone.</summary>
+    Off = 2
+}
+
 /// <summary>Where a fill layer's pixels come from.</summary>
 public enum LayerFillSource {
     /// <summary>One colour per channel, from <see cref="LayerAsset.Values" />.</summary>
@@ -1226,6 +1246,16 @@ public sealed record TextureSetAsset {
     ///     normal channel when there is one. Without that, painted height changed the files and never the surface.
     /// </remarks>
     public LayerHeightNormal HeightNormal { get; init; } = LayerHeightNormal.Smooth;
+
+    /// <summary>How the bake's normal reaches the set's <c>normal</c> output, which it writes whenever a bake has one.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A bake's normal points green up, as glTF reads it, and a set's points green down</b>, as
+    ///     <c>Height to Normal</c> writes it, so the bake is turned over on its way in and the set writes one convention.
+    /// </remarks>
+    public LayerBakeMix BakedNormal { get; init; } = LayerBakeMix.Combine;
+
+    /// <summary>How the bake's ambient occlusion reaches the set's <c>occlusion</c> output.</summary>
+    public LayerBakeMix BakedOcclusion { get; init; } = LayerBakeMix.Combine;
 
     /// <summary>The layers, <b>bottom first</b>.</summary>
     /// <remarks>

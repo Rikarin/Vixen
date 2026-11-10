@@ -198,6 +198,15 @@ public static class LayerStackGraph {
     /// <summary>The usage of the normal output a height writes, and of the channel it is combined over.</summary>
     public const string NormalUsage = "normal";
 
+    /// <summary>The usage of the occlusion output a bake's ambient occlusion writes.</summary>
+    public const string OcclusionUsage = "occlusion";
+
+    /// <summary>The mesh map a set's <see cref="OcclusionUsage" /> reads: the bake's ambient occlusion.</summary>
+    public const string OcclusionMap = "ao";
+
+    /// <summary>The mesh map a set's <see cref="NormalUsage" /> reads, which the bake spells as the usage.</summary>
+    public const string NormalMap = "normal";
+
     /// <summary>How far a whole height stands, as a share of the atlas's side: a height of 1 is a sixty-fourth.</summary>
     /// <remarks>
     ///     ⚠ <b>The slope <c>Height to Normal</c> measures is per unit of UV, so this is what turns a painted 0 to 1
@@ -222,6 +231,13 @@ public static class LayerStackGraph {
     /// <param name="draft">
     ///     Whether a slot nobody has filled yet is a warning and leaves that part of the layer out, rather than refusing
     ///     the stack. For a host someone is editing in, and not for a bake.
+    /// </param>
+    /// <param name="subGraphs">Where the registry's compounds come from.</param>
+    /// <param name="baked">
+    ///     The mesh maps the host's bake holds, by the bake's names (<see cref="NormalMap" />, <see cref="OcclusionMap" />),
+    ///     which the set's normal and occlusion are mixed with as <see cref="TextureSetAsset.BakedNormal" /> and
+    ///     <see cref="TextureSetAsset.BakedOcclusion" /> say; null or empty for none. A host says which it has because a
+    ///     map no bake has given reads as grey, and a grey normal or occlusion under a set would darken and tilt it.
     /// </param>
     /// <returns>The graph and what building it had to say.</returns>
     /// <exception cref="ArgumentNullException">The stack or the set is null.</exception>
@@ -281,7 +297,8 @@ public static class LayerStackGraph {
         TextureSetAsset set,
         NodeTypeRegistry? registry = null,
         bool draft = false,
-        ISubGraphSource? subGraphs = null
+        ISubGraphSource? subGraphs = null,
+        IReadOnlySet<string>? baked = null
     ) {
         ArgumentNullException.ThrowIfNull(stack);
         ArgumentNullException.ThrowIfNull(set);
@@ -294,7 +311,8 @@ public static class LayerStackGraph {
         Builder builder = new(stack, LayerStackInstances.Resolve(stack, set, out var found), registry) {
             Drafting = draft,
             SubGraphs = subGraphs,
-            Found = found
+            Found = found,
+            Baked = baked ?? new HashSet<string>()
         };
 
         return builder.Run();
@@ -746,6 +764,9 @@ public static class LayerStackGraph {
         /// <summary>The layer whose amount every output is, or empty — see <see cref="Amount" />.</summary>
         public string Asked { get; init; } = "";
 
+        /// <summary>The mesh maps the host's bake holds — see <see cref="Build" />'s <c>baked</c>.</summary>
+        public IReadOnlySet<string> Baked { get; init; } = new HashSet<string>();
+
         /// <summary>The asked layer and the folders around it, which composite over black rather than the picture.</summary>
         public IReadOnlySet<string> Around { get; init; } = new HashSet<string>();
 
@@ -832,6 +853,8 @@ public static class LayerStackGraph {
                 Relief(ends[HeightUsage], ends.TryGetValue(NormalUsage, out var normal) ? normal : null);
             }
 
+            Unchannelled(ends);
+
             Anchors();
             Beneaths();
 
@@ -898,17 +921,24 @@ public static class LayerStackGraph {
         PortRef Channel(ChannelAsset channel) {
             usage = channel.Usage;
 
-            var start = Add("Source/Uniform");
+            PortRef cursor;
 
-            start.SetValue("Colour", Colour(channel.Default, channel.Usage, ""));
+            if (MixOf(channel.Usage) == LayerBakeMix.Replace) {
+                cursor = BakedPicture(channel.Usage);
+            } else {
+                var start = Add("Source/Uniform");
 
-            PortRef cursor = new(start.Id, "Out");
+                start.SetValue("Colour", Colour(channel.Default, channel.Usage, ""));
+                cursor = new(start.Id, "Out");
+            }
 
             cursor = Stack(set.Layers, channel, cursor, 0);
 
             if (Relieved && channel.Usage == NormalUsage) {
                 return cursor;
             }
+
+            cursor = OverBake(channel.Usage, cursor);
 
             // A capture's output is the group's own composite, and transparency where the group writes nothing.
             if (Capturing.Length > 0) {
@@ -968,12 +998,14 @@ public static class LayerStackGraph {
             cursor = new(slope.Id, "Out");
 
             if (normal is { } beneath) {
-                var combine = Add("Surface/Normal Combine");
-
-                graph.Connect(beneath, new(combine.Id, "Base"));
-                graph.Connect(cursor, new(combine.Id, "Detail"));
-                cursor = new(combine.Id, "Out");
+                cursor = Combined(beneath, cursor);
             }
+
+            // With no normal channel to start from it, a bake set to replace has nothing to cover it, so it lies under
+            // the slope as a combined one does.
+            cursor = normal is null && MixOf(NormalUsage) == LayerBakeMix.Replace
+                ? Combined(BakedPicture(NormalUsage), cursor)
+                : OverBake(NormalUsage, cursor);
 
             var output = Add("Output/Output");
 
@@ -987,6 +1019,99 @@ public static class LayerStackGraph {
                     + (normal is null ? "." : ", combined over its normal channel.")
                 )
             );
+        }
+
+        /// <summary>
+        ///     A bake under a set with no channel of its kind: the set's map of that kind, as baked. A normal a height
+        ///     writes has taken it already.
+        /// </summary>
+        void Unchannelled(Dictionary<string, PortRef> ends) {
+            foreach (var baked in (string[])[NormalUsage, OcclusionUsage]) {
+                if (MixOf(baked) is null || ends.ContainsKey(baked) || (baked == NormalUsage && Relieved)) {
+                    continue;
+                }
+
+                row = set.Channels.Count + 1;
+                column = 0f;
+                usage = baked;
+
+                var output = Add("Output/Output");
+
+                output.SetText("Usage", baked);
+                graph.Connect(BakedPicture(baked), new(output.Id, "Input"));
+                notes.Add(new(output.Id, $"The bake's {baked} of texture set '{set.Name}', which has no such channel."));
+            }
+        }
+
+        /// <summary>How the bake reaches a usage of this build, or null when it does not.</summary>
+        /// <remarks>
+        ///     Only a picture reads it: coverage, one layer's amount and a group's own composite are the layers' and
+        ///     nothing beneath them. And only a map the host's bake holds, since a missing one reads as grey.
+        /// </remarks>
+        LayerBakeMix? MixOf(string asked) {
+            if (Weighing || Asked.Length > 0 || Capturing.Length > 0) {
+                return null;
+            }
+
+            var (mix, map) = asked switch {
+                NormalUsage => (set.BakedNormal, NormalMap),
+                OcclusionUsage => (set.BakedOcclusion, OcclusionMap),
+                _ => (LayerBakeMix.Off, "")
+            };
+
+            return mix != LayerBakeMix.Off && Baked.Contains(map) ? mix : null;
+        }
+
+        /// <summary>
+        ///     The bake's map for a usage, as the set means it: its normal turned to point green down, as every normal
+        ///     here does, and its occlusion grey in every lane and opaque.
+        /// </summary>
+        PortRef BakedPicture(string baked) {
+            var map = Add("Source/Mesh Map");
+            var normal = baked == NormalUsage;
+
+            map.SetText("Map", normal ? NormalMap : OcclusionMap);
+
+            if (!normal) {
+                return Opaque(new MaskSlot(new PortRef(map.Id, "Out"), false)).Port;
+            }
+
+            var turn = Add("Surface/Normal Transform");
+
+            turn.SetValue("Flip Green", 1f);
+            graph.Connect(new PortRef(map.Id, "Out"), new(turn.Id, "Input"));
+
+            return new(turn.Id, "Out");
+        }
+
+        /// <summary>A finished channel with the bake laid over it when the bake combines, and otherwise the channel.</summary>
+        PortRef OverBake(string baked, PortRef cursor) {
+            if (MixOf(baked) != LayerBakeMix.Combine) {
+                return cursor;
+            }
+
+            if (baked == NormalUsage) {
+                return Combined(BakedPicture(NormalUsage), cursor);
+            }
+
+            var product = Add("Colour/Blend");
+
+            product.SetText("Mode", nameof(LayerBlendMode.Multiply));
+            product.SetValue("Opacity", 1f);
+            graph.Connect(cursor, new(product.Id, "Background"));
+            graph.Connect(BakedPicture(OcclusionUsage), new(product.Id, "Foreground"));
+
+            return new(product.Id, "Out");
+        }
+
+        /// <summary>A detail normal reoriented into a base one's frame.</summary>
+        PortRef Combined(PortRef under, PortRef detail) {
+            var combine = Add("Surface/Normal Combine");
+
+            graph.Connect(under, new(combine.Id, "Base"));
+            graph.Connect(detail, new(combine.Id, "Detail"));
+
+            return new(combine.Id, "Out");
         }
 
         /// <summary>Every layer of one list composited over a cursor, bottom first.</summary>

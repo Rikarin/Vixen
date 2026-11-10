@@ -4,7 +4,7 @@ slug: editor/material-baking
 kind: guide
 area: Editor
 summary: How a texture graph's outputs become files the engine already understands — the nine usages and the seven files they land in, the ORM packing, PNG or KTX2, the .vxmat, the GUID dance, and the provenance block that stops a painted-over map being regenerated.
-api: [T:Vixen.Editor.Assets.EditorOnlyImporter, T:Vixen.Editor.Assets.EditorOnlyImportSettings, T:Vixen.Editor.Assets.Materials.MaterialMapUsage, T:Vixen.Editor.Assets.Materials.MaterialMapTarget, T:Vixen.Editor.Assets.Materials.MaterialMapNaming, T:Vixen.Editor.Assets.Materials.MaterialMapImage, T:Vixen.Editor.Assets.Materials.MaterialBake, T:Vixen.Editor.Assets.Materials.MaterialBakeRecord, T:Vixen.Editor.Assets.Materials.MaterialProvenance, T:Vixen.Editor.Assets.Materials.MaterialBakeSet, T:Vixen.Editor.Assets.Materials.MaterialBakeParallax, T:Vixen.Editor.Assets.Materials.ProjectMaterialBaker, T:Vixen.Cli.TextureRunner, T:Vixen.Texturing.Layers.LayerHeightNormal]
+api: [T:Vixen.Editor.Assets.EditorOnlyImporter, T:Vixen.Editor.Assets.EditorOnlyImportSettings, T:Vixen.Editor.Assets.Materials.MaterialMapUsage, T:Vixen.Editor.Assets.Materials.MaterialMapTarget, T:Vixen.Editor.Assets.Materials.MaterialMapNaming, T:Vixen.Editor.Assets.Materials.MaterialMapImage, T:Vixen.Editor.Assets.Materials.MaterialBake, T:Vixen.Editor.Assets.Materials.MaterialBakeRecord, T:Vixen.Editor.Assets.Materials.MaterialProvenance, T:Vixen.Editor.Assets.Materials.MaterialBakeSet, T:Vixen.Editor.Assets.Materials.MaterialBakeParallax, T:Vixen.Editor.Assets.Materials.ProjectMaterialBaker, T:Vixen.Cli.TextureRunner, T:Vixen.Texturing.Layers.LayerHeightNormal, T:Vixen.Texturing.Layers.LayerBakeMix]
 tags: [editor, bake, materials, textures, material-authoring, texture-graph, cli]
 since: 0.1
 status: preview
@@ -87,6 +87,14 @@ combines that over it with `Normal Combine`, so painted height reaches the surfa
 height file. The set's `LayerHeightNormal` says how: `Smooth`, the default, blurs the height by a
 texel first so eight-bit paint does not show its steps as contour lines, and `Sharp` does not. A
 height of 1 stands a sixty-fourth of the atlas tall (`LayerStackGraph.ReliefIntensity`).
+
+⚠ **A set's bake lies beneath its normal and occlusion, once the host says it has one.** A host passes
+the mesh maps its bake holds (`LayerStackEvaluator.Baked`, or `LayerStackGraph.Build`'s `baked`), and
+the set's `LayerBakeMix` for each says how: `Combine`, the default, reorients the set's normal into the
+baked one and multiplies its occlusion by the baked; `Replace` starts the channel from the bake, so a
+layer that paints it covers it; `Off` leaves it out. A set with no such channel writes the bake as that
+map. The baked normal points green up and a set's green down, so it is turned over on the way in. A map
+no bake holds is never read: a host fills an unbaked mesh map with grey, which would tilt and darken the set.
 
 ⚠ **The R, G, B order of the packed map is `TexturedOrmFeature`'s and not a preference.** That
 feature reads occlusion from red, roughness from green and metalness from blue; a bake that packed
