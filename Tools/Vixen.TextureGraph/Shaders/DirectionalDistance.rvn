@@ -1,0 +1,97 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+package Vixen.TextureGraph.Shaders
+
+import Vixen.Shaders.Core
+
+// `Analysis/Directional Distance`: how far a texel is from a mask, measured along one direction only
+// (Patina #174).
+//
+// `Distance` asks how far the nearest point of the shape is in any direction. This asks how far one
+// would walk back against `angle` before reaching the shape, so the field is the shape smeared one way
+// and fading: a cast shadow, a streak behind a rivet, an extrusion's side. Inside the mask it is 0, and
+// a texel the walk never brings to the shape within `maxDistance` is 1, which is `Distance`'s own
+// convention, so a `Levels` written for one reads the other.
+//
+// ⚠ **A walk, not a flood, and bounded.** At most `MaxSteps` taps per texel, so a reach longer than that
+// many texels strides more than one texel at a time and can step over a shape thinner than the stride.
+// That is the price of a cost that is knowable before the kernel runs; at the graph's base a reach of a
+// quarter of a 1024 image is 256 texels and every one is visited.
+//
+// The walk wraps on an axis that tiles and stops at the edge on one that does not, so a streak crosses
+// the seam of a tiling graph and comes back on the far side.
+
+shader DirectionalDistance {
+    /// The shape measured from. One channel.
+    var mask: Texture2D
+
+    /// The direction a texel is measured along, in radians: 0 is the shape streaking to the right.
+    var angle: float = 0f
+
+    /// How far the field reaches, as a fraction of the image's longer side.
+    var maxDistance: float = 0.25f
+
+    /// What counts as inside the mask.
+    var threshold: float = 0.5f
+
+    var wrapX: int = 0
+
+    var wrapY: int = 0
+
+    [Format("rgba16f")] var target: RWTexture2D<float4>
+
+    /// The most taps one texel takes.
+    const val MaxSteps: int = 512
+
+    func Inside(x: int, y: int): bool {
+        val extent = mask.GetDimensions(0)
+
+        if (wrapX == 0 && (x < 0 || x >= extent.x)) {
+            return false
+        }
+
+        if (wrapY == 0 && (y < 0 || y >= extent.y)) {
+            return false
+        }
+
+        return mask.Load(int3(Math.Address(x, extent.x, wrapX), Math.Address(y, extent.y, wrapY), 0)).x >= threshold
+    }
+
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val coord = int2(int(id.x), int(id.y))
+        val size = target.GetDimensions()
+
+        if (coord.x >= size.x || coord.y >= size.y) {
+            return
+        }
+
+        val extent = mask.GetDimensions(0)
+        val scale = float2(float(extent.x) / float(size.x), float(extent.y) / float(size.y))
+        val at = float2((float(coord.x) + 0.5f) * scale.x, (float(coord.y) + 0.5f) * scale.y)
+        val reach = max(maxDistance * float(max(extent.x, extent.y)), 0.000001f)
+        val steps = clamp(int(ceil(reach)), 1, MaxSteps)
+        val stride = reach / float(steps)
+        val back = float2(-cos(angle), -sin(angle))
+
+        var found = 1f
+
+        for (tap in 0 .. MaxSteps) {
+            if (tap > steps) {
+                break
+            }
+
+            val travelled = float(tap) * stride
+            val p = at + back * travelled
+
+            if (Inside(int(floor(p.x)), int(floor(p.y)))) {
+                found = saturate(travelled / reach)
+
+                break
+            }
+        }
+
+        target.Store(coord, float4(found, found, found, 1f))
+    }
+}

@@ -179,6 +179,60 @@ sealed partial class NoiseNode : TextureNode {
     }
 }
 
+/// <summary>A blue noise: a rank order whose every threshold is evenly spread points, with no clumps.</summary>
+/// <remarks>
+///     <para>
+///         <b>A void-and-cluster tile, and not a filtered white noise</b> (Patina #167). Every threshold of it is a
+///         set of points spread as evenly as that many can be, which is what a stipple, a dither or a scatter that
+///         must not clump wants. The tile is made once on the CPU by <c>TextureBlueNoise</c> and reaches the kernel
+///         as an external image, as a gradient's ramp does.
+///     </para>
+///     <para>
+///         ⚠ <b>A seed moves the tile rather than remaking it</b>: a shift on the torus and one of the square's
+///         eight symmetries, each of which keeps every distance between points. So every seed is as blue as the
+///         tile, and every seed tiles.
+///     </para>
+///     <para>
+///         <b>Point sampled</b>, because a blue noise read between texels is a blurred one and a blur removes the
+///         very band this noise is empty in. At the default <c>Scale</c> one tile texel is one image texel at a
+///         1024 base.
+///     </para>
+/// </remarks>
+[Node("Source/Blue Noise", Preview = true, Summary = "Evenly spread noise with no clumps: every threshold is a well-spaced set of points.")]
+sealed partial class BlueNoiseNode : TextureNode {
+    /// <summary>How many tiles across the image, and down. Each tile is 64 texels square.</summary>
+    [Input(Minimum = 1f, SoftMaximum = 64f)]
+    public Int Scale = 16;
+
+    /// <summary>Another draw of the same noise; nought is the graph's own.</summary>
+    [Input(Minimum = 0f, SoftMaximum = 100f, Summary = "Another draw of the same noise. 0 is the graph's own.")]
+    public Int Seed = 0;
+
+    /// <summary>The noise: each texel's rank in its tile, 0 to 1.</summary>
+    [Output(Name = "Out")]
+    public Image Out;
+
+    /// <inheritdoc />
+    protected internal override void Compile(TextureEmitter emitter) {
+        ArgumentNullException.ThrowIfNull(emitter);
+
+        var tile = emitter.External(
+            TextureFormat.R32Float,
+            TextureChannels.Grey,
+            TextureBlueNoise.Side,
+            TextureBlueNoise.Side,
+            TextureBlueNoise.Bytes()
+        );
+        var target = emitter.Write("Out", TextureChannels.Grey);
+
+        if (tile < 0) {
+            return;
+        }
+
+        emitter.Dispatch(TextureSources.BlueNoise(target, tile, emitter.Integer(nameof(Scale)), emitter.Integer(nameof(Seed))));
+    }
+}
+
 /// <summary>One of fifteen analytic patterns, on a grey.</summary>
 /// <remarks>
 ///     <para>

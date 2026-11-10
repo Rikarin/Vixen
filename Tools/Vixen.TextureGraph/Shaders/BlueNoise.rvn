@@ -1,0 +1,90 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+package Vixen.TextureGraph.Shaders
+
+import Vixen.Shaders.Core
+
+// `Source/Blue Noise`: a void-and-cluster tile, repeated `scale` times across the image (Patina #167).
+//
+// The tile is made on the CPU by `TextureBlueNoise` and arrives as an external image, each texel its rank
+// over the texel count. Every threshold of it is a set of points spread as evenly as that many points can
+// be, which is what a stipple, a dither or a scatter that must not clump wants and a white noise cannot
+// give.
+//
+// ⚠ **A seed moves the tile rather than remaking it.** It picks a shift on the torus and one of the
+// square's eight symmetries — a swap of the axes and a flip of each — and every one of those keeps every
+// distance between two points, so each seed is as blue as the tile and the tile stays seamless.
+//
+// **Point sampled, never filtered.** A blue noise read between texels is a blurred one, and a blur is a
+// low-pass, which is the band this noise exists to be empty in. At the default scale one tile texel is one
+// image texel at a 1024 base; a larger bake draws each as a block, which is the same picture at more
+// texels, as every source in this library is.
+
+shader BlueNoise {
+    /// The tile: each texel's rank over the texel count.
+    var tile: Texture2D
+
+    /// How many tiles across the image, and down.
+    var scale: float = 16f
+
+    /// The op's own seed, already mixed. See `TexturePlan.SeedFor`.
+    var seed: float = 0f
+
+    /// Another draw of the same noise, as a whole number: nought is the op's own seed.
+    var variation: float = 0f
+
+    [Format("rgba16f")] var target: RWTexture2D<float4>
+
+    func Seeded(): uint {
+        val own = uint(int(max(seed, 0f)))
+
+        if (variation < 0.5f) {
+            return own
+        }
+
+        return Random.Combine(own, uint(int(variation + 0.5f)))
+    }
+
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val coord = int2(int(id.x), int(id.y))
+        val size = target.GetDimensions()
+
+        if (coord.x >= size.x || coord.y >= size.y) {
+            return
+        }
+
+        val side = tile.GetDimensions(0)
+        val repeats = max(round(scale), 1f)
+        val u = (float(coord.x) + 0.5f) / float(size.x)
+        val v = (float(coord.y) + 0.5f) / float(size.y)
+
+        var x = int(floor(frac(u * repeats) * float(side.x)))
+        var y = int(floor(frac(v * repeats) * float(side.y)))
+
+        val hash = Seeded()
+        val symmetry = Random.Combine(hash, 1u) % 8u
+
+        if ((symmetry & 1u) != 0u) {
+            val swapped = x
+
+            x = y
+            y = swapped
+        }
+
+        if ((symmetry & 2u) != 0u) {
+            x = side.x - 1 - x
+        }
+
+        if ((symmetry & 4u) != 0u) {
+            y = side.y - 1 - y
+        }
+
+        val shiftX = int(Random.Combine(hash, 2u) % uint(max(side.x, 1)))
+        val shiftY = int(Random.Combine(hash, 3u) % uint(max(side.y, 1)))
+        val rank = tile.Load(int3((x + shiftX) % side.x, (y + shiftY) % side.y, 0)).x
+
+        target.Store(coord, float4(rank, rank, rank, 1f))
+    }
+}

@@ -281,4 +281,55 @@ public class TextureRemapDeviceTests(ITestOutputHelper output) {
             }
         }
     }
+
+    /// <summary>
+    ///     Patina #174's UV remap: a map of each texel's own centre is the identity, a map holding one coordinate
+    ///     everywhere reads that one texel everywhere, and an amount of nought ignores the map.
+    /// </summary>
+    [Fact]
+    public void A_uv_map_says_where_each_texel_reads() {
+        using var device = TextureKernelHarness.Open();
+
+        output.WriteLine($"adapter: {TextureKernelHarness.Adapter(device)}");
+
+        // ⚠ Centres, not corners: (x + ½) / w is where texel x is, and a byte holds 1/255 steps, so the map is a
+        // float source rather than a bitmap — a Source/Gradient sweep is exactly (x + ½) / w on red.
+        var identity = Bake(device, "Space/UV Remap", Side, Side, [new("Input", Unique), new("UV", [], Source: "Source/Gradient")], tiling: false);
+        var one = Bake(device, "Space/UV Remap", Side, Side, [new("Input", Unique), new("UV", Solid(Side, Side, 20.5f / Side, 41.5f / Side, 0f))], tiling: false);
+        var none = Bake(
+            device,
+            "Space/UV Remap",
+            Side,
+            Side,
+            [new("Input", Unique), new("UV", Solid(Side, Side, 20.5f / Side, 41.5f / Side, 0f))],
+            node => node.SetValue("Amount", 0f),
+            tiling: false
+        );
+
+        var unique = Bake(device, "Colour/Levels", Side, Side, [new("Input", Unique)], tiling: false);
+        // The solid map is bytes, so its coordinate is the nearest 1/255 to the one written; read where that lands.
+        var (u, v) = (MathF.Round(20.5f / Side * 255f) / 255f, MathF.Round(41.5f / Side * 255f) / 255f);
+        var (tx, ty) = ((int)MathF.Floor((u * Side) - 0.5f), (int)MathF.Floor((v * Side) - 0.5f));
+        var (fx, fy) = ((u * Side) - 0.5f - tx, (v * Side) - 0.5f - ty);
+
+        float Expected(int lane) {
+            float At(int x, int y) => unique.At(x, y, lane);
+
+            var top = At(tx, ty) + ((At(tx + 1, ty) - At(tx, ty)) * fx);
+            var bottom = At(tx, ty + 1) + ((At(tx + 1, ty + 1) - At(tx, ty + 1)) * fx);
+
+            return top + ((bottom - top) * fy);
+        }
+
+        for (var y = 0; y < Side; y += 7) {
+            for (var x = 0; x < Side; x += 5) {
+                for (var lane = 0; lane < 3; lane++) {
+                    // The gradient is a grey, read as the same number across and down: the diagonal.
+                    Assert.Equal(unique.At(x, x, lane), identity.At(x, y, lane), 0.002f);
+                    Assert.Equal(Expected(lane), one.At(x, y, lane), 0.002f);
+                    Assert.Equal(unique.At(x, y, lane), none.At(x, y, lane), 0.0005f);
+                }
+            }
+        }
+    }
 }

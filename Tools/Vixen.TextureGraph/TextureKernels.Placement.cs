@@ -6,6 +6,30 @@ using System.Globalization;
 
 namespace Vixen.TextureGraph;
 
+/// <summary>The maps and the further patterns a <c>TileSampler</c> op may read, each null when none is wired.</summary>
+/// <param name="Displacement">Read at each instance's centre; red and green about a half move it, in cells.</param>
+/// <param name="DisplacementAmount">How far a fully deflected map moves an instance, in cells.</param>
+/// <param name="Vector">Read at each instance's centre; red and green about a half turn it to face along them.</param>
+/// <param name="VectorAmount">How much of that turn is taken, 0–1.</param>
+/// <param name="Colour">Read at each instance's centre; multiplies its colour.</param>
+/// <param name="ColourAmount">How much of the map's colour is taken, 0–1.</param>
+/// <param name="Index">Read at each instance's centre; chooses its pattern instead of the seed.</param>
+/// <param name="Patterns">Up to three more patterns an instance may be drawn from.</param>
+/// <remarks>
+///     Patina #170. A map that is null is bound as the pattern and its amount is written as zero, which is the
+///     arrangement the first four inputs already had: the slot is never read.
+/// </remarks>
+internal readonly record struct TileSamplerMaps(
+    int? Displacement = null,
+    float DisplacementAmount = 0f,
+    int? Vector = null,
+    float VectorAmount = 0f,
+    int? Colour = null,
+    float ColourAmount = 0f,
+    int? Index = null,
+    ImmutableArray<int> Patterns = default
+);
+
 /// <summary>What each instance of a placement kernel draws.</summary>
 /// <remarks>
 ///     The numbers are the contract with <c>output</c> in both placement kernels. Patina #170: the per-instance
@@ -119,6 +143,9 @@ internal static class TexturePlacement {
     /// </remarks>
     public const int MaxSearch = 3;
 
+    /// <summary>How many patterns a <c>TileSampler</c> op binds beside its first.</summary>
+    public const int MaxExtraPatterns = 3;
+
     /// <summary>The most instances one <c>Splatter</c> op may place.</summary>
     /// <remarks>Duplicated from <c>Shaders/Splatter.rvn</c>'s <c>MaxInstances</c>, and asserted equal.</remarks>
     public const int MaxInstances = 256;
@@ -188,7 +215,8 @@ internal static class TexturePlacement {
         TexturePlacementAccumulation accumulation = TexturePlacementAccumulation.Max,
         float opacity = 1f,
         TexturePlacementOutput draws = TexturePlacementOutput.Pattern,
-        float rowOffset = 0f
+        float rowOffset = 0f,
+        TileSamplerMaps maps = default
     ) {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(gridX);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(gridY);
@@ -199,13 +227,16 @@ internal static class TexturePlacement {
         // loop, which is a correctness property — a NaN in `scale` must not be a dispatch that never
         // ends. What it cannot be is the *answer*: an instance the search does not reach is drawn
         // with a straight edge along a cell boundary, which looks like a pattern and not like a bug.
-        var reach = (scale * HalfDiagonal) + (Math.Clamp(positionJitter, 0f, 1f) * 0.5f) + Math.Clamp(rowOffset, 0f, 1f);
+        var displacement = maps.Displacement is null ? 0f : Math.Max(maps.DisplacementAmount, 0f);
+        var reach = (scale * HalfDiagonal) + (Math.Clamp(positionJitter, 0f, 1f) * 0.5f) + Math.Clamp(rowOffset, 0f, 1f)
+            + displacement;
 
         if (reach > MaxSearch) {
             var cells = reach.ToString("0.###", CultureInfo.InvariantCulture);
 
             throw new ArgumentException(
-                $"A scale of {scale} with a position jitter of {positionJitter} puts an instance {cells} cells "
+                $"A scale of {scale} with a position jitter of {positionJitter} and a displacement of {displacement} "
+                + $"puts an instance {cells} cells "
                 + $"from its own, and '{TileSamplerKernel}' searches {MaxSearch}. Past that an instance is cut off "
                 + "along a cell boundary, which reads as a pattern rather than as a defect. Use a coarser grid, or "
                 + "several ops blended.",
@@ -213,10 +244,31 @@ internal static class TexturePlacement {
             );
         }
 
+        var extra = maps.Patterns.IsDefault ? [] : maps.Patterns;
+
+        if (extra.Length > MaxExtraPatterns) {
+            throw new ArgumentException(
+                $"{extra.Length} more patterns were given and '{TileSamplerKernel}' binds {MaxExtraPatterns}.",
+                nameof(maps)
+            );
+        }
+
         return new() {
             Kernel = TileSamplerKernel,
             Output = output,
-            Inputs = [pattern, mask, sizeMap, rotationMap],
+            Inputs = [
+                pattern,
+                mask,
+                sizeMap,
+                rotationMap,
+                maps.Displacement ?? pattern,
+                maps.Vector ?? pattern,
+                maps.Colour ?? pattern,
+                maps.Index ?? pattern,
+                extra.Length > 0 ? extra[0] : pattern,
+                extra.Length > 1 ? extra[1] : pattern,
+                extra.Length > 2 ? extra[2] : pattern
+            ],
 
             // ⚠ #867. Every one of the four is read through **its own** extent — `Stamp` divides by
             // `pattern.GetDimensions(0)` and `At` by the map's — so stamping a 64² pattern over a
@@ -251,7 +303,12 @@ internal static class TexturePlacement {
                 new("accumulation", (float)(int)accumulation),
                 new("opacity", opacity),
                 new("output", (float)draws),
-                new("rowOffset", rowOffset)
+                new("rowOffset", rowOffset),
+                new("displacementAmount", displacement),
+                new("vectorAmount", maps.Vector is null ? 0f : maps.VectorAmount),
+                new("colourAmount", maps.Colour is null ? 0f : maps.ColourAmount),
+                new("indexMap", maps.Index is null ? 0f : 1f),
+                new("patternInputs", 1 + extra.Length)
             ]
         };
     }

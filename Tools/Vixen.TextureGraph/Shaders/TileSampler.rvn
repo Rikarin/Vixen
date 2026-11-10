@@ -79,6 +79,31 @@ shader TileSampler {
     /// Sampled once per instance: adds to its rotation, under `rotationMapAmount`.
     var rotationMap: Texture2D
 
+    /// Sampled once per instance, at the centre its cell gives it: red and green about a half move it,
+    /// under `displacementAmount` cells (Patina #170). The search reaches that much further, and
+    /// `TexturePlacement.TileSampler` counts it in the reach it refuses past.
+    var displacementMap: Texture2D
+
+    /// Sampled once per instance: red and green about a half are a direction it turns to face, under
+    /// `vectorAmount`. A flat half is no direction and no turn.
+    var vectorMap: Texture2D
+
+    /// Sampled once per instance: multiplies its colour, under `colourAmount`.
+    var colourMap: Texture2D
+
+    /// Sampled once per instance when `indexMap` is set: its value over every pattern and column there
+    /// is chooses which one the instance draws, so a ramp across the grid is a sequence of patterns.
+    var indexMapImage: Texture2D
+
+    /// The second, third and fourth patterns, each its own atlas of `patternCount` columns. ⚠ Bound as
+    /// `pattern` when fewer are wired, and `patternInputs` says how many are real — the evaluator binds
+    /// positionally, so the slot always holds something.
+    var pattern2: Texture2D
+
+    var pattern3: Texture2D
+
+    var pattern4: Texture2D
+
     /// How many cells across.
     var gridX: int = 8
 
@@ -150,6 +175,21 @@ shader TileSampler {
     /// How far odd rows are shifted along x, as a fraction of a cell: a half is a running bond. ⚠ On a
     /// graph that tiles, an odd `gridY` puts two even rows either side of the seam.
     var rowOffset: float = 0f
+
+    /// How far a fully deflected displacement map moves an instance, in cells. Zero ignores the map.
+    var displacementAmount: float = 0f
+
+    /// How much of the vector map's direction an instance turns to face, 0..1. Zero ignores the map.
+    var vectorAmount: float = 0f
+
+    /// How much of the colour map's colour multiplies an instance, 0..1. Zero ignores the map.
+    var colourAmount: float = 0f
+
+    /// Non-zero to choose each instance's pattern by the index map rather than by the seed.
+    var indexMap: int = 0
+
+    /// How many of `pattern`, `pattern2`, `pattern3` and `pattern4` are bound, counted from the first.
+    var patternInputs: int = 1
 
     /// The op's own seed, already mixed. See `TexturePlan.SeedFor`.
     var seed: float = 0f
@@ -277,8 +317,8 @@ shader TileSampler {
     /// `columns - 1` fraction of a texel out of step with the one an author laid out. The span is
     /// therefore a float and only the clamp is integral: `floor` of where the column starts and
     /// `ceil` of where it ends, which is the pair of texels a fractional boundary lies between.
-    func Stamp(slot: int, local: float2): float4 {
-        val extent = pattern.GetDimensions(0)
+    func Stamp(image: Texture2D, slot: int, local: float2): float4 {
+        val extent = image.GetDimensions(0)
         val columns = max(patternCount, 1)
         val span = float(extent.x) / float(columns)
         val start = float(min(slot, columns - 1)) * span
@@ -305,10 +345,27 @@ shader TileSampler {
         val left = clamp(x0, first, last)
         val right = clamp(x0 + 1, first, last)
 
-        val top = lerp(Tap(pattern, left, y0), Tap(pattern, right, y0), float4(tx, tx, tx, tx))
-        val bottom = lerp(Tap(pattern, left, y0 + 1), Tap(pattern, right, y0 + 1), float4(tx, tx, tx, tx))
+        val top = lerp(Tap(image, left, y0), Tap(image, right, y0), float4(tx, tx, tx, tx))
+        val bottom = lerp(Tap(image, left, y0 + 1), Tap(image, right, y0 + 1), float4(tx, tx, tx, tx))
 
         return lerp(top, bottom, float4(ty, ty, ty, ty))
+    }
+
+    /// One column of one of the bound patterns: `input` counts from 0 for `pattern`.
+    func Pick(input: int, slot: int, local: float2): float4 {
+        if (input == 1) {
+            return Stamp(pattern2, slot, local)
+        }
+
+        if (input == 2) {
+            return Stamp(pattern3, slot, local)
+        }
+
+        if (input == 3) {
+            return Stamp(pattern4, slot, local)
+        }
+
+        return Stamp(pattern, slot, local)
     }
 
     /// How much of a texel one instance covers, from whichever channel carries it.
@@ -444,23 +501,71 @@ shader TileSampler {
                     val mapped = 1f - saturate(sizeMapAmount) * (1f - saturate(sized))
                     val size = max(scale, 0.000001f) * shrink * mapped
 
+                    // Patina #170's maps, each read at the centre the cell gave the instance. A
+                    // displacement moves it by at most `displacementAmount` cells on each axis, which is
+                    // what `Main` adds to the search; a vector turns it to face along the map's direction.
+                    //
+                    // ⚠ Each is read only when its amount is above nought, and not multiplied by a nought
+                    // amount: an unwired slot holds the pattern, and a pattern texel that is not finite
+                    // times nought is not nought.
+                    var moved = centre
+
+                    if (displacementAmount > 0f) {
+                        val pushed = At(displacementMap, centreU, centreV)
+
+                        moved = centre + float2(pushed.x - 0.5f, pushed.y - 0.5f) * 2f * displacementAmount
+                    }
+
+                    var faced = 0f
+
+                    if (vectorAmount > 0f) {
+                        val facing = At(vectorMap, centreU, centreV)
+                        val heading = float2(facing.x - 0.5f, facing.y - 0.5f)
+
+                        if (dot(heading, heading) > 0.000001f) {
+                            faced = atan2(heading.y, heading.x) * saturate(vectorAmount)
+                        }
+                    }
+
                     val spun = (Draw(id, 4u) - 0.5f) * max(rotationJitter, 0f)
-                    val angle = rotation + spun + turned * rotationMapAmount
+                    val angle = rotation + spun + turned * rotationMapAmount + faced
                     val c = cos(angle)
                     val s = sin(angle)
-                    val d = p - centre
+                    val d = p - moved
                     val local = float2(d.x * c + d.y * s, -d.x * s + d.y * c) / size
 
                     // Outside its own square the instance contributes nothing at all — which is the
                     // one line that makes the search radius a bound rather than a suggestion.
                     if (abs(local.x) <= 0.5f && abs(local.y) <= 0.5f) {
-                        val slot = min(int(Draw(id, 5u) * float(max(patternCount, 1))), max(patternCount, 1) - 1)
-                        val texel = Stamp(slot, local)
+                        val inputs = clamp(patternInputs, 1, 4)
+                        val columns = max(patternCount, 1)
+
+                        // ⚠ With one input the draw is always nought, so a plan wiring no second pattern
+                        // draws the very instances it drew before the inputs existed.
+                        var input = min(int(Draw(id, 10u) * float(inputs)), inputs - 1)
+                        var slot = min(int(Draw(id, 5u) * float(columns)), columns - 1)
+
+                        if (indexMap != 0) {
+                            val every = inputs * columns
+                            val chosen = clamp(int(floor(saturate(At(indexMapImage, centreU, centreV).x) * float(every))), 0, every - 1)
+
+                            input = chosen / columns
+                            slot = chosen - input * columns
+                        }
+
+                        val texel = Pick(input, slot, local)
                         val tint = 1f - saturate(colourJitter) * Draw(id, 6u)
+                        var painted = float3(1f, 1f, 1f)
+
+                        if (colourAmount > 0f) {
+                            val share = saturate(colourAmount)
+
+                            painted = lerp(painted, At(colourMap, centreU, centreV).xyz, float3(share, share, share))
+                        }
 
                         val number = (float(Fold(cellX, gridX) + Fold(cellY, gridY) * max(gridX, 1)) + 0.5f) / float(max(gridX, 1) * max(gridY, 1))
 
-                        carried = Accumulate(carried, Instance(id, number, local, texel.xyz * tint, texel), Coverage(texel))
+                        carried = Accumulate(carried, Instance(id, number, local, texel.xyz * tint * painted, texel), Coverage(texel))
                     }
                 }
             }
@@ -482,7 +587,7 @@ shader TileSampler {
 
         // How far an instance can reach out of its own cell: half its rotated diagonal plus half the
         // position jitter. Uniform across the dispatch, so the loops below never diverge.
-        val reach = max(scale, 0f) * HalfDiagonal + saturate(positionJitter) * 0.5f + saturate(rowOffset)
+        val reach = max(scale, 0f) * HalfDiagonal + saturate(positionJitter) * 0.5f + saturate(rowOffset) + max(displacementAmount, 0f)
         val radius = clamp(int(ceil(reach)), 1, MaxSearch)
 
         // How many pattern texels one output texel covers, so a minified stamp is boxed rather than

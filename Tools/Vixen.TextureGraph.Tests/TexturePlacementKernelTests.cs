@@ -109,7 +109,10 @@ public class TexturePlacementKernelTests {
     ///     size map and shrink them by the mask, which is a perfectly plausible field of stamps.
     /// </remarks>
     [Theory]
-    [InlineData("TileSampler", "pattern", "mask", "sizeMap", "rotationMap")]
+    [InlineData(
+        "TileSampler", "pattern", "mask", "sizeMap", "rotationMap", "displacementMap", "vectorMap", "colourMap",
+        "indexMapImage", "pattern2", "pattern3", "pattern4"
+    )]
     [InlineData("Splatter", "pattern", "mask", "sizeMap", "rotationMap", "placement", "carried")]
     public void A_placement_kernel_declares_its_inputs_in_the_order_the_evaluator_binds_them(
         string kernel,
@@ -218,7 +221,12 @@ public class TexturePlacementKernelTests {
     public void The_short_overloads_bind_the_pattern_into_every_map_slot() {
         var tile = TexturePlacement.TileSampler(3, 7);
 
-        Assert.Equal([7, 7, 7, 7], tile.Inputs);
+        Assert.Equal([7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7], tile.Inputs);
+        Assert.Equal(0f, tile.Find("displacementAmount")?.Value);
+        Assert.Equal(0f, tile.Find("vectorAmount")?.Value);
+        Assert.Equal(0f, tile.Find("colourAmount")?.Value);
+        Assert.Equal(0f, tile.Find("indexMap")?.Value);
+        Assert.Equal(1f, tile.Find("patternInputs")?.Value);
         Assert.Equal(0f, tile.Find("sizeMapAmount")?.Value);
         Assert.Equal(0f, tile.Find("rotationMapAmount")?.Value);
         Assert.Equal(0f, tile.Find("maskThreshold")?.Value);

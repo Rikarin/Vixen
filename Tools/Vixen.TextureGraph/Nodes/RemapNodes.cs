@@ -338,6 +338,61 @@ sealed partial class TrimToContentNode : TextureNode {
     }
 }
 
+/// <summary>The image read at the coordinate a second image holds for each texel.</summary>
+/// <remarks>
+///     <para>
+///         <b>The absolute half of <c>Filters/Vector Warp</c></b> (Patina #174's UV remap). That node reads its map
+///         as an offset from where a texel already is; this one reads red as how far across and green as how far
+///         down to read, both in 0..1 of the source. So a <c>Flood Fill</c> in <c>LocalUv</c> puts the whole
+///         picture in every island, and a placement node's <c>Uv</c> output puts it in every instance.
+///     </para>
+///     <para>
+///         ⚠ <b>A grey map is read as the same number across and down</b>, which is a diagonal, because the map
+///         is promoted to colour like any grey image feeding a colour port. A map that means one axis says so with
+///         a <c>Channel Shuffle</c>.
+///     </para>
+/// </remarks>
+[Node("Space/UV Remap", Preview = true, Summary = "Reads the image at the coordinate a UV map holds for each texel.")]
+sealed partial class UvRemapNode : TextureNode {
+    /// <summary>What to read.</summary>
+    [Input(Name = "Input")]
+    public Image Input;
+
+    /// <summary>Where to read it: red across and green down, in 0..1 of the input.</summary>
+    [Input(Name = "UV")]
+    public Image Uv;
+
+    /// <summary>How much of the map's coordinate replaces the texel's own: 0 is the input unchanged.</summary>
+    [Input(Minimum = 0f, Maximum = 1f)]
+    public Scalar Amount = 1f;
+
+    /// <summary>The remapped image.</summary>
+    [Output(Name = "Out")]
+    public Image Out;
+
+    /// <inheritdoc />
+    protected internal override void Compile(TextureEmitter emitter) {
+        ArgumentNullException.ThrowIfNull(emitter);
+
+        var source = emitter.Read("Input");
+        var uv = emitter.Read("UV", TextureChannels.Colour);
+        var target = emitter.Write("Out");
+
+        if (source < 0 || uv < 0) {
+            return;
+        }
+
+        emitter.Dispatch(
+            new TextureOp {
+                Kernel = TextureRemapKernels.UvRemap,
+                Output = target,
+                Inputs = [source, uv],
+                Parameters = [new("amount", emitter.Number(nameof(Amount)))]
+            }
+        );
+    }
+}
+
 /// <summary>What the remap nodes share.</summary>
 static class Remap {
     /// <summary>The polar op, either way.</summary>

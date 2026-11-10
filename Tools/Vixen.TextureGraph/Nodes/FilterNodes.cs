@@ -519,6 +519,66 @@ sealed partial class DistanceNode : TextureNode {
     }
 }
 
+/// <summary>How far every texel is from a mask, measured along one direction only.</summary>
+/// <remarks>
+///     <para>
+///         <b><c>Distance</c> asks how far the nearest point of the shape is in any direction; this asks how far a
+///         texel would walk back against <c>Angle</c> before reaching it</b> (Patina #174's directional distance).
+///         So the field is the shape smeared one way and fading: a cast shadow, a streak behind a rivet, the side
+///         of an extrusion. It keeps <c>Distance</c>'s convention — nought on the shape, one past
+///         <c>Max Distance</c> — so a <c>Levels</c> written for one reads the other.
+///     </para>
+///     <para>
+///         ⚠ <b>A bounded walk rather than a flood</b>: at most 512 taps a texel, so a reach longer than 512
+///         texels strides further than one and can step over a line thinner than the stride. At the base of a
+///         1024 graph the default reach is 256 texels and every one is visited.
+///     </para>
+/// </remarks>
+[Node("Analysis/Directional Distance", Preview = true, Summary = "How far each texel is from a mask along one direction, like a cast shadow.")]
+sealed partial class DirectionalDistanceNode : TextureNode {
+    /// <summary>The mask to measure from. A single channel.</summary>
+    [Input(Name = "Mask")]
+    public Image Mask;
+
+    /// <summary>Which way the shape streaks, in radians from +x towards +y.</summary>
+    [Input(SoftMinimum = -MathF.PI, SoftMaximum = MathF.PI)]
+    public Scalar Angle = 0f;
+
+    /// <summary>How far the field reaches, as a fraction of the image's longer side.</summary>
+    [Input(Name = "Max Distance", Minimum = 0f, SoftMaximum = 1f)]
+    public Scalar MaxDistance = 0.25f;
+
+    /// <summary>What counts as inside the mask.</summary>
+    [Input(SoftMinimum = 0f, SoftMaximum = 1f)]
+    public Scalar Threshold = 0.5f;
+
+    /// <summary>The field.</summary>
+    [Output(Name = "Out")]
+    public Image Out;
+
+    /// <inheritdoc />
+    protected internal override void Compile(TextureEmitter emitter) {
+        ArgumentNullException.ThrowIfNull(emitter);
+
+        var mask = emitter.ReadGrey("Mask");
+        var target = emitter.Write("Out", TextureChannels.Grey);
+
+        if (mask < 0) {
+            return;
+        }
+
+        emitter.Dispatch(
+            TextureAnalysis.DirectionalDistance(
+                target,
+                mask,
+                emitter.Number(nameof(Angle)),
+                emitter.Number("Max Distance"),
+                emitter.Number(nameof(Threshold))
+            )
+        );
+    }
+}
+
 /// <summary>The colour of the nearest point of a mask's shape, spread outwards by jump flood.</summary>
 /// <remarks>
 ///     <para>

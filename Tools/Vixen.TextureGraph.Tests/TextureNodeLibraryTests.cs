@@ -537,7 +537,7 @@ public class TextureNodeLibraryTests {
 
         // Nothing is wired to either node's maps, so every slot is the pattern. The lengths are
         // asserted first because `All` over one element is true of anything.
-        Assert.Equal(4, sampler.Inputs.Length);
+        Assert.Equal(11, sampler.Inputs.Length);
         Assert.Equal(6, splatter.Inputs.Length);
         Assert.All(sampler.Inputs, input => Assert.Equal(sampler.Inputs[0], input));
         Assert.All(splatter.Inputs, input => Assert.Equal(splatter.Inputs[0], input));
@@ -936,6 +936,14 @@ public class TextureNodeLibraryTests {
 
         graph.Connect(invert, "Out", rotateByMap, "Input");
         graph.Connect(grayscale, "Out", rotateByMap, "Rotation");
+
+        // Patina wave 8: #167's blue noise, a source whose tile arrives as an external image, and #174's
+        // directional distance over a mask and UV remap reading a flood's island coordinates.
+        var uvRemap = graph.Add("Space/UV Remap");
+
+        graph.Connect(graph.Add("Source/Blue Noise"), "Out", uvRemap, "Input");
+        graph.Connect(flood, "Out", uvRemap, "UV");
+        graph.Connect(blur, "Out", graph.Add("Analysis/Directional Distance"), "Mask");
 
         // Patina #178's photo nodes and #218's anti-repetition and terrain ones. Normal from Lighting reads four
         // photos, and one picture wired to all four is a flat surface, which is still a plan.
