@@ -198,6 +198,41 @@ public sealed class GraphPreset {
     public Dictionary<string, string> Values { get; } = new(StringComparer.Ordinal);
 }
 
+/// <summary>What a graph says about itself to whoever finds it on a shelf rather than on a canvas.</summary>
+/// <param name="Description">What it makes and how it is meant to be used.</param>
+/// <param name="Author">Who made it, as they want to be credited.</param>
+/// <param name="Tags">Words to find it by, beyond its name.</param>
+/// <param name="PhysicalSize">
+///     The width and height one tile of it stands for in the world, in centimetres, or zero when it
+///     says nothing.
+/// </param>
+/// <remarks>
+///     <para>
+///         <b>In the document, for <see cref="GraphPreset" />'s reason: it is content.</b> A graph
+///         handed to somebody else, or published as a package, carries who made it and what it is
+///         for, and a list kept by whichever host first opened it would not travel with the file.
+///     </para>
+///     <para>
+///         ⚠ <b>Nothing here changes what the graph computes.</b> A compiler never reads it, so a
+///         host that sends a changed description to an evaluator is sending it for nothing. The
+///         physical size is a statement about the world, not about pixels: the base resolution is
+///         <see cref="NodeGraphModel.Settings" />' business.
+///     </para>
+/// </remarks>
+public sealed record GraphInfo(
+    string Description,
+    string Author,
+    IReadOnlyList<string> Tags,
+    Vector2 PhysicalSize
+) {
+    /// <summary>A graph that says nothing about itself.</summary>
+    public static GraphInfo None { get; } = new("", "", [], default);
+
+    /// <summary>Whether it says nothing.</summary>
+    public bool IsEmpty =>
+        Description.Length == 0 && Author.Length == 0 && Tags.Count == 0 && PhysicalSize == default;
+}
+
 /// <summary>A sticky note.</summary>
 /// <remarks>
 ///     In the model rather than in the view because it is content: it is saved, it is diffed, and it
@@ -391,6 +426,10 @@ public sealed class NodeGraphModel {
     /// </remarks>
     public List<GraphPreset> Presets { get; } = [];
 
+    /// <summary>What the graph says about itself: a description, an author, tags and a physical size.</summary>
+    /// <remarks>Replacing it is not noticed; call <see cref="Touch" /> after. See <see cref="GraphInfo" />.</remarks>
+    public GraphInfo Info { get; set; } = GraphInfo.None;
+
     /// <summary>One of the graph's own settings, or the empty string.</summary>
     /// <param name="key">Its key.</param>
     /// <returns>What it says.</returns>
@@ -443,6 +482,7 @@ public sealed class NodeGraphModel {
         target.Interface.AddRange(Interface);
         target.Parameters.AddRange(Parameters);
         target.Presets.AddRange(Presets);
+        target.Info = Info;
 
         foreach (var (key, value) in Settings) {
             target.Settings[key] = value;

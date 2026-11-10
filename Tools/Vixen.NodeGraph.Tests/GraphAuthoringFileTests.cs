@@ -71,6 +71,30 @@ public class GraphAuthoringFileTests {
     }
 
     [Fact]
+    public void What_a_graph_says_about_itself_survives_and_a_bad_size_is_dropped_with_a_diagnostic() {
+        NodeGraphModel graph = new() {
+            Info = new("Worn iron for railings.", "Ines", ["metal", "rust"], new(200f, 150f))
+        };
+
+        var reloaded = RoundTrip(graph, out var clean);
+
+        Assert.Empty(clean);
+        Assert.Equal("Worn iron for railings.", reloaded.Info.Description);
+        Assert.Equal("Ines", reloaded.Info.Author);
+        Assert.Equal(["metal", "rust"], reloaded.Info.Tags);
+        Assert.Equal(new(200f, 150f), reloaded.Info.PhysicalSize);
+        Assert.True(RoundTrip(new(), out _).Info.IsEmpty);
+
+        var asset = NodeGraphDocument.Save(graph) with { Tags = [" metal ", "", "Metal", "rust"], PhysicalSize = [0f] };
+
+        var repaired = NodeGraphDocument.Load(asset, out var diagnostics);
+
+        Assert.Equal(["metal", "rust"], repaired.Info.Tags);
+        Assert.Equal(default, repaired.Info.PhysicalSize);
+        Assert.Contains(diagnostics, diagnostic => diagnostic.Id == "NG0106");
+    }
+
+    [Fact]
     public void Presets_survive_and_a_second_of_one_name_is_dropped_with_a_diagnostic() {
         NodeGraphModel graph = new();
         GraphPreset rusty = new() { Name = "Rusty" };

@@ -62,6 +62,10 @@ public class GraphDocumentTests {
             ["Presets"] = (
                 graph => graph.Presets.Add(new() { Name = "Rusty" }),
                 graph => graph.Presets.Any(preset => preset.Name == "Rusty")
+            ),
+            ["Info"] = (
+                graph => graph.Info = GraphInfo.None with { Author = "Ines" },
+                graph => graph.Info.Author == "Ines"
             )
         };
 
