@@ -2967,6 +2967,7 @@ T:Vixen.Texturing.Layers.LayerStackInstances sweep-pending
 T:Vixen.Texturing.Layers.LayerStackProblem sweep-pending
 T:Vixen.Texturing.Layers.LayerStackSplat sweep-pending
 T:Vixen.Texturing.Layers.LayerStackYaml sweep-pending
+T:Vixen.Texturing.Layers.LayerTag sweep-pending
 T:Vixen.Texturing.Layers.MaskAsset sweep-pending
 T:Vixen.Texturing.Layers.MaskEffectAsset sweep-pending
 T:Vixen.Texturing.Layers.MaskLayerAsset sweep-pending
