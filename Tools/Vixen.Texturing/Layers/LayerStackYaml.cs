@@ -132,6 +132,14 @@ public static class LayerStackYaml {
             mapping.Set("heightNormal", Text(set.HeightNormal.ToString()));
         }
 
+        if (set.BakedNormal != LayerBakeMix.Combine) {
+            mapping.Set("bakedNormal", Text(set.BakedNormal.ToString()));
+        }
+
+        if (set.BakedOcclusion != LayerBakeMix.Combine) {
+            mapping.Set("bakedOcclusion", Text(set.BakedOcclusion.ToString()));
+        }
+
         YamlSequence layers = new();
 
         foreach (var layer in set.Layers) {
@@ -827,6 +835,8 @@ public static class LayerStackYaml {
             UvSet = Integer(mapping, "uvSet", 0, path, unsigned: true),
             Channels = channels,
             HeightNormal = Choice(mapping, "heightNormal", LayerHeightNormal.Smooth, path),
+            BakedNormal = Choice(mapping, "bakedNormal", LayerBakeMix.Combine, path),
+            BakedOcclusion = Choice(mapping, "bakedOcclusion", LayerBakeMix.Combine, path),
             Layers = layers
         };
     }

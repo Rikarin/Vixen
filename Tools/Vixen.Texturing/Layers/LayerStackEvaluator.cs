@@ -108,6 +108,12 @@ public sealed class LayerStackEvaluator : IDisposable {
     /// </summary>
     public string Asked { get; init; } = "";
 
+    /// <summary>
+    ///     The mesh maps the host's bake holds, which a set's normal and occlusion are mixed with — see
+    ///     <see cref="LayerStackGraph.Build" />. Empty for a host with no bake.
+    /// </summary>
+    public IReadOnlySet<string> Baked { get; set; } = new HashSet<string>();
+
     /// <summary>Whether the last <see cref="Prepare" /> compiled, rather than only moving values.</summary>
     public bool Compiled { get; private set; }
 
@@ -141,7 +147,7 @@ public sealed class LayerStackEvaluator : IDisposable {
         var build = Asked.Length > 0 ? LayerStackGraph.Amount(stack, set, Asked, registry, Draft, subGraphs)
             : Weighing ? LayerStackGraph.Weights(stack, set, registry, subGraphs)
             : Capture.Length > 0 ? LayerStackGraph.Capture(stack, set, Capture, Backdrop, registry, Draft, subGraphs)
-            : LayerStackGraph.Build(stack, set, registry, Draft, subGraphs);
+            : LayerStackGraph.Build(stack, set, registry, Draft, subGraphs, Baked);
 
         Problems = build.Problems;
         Layers = build.Layers;
