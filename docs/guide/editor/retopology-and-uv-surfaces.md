@@ -4,7 +4,7 @@ slug: editor/retopology-and-uv-surfaces
 kind: guide
 area: Editor
 summary: Where a quad remesh and an unwrap are actually invoked from — the model importer, three command-line verbs, and the blockout mode's own verb and UV panel.
-api: [T:Vixen.Editor.Assets.Models.ModelRetopology, T:Vixen.Editor.Assets.Models.ModelRetopology.MeshResult, T:Vixen.Interchange.ModelGeometry, T:Vixen.Interchange.ModelWriter, T:Vixen.Interchange.PolygonMesh, T:Vixen.Interchange.ModelWriterMaterial, T:Vixen.Editor.Assets.Models.SymmetryAxis, T:Vixen.Editor.Assets.Models.UnwrapMode, T:Vixen.Editor.Assets.Models.RetopologyGuideReference, T:Vixen.Cli.GeometryRunner, T:Vixen.Editor.Blockout.BlockoutRetopology, T:Vixen.Editor.Blockout.BlockoutUvPanel, T:Vixen.Editor.Blockout.UvIslandView, T:Vixen.Editor.Blockout.BlockoutRetopologySettings, T:Vixen.Editor.Blockout.BlockoutChartSettings, T:Vixen.Editor.Blockout.BlockoutPackSettings, T:Vixen.Editor.Blockout.BlockoutUvView, T:Vixen.Editor.Blockout.BlockoutRemeshDebug, T:Vixen.Editor.Blockout.BlockoutTheme]
+api: [T:Vixen.Editor.Assets.Models.ModelRetopology, T:Vixen.Editor.Assets.Models.ModelRetopology.MeshResult, T:Vixen.Interchange.ModelGeometry, T:Vixen.Interchange.ModelWriter, T:Vixen.Interchange.PolygonMesh, T:Vixen.Interchange.ModelWriterMaterial, T:Vixen.Interchange.ModelWriterTextures, T:Vixen.Interchange.ModelAlphaMode, T:Vixen.Editor.Assets.Models.SymmetryAxis, T:Vixen.Editor.Assets.Models.UnwrapMode, T:Vixen.Editor.Assets.Models.RetopologyGuideReference, T:Vixen.Cli.GeometryRunner, T:Vixen.Editor.Blockout.BlockoutRetopology, T:Vixen.Editor.Blockout.BlockoutUvPanel, T:Vixen.Editor.Blockout.UvIslandView, T:Vixen.Editor.Blockout.BlockoutRetopologySettings, T:Vixen.Editor.Blockout.BlockoutChartSettings, T:Vixen.Editor.Blockout.BlockoutPackSettings, T:Vixen.Editor.Blockout.BlockoutUvView, T:Vixen.Editor.Blockout.BlockoutRemeshDebug, T:Vixen.Editor.Blockout.BlockoutTheme]
 tags: [editor, importer, cli, blockout, retopology, uv, atlas]
 since: 0.1
 status: preview
@@ -40,6 +40,17 @@ back into one `MeshData` per part, and each corner keeps its own normal and vert
 name and its material. `ModelWriter.Write` then writes the colours as `COLOR_0` and, given a list of
 `ModelWriterMaterial`, the materials by name. ⚠ `ToMeshData` is not that road. It gives every corner
 its face's normal, which suits a remesh and lights an unwrapped ball as a polyhedron.
+
+A material can name its images too. `ModelWriterTextures` holds a URI for each of glTF's
+metallic-roughness slots (base colour, metallic-roughness, normal, occlusion, emissive), the normal's
+scale, the occlusion's strength, the emissive factor and strength, and a `ModelAlphaMode`. Each image is
+written once, however many slots share it, so an occlusion-roughness-metallic file is one image and one
+texture. `ModelWriter.GltfMaterials` writes the materials alone, with no mesh and no buffer, which is
+what a texturing tool hands a DCC beside its maps. ⚠ The writer does not look inside an image: the
+channels are glTF's (roughness green, metallic blue, occlusion red, normal green up), and a caller whose
+file packs them otherwise must leave the slot out. A WebP image goes through `EXT_texture_webp`, which is
+then required, and an emission brighter than one through `KHR_materials_emissive_strength`.
+`ModelReader` reads every slot back, the emissive one included.
 
 ## What it is for
 

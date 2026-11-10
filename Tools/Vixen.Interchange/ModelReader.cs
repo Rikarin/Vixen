@@ -96,6 +96,9 @@ public sealed record ModelMaterialTextures {
     /// <summary>Occlusion in red.</summary>
     public ModelTexture? Occlusion { get; init; }
 
+    /// <summary>The emitted colour, sRGB.</summary>
+    public ModelTexture? Emissive { get; init; }
+
     /// <summary>What a stored normal's X and Y are multiplied by.</summary>
     public float NormalScale { get; init; } = 1f;
 }
@@ -457,6 +460,8 @@ public static class ModelReader {
             MetallicRoughness = metallic,
             Occlusion = Texture(assimp, material, TextureType.Lightmap, embedded)
                 ?? Texture(assimp, material, TextureType.AmbientOcclusion, embedded),
+            Emissive = Texture(assimp, material, TextureType.Emissive, embedded)
+                ?? Texture(assimp, material, TextureType.EmissionColor, embedded),
             NormalScale = NormalScale(assimp, material)
         };
     }
