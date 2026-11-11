@@ -22,7 +22,7 @@ namespace Vixen.Net.Transport.WebSocket;
 ///         through a <c>Vixen.Platform.Web</c> <c>ISocket</c> that does not exist in the tree. Both
 ///         are wrong: the <c>browser-wasm</c> runtime pack ships
 ///         <c>System.Net.WebSockets.Client.dll</c> containing a real
-///         <c>System.Net.WebSockets.BrowserWebSocket</c>, built for <c>net10.0-browser</c> against
+///         <c>System.Net.WebSockets.BrowserWebSocket</c>, built for <c>net11.0-browser</c> against
 ///         <c>System.Runtime.InteropServices.JavaScript</c> — it is the page's own
 ///         <c>WebSocket</c> behind the ordinary API. So no <c>[JSImport]</c> module is needed here,
 ///         and this project ships no JavaScript at all.
@@ -30,7 +30,7 @@ namespace Vixen.Net.Transport.WebSocket;
 ///     <para>
 ///         <b>⚠ Which is also what makes it testable, and that is why the file is written to have no
 ///         conditional compilation in it.</b> Every line below compiles and runs unchanged on
-///         <c>net10.0</c>, where <c>ClientWebSocket</c> is the desktop implementation of the same
+///         <c>net11.0</c>, where <c>ClientWebSocket</c> is the desktop implementation of the same
 ///         API. <c>Vixen.Net.Transport.WebSocket.Browser.Tests</c> links this file as source and
 ///         drives it against a real <c>SystemWebSocketFactory</c> server over loopback — so the
 ///         thing a browser will run is exercised end to end by <c>nuke Test</c>, on a machine with

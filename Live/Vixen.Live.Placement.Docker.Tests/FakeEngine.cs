@@ -96,7 +96,7 @@ sealed class FakeEngine : HttpMessageHandler {
 
         if (path.EndsWith("/containers/create", StringComparison.Ordinal)) {
             var id = Interlocked.Increment(ref nextId).ToString(CultureInfo.InvariantCulture);
-            var body = JsonDocument.Parse(Posts[^1].Body).RootElement;
+            var body = JsonElement.Parse(Posts[^1].Body);
 
             var labels = body.TryGetProperty("labels", out var declared)
                 ? declared.EnumerateObject().ToDictionary(entry => entry.Name, entry => entry.Value.GetString() ?? "", StringComparer.Ordinal)

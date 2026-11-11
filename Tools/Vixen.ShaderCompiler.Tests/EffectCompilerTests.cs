@@ -37,7 +37,7 @@ public class EffectCompilerTests {
     /// <summary>The dependent-permutation fixture, compiled to SPIR-V.</summary>
     static RavenEffectCompiler Nested() => new([Fixture("Nested.rvn")]);
 
-    static JsonElement Reflection => JsonDocument.Parse(File.ReadAllText(Fixture("Lighting.reflect.json"))).RootElement;
+    static JsonElement Reflection => JsonElement.Parse(File.ReadAllText(Fixture("Lighting.reflect.json")));
 
     static EffectKey Key(bool shadows) =>
         EffectKey.Of("Lighting", [new("Lighting.UseShadows", shadows ? "true" : "false"), new("Lighting.MaxLights", "4")]);

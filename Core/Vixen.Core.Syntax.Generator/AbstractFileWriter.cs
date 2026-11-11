@@ -220,13 +220,13 @@ abstract class AbstractFileWriter {
     }
 
     protected static string StripPost(string name, string post) =>
-        name.EndsWith(post, StringComparison.Ordinal) ? name[..^post.Length] : name;
+        name.EndsWith(post, StringComparison.Ordinal) ? name.Substring(0, name.Length - post.Length) : name;
 
     static string FixKeyword(string name) => IsCSharpKeyword(name) ? "@" + name : name;
 
     protected static string CamelCase(string name) {
         if (char.IsUpper(name[0])) {
-            name = char.ToLowerInvariant(name[0]) + name[1..];
+            name = char.ToLowerInvariant(name[0]) + name.Substring(1);
         }
 
         return FixKeyword(name);

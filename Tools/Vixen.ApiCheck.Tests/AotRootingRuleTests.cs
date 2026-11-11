@@ -81,16 +81,16 @@ public class AotRootingRuleTests {
     ///     reading target frameworks would report nothing unrooted and mean "I read nothing".
     /// </summary>
     [Fact]
-    public void The_runtime_set_is_every_net10_non_test_project_under_the_two_layers() {
+    public void The_runtime_set_is_every_net11_non_test_project_under_the_two_layers() {
         var root = Temporary();
 
         try {
-            Project(root, "Core", "Vixen.Thing", "net10.0");
-            Project(root, "Core", "Vixen.Thing.Tests", "net10.0");
-            Project(root, "Core", "Vixen.Thing.Generators", "netstandard2.1");
-            Project(root, "Platform", "Vixen.Platform.Thing", "net10.0");
-            Project(root, "Platform", "Vixen.Platform.iOS", "net10.0-ios");
-            Project(root, "Editor", "Vixen.Editor.Thing", "net10.0");
+            Project(root, "Core", "Vixen.Thing", "net11.0");
+            Project(root, "Core", "Vixen.Thing.Tests", "net11.0");
+            Project(root, "Core", "Vixen.Thing.Generators", "netstandard2.0");
+            Project(root, "Platform", "Vixen.Platform.Thing", "net11.0");
+            Project(root, "Platform", "Vixen.Platform.iOS", "net11.0-ios");
+            Project(root, "Editor", "Vixen.Editor.Thing", "net11.0");
 
             Assert.Equal(
                 ["Vixen.Platform.Thing", "Vixen.Thing"],
@@ -111,7 +111,7 @@ public class AotRootingRuleTests {
         var root = Temporary();
 
         try {
-            Project(root, "Core", "Vixen.Thing", "net10.0");
+            Project(root, "Core", "Vixen.Thing", "net11.0");
             var probe = ProbeFixture(root, "Vixen.Thing");
 
             Assert.Empty(AotRootingRule.Unrooted(root, probe));
@@ -142,8 +142,8 @@ public class AotRootingRuleTests {
         var root = Temporary();
 
         try {
-            Project(root, "Core", "Vixen.Rooted", "net10.0");
-            Project(root, "Core", "Vixen.Unrooted", "net10.0");
+            Project(root, "Core", "Vixen.Rooted", "net11.0");
+            Project(root, "Core", "Vixen.Unrooted", "net11.0");
             var probe = ProbeFixture(root, "Vixen.Rooted");
 
             var ledger = Path.Combine(root, "Tools", "Vixen.AotProbe", "NotRooted.txt");

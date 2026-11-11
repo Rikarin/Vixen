@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <TargetFramework>net10.0</TargetFramework>
+        <TargetFramework>net11.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
         <IsPackable>false</IsPackable>
@@ -12,9 +12,9 @@
             The same opt-out Vixen.Templates.Tests makes, for the same reason and against the same
             two packages. This project needs Roslyn as a library — ProjectPluginTests compiles the
             plugin it discovers — *and* Vixen.Cli, whose Vixen.Live.Cluster reference brings
-            Microsoft.Orleans.Sdk 10.2.2, which requires Microsoft.CodeAnalysis.Common >= 5.0.0,
-            while Directory.Packages.props pins Microsoft.CodeAnalysis.CSharp at 4.11.0 for the
-            generators, which target the compiler and must not be dragged forward by a test host.
+            Microsoft.Orleans.Sdk 10.4.2, which brings Microsoft.CodeAnalysis.Workspaces.Common
+            5.0.0 and with it an exact pin on Microsoft.CodeAnalysis.Common 5.0.0, while
+            Directory.Packages.props pins Microsoft.CodeAnalysis.CSharp at 5.9.0 for the generators.
             CentralPackageVersionOverrideEnabled is false, so VersionOverride is not available and
             the choice is between four inline versions here and NU1107.
         -->
@@ -23,7 +23,7 @@
 
     <ItemGroup>
         <PackageReference Include="xunit.v3" Version="3.2.2" />
-        <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.8.1" />
+        <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.12.0" />
         <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5">
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
             <PrivateAssets>all</PrivateAssets>
@@ -36,8 +36,7 @@
           default load context whatever the CLI did. So the test compiles one, the way
           Vixen.AssetCompiler.Tests and Vixen.Editor.Plugin.Tests both do.
 
-          5.0.0 rather than the central 4.11.0 because Orleans needs >= 5.0.0, and exactly 5.0.0
-          rather than anything later because Orleans also brings
+          Exactly 5.0.0 rather than the central 5.9.0 because Orleans brings
           Microsoft.CodeAnalysis.Workspaces.Common 5.0.0, whose dependency on
           Microsoft.CodeAnalysis.Common is an exact pin. Vixen.Templates.Tests reached the same two
           numbers from the same two constraints.

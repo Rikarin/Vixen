@@ -8,7 +8,7 @@ Spec: [docs/plan/08](../../docs/plan/08-asset-pipeline-and-addressables.md) § `
 ```xml
 <Project Sdk="Vixen.Sdk/0.1.0">
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
+    <TargetFramework>net11.0</TargetFramework>
     <OutputType>Exe</OutputType>
   </PropertyGroup>
 </Project>
@@ -258,7 +258,7 @@ and names the soname to keep.
 
 ### Where the weight actually is, measured rather than apportioned
 
-Over `Tools/Vixen.Cli/bin/Debug/net10.0`, `.pdb` and `.xml` excluded:
+Over `Tools/Vixen.Cli/bin/Debug/net11.0`, `.pdb` and `.xml` excluded:
 
 | | Bytes | Share of the total |
 |---|---:|---:|

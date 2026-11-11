@@ -2,7 +2,7 @@
 
     <PropertyGroup>
         <!--
-          net10.0-browser, not net10.0. [JSImport] lives in
+          net11.0-browser, not net11.0. [JSImport] lives in
           System.Runtime.InteropServices.JavaScript, which only exists in the browser runtime pack,
           and the source generator that emits its marshalling only runs for a browser target.
 
@@ -15,7 +15,7 @@
           called even that. It builds under `nuke CompileWeb` and on the `web` leg of ci.yml now, and
           `nuke PublishWeb` puts it through a published head. See the README.
         -->
-        <TargetFramework>net10.0-browser</TargetFramework>
+        <TargetFramework>net11.0-browser</TargetFramework>
         <RootNamespace>Vixen.Graphics.WebGPU.Browser</RootNamespace>
         <!-- Required by [JSImport]: the generated marshalling is unsafe (SYSLIB1074). -->
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>

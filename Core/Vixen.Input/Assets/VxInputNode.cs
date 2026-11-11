@@ -11,9 +11,9 @@ namespace Vixen.Input;
 ///         <b>Why this exists next to <c>Vixen.Core.Yaml</c>.</b> The action asset is read twice —
 ///         once at run time, and once inside the compiler by
 ///         <c>Vixen.Input.Generators</c> so that <c>Input.Player.Move</c> is a real member. A source
-///         generator runs on <c>netstandard2.1</c> and cannot reference a <c>net10.0</c> assembly,
+///         generator runs on <c>netstandard2.0</c> and cannot reference a <c>net11.0</c> assembly,
 ///         and an analyzer's <c>ProjectReference</c> dependencies do not travel to the analyzer path,
-///         so <c>Vixen.Core.Yaml</c> — which is <c>net10.0</c> and carries a NuGet dependency of its
+///         so <c>Vixen.Core.Yaml</c> — which is <c>net11.0</c> and carries a NuGet dependency of its
 ///         own — cannot be the reader on that side.
 ///     </para>
 ///     <para>

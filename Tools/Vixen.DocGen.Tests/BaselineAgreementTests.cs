@@ -209,7 +209,7 @@ public class BaselineAgreementTests : IDisposable {
         const string stale = "Vixen.Assets.Stale -> sealed class";
         WriteBaseline(".claude/worktrees/other/Core/Vixen.Assets", stale);
         Git(Path.Combine(root, ".claude", "worktrees", "other"), "init", "--quiet");
-        WriteBaseline("Core/Vixen.Assets/bin/Release/net10.0", stale);
+        WriteBaseline("Core/Vixen.Assets/bin/Release/net11.0", stale);
         WriteBaseline("Core/Vixen.Assets/obj", stale);
         WriteBaseline("artifacts/staging/Vixen.Assets", stale);
         WriteBaseline("references/godot/Vixen.Assets", stale);

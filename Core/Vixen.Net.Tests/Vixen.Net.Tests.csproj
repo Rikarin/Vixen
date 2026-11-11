@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <TargetFramework>net10.0</TargetFramework>
+        <TargetFramework>net11.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
         <IsPackable>false</IsPackable>
@@ -42,7 +42,7 @@
             modelled on, does not have the problem only because it references its generator for the
             generator's own tests.
 
-            ReferenceOutputAssembly="false" on purpose: a plain reference would put a netstandard2.1
+            ReferenceOutputAssembly="false" on purpose: a plain reference would put a netstandard2.0
             Roslyn assembly in this project's output for nothing, and OutputItemType="Analyzer"
             would run the generator over this assembly — where Replication/ReplicatedComponents.cs
             is hand-written and is the specification the generator is checked against.

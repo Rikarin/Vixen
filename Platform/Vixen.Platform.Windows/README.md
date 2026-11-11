@@ -29,11 +29,11 @@ Everything else — windows, input, gamepads, clipboard text, IME, message boxes
 
 ## The decisions
 
-**`net10.0`, not `net10.0-windows`.** [Doc 10](../../docs/plan/10-platforms.md) named WinRT's
+**`net11.0`, not `net11.0-windows`.** [Doc 10](../../docs/plan/10-platforms.md) named WinRT's
 `FileOpenPicker` and the Windows-versioned target framework it needs. That framework would spread
 from here to every consumer — the app head, the editor, every sample — and turn a portable build
 graph into a multi-targeted one; it would also take this assembly out of `nuke CheckApi`, which
-covers `net10.0`. WinRT's picker in a desktop application is a wrapper over `IFileDialog`, so the
+covers `net11.0`. WinRT's picker in a desktop application is a wrapper over `IFileDialog`, so the
 cost buys nothing a user can see. Everything here is Win32 and COM behind `[LibraryImport]` and
 `[SupportedOSPlatform("windows")]`, which is why this project builds and its tests run on a Mac.
 

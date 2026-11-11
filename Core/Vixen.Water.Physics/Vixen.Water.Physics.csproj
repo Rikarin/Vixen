@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <TargetFramework>net10.0</TargetFramework>
+        <TargetFramework>net11.0</TargetFramework>
         <RootNamespace>Vixen.Water.Physics</RootNamespace>
         <Description>
             Floats rigid bodies on Vixen.Water's surface, through Jolt. A separate assembly on

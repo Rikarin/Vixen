@@ -15,7 +15,7 @@
 
     <PropertyGroup>
         <OutputType>Exe</OutputType>
-        <TargetFramework>net10.0</TargetFramework>
+        <TargetFramework>net11.0</TargetFramework>
         <RootNamespace>Vixen.Samples.ThirdPersonShooter</RootNamespace>
         <AssemblyName>ThirdPersonShooter</AssemblyName>
         <ImplicitUsings>enable</ImplicitUsings>
@@ -29,7 +29,7 @@
             consumer with its own build of the CLI names it rather than installing anything. Without
             this the targets fall through to `dotnet vixen`, which is not restored in this tree.
         -->
-        <VixenToolPath>$(MSBuildThisFileDirectory)..\..\Tools\Vixen.Cli\bin\$(Configuration)\net10.0\vixen.dll</VixenToolPath>
+        <VixenToolPath>$(MSBuildThisFileDirectory)..\..\Tools\Vixen.Cli\bin\$(Configuration)\net11.0\vixen.dll</VixenToolPath>
     </PropertyGroup>
 
     <!--

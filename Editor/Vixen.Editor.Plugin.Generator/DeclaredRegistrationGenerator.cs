@@ -334,7 +334,8 @@ public sealed class DeclaredRegistrationGenerator : IIncrementalGenerator {
     }
 
     static bool IsStrings(ITypeSymbol type) =>
-        type is INamedTypeSymbol { IsGenericType: true, TypeArguments: [{ SpecialType: SpecialType.System_String }] } named
+        type is INamedTypeSymbol { IsGenericType: true, TypeArguments.Length: 1 } named
+        && named.TypeArguments[0].SpecialType == SpecialType.System_String
         && named.ConstructedFrom.SpecialType == SpecialType.System_Collections_Generic_IEnumerable_T;
 
     // =========================================================== [EditorSubmenu]
@@ -444,7 +445,7 @@ public sealed class DeclaredRegistrationGenerator : IIncrementalGenerator {
             // The extension is the one argument whose value, not whose shape, the scan checks — and a
             // compiler can read a constant as well as a loader can.
             static attribute => Text(attribute.ConstructorArguments, 1) is var extension
-                && !extension.StartsWith('.')
+                && !extension.StartsWith(".", StringComparison.Ordinal)
                     ? $"'{extension}' is not an extension. It is what the new file is called after the dot, including it — \".dialogue\"."
                     : null,
             titled: true

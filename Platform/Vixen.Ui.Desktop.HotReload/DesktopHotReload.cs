@@ -95,7 +95,7 @@ public static class DesktopHotReload {
     /// <remarks>
     ///     <para>
     ///         ⚠ <b>The source tree, not the output directory.</b> <c>AppContext.BaseDirectory</c> is
-    ///         <c>bin/Debug/net10.0</c>, where nobody edits anything — a watcher pointed there is
+    ///         <c>bin/Debug/net11.0</c>, where nobody edits anything — a watcher pointed there is
     ///         wired, correct at every step, and silent for ever. The project directory is found by
     ///         walking up for the <c>.csproj</c>, which is the one file that is certainly there and
     ///         certainly not in <c>bin</c>.

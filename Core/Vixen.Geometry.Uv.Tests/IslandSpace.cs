@@ -120,7 +120,7 @@ static class IslandSpace {
     ///     being tested.
     /// </remarks>
     public static readonly Gen<IslandRecipe> Recipe = Gen.Select(
-        Gen.FrequencyConst(
+        Gen.Frequency(
             (6, IslandShape.Star),
             (4, IslandShape.Rectangle),
             (4, IslandShape.Convex),
@@ -155,7 +155,7 @@ static class IslandSpace {
     ///     would associate with this file.
     /// </remarks>
     static readonly Gen<IslandRecipe> Quantized = Gen.Select(
-        Gen.OneOfConst(0.04f, 0.08f, 0.16f, 0.32f),
+        Gen.OneOf(0.04f, 0.08f, 0.16f, 0.32f),
         Gen.Single[0.4f, 2.5f],
         Gen.Single[0.25f, 4f],
         (size, aspect, scale) => new IslandRecipe(IslandShape.Box, 4, size, aspect, scale)

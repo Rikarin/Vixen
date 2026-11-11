@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <TargetFramework>net10.0</TargetFramework>
+        <TargetFramework>net11.0</TargetFramework>
         <RootNamespace>Vixen.Ui.Renderer</RootNamespace>
         <Description>
             The GPU half of the user interface: pipelines, buffers and an atlas texture, plus the

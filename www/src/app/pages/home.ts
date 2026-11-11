@@ -28,7 +28,7 @@ import { PageMeta } from '../core/page-meta';
       <!-- ── The hook ──────────────────────────────────────────────────────────────────────── -->
       <section class="grid items-center gap-10 py-20 lg:grid-cols-2 lg:py-28">
         <div class="space-y-6">
-          <p class="text-primary text-sm font-medium tracking-wide uppercase">.NET 10 · Apache-2.0</p>
+          <p class="text-primary text-sm font-medium tracking-wide uppercase">.NET 11 · Apache-2.0</p>
 
           <h1 class="text-foreground text-4xl font-semibold tracking-tight text-balance sm:text-5xl">
             A game engine that is also an application framework.
@@ -335,7 +335,7 @@ export class Home {
 
   constructor() {
     this.meta.set(
-      'Vixen is a .NET 10 game engine and application framework: archetype ECS, a render graph over ' +
+      'Vixen is a .NET 11 game engine and application framework: archetype ECS, a render graph over ' +
         'Vulkan, OpenGL and WebGPU, a retained-mode UI framework, and its own shading language.',
       { title: 'Vixen — a .NET game engine and application framework', path: '/' }
     );

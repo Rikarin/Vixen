@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <TargetFramework>net10.0</TargetFramework>
+        <TargetFramework>net11.0</TargetFramework>
         <RootNamespace>Vixen.Gameplay.Shooting</RootNamespace>
         <Description>
             The weapon model and the hit claim's validation rules: hitscan and projectiles, spread and

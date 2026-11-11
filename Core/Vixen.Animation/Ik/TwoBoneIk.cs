@@ -202,7 +202,7 @@ public static class TwoBoneIk {
     static void ApplyTipRotation(
         Skeleton skeleton,
         Span<BoneTransform> local,
-        Span<BoneTransform> model,
+        ReadOnlySpan<BoneTransform> model,
         in TwoBoneIkTarget target,
         float weight
     ) {
@@ -219,7 +219,10 @@ public static class TwoBoneIk {
         var midModel = BoneTransform.Concatenate(local[target.Mid], rootModel);
 
         var desired = Quaternion.Concatenate(target.Rotation, Quaternion.Conjugate(midModel.Rotation));
-        local[target.Tip].Rotation = Quaternion.Nlerp(local[target.Tip].Rotation, desired, weight);
+        // Through a ref local rather than `local[target.Tip].Rotation = …`: CA1517 does not count a
+        // member assignment through the indexer as a write and asks for a ReadOnlySpan it cannot be.
+        ref var tip = ref local[target.Tip];
+        tip.Rotation = Quaternion.Nlerp(tip.Rotation, desired, weight);
     }
 
     static float AngleBetween(Vector3 from, Vector3 to) {

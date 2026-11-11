@@ -190,7 +190,7 @@ static unsafe partial class Win32 {
 
     /// <remarks>
     ///     ⚠ <b><c>RegGetValueW</c> rather than <c>Microsoft.Win32.Registry</c>.</b> This assembly
-    ///     targets <c>net10.0</c> and not <c>net10.0-windows</c> — deliberately, see the project file
+    ///     targets <c>net11.0</c> and not <c>net11.0-windows</c> — deliberately, see the project file
     ///     — so the registry types are not in its reference set. One import is cheaper than moving
     ///     the whole assembly out of <c>CheckApi</c>'s reach for a four-byte read.
     /// </remarks>

@@ -619,7 +619,7 @@ public sealed class Binder {
     /// <summary>What an unnamed slot is called, spelled here so the binder needs no runtime.</summary>
     /// <remarks>
     ///     ⚠ <c>BuildContext.DefaultSlot</c> is the same string and is the one that matters, but this
-    ///     project is a <c>netstandard2.1</c> analyser and does not reference <c>Vixen.Ui</c>. The two
+    ///     project is a <c>netstandard2.0</c> analyser and does not reference <c>Vixen.Ui</c>. The two
     ///     are held together by a test rather than by the compiler.
     /// </remarks>
     const string DefaultSlotName = "default";
@@ -955,7 +955,7 @@ public sealed class Binder {
 
         // ⚠ The last character read directly rather than a one-character `EndsWith`, because the
         // two compilations disagree about which spelling is legal: CA1865 refuses the string overload
-        // on net10 and the char overload does not exist on netstandard2.0, which the generator's copy
+        // on net11 and the char overload does not exist on netstandard2.0, which the generator's copy
         // of this file targets.
         var scale = time.EndsWith("ms", StringComparison.Ordinal) ? 1d
             : time.Length > 0 && time[time.Length - 1] == 's' ? 1000d

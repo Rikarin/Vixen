@@ -186,7 +186,7 @@ static class PackageContents {
             foreach (var target in targets.EnumerateObject()) {
                 foreach (var library in target.Value.EnumerateObject()) {
                     // The assembly closure. Written as the path inside the dependency package
-                    // (`lib/net10.0/X.dll`) and laid out FLAT beside the entry point, because a
+                    // (`lib/net11.0/X.dll`) and laid out FLAT beside the entry point, because a
                     // framework-dependent build is flat — so the file name is the question.
                     foreach (var asset in Assets(library.Value, "runtime")) {
                         named++;

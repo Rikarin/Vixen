@@ -272,7 +272,7 @@ static class WireCodec {
     /// <remarks>
     ///     The same function the runtime computes in <c>ReplicationRegistry.HashTypeName</c> and
     ///     <c>RpcMethod.Hash</c>. A generator cannot reference the runtime — it targets
-    ///     netstandard2.1 and runs inside the compiler — so there are two implementations and a test
+    ///     netstandard2.0 and runs inside the compiler — so there are two implementations and a test
     ///     that says they are one function.
     /// </remarks>
     public static uint Hash(string name) {

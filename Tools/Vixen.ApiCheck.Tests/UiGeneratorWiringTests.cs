@@ -565,7 +565,7 @@ public sealed class UiGeneratorWiringTests : IDisposable {
             $"""
              <Project Sdk="Microsoft.NET.Sdk">
                <PropertyGroup>
-                 <TargetFramework>net10.0</TargetFramework>
+                 <TargetFramework>net11.0</TargetFramework>
                  <DirectoryBuildTargetsPath>{Path.Combine(root, "Directory.Build.targets")}</DirectoryBuildTargetsPath>
                  {(vixenUi ? "<VixenUi>true</VixenUi>" : string.Empty)}
                </PropertyGroup>

@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <TargetFramework>net10.0</TargetFramework>
+        <TargetFramework>net11.0</TargetFramework>
         <RootNamespace>Vixen.Ui.Controls.Advanced</RootNamespace>
         <Description>
             The controls that prove the framework rather than furnish it: a docking host with

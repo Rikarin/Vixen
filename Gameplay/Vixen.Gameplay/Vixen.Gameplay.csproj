@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <TargetFramework>net10.0</TargetFramework>
+        <TargetFramework>net11.0</TargetFramework>
         <RootNamespace>Vixen.Gameplay</RootNamespace>
         <Description>
             The gameplay kernel: hierarchical tags, definition ids that are a pure function of an

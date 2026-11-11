@@ -4,7 +4,7 @@
         The browser head this repository owns, and the subject of `nuke PublishWeb`.
 
         ⚠ Deliberately outside Vixen.slnx, exactly as Tools/Vixen.AotProbe.iOS is and for the same
-        reason: net10.0-browser cannot be *evaluated* without the wasm-tools workload, so its
+        reason: net11.0-browser cannot be *evaluated* without the wasm-tools workload, so its
         presence in the solution would break `dotnet build` for everyone who has not installed it.
         The cost is the one that project's target already names — CheckFormat, CheckApi and Pack do
         not see it, and CheckArchitecture does, because that gate globs Tools/**/*.csproj rather
@@ -18,7 +18,7 @@
     <Import Project="..\..\Platform\Vixen.Platform.Web\build\Vixen.Platform.Web.props" />
 
     <PropertyGroup>
-        <TargetFramework>net10.0-browser</TargetFramework>
+        <TargetFramework>net11.0-browser</TargetFramework>
         <OutputType>Exe</OutputType>
         <RootNamespace>Vixen.WebProbe</RootNamespace>
         <Nullable>enable</Nullable>

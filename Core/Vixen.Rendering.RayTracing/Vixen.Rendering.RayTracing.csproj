@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <TargetFramework>net10.0</TargetFramework>
+        <TargetFramework>net11.0</TargetFramework>
         <RootNamespace>Vixen.Rendering.RayTracing</RootNamespace>
         <Description>
             The reference half of docs/plan/19 § L6: a bounding-volume hierarchy over triangles,

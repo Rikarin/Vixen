@@ -156,7 +156,7 @@ public class LineWrapTests {
                 // was added for symmetry: it and `Anywhere` differ only in a room of nothing, and
                 // `width` here starts at exactly nothing. A generator over two of the three would sample
                 // that width for the mode whose behaviour at it is unchanged.
-            from mode in Gen.OneOfConst(TextWrapMode.Word, TextWrapMode.Anywhere, TextWrapMode.BreakWord)
+            from mode in Gen.OneOf(TextWrapMode.Word, TextWrapMode.Anywhere, TextWrapMode.BreakWord)
             select (text, width, mode);
 
         generator.Sample(

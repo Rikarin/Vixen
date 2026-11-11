@@ -51,7 +51,7 @@ has no opinion about. What Raven knows is where it reads each attribute from.
 ## Four decisions that were forced rather than chosen
 
 **The reflection model is hand-written, not shared with `Vixen.Raven.Reflection`.** A source generator
-targets netstandard2.1 and runs inside the C# compiler; `Vixen.Raven` targets net10.0. The generator
+targets netstandard2.0 and runs inside the C# compiler; `Vixen.Raven` targets net11.0. The generator
 *could not* reference the compiler even if that were desirable. What crosses between them is the JSON,
 which is a schema and not a type — and only the fields actually read are declared, so Raven can add to
 the schema without breaking a build here.

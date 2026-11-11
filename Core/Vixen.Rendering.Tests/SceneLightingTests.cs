@@ -140,7 +140,7 @@ public sealed class SceneLightingTests : IDisposable {
     /// </remarks>
     static int BlockSize {
         get {
-            var reflection = JsonDocument.Parse(File.ReadAllText(ReflectionPath())).RootElement;
+            var reflection = JsonElement.Parse(File.ReadAllText(ReflectionPath()));
 
             foreach (var set in reflection.GetProperty("Sets").EnumerateArray()) {
                 if (set.GetProperty("Set").GetInt32() == 0) {
@@ -154,7 +154,7 @@ public sealed class SceneLightingTests : IDisposable {
 
     /// <summary>Where one flattened array member sits, and how far apart its elements are.</summary>
     static (int Offset, int Stride) Reflected(string name) {
-        var reflection = JsonDocument.Parse(File.ReadAllText(ReflectionPath())).RootElement;
+        var reflection = JsonElement.Parse(File.ReadAllText(ReflectionPath()));
 
         foreach (var parameter in reflection.GetProperty("Parameters").EnumerateArray()) {
             if (parameter.GetProperty("Name").GetString() == name) {

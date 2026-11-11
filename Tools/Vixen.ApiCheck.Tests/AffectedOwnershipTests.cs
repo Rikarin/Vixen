@@ -474,7 +474,7 @@ public sealed class AffectedOwnershipTests {
     ///     <list type="bullet">
     ///         <item>
     ///             A test binary walking up: <c>Path.Combine(AppContext.BaseDirectory, "..", …)</c>,
-    ///             resolved from the project's own <c>bin/Debug/net10.0</c>.
+    ///             resolved from the project's own <c>bin/Debug/net11.0</c>.
     ///         </item>
     ///         <item>
     ///             A build target: <c>RootDirectory / "Testing" / "ContentDeterminism"</c>, resolved
@@ -491,7 +491,7 @@ public sealed class AffectedOwnershipTests {
     ///     </list>
     /// </remarks>
     static List<string> Reaches(string projectDirectory, string source) => [
-        .. BaseDirectoryWalk.Matches(source).Select(walk => Resolve(projectDirectory + "/bin/Debug/net10.0", walk.Groups["segments"].Value))
+        .. BaseDirectoryWalk.Matches(source).Select(walk => Resolve(projectDirectory + "/bin/Debug/net11.0", walk.Groups["segments"].Value))
             .Concat(RootDirectoryWalk.Matches(source).Select(walk => Resolve(string.Empty, walk.Groups["segments"].Value.Replace('/', ','))))
             .Concat(ScriptInstruction.Matches(source).Select(match => match.Groups["directory"].Value))
 
@@ -535,7 +535,7 @@ public sealed class AffectedOwnershipTests {
     public void A_declared_readers_walk_resolves_from_its_binary(string source, string expected) {
         var walk = Assert.Single(BaseDirectoryWalk.Matches(source));
 
-        Assert.Equal(expected, Resolve("Raven/Vixen.Raven.Tests/bin/Debug/net10.0", walk.Groups["segments"].Value));
+        Assert.Equal(expected, Resolve("Raven/Vixen.Raven.Tests/bin/Debug/net11.0", walk.Groups["segments"].Value));
     }
 
     /// <summary>A path built from the test binary's directory out of string literals.</summary>
@@ -577,7 +577,7 @@ public sealed class AffectedOwnershipTests {
     ///         readers; the sweep found twenty-odd. What it reads is the two shapes a test here
     ///         spells a repository path in: a <c>Path.Combine</c> whose trailing arguments are string
     ///         literals, resolved from the repository root (or from the project's
-    ///         <c>bin/Debug/net10.0</c> when it starts at <c>AppContext.BaseDirectory</c>), and a string
+    ///         <c>bin/Debug/net11.0</c> when it starts at <c>AppContext.BaseDirectory</c>), and a string
     ///         literal holding a slash that is itself a committed path. A candidate counts only when
     ///         it lands on a committed file or directory, which is what keeps a fixture's scratch tree
     ///         out. A file contained by a solution project is not this test's question — the reverse
@@ -772,7 +772,7 @@ public sealed class AffectedOwnershipTests {
 
         foreach (System.Text.RegularExpressions.Match walk in CombineWalk.Matches(source)) {
             var fromBinary = walk.Groups["head"].Value.Trim() == "AppContext.BaseDirectory";
-            List<string> path = fromBinary ? [.. (projectDirectory + "/bin/Debug/net10.0").Split('/')] : [];
+            List<string> path = fromBinary ? [.. (projectDirectory + "/bin/Debug/net11.0").Split('/')] : [];
             var escaped = false;
 
             foreach (var segment in System.Text.RegularExpressions.Regex.Matches(walk.Groups["segments"].Value, "\"([^\"]*)\"")

@@ -67,7 +67,7 @@ and a connection that had completed its handshake was never handed over. Nothing
   ⚠ **Two claims it rested on were wrong.** This bullet said `System.Net.WebSockets` "is not
   available" in a browser; the `browser-wasm` runtime pack ships
   `System.Net.WebSockets.Client.dll` containing a real `System.Net.WebSockets.BrowserWebSocket`
-  built for `net10.0-browser` against `System.Runtime.InteropServices.JavaScript` — the page's own
+  built for `net11.0-browser` against `System.Runtime.InteropServices.JavaScript` — the page's own
   `WebSocket` behind the ordinary `ClientWebSocket` API. And doc 16 routes the browser path through
   a `Vixen.Platform.Web` `ISocket` that **has never existed in the tree**: those two documents are
   its only two mentions anywhere. So the browser transport needs no `[JSImport]`, ships no

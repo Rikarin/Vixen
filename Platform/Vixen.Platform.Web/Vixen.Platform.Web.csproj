@@ -2,7 +2,7 @@
 
     <PropertyGroup>
         <!--
-          net10.0-browser, not net10.0. [JSImport] and [JSExport] live in
+          net11.0-browser, not net11.0. [JSImport] and [JSExport] live in
           System.Runtime.InteropServices.JavaScript, which only exists in the browser runtime pack,
           and the source generator that emits their marshalling only runs for a browser target. Same
           reasoning, and the same consequence, as Vixen.Audio.Backend.WebAudio: this project needs
@@ -10,11 +10,11 @@
           Vixen.Platform.iOS — it is NOT in Vixen.slnx. See the README.
 
           Note this is the *library's* TFM. An application head that publishes a page uses
-          Sdk="Microsoft.NET.Sdk.WebAssembly" with TargetFramework net10.0, which is what the spike
+          Sdk="Microsoft.NET.Sdk.WebAssembly" with TargetFramework net11.0, which is what the spike
           in docs/plan/spikes/web-webgl2 measured; build/Vixen.Platform.Web.targets is what carries
           the emcc flags and the publish settings across to it.
         -->
-        <TargetFramework>net10.0-browser</TargetFramework>
+        <TargetFramework>net11.0-browser</TargetFramework>
         <RootNamespace>Vixen.Platform.Web</RootNamespace>
         <AssemblyName>Vixen.Platform.Web</AssemblyName>
 

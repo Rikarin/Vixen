@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <TargetFramework>net10.0</TargetFramework>
+        <TargetFramework>net11.0</TargetFramework>
         <RootNamespace>Vixen.Rendering.Reflections</RootNamespace>
         <Description>
             The reflections of docs/plan/19 § L5: mirror rays through the same distance-field

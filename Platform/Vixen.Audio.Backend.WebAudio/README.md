@@ -16,7 +16,7 @@ using var engine = AudioEngine.Create(backend);
 
 ## Not in `Vixen.slnx`
 
-This project targets `net10.0-browser`, which needs the `wasm-tools` workload even to *evaluate* —
+This project targets `net11.0-browser`, which needs the `wasm-tools` workload even to *evaluate* —
 and a solution that will not restore on a machine without it is a solution nobody can open. So it
 sits on disk and out of the solution, exactly as `Vixen.Platform.Android` and `Vixen.Platform.iOS`
 do, and for the same reason. `nuke Compile` does not build it and neither does CI today.

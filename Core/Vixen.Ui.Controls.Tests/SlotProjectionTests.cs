@@ -153,7 +153,7 @@ public class SlotProjectionTests {
 
     /// <summary>The binder's spelling of the default slot is the runtime's.</summary>
     /// <remarks>
-    ///     <c>Vixen.Ui.Markup</c> is a <c>netstandard2.1</c> analyser and cannot reference
+    ///     <c>Vixen.Ui.Markup</c> is a <c>netstandard2.0</c> analyser and cannot reference
     ///     <c>Vixen.Ui</c>, so <c>"default"</c> is written out in both and nothing but this holds the
     ///     two together. A rename on one side alone would make every unnamed <c>&lt;slot /&gt;</c>
     ///     unreachable from every consumer, and the two files would each look right.

@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <TargetFramework>netstandard2.1</TargetFramework>
+        <TargetFramework>netstandard2.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
         <RootNamespace>Vixen.Input.Generators</RootNamespace>
@@ -31,7 +31,7 @@
         The .vxinput front end, compiled into this assembly rather than referenced from it.
 
         Same reasoning as Vixen.Ui.Markup.Generators, and the same conclusion. A generator runs inside
-        the compiler and targets netstandard2.1; Vixen.Input targets net10.0 and a net10.0 assembly
+        the compiler and targets netstandard2.0; Vixen.Input targets net11.0 and a net11.0 assembly
         cannot be referenced from here, and an analyzer's ProjectReference dependencies do not travel
         to the analyzer path — `OutputItemType="Analyzer"` contributes exactly one DLL.
 
@@ -64,6 +64,8 @@
     -->
     <ItemGroup>
         <Compile Include="..\Vixen.Generators.Shared\IsExternalInit.cs" LinkBase="Linked\Shared" />
+        <Compile Include="..\Vixen.Generators.Shared\NotNullWhenAttribute.cs" LinkBase="Linked\Shared" />
+        <Compile Include="..\Vixen.Generators.Shared\StringPolyfills.cs" LinkBase="Linked\Shared" />
         <Compile Include="..\Vixen.Generators.Shared\CallerArgumentExpressionAttribute.cs" LinkBase="Linked\Shared" />
         <Compile Include="..\Vixen.Generators.Shared\ArgumentNullException.cs" LinkBase="Linked\Shared" />
         <Compile Include="..\Vixen.Generators.Shared\EquatableArray.cs" LinkBase="Linked\Shared" />

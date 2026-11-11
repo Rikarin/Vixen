@@ -489,7 +489,7 @@ public sealed class ReplicationGenerator : IIncrementalGenerator {
     /// <returns>The id.</returns>
     /// <remarks>
     ///     Two implementations of one function, which is normally a smell. It is deliberate here: the
-    ///     generator cannot reference the runtime — it targets netstandard2.1 and runs inside the
+    ///     generator cannot reference the runtime — it targets netstandard2.0 and runs inside the
     ///     compiler — and a test asserts the two agree, which is a cheaper guarantee than a shared
     ///     source file that both would have to compile.
     /// </remarks>

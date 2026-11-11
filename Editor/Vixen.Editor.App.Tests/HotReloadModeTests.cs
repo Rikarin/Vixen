@@ -259,9 +259,9 @@ public class HotReloadModeTests {
 
         var sheets = fixture.Document.Styles.SheetCount;
 
-        styles.Write(Path.Combine("obj", "Debug", "net10.0", "Vixen", "Probe.g.vcss"), "hot-reload-probe { width: 11px; }");
-        styles.Write(Path.Combine("obj", "Release", "net10.0", "Vixen", "Probe.g.vcss"), "hot-reload-probe { width: 22px; }");
-        styles.Write(Path.Combine("bin", "Debug", "net10.0", "Copied.vcss"), "hot-reload-probe { width: 44px; }");
+        styles.Write(Path.Combine("obj", "Debug", "net11.0", "Vixen", "Probe.g.vcss"), "hot-reload-probe { width: 11px; }");
+        styles.Write(Path.Combine("obj", "Release", "net11.0", "Vixen", "Probe.g.vcss"), "hot-reload-probe { width: 22px; }");
+        styles.Write(Path.Combine("bin", "Debug", "net11.0", "Copied.vcss"), "hot-reload-probe { width: 44px; }");
         styles.Write("dev.vcss", "hot-reload-probe { width: 33px; }");
 
         // Only the hand-written one, out of four files that all end in .vcss.

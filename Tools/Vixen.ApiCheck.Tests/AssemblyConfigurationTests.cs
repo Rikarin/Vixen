@@ -15,7 +15,7 @@ namespace Vixen.ApiCheck.Tests;
 ///     <para>
 ///         A baseline records the <em>Release</em> surface — <c>CheckApi</c> hard-codes the
 ///         configuration and says why. The tool underneath it takes a path, and
-///         <c>Core/Vixen.Ui/bin/Debug/net10.0/Vixen.Ui.dll</c> is a path. Because a <c>const</c>'s
+///         <c>Core/Vixen.Ui/bin/Debug/net11.0/Vixen.Ui.dll</c> is a path. Because a <c>const</c>'s
 ///         value is part of the surface, and the engine has <c>public const bool</c> flags whose
 ///         values are <c>#if DEBUG</c>, a regeneration from Debug rewrote
 ///         <c>UiDiagnostics.RecordsRegions</c> from <c>false</c> to <c>true</c> and broke the gate

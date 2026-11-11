@@ -16,7 +16,7 @@ default; `public` requires a reason and a `PublicAPI.Unshipped.txt` entry.*
 The tool itself takes assemblies and finds their baselines by walking up to the project directory:
 
 ```bash
-dotnet run --project Tools/Vixen.ApiCheck -- Core/Vixen.Core/bin/Release/net10.0/Vixen.Core.dll
+dotnet run --project Tools/Vixen.ApiCheck -- Core/Vixen.Core/bin/Release/net11.0/Vixen.Core.dll
 ```
 
 **The subject is always Release**, whatever `--configuration` says, and this target is the one place
@@ -138,7 +138,7 @@ Two known gaps, written down rather than discovered:
 
 ## Coverage
 
-Every non-test, non-generator, non-analyzer project that packs and targets `net10.0` under six roots,
+Every non-test, non-generator, non-analyzer project that packs and targets `net11.0` under six roots,
 which is what `ApiCheckedProjects()` in [`build/Build.Api.cs`](../../build/Build.Api.cs) globs:
 
 ```
@@ -155,7 +155,7 @@ the engine. Naming the profile instead of the globs described two of the six and
 read as uncovered. `ApiCoverageTests.TheReadmeNamesEveryRootCheckApiGlobs` now holds this list to that
 call.
 
-The `net10.0-ios`, `-android` and `-browser` projects are not covered. They are outside
+The `net11.0-ios`, `-android` and `-browser` projects are not covered. They are outside
 `Vixen.slnx` for the reason `CompileMobile` documents, so `Compile` has not built them and there
 would be nothing to read.
 

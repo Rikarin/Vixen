@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <TargetFramework>net10.0</TargetFramework>
+        <TargetFramework>net11.0</TargetFramework>
         <RootNamespace>Vixen.Platform.Windows</RootNamespace>
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
         <Description>
@@ -13,11 +13,11 @@
         <PackageReadmeFile>README.md</PackageReadmeFile>
 
         <!--
-            net10.0, not net10.0-windows. A Windows-versioned target framework is only needed for
+            net11.0, not net11.0-windows. A Windows-versioned target framework is only needed for
             WinRT and WPF/WinForms projections, and this assembly uses neither: it is Win32 and COM
             through [LibraryImport]. Taking the versioned framework would spread it to every
             consumer that references this project and take the assembly out of `nuke CheckApi`,
-            which covers net10.0. See WindowsDialogs and the README.
+            which covers net11.0. See WindowsDialogs and the README.
         -->
     </PropertyGroup>
 

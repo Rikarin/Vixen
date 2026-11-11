@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <!--
-            net10.0, not net10.0-browser — and the project under test is the other one. A browser
+            net11.0, not net11.0-browser — and the project under test is the other one. A browser
             test assembly needs a browser to run in, and `dotnet test` has no host for one; that is
             what the Playwright smoke test in the web CI leg is for (docs/plan/10 § Platform CI
             matrix), and it exercises the interop.
@@ -12,7 +12,7 @@
             alternative — moving them into a platform-neutral assembly to make them testable — would
             put a browser content manifest in Vixen.Core.IO to satisfy a test runner.
         -->
-        <TargetFramework>net10.0</TargetFramework>
+        <TargetFramework>net11.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
         <IsPackable>false</IsPackable>

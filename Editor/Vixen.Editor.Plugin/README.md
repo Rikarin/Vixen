@@ -44,7 +44,7 @@ Searched in that order, and **the first id wins** — a project's copy overrides
 the precedence a project-local tool manifest has and for the same reason. The copy that lost is
 reported rather than dropped silently.
 
-Both layouts doc 11 names work: the assembly beside the manifest, or under `lib/net10.0/` as a
+Both layouts doc 11 names work: the assembly beside the manifest, or under `lib/net11.0/` as a
 `.nupkg` unzips it. Nothing recurses further — a plugin's own `lib/`, `runtimes/` and content are its
 business, and a scan that walked into them would find the manifest of a plugin the plugin vendored.
 

@@ -107,7 +107,7 @@ public static class PlayerBuild {
     /// <returns><see langword="false" /> if the target is not one this tool knows.</returns>
     /// <remarks>
     ///     Android and iOS carry a target framework rather than only a runtime identifier, because on
-    ///     those the framework is what selects the platform's SDK — publishing <c>net10.0</c> for
+    ///     those the framework is what selects the platform's SDK — publishing <c>net11.0</c> for
     ///     <c>ios-arm64</c> produces a console application that cannot start. Everywhere else the
     ///     framework is the project's own business.
     /// </remarks>
@@ -118,8 +118,8 @@ public static class PlayerBuild {
             "windows" => new("win-x64", "", "a folder with the executable in it", Runnable: OperatingSystem.IsWindows()),
             "linux" => new("linux-x64", "", "a folder with the executable in it", Runnable: OperatingSystem.IsLinux()),
             "macos" => new(HostMacRid(), "", "a folder with the executable in it", Runnable: OperatingSystem.IsMacOS()),
-            "android" => new("", "net10.0-android", "an APK", Runnable: false),
-            "ios" => new("ios-arm64", "net10.0-ios", "an .ipa", Runnable: false),
+            "android" => new("", "net11.0-android", "an APK", Runnable: false),
+            "ios" => new("ios-arm64", "net11.0-ios", "an .ipa", Runnable: false),
             _ => default
         };
 

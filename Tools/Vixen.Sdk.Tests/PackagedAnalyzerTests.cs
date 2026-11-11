@@ -26,7 +26,7 @@ namespace Vixen.Sdk.Tests;
 ///     <para>
 ///         ⚠ <b>Presence is the easy half; the wrong path is the one that hides.</b>
 ///         <c>TargetsForTfmSpecificContentInPackage</c> contributes to the same item the framework
-///         assembly is placed by, so a <c>PackagePath</c> of <c>lib/net10.0</c> produces a package
+///         assembly is placed by, so a <c>PackagePath</c> of <c>lib/net11.0</c> produces a package
 ///         that still packs, still restores, and resolves to nothing — a consumer gets an extra
 ///         reference assembly and no generator. Both directions are asserted.
 ///     </para>
@@ -153,11 +153,11 @@ public sealed class PackagedAnalyzerTests : IDisposable {
             Assert.Contains($"analyzers/dotnet/cs/{generator}.dll", entries);
 
             // The wrong-path case, which packs and restores and resolves to nothing.
-            Assert.DoesNotContain($"lib/net10.0/{generator}.dll", entries);
+            Assert.DoesNotContain($"lib/net11.0/{generator}.dll", entries);
         }
 
         // And the target that puts the generator in has not displaced the library it belongs to.
-        Assert.Contains($"lib/net10.0/{package}.dll", entries);
+        Assert.Contains($"lib/net11.0/{package}.dll", entries);
     }
 
     /// <summary>
@@ -237,7 +237,7 @@ public sealed class PackagedAnalyzerTests : IDisposable {
         // is NETSDK1085 — so packing lists a path the pack itself does not produce. A developer
         // machine defaults `Configuration` to Debug and has therefore built that path already; CI
         // builds Release and only Release, so a Debug pack named
-        // `Core/Vixen.Net.Generators/bin/Debug/netstandard2.1` and NuGet refused a directory that
+        // `Core/Vixen.Net.Generators/bin/Debug/netstandard2.0` and NuGet refused a directory that
         // was never going to exist. Packing what the tree in front of the test was actually built
         // in is true on both.
         var pack = Run("pack", project, "-c", Configuration, "--nologo", "-o", output);
@@ -246,7 +246,7 @@ public sealed class PackagedAnalyzerTests : IDisposable {
         // BaseIntermediateOutputPath pointed at its own temporary directory; doing that here is
         // NETSDK1005, because those are *global* properties and MSBuild hands a global property to
         // every project it invokes — so the netstandard2.x generator projects these reference would
-        // all look for their assets in one obj/ restored for net10.0.
+        // all look for their assets in one obj/ restored for net11.0.
 
         // ⚠ A pack that fails inside NuGet.Build.Tasks.Pack with a missing generator output is not a
         // packaging bug: it is a generator this project has not caused to be built. Six of the seven

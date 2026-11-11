@@ -68,12 +68,12 @@ is the only thing in the repository that sets it** — to `artifacts/golden-diff
 test binary:
 
 ```
-Platform/Vixen.Graphics.Golden.Tests/bin/<configuration>/net10.0/golden-diff/
+Platform/Vixen.Graphics.Golden.Tests/bin/<configuration>/net11.0/golden-diff/
 ```
 
 ⚠️ **So `artifacts/golden-diff/` is empty after a red local `dotnet test`, and after every CI run**:
 no CI job runs `GoldenImages` at all. `ci.yml`'s upload step names both paths for that reason, and
-the second one — `**/bin/Release/net10.0/golden-diff/` — is the one a CI failure's diffs are actually
+the second one — `**/bin/Release/net11.0/golden-diff/` — is the one a CI failure's diffs are actually
 in; `if-no-files-found: ignore` is what keeps the empty half quiet.
 
 ## Updating a reference

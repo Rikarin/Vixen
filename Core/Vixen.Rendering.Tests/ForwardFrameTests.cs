@@ -80,7 +80,7 @@ public sealed class ForwardFrameTests : IDisposable {
     ///     how <c>probeVolumes[2].radius</c> comes to be a name at all.
     /// </remarks>
     static EffectData Reflected() {
-        var root = JsonDocument.Parse(File.ReadAllText(ReflectionPath())).RootElement;
+        var root = JsonElement.Parse(File.ReadAllText(ReflectionPath()));
 
         List<EffectBindingData> bindings = [];
         List<EffectParameterData> parameters = [];

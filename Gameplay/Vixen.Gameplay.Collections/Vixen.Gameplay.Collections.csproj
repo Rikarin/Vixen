@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <TargetFramework>net10.0</TargetFramework>
+        <TargetFramework>net11.0</TargetFramework>
         <RootNamespace>Vixen.Gameplay.Collections</RootNamespace>
         <Description>
             Pets, mounts, appearances, titles and toys — one mechanism, a set of unlocked ids with a

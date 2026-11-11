@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <TargetFramework>net10.0</TargetFramework>
+        <TargetFramework>net11.0</TargetFramework>
         <RootNamespace>Vixen.Platform.Native</RootNamespace>
         <Description>
             Where a native library comes from: the runtimes/&lt;rid&gt;/native layout a published

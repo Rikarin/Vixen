@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <TargetFramework>net10.0</TargetFramework>
+        <TargetFramework>net11.0</TargetFramework>
         <RootNamespace>Vixen.Editor.Water</RootNamespace>
         <Description>
             The water toolset's editor half: one viewport mode, the draw gesture that lays a body's

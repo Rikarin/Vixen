@@ -28,8 +28,8 @@ not a fix a library can rely on. The file wins over the build.
 
 ## Why the front end is compiled twice
 
-A generator runs inside the compiler, so it targets `netstandard2.1`. `Vixen.Core.Syntax` and
-`Vixen.Ui.Markup` are `net10.0`, and a `net10.0` assembly cannot be referenced from here. The source
+A generator runs inside the compiler, so it targets `netstandard2.0`. `Vixen.Core.Syntax` and
+`Vixen.Ui.Markup` are `net11.0`, and a `net11.0` assembly cannot be referenced from here. The source
 files are linked into this project instead. Three routes were considered:
 
 | | Compile | Load |
@@ -41,7 +41,7 @@ files are linked into this project instead. Three routes were considered:
 **Multi-targeting fixes the compile and leaves the load.** An analyzer's `ProjectReference`
 dependencies do not travel to the analyzer path — `OutputItemType="Analyzer"` contributes one DLL —
 so both assemblies would still have to be put there by hand-written MSBuild, and mis-versioned
-against the `net10.0` copies in every project that references `Vixen.Ui.Markup` as well.
+against the `net11.0` copies in every project that references `Vixen.Ui.Markup` as well.
 
 Two things make linking cheap here rather than merely tolerable. Neither project touches the file
 system, the environment or the console — **checked, not assumed** — so RS1035 has nothing to say

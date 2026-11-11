@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <TargetFramework>net10.0</TargetFramework>
+        <TargetFramework>net11.0</TargetFramework>
         <RootNamespace>Vixen.Ai.Nodes</RootNamespace>
         <Description>
             The behaviour-tree nodes that touch the rest of the engine: walk a navmesh, walk in a

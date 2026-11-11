@@ -31,7 +31,7 @@ fails below a 4 MB floor so that an emptied root list cannot pass as a successfu
 ⚠ **This section used to say "every `Core/` assembly", and that was wrong by a factor of four; then
 it said 29 of 95, [#506](https://github.com/Rikarin/Vixen/issues/506)'s expansion took it to 84, and
 [#1240](https://github.com/Rikarin/Vixen/issues/1240) to 91.** Measured on 2026-09-22 against
-`git ls-files`: the probe roots **91** of the 95 `net10.0` non-test projects under `Core/` and
+`git ls-files`: the probe roots **91** of the 95 `net11.0` non-test projects under `Core/` and
 `Platform/`. The four that are not rooted are written down in [`NotRooted.txt`](NotRooted.txt), and
 every one of them is there because no shipped game links it — the reactive `Vixen.Ui` wave, seven
 assemblies, was kept out by one true-positive IL2072 and joined the rooted set the day the generator
@@ -72,7 +72,7 @@ shape — `UiPropertyRegistry.Of` on a leaf that declares nothing must answer it
 (`RootMode="EntryPoint"`). Removing the registry's `RunClassConstructor` publishes cleanly and reds
 the run. ⚠ The first publish of that check also found
 [#1524](https://github.com/Rikarin/Vixen/issues/1524): `Of`'s `All` annotation is `IL3050` at every
-ahead-of-time caller, which no rooted publish could attribute to anything. The rooted set is every `net10.0` non-test assembly under `Core/` and `Platform/` except the four in
+ahead-of-time caller, which no rooted publish could attribute to anything. The rooted set is every `net11.0` non-test assembly under `Core/` and `Platform/` except the four in
 [`NotRooted.txt`](NotRooted.txt) — written once, as a complement, rather than as a second list that
 can disagree with the first.
 
@@ -82,7 +82,7 @@ measurement and not a promise.
 
 ⚠ **The unrooted set is written down, and that is what turns the paragraph into a gate.**
 [`NotRooted.txt`](NotRooted.txt) names each one with a reason, and `nuke CheckAot` fails on a
-`net10.0` non-test assembly under `Core/` or `Platform/` that is neither rooted nor in that file —
+`net11.0` non-test assembly under `Core/` or `Platform/` that is neither rooted nor in that file —
 **and equally on a line in it that has become rooted**, so the list can only shrink. Comparing the
 probe against itself, which is all `AssertProbeRootsEveryAssemblyItReferences` could do, is satisfied
 by a probe that references three assemblies and roots the same three; comparing it against the tree
@@ -143,7 +143,7 @@ Two causes, two fixes; R11 in [doc 15](../../docs/plan/15-risks-and-open-questio
 ## The iOS sibling
 
 `../Vixen.AotProbe.iOS` is the same gate for `ios-arm64`, run by `nuke CheckAotIos`. It is a separate
-project and is **deliberately not in `Vixen.slnx`**: a `net10.0-ios` project cannot be evaluated at all
+project and is **deliberately not in `Vixen.slnx`**: a `net11.0-ios` project cannot be evaluated at all
 without the `ios` workload, so putting it in the solution would break `dotnet build` for every
 developer and CI leg that is not a Mac with Xcode. The cost is that `CheckFormat` does not see its two
 files.
@@ -174,11 +174,11 @@ find /tmp/aot-ios -type f -size +1M -exec ls -lh {} +
 
 Four answers are what the assertion needs, and each one names a way it would otherwise be wrong:
 
-1. **Is `-o` honoured for a `net10.0-ios` publish, and what does it contain?** The desktop half
+1. **Is `-o` honoured for a `net11.0-ios` publish, and what does it contain?** The desktop half
    dictates its own directory (`SetOutput(ArtifactsDirectory / "aot")`) rather than guessing where
    the SDK put things, and if that works here the iOS assertion needs no path guess at all — a
    recursive search under a directory *we* chose is layout-independent. If it is not honoured, the
-   answer is the real path (`bin/Release/net10.0-ios/ios-arm64/publish/`, an `.app` bundle inside
+   answer is the real path (`bin/Release/net11.0-ios/ios-arm64/publish/`, an `.app` bundle inside
    it, and whether an `.ipa` appears at all without `ArchiveOnBuild`).
 2. **Does any managed `Vixen.*.dll` or `*.runtimeconfig.json` survive anywhere beneath it?** Their
    absence is what says ILC ran on the desktop. ⚠ Nobody has confirmed that an iOS NativeAOT publish
@@ -200,7 +200,7 @@ Mac and of nowhere else.
 ## Why `PublishAot` is in the project file
 
 Not `-p:PublishAot=true` on the command line. A command-line property is a *global* property: MSBuild
-hands it to every project in the graph, including the `netstandard2.1` source generators, and a
+hands it to every project in the graph, including the `netstandard2.0` source generators, and a
 generator asked to compile ahead of time fails with `NETSDK1207`. Declaring it in the one project
 that means it keeps it where it belongs.
 

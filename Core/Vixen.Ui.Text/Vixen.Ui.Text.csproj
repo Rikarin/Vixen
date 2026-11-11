@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <TargetFramework>net10.0</TargetFramework>
+        <TargetFramework>net11.0</TargetFramework>
         <RootNamespace>Vixen.Ui.Text</RootNamespace>
         <Description>
             Text for a UI that has to be correct in every script: UAX#29 segmentation, UAX#14 line

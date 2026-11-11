@@ -83,7 +83,7 @@ in each of them is the wrong way round.
 
 ### Two blockers the YamlDotNet one was hiding, both still live
 
-- **The target framework.** `Vixen.Ui.Styling.Utilities` is net10.0 and an analyzer must be
+- **The target framework.** `Vixen.Ui.Styling.Utilities` is net11.0 and an analyzer must be
   netstandard, so it cannot be referenced from one — the same wall
   `Core/Vixen.Ui.Markup.Generators/Vixen.Ui.Markup.Generators.csproj` describes at length, in the
   comment that is still the best statement of this problem in the repository. The escape it uses,
@@ -102,7 +102,7 @@ in each of them is the wrong way round.
 An MSBuild `Task` assembly has the framework problem twice over — it would have to be
 `netstandard2.0` to load in Visual Studio's msbuild.exe.
 
-So the step runs where the implementation already runs: out of process, at net10.0, against the
+So the step runs where the implementation already runs: out of process, at net11.0, against the
 shipped assembly rather than a second copy of it. The shape is not new — `Tools/Vixen.Sdk` invokes
 `Tools/Vixen.Cli` exactly this way for the content build.
 

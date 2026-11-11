@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <TargetFramework>net10.0</TargetFramework>
+        <TargetFramework>net11.0</TargetFramework>
         <RootNamespace>Vixen.Xr</RootNamespace>
         <Description>
             VR and AR, backend-agnostic: the session state machine, per-eye poses and asymmetric

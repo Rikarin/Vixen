@@ -4,12 +4,16 @@
   "tools": {
     "nuke.globaltool": {
       "version": "10.1.0",
-      "commands": ["nuke"],
+      "commands": [
+        "nuke"
+      ],
       "rollForward": false
     },
     "dotnet-coverage": {
-      "version": "17.16.9",
-      "commands": ["dotnet-coverage"],
+      "version": "18.12.0",
+      "commands": [
+        "dotnet-coverage"
+      ],
       "rollForward": false
     }
   }

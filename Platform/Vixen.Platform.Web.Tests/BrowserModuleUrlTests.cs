@@ -31,7 +31,7 @@ namespace Vixen.Platform.Web.Tests;
 ///         <b>It is testable here only because the constants were moved into files that hold nothing
 ///         else.</b> The rest of each interop class is <c>[JSImport]</c>, which needs the browser
 ///         runtime pack; the <c>*Interop.Module.cs</c> files need nothing, so this project — plain
-///         <c>net10.0</c>, in <c>Vixen.slnx</c>, run by <c>nuke Test</c> on all three CI legs —
+///         <c>net11.0</c>, in <c>Vixen.slnx</c>, run by <c>nuke Test</c> on all three CI legs —
 ///         links them as source. No browser, no <c>wasm-tools</c>, no publish.
 ///     </para>
 ///     <para>

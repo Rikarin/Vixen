@@ -73,7 +73,7 @@ using Serilog;
 ///         <see cref="SampleFrame" /> are targets: the subject is a process. A head has to be
 ///         published, served over HTTP with specific headers, and driven by a second process over a
 ///         socket — and <c>Tools/Vixen.WebProbe</c> is outside <c>Vixen.slnx</c> anyway, because
-///         <c>net10.0-browser</c> cannot be evaluated without the <c>wasm-tools</c> workload, so no
+///         <c>net11.0-browser</c> cannot be evaluated without the <c>wasm-tools</c> workload, so no
 ///         <c>dotnet test</c> run can reach it.
 ///     </para>
 /// </remarks>

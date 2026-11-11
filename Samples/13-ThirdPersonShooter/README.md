@@ -233,7 +233,7 @@ now.
 
 ```
 dotnet build -c Release
-dotnet bin/Release/net10.0/ThirdPersonShooter.dll \
+dotnet bin/Release/net11.0/ThirdPersonShooter.dll \
     --vixen-headless --vixen-frames 512 --vixen-variant Development --vixen-capture ./shots
 ```
 
@@ -309,7 +309,7 @@ the player is driven by instead of a device.
 
 ```
 VIXEN_SPAWN=-3,0.2,24,180 VIXEN_WALK=20 \
-dotnet bin/Release/net10.0/ThirdPersonShooter.dll \
+dotnet bin/Release/net11.0/ThirdPersonShooter.dll \
     --vixen-headless --vixen-frames 512 --vixen-variant Development --vixen-capture ./shots
 ```
 
@@ -321,7 +321,7 @@ Every debug draw in this engine is reached by typing a verb, and a capture run h
 
 ```
 VIXEN_SPAWN=4,1.5,-45,2 VIXEN_CONSOLE="water.showBuoyancy 1" \
-dotnet bin/Release/net10.0/ThirdPersonShooter.dll \
+dotnet bin/Release/net11.0/ThirdPersonShooter.dll \
     --vixen-headless --vixen-overlays --vixen-frames 400 --vixen-variant Development --vixen-capture ./shots
 ```
 
@@ -493,7 +493,7 @@ drawn, how many the clipmap's refit threw away, and the residency behind all of 
 
 ```
 VIXEN_SPAWN=-3,0.2,24,180 VIXEN_WALK="40:1:0:9" VIXEN_VSMTRACE=./vsm.csv \
-dotnet bin/Release/net10.0/ThirdPersonShooter.dll \
+dotnet bin/Release/net11.0/ThirdPersonShooter.dll \
     --vixen-headless --vixen-frames 2400 --vixen-variant Development --vixen-capture ./shots
 ```
 
@@ -579,7 +579,7 @@ both runs report the player covering 21.624828 m — and the demand column is wh
 
 ```
 VIXEN_SPAWN=-3,0.2,24,180 VIXEN_WALK="40:1:0:9" VIXEN_VSMTRACE=./vsm.csv \
-dotnet bin/Release/net10.0/ThirdPersonShooter.dll \
+dotnet bin/Release/net11.0/ThirdPersonShooter.dll \
     --vixen-frames 2400 --vixen-variant Development --vixen-capture ./shots
 ```
 
@@ -642,7 +642,7 @@ it.** 900 frames of the closed-circle walk, headless with `--vixen-capture` on a
 
 ```
 VIXEN_SPAWN=-3,0.2,24,180 VIXEN_WALK="40:1:0:9" VIXEN_VSMTRACE=./vsm.csv \
-dotnet bin/Release/net10.0/ThirdPersonShooter.dll \
+dotnet bin/Release/net11.0/ThirdPersonShooter.dll \
     --vixen-headless --vixen-frames 900 --vixen-variant Development --vixen-capture ./shots
 ```
 
@@ -692,7 +692,7 @@ causes a rebuild had. The three switches this level turns on are `staticStage: S
 
 ```
 VIXEN_SPAWN=-3,0.2,24,0 VIXEN_WALK=20 VIXEN_SUNTRACE=./sun.csv \
-dotnet bin/Release/net10.0/ThirdPersonShooter.dll \
+dotnet bin/Release/net11.0/ThirdPersonShooter.dll \
     --vixen-headless --vixen-frames 256 --vixen-frame-limit 0 \
     --vixen-variant Development --vixen-capture ./shots
 ```

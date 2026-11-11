@@ -13,7 +13,7 @@
 // translation that is wrong in a way no C# test can see. Leaving all of that to a browser smoke
 // test means finding an inverted axis by looking at a running game.
 //
-// It is not driven from the xunit project because that project targets net10.0 and this is
+// It is not driven from the xunit project because that project targets net11.0 and this is
 // JavaScript: there is no runner that would host both. Node with a stub is enough — everything
 // asserted here is arithmetic and table lookup, and the parts that genuinely need a browser
 // (IndexedDB, fetch, pointer lock, the IME) are deliberately not touched.

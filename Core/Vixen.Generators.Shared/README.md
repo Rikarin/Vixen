@@ -41,10 +41,13 @@ own root namespace:
 
 | File | Consumers | Notes |
 | --- | --- | --- |
-| `IsExternalInit.cs` | all 8 generators | Compiler contract for `init` accessors, absent from netstandard2.1. |
+| `IsExternalInit.cs` | all 8 generators | Compiler contract for `init` accessors, absent from netstandard2.0. |
 | `EquatableArray.cs` | Input, Ui.Markup, Net | Value-equal array. Without it an incremental generator silently re-runs everything. |
 | `CallerArgumentExpressionAttribute.cs` | Input, Ui.Markup | Compiler contract the throw helpers below read. |
 | `ArgumentNullException.cs` | Input, Ui.Markup | .NET 6 throw helper. Carries a `global using` alias — link deliberately. |
+| `IndexRange.cs` | Ui.Markup | Compiler contract for `^n`, `a..b` and list patterns, absent from netstandard2.0. |
+| `StringPolyfills.cs` | Input, Ui.Markup | The `char` and `StringComparison` string overloads net11.0 source calls. Needs the namespace imported. |
+| `NotNullWhenAttribute.cs` | Input | Nullable-analysis marker the linked `VxInputNode` uses. |
 
 `Vixen.Ui.Markup.Generators` keeps a local `Compat/Netstandard.cs` for its
 `ArgumentOutOfRangeException` helpers, which only it needs.

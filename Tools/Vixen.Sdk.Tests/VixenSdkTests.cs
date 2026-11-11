@@ -64,7 +64,7 @@ public sealed class VixenSdkTests : IDisposable {
         Assert.Contains("Imported", build.Output, StringComparison.Ordinal);
         Assert.Contains("Built 1 address", build.Output, StringComparison.Ordinal);
 
-        var content = Path.Combine(root, "bin", "Debug", "net10.0", "Content");
+        var content = Path.Combine(root, "bin", "Debug", "net11.0", "Content");
 
         Assert.True(File.Exists(Path.Combine(content, "catalog.bin")));
         Assert.True(File.Exists(Path.Combine(content, "catalog.bin.hash")));
@@ -255,7 +255,7 @@ public sealed class VixenSdkTests : IDisposable {
 
         Assert.True(build.Succeeded, build.Output);
 
-        var generated = Path.Combine(root, "obj", "Debug", "net10.0", "Vixen", "Addresses.g.cs");
+        var generated = Path.Combine(root, "obj", "Debug", "net11.0", "Vixen", "Addresses.g.cs");
         Assert.True(File.Exists(generated), build.Output);
         Assert.Contains("namespace Probe;", File.ReadAllText(generated), StringComparison.Ordinal);
 
@@ -282,7 +282,7 @@ public sealed class VixenSdkTests : IDisposable {
 
         Assert.False(build.Succeeded, build.Output);
         Assert.Contains("CS0103", build.Output, StringComparison.Ordinal);
-        Assert.False(File.Exists(Path.Combine(root, "obj", "Debug", "net10.0", "Vixen", "Addresses.g.cs")));
+        Assert.False(File.Exists(Path.Combine(root, "obj", "Debug", "net11.0", "Vixen", "Addresses.g.cs")));
     }
 
     /// <summary>A project with no assets is a normal .NET project, and nothing runs.</summary>
@@ -307,7 +307,7 @@ public sealed class VixenSdkTests : IDisposable {
         Project();
         Assert.True(Run().Succeeded);
 
-        var content = Path.Combine(root, "bin", "Debug", "net10.0", "Content");
+        var content = Path.Combine(root, "bin", "Debug", "net11.0", "Content");
         Assert.True(File.Exists(Path.Combine(content, "catalog.bin")));
 
         Assert.True(Run("clean").Succeeded);
@@ -484,7 +484,7 @@ public sealed class VixenSdkTests : IDisposable {
              <Project Sdk="Microsoft.NET.Sdk">
                <Import Project="{SdkDirectory}/build/Vixen.Sdk.props" />
                <PropertyGroup>
-                 <TargetFramework>net10.0</TargetFramework>
+                 <TargetFramework>net11.0</TargetFramework>
                  <OutputType>Exe</OutputType>
                  <Nullable>enable</Nullable>
                  <VixenToolPath>{CliPath}</VixenToolPath>

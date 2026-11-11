@@ -50,7 +50,7 @@ public sealed class PackagedGeneratorTests : IDisposable {
     ///     since <c>NoBuild</c> is global and asking for <c>Build</c> is NETSDK1085 — so a pack lists
     ///     a path it does not itself produce. A developer machine defaults to Debug and has built
     ///     that path already; CI builds Release and only Release, and NuGet refused a
-    ///     <c>bin/Debug/netstandard2.1</c> that was never going to exist. <c>Vixen.Sdk.Tests</c>'
+    ///     <c>bin/Debug/netstandard2.0</c> that was never going to exist. <c>Vixen.Sdk.Tests</c>'
     ///     <c>PackagedAnalyzerTests</c> was fixed this way and these two were left behind.
     /// </remarks>
     static readonly string Configuration =
@@ -95,8 +95,8 @@ public sealed class PackagedGeneratorTests : IDisposable {
     public void TheLibraryItselfIsStillPackedBesideIt() {
         var entries = Pack();
 
-        Assert.Contains("lib/net10.0/Vixen.Shaders.dll", entries);
-        Assert.DoesNotContain("lib/net10.0/Vixen.Shaders.Generators.dll", entries);
+        Assert.Contains("lib/net11.0/Vixen.Shaders.dll", entries);
+        Assert.DoesNotContain("lib/net11.0/Vixen.Shaders.Generators.dll", entries);
     }
 
     /// <summary>Packs <c>Vixen.Shaders</c> and returns every entry path the package holds.</summary>
@@ -125,8 +125,8 @@ public sealed class PackagedGeneratorTests : IDisposable {
         // ⚠ Only the output directory is redirected, not obj/ and bin/. Vixen.Sdk.Tests packs with
         // BaseIntermediateOutputPath pointed at its own temporary directory; doing that here is
         // NETSDK1005, because those are *global* properties and MSBuild hands a global property to
-        // every project it invokes — so the netstandard2.1 generator projects this one references
-        // would all look for their assets in one obj/ restored for net10.0.
+        // every project it invokes — so the netstandard2.0 generator projects this one references
+        // would all look for their assets in one obj/ restored for net11.0.
 
         Assert.True(pack.Succeeded, pack.Output);
 

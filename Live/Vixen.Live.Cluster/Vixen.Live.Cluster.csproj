@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <TargetFramework>net10.0</TargetFramework>
+        <TargetFramework>net11.0</TargetFramework>
         <RootNamespace>Vixen.Live.Cluster</RootNamespace>
         <Description>
             The grain interfaces, and nothing else: what the orchestrator answers, what a realm and a

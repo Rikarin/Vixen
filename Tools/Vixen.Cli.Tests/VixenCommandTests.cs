@@ -1381,12 +1381,12 @@ public sealed class VixenCommandTests : IDisposable {
 
     /// <summary>
     ///     Android is selected by target framework rather than runtime identifier — publishing
-    ///     `net10.0` for an Android RID produces a console application that cannot start.
+    ///     `net11.0` for an Android RID produces a console application that cannot start.
     /// </summary>
     [Fact]
     public void AndroidIsSelectedByFrameworkRatherThanRuntimeIdentifier() {
         Assert.True(PlayerBuild.TryDescribe("Android", out var shape));
-        Assert.Equal("net10.0-android", shape.Framework);
+        Assert.Equal("net11.0-android", shape.Framework);
         Assert.False(shape.Runnable);
     }
 

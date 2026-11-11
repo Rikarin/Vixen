@@ -420,6 +420,6 @@ public class CliTests : IDisposable {
         return count;
     }
 
-    // bin/Debug/net10.0 -> Tests project root -> Fixtures
+    // bin/Debug/net11.0 -> Tests project root -> Fixtures
     static string Fixture(string file) => Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "Fixtures", file);
 }

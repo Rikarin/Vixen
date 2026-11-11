@@ -84,7 +84,7 @@ public sealed class ProjectAssemblyTests : IDisposable {
 
     static string Generator(string name) {
         var output = Path.Combine(Repository, "Core", name, "bin");
-        var built = Path.Combine(output, Configuration, "netstandard2.1", name + ".dll");
+        var built = Path.Combine(output, Configuration, "netstandard2.0", name + ".dll");
 
         if (File.Exists(built) || !Directory.Exists(output)) {
             return built;
@@ -94,7 +94,7 @@ public sealed class ProjectAssemblyTests : IDisposable {
         // it beats failing a load test over which folder it landed in. The path built above is still
         // what gets returned when there is nothing at all, so the error names the expected place.
         foreach (var other in Directory.GetDirectories(output)) {
-            var candidate = Path.Combine(other, "netstandard2.1", name + ".dll");
+            var candidate = Path.Combine(other, "netstandard2.0", name + ".dll");
 
             if (File.Exists(candidate)) {
                 return candidate;
@@ -112,7 +112,7 @@ public sealed class ProjectAssemblyTests : IDisposable {
             $"""
              <Project Sdk="Microsoft.NET.Sdk">
                  <PropertyGroup>
-                     <TargetFramework>net10.0</TargetFramework>
+                     <TargetFramework>net11.0</TargetFramework>
                      <Nullable>enable</Nullable>
                      <EnableDefaultCompileItems>true</EnableDefaultCompileItems>
                  </PropertyGroup>

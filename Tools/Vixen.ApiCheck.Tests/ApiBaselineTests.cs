@@ -106,7 +106,7 @@ public sealed class ApiBaselineTests : IDisposable {
     [Fact]
     public void TheBaselineDirectory_IsTheProjectDirectory() {
         var project = Path.Combine(directory, "Sample");
-        var output = Path.Combine(project, "bin", "Debug", "net10.0");
+        var output = Path.Combine(project, "bin", "Debug", "net11.0");
         Directory.CreateDirectory(output);
         File.WriteAllText(Path.Combine(project, "Sample.csproj"), "<Project />");
 

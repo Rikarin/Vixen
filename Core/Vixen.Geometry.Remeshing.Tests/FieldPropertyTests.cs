@@ -66,7 +66,7 @@ public class FieldPropertyTests {
 
     /// <summary>A sphere or a capsule at any tessellation these two ranges reach.</summary>
     static readonly Gen<SurfaceRecipe> Round = Gen.Select(
-        Gen.OneOfConst(ShapeKind.Sphere, ShapeKind.Capsule),
+        Gen.OneOf(ShapeKind.Sphere, ShapeKind.Capsule),
         Gen.Int[8, 24],
         Gen.Int[3, 14],
         (kind, sides, steps) => new SurfaceRecipe(kind, sides, steps)

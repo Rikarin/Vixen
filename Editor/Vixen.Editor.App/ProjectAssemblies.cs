@@ -225,7 +225,7 @@ public sealed class ProjectAssemblies : IProjectCode {
     /// <remarks>
     ///     <para>
     ///         ⚠ <b>The path comes from MSBuild rather than from a convention.</b>
-    ///         <c>bin/Debug/net10.0/&lt;name&gt;.dll</c> is right until a project sets an
+    ///         <c>bin/Debug/net11.0/&lt;name&gt;.dll</c> is right until a project sets an
     ///         <c>AssemblyName</c>, targets something else, or is built by an SDK that puts output
     ///         somewhere of its own — and <c>Vixen.Sdk</c> is exactly such an SDK. <c>--getProperty</c>
     ///         asks the build what it produced, which cannot drift from what it did.

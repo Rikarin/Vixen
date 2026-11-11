@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <TargetFramework>netstandard2.1</TargetFramework>
+        <TargetFramework>netstandard2.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
         <RootNamespace>Vixen.Engine.Generators</RootNamespace>
@@ -26,7 +26,7 @@
     </ItemGroup>
 
     <!--
-        The compiler contract for `init` accessors, absent from netstandard2.1.
+        The compiler contract for `init` accessors, absent from netstandard2.0.
 
         Shared source rather than a shared assembly: a generator is loaded from the analyzer path
         and `OutputItemType="Analyzer"` contributes exactly one DLL, so a ProjectReference from

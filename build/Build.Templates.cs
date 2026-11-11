@@ -178,7 +178,7 @@ partial class Build {
         (probe / "Probe.csproj").WriteAllText(
             $"""
              <Project Sdk="Microsoft.NET.Sdk">
-                 <PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup>
+                 <PropertyGroup><TargetFramework>net11.0</TargetFramework></PropertyGroup>
                  <ItemGroup><PackageReference Include="Vixen.App" Version="{VersionOfThisRepository()}" /></ItemGroup>
              </Project>
              """

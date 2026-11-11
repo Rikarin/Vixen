@@ -9,7 +9,7 @@ namespace Vixen.Ui.Tests;
 
 /// <summary>Grouping a frame's commands into runs that can be drawn as one.</summary>
 public class BatchTests {
-    static readonly Gen<DrawCommandKind> Kinds = Gen.OneOfConst(
+    static readonly Gen<DrawCommandKind> Kinds = Gen.OneOf(
         DrawCommandKind.Rectangle,
         DrawCommandKind.Border,
         DrawCommandKind.Text,
@@ -28,7 +28,7 @@ public class BatchTests {
     static readonly Gen<DrawCommand> Commands =
         from kind in Kinds
         from font in Gen.Int[0, 2]
-        from rule in Gen.OneOfConst(PathFillRule.NonZero, PathFillRule.EvenOdd)
+        from rule in Gen.OneOf(PathFillRule.NonZero, PathFillRule.EvenOdd)
         select new DrawCommand(kind, 0f, 0f, 0f, 0f, Color4.White, 0f, 0f) { Font = font, FillRule = rule };
 
     static List<DrawBatch> Batch(params DrawCommand[] commands) {

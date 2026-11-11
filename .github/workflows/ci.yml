@@ -320,7 +320,7 @@ jobs:
           name: golden-diff-${{ matrix.os }}
           path: |
             artifacts/golden-diff/
-            **/bin/Release/net10.0/golden-diff/
+            **/bin/Release/net11.0/golden-diff/
           if-no-files-found: ignore
 
       # The half of "content determinism across three runners" that has to happen ON the runner.
@@ -470,9 +470,9 @@ jobs:
         run: ./build.sh CheckShaders --configuration Release
         shell: bash
 
-  # The three net10.0-browser projects, which until this job existed were built by nothing at all.
+  # The three net11.0-browser projects, which until this job existed were built by nothing at all.
   #
-  # They are outside Vixen.slnx — a net10.0-browser project cannot be *evaluated* without the
+  # They are outside Vixen.slnx — a net11.0-browser project cannot be *evaluated* without the
   # wasm-tools workload, so its presence there would break `dotnet build` for everyone who has not
   # installed it — which means `test`, `checks` and `pack` above have never seen a line of them.
   # `nuke CompileWeb` was the answer to that and it named one of the three, so two of them compiled
@@ -693,7 +693,7 @@ jobs:
   # written 51 managed assemblies. It now runs the two checks that need no device first: the probe
   # roots every assembly it references, and PublishAot plus the three warning properties are still
   # in the csproj. AssertAotOutput itself is still called by the desktop target and by nothing else,
-  # because reading a net10.0-ios publish's output needs somebody with the workload to look at its
+  # because reading a net11.0-ios publish's output needs somebody with the workload to look at its
   # layout before anything asserts over it. So the iOS leg still needs that assertion as much as it
   # needs the runner. #634.
   aot:

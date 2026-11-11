@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <TargetFramework>net10.0</TargetFramework>
+        <TargetFramework>net11.0</TargetFramework>
         <RootNamespace>Vixen.Live.Transfer</RootNamespace>
         <Description>
             The handoff protocol, both sides of it: the overlap that lets a player keep playing while

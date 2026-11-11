@@ -5,7 +5,7 @@ SPDX-License-Identifier: Apache-2.0
 
 # Vixen
 
-Vixen is a game engine and application framework for .NET 10 and C# 14. The same stack that ships a
+Vixen is a game engine and application framework for .NET 11 and C# 15. The same stack that ships a
 game also ships desktop tools: Vixen's own editor is written in the engine, using the engine's own
 UI framework.
 

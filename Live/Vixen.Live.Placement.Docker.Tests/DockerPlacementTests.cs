@@ -71,7 +71,7 @@ public sealed class DockerPlacementTests : IDisposable {
 
         Assert.InRange(instance.Endpoint.Port, 7800, 7809);
 
-        var body = JsonDocument.Parse(daemon.Last.Body).RootElement;
+        var body = JsonElement.Parse(daemon.Last.Body);
         var command = body.GetProperty("cmd").EnumerateArray().Select(entry => entry.GetString()).ToList();
 
         // The spec on the command line, exactly as every other backend sends it.
@@ -106,7 +106,7 @@ public sealed class DockerPlacementTests : IDisposable {
         // ⚠ Absent, not empty. An entrypoint of `[]` CLEARS the image's, and a cleared entrypoint is
         // what promotes `--realm-spec` to the program — the failure this whole path exists to avoid.
         // A realm image ends in ENTRYPOINT ["./YourGame.Realm"] and the spec is appended to it.
-        Assert.False(JsonDocument.Parse(daemon.Last.Body).RootElement.TryGetProperty("entrypoint", out _));
+        Assert.False(JsonElement.Parse(daemon.Last.Body).TryGetProperty("entrypoint", out _));
     }
 
     [Fact]
@@ -157,7 +157,7 @@ public sealed class DockerPlacementTests : IDisposable {
 
         await placement.StartAsync(Spec(), TestContext.Current.CancellationToken);
 
-        var body = JsonDocument.Parse(daemon.Last.Body).RootElement;
+        var body = JsonElement.Parse(daemon.Last.Body);
 
         Assert.Equal(
             "/opt/runtime/launch",
@@ -198,8 +198,7 @@ public sealed class DockerPlacementTests : IDisposable {
         // Doc 27 § Health: recovery is a placement, not a resurrection. A container the daemon
         // brought back would be a shard the cluster had already written off, returning with no
         // players and no map.
-        var policy = JsonDocument.Parse(daemon.Last.Body)
-            .RootElement.GetProperty("hostConfig")
+        var policy = JsonElement.Parse(daemon.Last.Body).GetProperty("hostConfig")
             .GetProperty("restartPolicy")
             .GetProperty("name")
             .GetString();
@@ -215,7 +214,7 @@ public sealed class DockerPlacementTests : IDisposable {
 
         // With a TTY the daemon merges stdout and stderr into one unframed stream, and a realm's
         // ready line becomes a substring match on everything it ever prints.
-        Assert.False(JsonDocument.Parse(daemon.Last.Body).RootElement.GetProperty("tty").GetBoolean());
+        Assert.False(JsonElement.Parse(daemon.Last.Body).GetProperty("tty").GetBoolean());
     }
 
     [Fact]

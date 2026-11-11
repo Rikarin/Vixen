@@ -72,7 +72,7 @@ public class UvPackPropertyTests {
     /// </remarks>
     static readonly Gen<(IslandRecipe[] Recipes, int Resolution, int Margin)> Sparse = Gen.Select(
         IslandSpace.Recipe.Array[2, 20],
-        Gen.OneOfConst(128, 256),
+        Gen.OneOf(128, 256),
         Gen.Int[1, 8],
         (recipes, resolution, margin) => (recipes, resolution, margin)
     );
@@ -80,7 +80,7 @@ public class UvPackPropertyTests {
     /// <summary>The same, with enough islands that the packer has to pack them against each other.</summary>
     static readonly Gen<(IslandRecipe[] Recipes, int Resolution, int Margin)> Dense = Gen.Select(
         IslandSpace.Recipe.Array[24, 64],
-        Gen.OneOfConst(128, 256),
+        Gen.OneOf(128, 256),
         Gen.Int[1, 8],
         (recipes, resolution, margin) => (recipes, resolution, margin)
     );
@@ -366,7 +366,7 @@ public class UvPackPropertyTests {
     public void Every_island_set_produces_placements_or_a_refusal_and_never_anything_else() {
         Gen.Select(
                 IslandSpace.Recipe.Array[0, 32],
-                Gen.OneOfConst(1, 4, 64, 256),
+                Gen.OneOf(1, 4, 64, 256),
                 Gen.Int[0, 6],
                 Gen.Enum<PackQuality>(),
                 Gen.Enum<PackOverflow>(),

@@ -29,7 +29,7 @@ public sealed class ClusterSerializationTests {
         .BuildServiceProvider()
         .GetRequiredService<Serializer>();
 
-    static T RoundTrip<T>(T value) => Serializer.Deserialize<T>(Serializer.SerializeToArray(value));
+    static T RoundTrip<T>(T value) => Serializer.Deserialize<T>(Serializer.SerializeToArray(value))!;
 
     [Fact]
     public void IdentitiesSurvive() {

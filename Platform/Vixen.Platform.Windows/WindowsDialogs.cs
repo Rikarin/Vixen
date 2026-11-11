@@ -17,12 +17,12 @@ namespace Vixen.Platform.Windows;
 ///         mistake is visible.
 ///     </para>
 ///     <para>
-///         <b>Not WinRT, and therefore not <c>net10.0-windows</c>.</b> The plan
+///         <b>Not WinRT, and therefore not <c>net11.0-windows</c>.</b> The plan
 ///         (<c>docs/plan/10</c>) named WinRT's <c>FileOpenPicker</c>; that needs a Windows-versioned
 ///         target framework, which would spread from here to every consumer that references it —
 ///         the app head, the editor, the samples — and turn a portable build graph into a
 ///         multi-targeted one. It would also take this assembly out of <c>nuke CheckApi</c>, which
-///         only covers <c>net10.0</c>. The WinRT picker for a desktop application is a wrapper over
+///         only covers <c>net11.0</c>. The WinRT picker for a desktop application is a wrapper over
 ///         <c>IFileDialog</c>, so the cost buys nothing the user can see.
 ///     </para>
 ///     <para>

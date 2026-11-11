@@ -266,7 +266,7 @@ public class ShaderReflectionTests {
 
         Assert.True(File.Exists(path), $"{Shaders}/{shader}.reflect.json is missing; run ./build.sh CheckShaders --update-shaders.");
 
-        return JsonDocument.Parse(File.ReadAllText(path)).RootElement;
+        return JsonElement.Parse(File.ReadAllText(path));
     }
 
     static string RepositoryRoot() {

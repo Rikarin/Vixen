@@ -29,7 +29,7 @@ loop.Start(timestamp => {
 
 ## Not in `Vixen.slnx`
 
-This project targets `net10.0-browser`, which needs the `wasm-tools` workload even to *evaluate* —
+This project targets `net11.0-browser`, which needs the `wasm-tools` workload even to *evaluate* —
 and a solution that will not restore on a machine without it is a solution nobody can open. So it
 sits on disk and out of the solution, exactly as `Vixen.Platform.Android`, `Vixen.Platform.iOS` and
 `Vixen.Audio.Backend.WebAudio` do.
@@ -40,7 +40,7 @@ dotnet build Platform/Vixen.Platform.Web
 
 `Vixen.Platform.Web.Tests` *is* in the solution, and covers three things without a browser:
 
-- **The manifest reader**, in C#. The project targets `net10.0` and links the source files that touch
+- **The manifest reader**, in C#. The project targets `net11.0` and links the source files that touch
   no interop rather than referencing this one, which is the only way round the TFM.
 - **The module URL**, in C#, for all three browser bindings at once — `BrowserModuleUrlTests`. Each
   binding's `DefaultModuleUrl` is resolved the way `JSHost.ImportAsync` resolves it, against the
@@ -62,16 +62,16 @@ covered: `nuke CompileWeb` builds all three browser projects and `nuke PublishWe
 and checks the page it produced has its entry point and its bindings where they are fetched from.
 Both run on the `web` leg of `ci.yml`.
 
-## The application head is `net10.0-browser` too
+## The application head is `net11.0-browser` too
 
-Not `net10.0` with `Sdk="Microsoft.NET.Sdk.WebAssembly"`, which is what the spike used and what an
-earlier draft of this README said. A `net10.0` project cannot reference a `net10.0-browser` one —
+Not `net11.0` with `Sdk="Microsoft.NET.Sdk.WebAssembly"`, which is what the spike used and what an
+earlier draft of this README said. A `net11.0` project cannot reference a `net11.0-browser` one —
 `NU1201`, at restore — so the head takes the browser TFM and keeps the WebAssembly SDK:
 
 ```xml
 <Project Sdk="Microsoft.NET.Sdk.WebAssembly">
   <PropertyGroup>
-    <TargetFramework>net10.0-browser</TargetFramework>
+    <TargetFramework>net11.0-browser</TargetFramework>
     <OutputType>Exe</OutputType>
     <WasmMainJSPath>main.js</WasmMainJSPath>
   </PropertyGroup>

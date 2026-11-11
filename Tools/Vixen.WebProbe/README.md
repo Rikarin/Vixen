@@ -113,7 +113,7 @@ The gate does all of this for you; this is for when you want to sit and look at 
 dotnet publish Tools/Vixen.WebProbe/Vixen.WebProbe.csproj -c Release
 
 node Tools/Vixen.WebProbe/serve.mjs \
-    Tools/Vixen.WebProbe/bin/Release/net10.0-browser/publish/wwwroot 8099
+    Tools/Vixen.WebProbe/bin/Release/net11.0-browser/publish/wwwroot 8099
 ```
 
 `serve.mjs` sets `Cross-Origin-Opener-Policy`/`Cross-Origin-Embedder-Policy`; drop them to watch
@@ -140,7 +140,7 @@ node Tools/Vixen.WebProbe/drive.mjs http://localhost:8099/index.html 6000
 
 ## Why it is not in `Vixen.slnx`
 
-`net10.0-browser` cannot be *evaluated* without the `wasm-tools` workload — not built, evaluated — so
+`net11.0-browser` cannot be *evaluated* without the `wasm-tools` workload — not built, evaluated — so
 a solution containing this project would not restore for anyone who has not installed it. That is the
 same reason `Vixen.Platform.Web` and its two siblings are absent, and the same reason
 `../Vixen.AotProbe.iOS` is.

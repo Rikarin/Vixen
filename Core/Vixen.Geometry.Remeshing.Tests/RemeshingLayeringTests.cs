@@ -124,7 +124,7 @@ public class RemeshingLayeringTests {
 
     /// <summary>What a project file asks for, whether or not the compiler kept it.</summary>
     static IEnumerable<string> DeclaredReferences(string project) {
-        // bin/Debug/net10.0 → the test project → Core/ → the repository.
+        // bin/Debug/net11.0 → the test project → Core/ → the repository.
         var root = new DirectoryInfo(AppContext.BaseDirectory).Parent?.Parent?.Parent?.Parent?.Parent
             ?? throw new InvalidOperationException($"No repository above {AppContext.BaseDirectory}.");
 

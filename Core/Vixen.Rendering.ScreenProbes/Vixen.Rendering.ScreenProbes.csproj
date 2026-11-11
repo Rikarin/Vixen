@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <TargetFramework>net10.0</TargetFramework>
+        <TargetFramework>net11.0</TargetFramework>
         <RootNamespace>Vixen.Rendering.ScreenProbes</RootNamespace>
         <Description>
             The screen probe gather of docs/plan/19 § L3: an octahedral radiance map per probe on a

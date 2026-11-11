@@ -5,8 +5,8 @@
 // The second language surface the linked front end has to hold on, minus the part that is
 // not specific to this generator.
 //
-// Vixen.Core.Syntax and Vixen.Ui.Markup are net10.0 source compiled here for
-// netstandard2.1, and the gap between the two is smaller than it looks: no file system, no
+// Vixen.Core.Syntax and Vixen.Ui.Markup are net11.0 source compiled here for
+// netstandard2.0, and the gap between the two is smaller than it looks: no file system, no
 // environment, no console, no generic math. What is missing is a handful of guard-clause
 // helpers that live *on* framework exception types — 116 call sites, most of them in
 // generated node classes nobody can edit — and two types the compiler looks up by name.
@@ -34,7 +34,7 @@ namespace Vixen.Ui.Markup.Generators.Compat;
 ///     <see cref="System.ArgumentOutOfRangeException" /> with the .NET 8 throw helpers on it.
 /// </summary>
 /// <remarks>
-///     ⚠ The framework's are generic over <c>INumberBase&lt;T&gt;</c>, which netstandard2.1 has
+///     ⚠ The framework's are generic over <c>INumberBase&lt;T&gt;</c>, which netstandard2.0 has
 ///     no interface for. These take <see cref="int" />, which is what every call site in the
 ///     linked source passes — a narrower polyfill that fails to compile if that stops being
 ///     true, rather than a wider one that silently accepts something it cannot compare.

@@ -294,7 +294,7 @@ produces one project and `vixen build --target Android` publishes it.
 
 ⚠ **They are blocked on this package's own rules rather than owed, and the block is worth stating
 because "nearly free" is what it looks like.** `Samples/01`'s hand-written Android and iOS heads are
-`net10.0-android` and `net10.0-ios` projects that reference `Vixen.Platform.Android` and
+`net11.0-android` and `net11.0-ios` projects that reference `Vixen.Platform.Android` and
 `Vixen.Platform.iOS` — which is why they are **out of the solution**, and why `Test`, `CheckFormat`,
 `CheckApi` and `Pack` never evaluate them. A template cannot follow them there:
 
@@ -303,7 +303,7 @@ because "nearly free" is what it looks like.** `Samples/01`'s hand-written Andro
   machine without the workloads would fail on a project its author never asked for.
 - **No gate.** `TemplateCompiler` compiles a multi-project template as *one* compilation against the
   assemblies this test project references. A `MainActivity.cs` would need `Vixen.Platform.Android` in
-  that list — a `net10.0-android` assembly, so the whole test project would need the workload — and
+  that list — a `net11.0-android` assembly, so the whole test project would need the workload — and
   without it the heads would be the only scaffolded C# nothing compiles, which is the exact failure
   this package's tests exist to prevent.
 

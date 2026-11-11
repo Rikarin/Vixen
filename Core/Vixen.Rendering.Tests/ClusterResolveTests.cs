@@ -393,7 +393,7 @@ public sealed class ClusterResolveTests : IDisposable {
     /// </remarks>
     [Fact]
     public void The_fixtures_resolve_set_is_the_shipped_reflections() {
-        var root = System.Text.Json.JsonDocument.Parse(File.ReadAllText(ReflectionPath())).RootElement;
+        var root = System.Text.Json.JsonElement.Parse(File.ReadAllText(ReflectionPath()));
 
         var declared = root.GetProperty("Sets")
             .EnumerateArray()

@@ -130,7 +130,7 @@ static class SurfaceSpace {
 
     /// <summary>Recipes at unit scale — the axis a scale property varies for itself.</summary>
     public static readonly Gen<SurfaceRecipe> Recipe = Gen.Select(
-        Gen.OneOfConst(Shapes),
+        Gen.OneOf(Shapes),
         Gen.Int[3, 8],
         Gen.Int[1, 3],
         Gen.Enum<SurfaceDefect>().Array[0, 3],
@@ -146,7 +146,7 @@ static class SurfaceSpace {
     /// </remarks>
     public static readonly Gen<SurfaceRecipe> Sized = Gen.Select(
         Recipe,
-        Gen.OneOfConst(1e-3f, 1e-2f, 0.1f, 1f, 10f, 1e+2f, 1e+3f),
+        Gen.OneOf(1e-3f, 1e-2f, 0.1f, 1f, 10f, 1e+2f, 1e+3f),
         (recipe, scale) => recipe with { Scale = scale }
     );
 

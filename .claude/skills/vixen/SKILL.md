@@ -1,7 +1,7 @@
 ---
 name: vixen
 description: >-
-  Builds with Vixen, the .NET 10 game engine and application framework — writing components,
+  Builds with Vixen, the .NET 11 game engine and application framework — writing components,
   systems, scenes, shaders, UI and editor tooling against the `Vixen.*` packages, and working
   inside the engine repository itself. Provides the engine's vocabulary, its opinionated
   declarations (`[Component]`, `ISystem`, `[Replicated]`, `[Node]`, `[Importer]`, Raven shaders)
@@ -13,7 +13,7 @@ user-invocable: false
 
 # Vixen
 
-Vixen is a .NET 10 game engine and application framework: an archetype ECS, a Vulkan/Metal/WebGPU
+Vixen is a .NET 11 game engine and application framework: an archetype ECS, a Vulkan/Metal/WebGPU
 RHI behind one abstraction, a retained-mode UI framework, an asset pipeline, an editor, and Raven —
 its own shading language. Everything is C# except the shaders.
 

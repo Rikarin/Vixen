@@ -36,12 +36,12 @@ partial class Build {
     readonly bool UpdateApi;
 
     /// <summary>
-    ///     The framework the covered assemblies build for. `net10.0-ios`, `-android` and `-browser`
+    ///     The framework the covered assemblies build for. `net11.0-ios`, `-android` and `-browser`
     ///     projects are deliberately not covered: they are outside <c>Vixen.slnx</c> (see
     ///     <see cref="CompileMobile" />), so nothing has built them and there would be nothing to
     ///     read.
     /// </summary>
-    const string ApiFramework = "net10.0";
+    const string ApiFramework = "net11.0";
 
     Target CheckApi => definition => definition
         .Description("Fails if a packable assembly's public surface differs from its committed baseline")

@@ -113,7 +113,7 @@ A project whose first interface arrives:
 <Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <TargetFramework>net10.0</TargetFramework>
+        <TargetFramework>net11.0</TargetFramework>
         <RootNamespace>Vixen.Editor.Water</RootNamespace>
 
         <!-- One .vxml or one .vcss in this project is the whole reason for this line. -->

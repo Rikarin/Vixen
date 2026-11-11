@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <TargetFramework>netstandard2.1</TargetFramework>
+        <TargetFramework>netstandard2.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
         <RootNamespace>Vixen.Ui.Markup.Generators</RootNamespace>
@@ -50,14 +50,14 @@
         ==============================================================================================
         The VXML front end, compiled into this assembly rather than referenced from it.
 
-        A generator runs inside the compiler, so it targets netstandard2.1; Vixen.Core.Syntax and
-        Vixen.Ui.Markup target net10.0, and a net10.0 assembly cannot be referenced from here. Three
+        A generator runs inside the compiler, so it targets netstandard2.0; Vixen.Core.Syntax and
+        Vixen.Ui.Markup target net11.0, and a net11.0 assembly cannot be referenced from here. Three
         routes were considered and this is why this one:
 
         * Multi-targeting the two projects would fix the *compile* and leave the *load*. An analyzer's
           ProjectReference dependencies do not travel to the analyzer path — `OutputItemType="Analyzer"`
           contributes one DLL — so both would still have to be placed there by hand-written MSBuild,
-          and mis-versioned in every consuming project that also references Vixen.Ui.Markup at net10.0.
+          and mis-versioned in every consuming project that also references Vixen.Ui.Markup at net11.0.
         * ILMerge/ILRepack fixes the load by hiding it, and adds a tool to the build to do it.
         * Linking the sources produces one self-contained analyzer assembly with nothing to resolve.
 
@@ -106,6 +106,8 @@
     -->
     <ItemGroup>
         <Compile Include="..\Vixen.Generators.Shared\IsExternalInit.cs" LinkBase="Linked\Shared" />
+        <Compile Include="..\Vixen.Generators.Shared\IndexRange.cs" LinkBase="Linked\Shared" />
+        <Compile Include="..\Vixen.Generators.Shared\StringPolyfills.cs" LinkBase="Linked\Shared" />
         <Compile Include="..\Vixen.Generators.Shared\CallerArgumentExpressionAttribute.cs" LinkBase="Linked\Shared" />
         <Compile Include="..\Vixen.Generators.Shared\ArgumentNullException.cs" LinkBase="Linked\Shared" />
         <Compile Include="..\Vixen.Generators.Shared\EquatableArray.cs" LinkBase="Linked\Shared" />

@@ -1,5 +1,5 @@
 # What the editor reads before it loads anything — a folder either declares itself or is not a
-# plugin. The csproj copies this file into the build output, so bin/Debug/net10.0 is already a
+# plugin. The csproj copies this file into the build output, so bin/Debug/net11.0 is already a
 # plugin folder: copy it to <project>/Plugins/<id>/ and the editor picks it up on the next start,
 # or on Reload Plugins.
 

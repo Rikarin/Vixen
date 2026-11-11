@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <TargetFramework>net10.0</TargetFramework>
+        <TargetFramework>net11.0</TargetFramework>
         <RootNamespace>Vixen.Editor.SceneView</RootNamespace>
         <Description>
             The editor's viewport: an orbit/fly camera with bookmarks and axis views, transform gizmos

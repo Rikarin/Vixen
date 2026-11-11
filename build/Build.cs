@@ -1219,7 +1219,7 @@ partial class Build : NukeBuild {
         // target frameworks reports nothing unrooted and means "I read nothing".
         Assert.True(
             runtime.Count >= 90,
-            $"found only {runtime.Count} net10.0 runtime projects under Core/ and Platform/, which is too "
+            $"found only {runtime.Count} net11.0 runtime projects under Core/ and Platform/, which is too "
             + "few to be the whole tree — the target framework is probably written some other way now."
         );
 
@@ -1255,7 +1255,7 @@ partial class Build : NukeBuild {
     ///         iOS half cannot have the rich one. Reading the output is the better instrument by a
     ///         long way — it catches a runtime identifier the ILC package does not cover and an SDK
     ///         that starts warning where it used to fail, neither of which is visible in the project
-    ///         file. But it needs somebody to have looked at what a <c>net10.0-ios</c> publish lays
+    ///         file. But it needs somebody to have looked at what a <c>net11.0-ios</c> publish lays
     ///         down, and asserting over a guessed path fails for a reason that is not the defect
     ///         (#634). Until then this is what can be checked without a device: the one regression
     ///         #218 actually measured — <c>PublishAot</c> edited out, publish exits 0 in 17 seconds
@@ -1315,7 +1315,7 @@ partial class Build : NukeBuild {
     /// <remarks>
     ///     <para>
     ///         Separate from <see cref="CheckAot" /> and separate from the solution, because a
-    ///         <c>net10.0-ios</c> project cannot even be evaluated without the <c>ios</c> workload —
+    ///         <c>net11.0-ios</c> project cannot even be evaluated without the <c>ios</c> workload —
     ///         putting it in <c>Vixen.slnx</c> would break <c>dotnet build</c> for every developer
     ///         and every CI leg that is not a Mac with Xcode. The cost is that <c>CheckFormat</c>
     ///         does not see it, which is two files.
@@ -1338,7 +1338,7 @@ partial class Build : NukeBuild {
     ///         ⚠ <b>What is still owed is the iOS analogue of <see cref="AssertAotOutput" />, and
     ///         it is #634.</b> Reading the output is the stronger instrument: it is what would catch
     ///         a runtime identifier the ILC package does not cover, or an SDK that begins warning
-    ///         where it used to fail. It cannot be written blind — where a <c>net10.0-ios</c>
+    ///         where it used to fail. It cannot be written blind — where a <c>net11.0-ios</c>
     ///         publish puts its <c>.app</c>, and whether an <c>.ipa</c> appears at all without
     ///         <c>ArchiveOnBuild</c>, has to be looked at on a machine with the <c>ios</c> workload
     ///         first, and an assertion over a guessed path fails for a reason that is not the
@@ -1376,7 +1376,7 @@ partial class Build : NukeBuild {
     /// <remarks>
     ///     <para>
     ///         <c>Vixen.Platform.iOS</c> and <c>Vixen.Platform.Android</c> target
-    ///         <c>net10.0-ios</c> and <c>net10.0-android</c>, and a project with either target cannot
+    ///         <c>net11.0-ios</c> and <c>net11.0-android</c>, and a project with either target cannot
     ///         be <em>evaluated</em> without its workload — not built, evaluated, so its presence in
     ///         <c>Vixen.slnx</c> would break <c>dotnet build</c> outright for a developer or a CI leg
     ///         that lacks it. iOS additionally requires macOS and Xcode. So they are outside the
@@ -1464,7 +1464,7 @@ partial class Build : NukeBuild {
         );
 
     /// <summary>
-    ///     Every project in the tree that targets <c>net10.0-browser</c>. Three, and the list is the
+    ///     Every project in the tree that targets <c>net11.0-browser</c>. Three, and the list is the
     ///     answer to a <c>grep</c> rather than to a memory — see <see cref="CompileWeb" />.
     /// </summary>
     IEnumerable<AbsolutePath> BrowserProjects => [
@@ -1475,7 +1475,7 @@ partial class Build : NukeBuild {
         // ⚠ Under Core/ and not Platform/, because it is a transport rather than a platform
         // binding — Vixen.Platform.Web's README says where it belongs, and it ships no JavaScript
         // at all. It is here for the reason the list exists: the solution cannot contain a
-        // net10.0-browser project, so a browser project that is not named here is built by nothing.
+        // net11.0-browser project, so a browser project that is not named here is built by nothing.
         RootDirectory / "Core" / "Vixen.Net.Transport.WebSocket.Browser"
         / "Vixen.Net.Transport.WebSocket.Browser.csproj"
     ];
@@ -1485,7 +1485,7 @@ partial class Build : NukeBuild {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         Three projects target <c>net10.0-browser</c>: <c>Vixen.Platform.Web</c>,
+    ///         Three projects target <c>net11.0-browser</c>: <c>Vixen.Platform.Web</c>,
     ///         <c>Vixen.Graphics.WebGPU.Browser</c> and <c>Vixen.Audio.Backend.WebAudio</c>. Exactly
     ///         as with the two mobile targets above, a project with that target cannot be
     ///         <em>evaluated</em> without the <c>wasm-tools</c> workload, so their presence in
@@ -1502,7 +1502,7 @@ partial class Build : NukeBuild {
     ///     </para>
     ///     <para>
     ///         <c>Vixen.Platform.Web.Tests</c> is deliberately <em>not</em> in this list and is not
-    ///         an omission: it targets plain <c>net10.0</c> and lives in <c>Vixen.slnx</c>, so
+    ///         an omission: it targets plain <c>net11.0</c> and lives in <c>Vixen.slnx</c>, so
     ///         <see cref="Compile" /> and <see cref="Test" /> already see it. What it can assert is
     ///         limited by that TFM — see <c>BrowserModuleUrlTests</c>, which reaches the browser-only
     ///         constants by linking their source rather than by referencing the assembly.
@@ -1574,7 +1574,7 @@ partial class Build : NukeBuild {
     ///     <para>
     ///         ⚠ <b>The head is outside <c>Vixen.slnx</c> and cannot be otherwise</b>, for the same
     ///         reason as the three libraries above and as <c>Tools/Vixen.AotProbe.iOS</c>:
-    ///         <c>net10.0-browser</c> needs the <c>wasm-tools</c> workload to be evaluated at all.
+    ///         <c>net11.0-browser</c> needs the <c>wasm-tools</c> workload to be evaluated at all.
     ///         So promotion buys a first-class project with a README and a name, and it does not buy
     ///         coverage from <see cref="Test" />, <see cref="CheckFormat" />, <see cref="CheckApi" />
     ///         or <see cref="Pack" />. <see cref="CheckArchitecture" /> does see it, because that
@@ -2044,7 +2044,7 @@ partial class Build : NukeBuild {
                 + "this package's tools/ and started as `dotnet tools/Vixen.StyleGen.dll` by the "
                 + "targets in buildTransitive/ — a tools/ missing any of these throws out of an Exec "
                 + "on the consumer's first build. Packing has to follow a solution build, because the "
-                + "tool is packed by path from Tools/Vixen.StyleGen/bin/$(Configuration)/net10.0/."
+                + "tool is packed by path from Tools/Vixen.StyleGen/bin/$(Configuration)/net11.0/."
             );
         }
 
@@ -2096,7 +2096,7 @@ partial class Build : NukeBuild {
         Assert.True(
             tool.FileExists(),
             $"{package.Name} has no tools/vixen.dll. The CLI is packed by path from "
-            + "Tools/Vixen.Cli/bin/$(Configuration)/net10.0/, so packing has to follow a solution "
+            + "Tools/Vixen.Cli/bin/$(Configuration)/net11.0/, so packing has to follow a solution "
             + "build — and without it every consumer falls through to `dotnet vixen`, a tool they "
             + "have to install themselves and which is then free to be a different version from "
             + "these targets."

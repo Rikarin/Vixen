@@ -478,7 +478,7 @@ public class RemeshPipelinePropertyTests {
     public void Every_broken_mesh_remeshed_about_a_plane_obeys_the_same_criterion() {
         Gen.Select(
                 BrokenMeshSpace.Recipe,
-                Gen.OneOfConst(
+                Gen.OneOf(
                     new Plane(Vector3.UnitX, 0f),
                     new Plane(Vector3.UnitY, 0f),
                     new Plane(Vector3.UnitZ, 0f),

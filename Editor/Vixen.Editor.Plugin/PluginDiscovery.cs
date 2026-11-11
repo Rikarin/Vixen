@@ -29,7 +29,7 @@ namespace Vixen.Editor.Plugin;
 public static class PluginDiscovery {
     /// <summary>Where a NuGet-shaped plugin keeps its assembly.</summary>
     /// <remarks>
-    ///     A plugin distributed as a package and unzipped in place has <c>lib/net10.0/Whatever.dll</c>
+    ///     A plugin distributed as a package and unzipped in place has <c>lib/net11.0/Whatever.dll</c>
     ///     rather than <c>Whatever.dll</c>, and doc 11 says a plugin is "a NuGet package or a folder
     ///     with an assembly + a manifest" — so both layouts are the same thing to a scan, and the
     ///     manifest does not have to carry a path that says which one the author chose.
@@ -152,7 +152,7 @@ public static class PluginDiscovery {
             return string.Empty;
         }
 
-        // Ordered descending so that a package carrying both net10.0 and netstandard2.0 gives up
+        // Ordered descending so that a package carrying both net11.0 and netstandard2.0 gives up
         // the newer one — the same preference a NuGet restore would have applied if the plugin had
         // been installed rather than unzipped.
         foreach (var framework in Directory.EnumerateDirectories(library).OrderDescending(StringComparer.Ordinal)) {

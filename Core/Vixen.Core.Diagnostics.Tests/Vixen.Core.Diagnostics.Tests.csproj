@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <TargetFramework>net10.0</TargetFramework>
+        <TargetFramework>net11.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
         <IsPackable>false</IsPackable>
@@ -8,12 +8,6 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <!--
-          Explicit, not transitive: analyzer and generator assets do not flow through a project
-          reference, and these tests exist partly to prove that [LoggerMessage]-generated call sites
-          reach our sink correctly.
-        -->
-        <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
         <PackageReference Include="xunit.v3" />
         <PackageReference Include="Microsoft.NET.Test.Sdk" />
         <PackageReference Include="xunit.runner.visualstudio">

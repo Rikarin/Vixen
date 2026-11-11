@@ -468,7 +468,7 @@ public sealed class DefaultConstraintArbiter : IConstraintArbiter {
 
     static void Report(
         in ConstraintSolveContext context,
-        Span<BoneTransform> pose,
+        ReadOnlySpan<BoneTransform> pose,
         int start,
         int end,
         ChainSpec chain,

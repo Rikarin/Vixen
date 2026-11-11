@@ -68,7 +68,7 @@ public class DiscoveryTests {
         // plugin is "a NuGet package or a folder with an assembly + a manifest"; to a scan they are
         // the same thing and the manifest does not have to say which the author chose.
         var packed = folder.Write("packed", manifest: "id: packed\nname: Packed\napi: 0.1\nassembly: packed.dll\n");
-        var library = Directory.CreateDirectory(Path.Combine(packed, "lib", "net10.0"));
+        var library = Directory.CreateDirectory(Path.Combine(packed, "lib", "net11.0"));
         File.WriteAllBytes(Path.Combine(library.FullName, "packed.dll"), [0x4d, 0x5a]);
 
         Assert.Equal(

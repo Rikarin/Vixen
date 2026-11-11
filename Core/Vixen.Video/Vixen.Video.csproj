@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <TargetFramework>net10.0</TargetFramework>
+        <TargetFramework>net11.0</TargetFramework>
         <RootNamespace>Vixen.Video</RootNamespace>
         <Description>
             Video playback: a managed WebM demuxer, a codec seam nothing is linked behind by default,

@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // ======================================================================================
-// The .NET 6 throw helper, for the generators that compile net10.0 source for netstandard2.1.
+// The .NET 6 throw helper, for the generators that compile net11.0 source for netstandard2.0.
 //
 // The helper cannot be an extension method: it is a static on a sealed-by-convention
 // framework type. So the simple name is aliased, compilation-wide, onto a subclass that

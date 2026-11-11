@@ -2,7 +2,7 @@
 # about. One assembly name per line; everything after the first space is why not yet.
 #
 # ⚠ This list can only SHRINK. `CheckAot` fails on a name that is here and has become rooted, and
-# on a net10.0 non-test assembly under Core/ or Platform/ that is neither rooted nor here — so a new
+# on a net11.0 non-test assembly under Core/ or Platform/ that is neither rooted nor here — so a new
 # runtime assembly cannot join the uncovered set in silence. The rule is build/AotRootingRule.cs and
 # #506 is the expansion.
 #
@@ -44,7 +44,7 @@
 # Collect to NonPublicConstructors is IL2059 + IL2072 out of ILC — and zero warnings out of an
 # ordinary `dotnet build`, which is why CheckAot is the only thing that can see an edit to them.
 #
-# The `-ios`, `-android` and `-browser` heads and the netstandard2.1 generators are out of scope by
+# The `-ios`, `-android` and `-browser` heads and the netstandard2.0 generators are out of scope by
 # target framework — `CheckAotIos` is the gate over the iOS one.
 
 Vixen.Fuzz the fuzzing harness, which no shipped game links; rooting it would measure the gate rather than the engine

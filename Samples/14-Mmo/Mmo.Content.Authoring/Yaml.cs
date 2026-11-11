@@ -106,7 +106,7 @@ sealed class Yaml(string tag, string note) {
             Line($"{name}:");
         }
 
-        text.Append(new string(' ', indent * 2)).Append("- ");
+        text.Append(' ', indent * 2).Append("- ");
         indent++;
         pending = true;
 
@@ -160,7 +160,7 @@ sealed class Yaml(string tag, string note) {
         if (pending) {
             pending = false;
         } else {
-            text.Append(new string(' ', indent * 2));
+            text.Append(' ', indent * 2);
         }
 
         text.AppendLine(line);

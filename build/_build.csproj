@@ -5,7 +5,7 @@
       shipped assembly, and Nuke's own API produces warnings the engine's rules would reject.
     -->
     <PropertyGroup>
-        <TargetFramework>net10.0</TargetFramework>
+        <TargetFramework>net11.0</TargetFramework>
         <OutputType>Exe</OutputType>
         <RootNamespace></RootNamespace>
         <NoWarn>$(NoWarn);CS0649;CS0169;CA1050;CA1707;CA2007;CA1861;CA1859;CA1852;CS1591</NoWarn>
@@ -15,6 +15,13 @@
         <NukeRootDirectory>..</NukeRootDirectory>
         <NukeScriptDirectory>..</NukeScriptDirectory>
         <NukeTelemetryVersion>1</NukeTelemetryVersion>
+        <!--
+          ⚠ No apphost, so `dotnet run` starts the build as `dotnet _build.dll`. Nuke 10.1's static
+          constructor asserts that the entry assembly's location equals the first command-line
+          argument; started through the .NET 11 apphost that argument is the apphost and not the
+          `.dll`, and every target dies with a TypeInitializationException before it runs.
+        -->
+        <UseAppHost>false</UseAppHost>
     </PropertyGroup>
 
     <ItemGroup>

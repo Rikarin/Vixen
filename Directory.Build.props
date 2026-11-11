@@ -127,7 +127,7 @@
       depending on load order, so the full solution hid it for every generator test suite until
       Vixen.Editor.App.Tests referenced Vixen.Editor.Plugin.Generator plainly and CheckDocs refused
       the load. A two-project solution of any generator and its tests reproduces it. With a ref
-      assembly the match is made the same way as for every net10.0 project in the tree.
+      assembly the match is made the same way as for every net11.0 project in the tree.
     -->
     <ProduceReferenceAssembly>true</ProduceReferenceAssembly>
   </PropertyGroup>
@@ -352,7 +352,7 @@
       Name the TRX after the project that produced it. Left to itself the logger
       names the file after the machine and the second it finished, which for
       eighteen projects finishing inside the same three seconds gives a directory
-      of `_Jius-MBP_…_net10.0[4].trx` — every result present, none of them
+      of `_Jius-MBP_…_net11.0[4].trx` — every result present, none of them
       attributable without opening the file. The escaped semicolon (%3b) is
       required: an unescaped one ends the property value in MSBuild.
 

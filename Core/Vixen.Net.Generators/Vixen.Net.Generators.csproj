@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <TargetFramework>netstandard2.1</TargetFramework>
+        <TargetFramework>netstandard2.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
         <RootNamespace>Vixen.Net.Generators</RootNamespace>
@@ -26,7 +26,7 @@
     </ItemGroup>
 
     <!--
-        Shared generator source: the `init` compiler contract netstandard2.1 lacks, and the
+        Shared generator source: the `init` compiler contract netstandard2.0 lacks, and the
         value-equal array an incremental pipeline has to cache on.
 
         Shared source rather than a shared assembly: a generator is loaded from the analyzer path

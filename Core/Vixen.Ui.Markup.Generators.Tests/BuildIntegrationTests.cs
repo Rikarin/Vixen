@@ -297,7 +297,7 @@ public sealed class BuildIntegrationTests : IDisposable {
             $"""
              <Project Sdk="Microsoft.NET.Sdk">
                <PropertyGroup>
-                 <TargetFramework>net10.0</TargetFramework>
+                 <TargetFramework>net11.0</TargetFramework>
                  <Nullable>enable</Nullable>
                  <RootNamespace>Demo</RootNamespace>
                  <EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>
@@ -332,7 +332,7 @@ public sealed class BuildIntegrationTests : IDisposable {
             $"""
              <Project Sdk="Microsoft.NET.Sdk">
                <PropertyGroup>
-                 <TargetFramework>net10.0</TargetFramework>
+                 <TargetFramework>net11.0</TargetFramework>
                  <Nullable>enable</Nullable>
                  <RootNamespace>Demo</RootNamespace>
                  {properties}

@@ -237,7 +237,7 @@ public sealed class CatalogFormatTests {
                 )
             );
 
-    static Gen<string> GenName => Gen.OneOfConst(Names);
+    static Gen<string> GenName => Gen.OneOf(Names);
 
     static ContentCatalog Sample() =>
         new(

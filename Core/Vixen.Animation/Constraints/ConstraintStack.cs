@@ -552,7 +552,7 @@ public sealed class ConstraintStack : IPoseProcessor {
     ///     resolved against the hand's proxy shape before the arm was solved is a grip resolved against
     ///     last frame's hand — which is the one-frame lag that reads as a held object jittering.
     /// </remarks>
-    void Settle(Span<BoneTransform> pose, Span<BoneTransform> model) {
+    void Settle(ReadOnlySpan<BoneTransform> pose, Span<BoneTransform> model) {
         if (Sockets.Count == 0) {
             return;
         }
@@ -597,7 +597,7 @@ public sealed class ConstraintStack : IPoseProcessor {
     ///     and is excluded from the pose solve; a project using <c>root</c> to mean something of its
     ///     own would find those goals moving the character instead of its limbs.
     /// </remarks>
-    void Gather(Span<BoneTransform> model, float deltaTime, bool root) {
+    void Gather(ReadOnlySpan<BoneTransform> model, float deltaTime, bool root) {
         var wanted = handles.Count + (Tags?.Count ?? 0) + instances.Count;
 
         if (resolved.Length < wanted) {

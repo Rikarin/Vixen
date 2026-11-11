@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <TargetFramework>net10.0</TargetFramework>
+        <TargetFramework>net11.0</TargetFramework>
         <RootNamespace>Vixen.Editor.Gameplay.Quests</RootNamespace>
         <Description>
             The authoring half of a quest and an event chain: an editable model over the definition

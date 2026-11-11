@@ -61,7 +61,7 @@ public class GeneratorPackagingRuleTests {
 
     /// <summary>The generator project itself: packable to nobody, by the profile's own rule.</summary>
     const string Plugin =
-        "  <PropertyGroup>\n    <TargetFramework>netstandard2.1</TargetFramework>\n  </PropertyGroup>\n";
+        "  <PropertyGroup>\n    <TargetFramework>netstandard2.0</TargetFramework>\n  </PropertyGroup>\n";
 
     /// <summary>A library that packs the generator, spelled as Vixen.Core.Reflection spells it.</summary>
     static string Packing(string generator) =>

@@ -56,13 +56,12 @@
   <!-- ===== Logging (docs/plan/01 § Platform baseline, ADR-008) ===== -->
   <ItemGroup Label="Logging">
     <!--
-      Abstractions for everything that logs. The engine implements its own sinks:
-      the ring buffer the editor console and the crash reporter read is ours, as
-      are the console, platform, remote and EventSource sinks, and ILogger is the
-      interface everything codes against so that [LoggerMessage] can generate
-      allocation-free call sites.
+      Microsoft.Extensions.Logging.Abstractions is not pinned here: from .NET 11 it is part of the
+      shared framework (NU1510 refuses a reference to it), [LoggerMessage] generator included. The
+      engine still implements its own sinks — the ring buffer the editor console and the crash
+      reporter read is ours, as are the console, platform, remote and EventSource sinks — and
+      ILogger is still the interface everything codes against.
     -->
-    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.10" />
     <!--
       ADR-008's other half, and only the file sink's half: an asynchronous UTF-8
       writer with a bounded background buffer and file rolling that does not lose
@@ -75,7 +74,7 @@
       referenced by every build that logs, and this is the only third-party
       assembly it carries.
     -->
-    <PackageVersion Include="ZLogger" Version="2.5.10" />
+    <PackageVersion Include="ZLogger" Version="2.6.2" />
   </ItemGroup>
 
   <!-- ===== Telemetry (docs/plan/14 § Phase 9, docs/plan/17 § Server variant) ===== -->
@@ -88,14 +87,14 @@
       reads Vixen.Net's meter by naming it. What is here is the export half, which a
       game that never runs a dedicated server must not carry.
     -->
-    <PackageVersion Include="OpenTelemetry" Version="1.17.0" />
-    <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.17.0" />
-    <PackageVersion Include="OpenTelemetry.Exporter.Console" Version="1.17.0" />
+    <PackageVersion Include="OpenTelemetry" Version="1.21.0" />
+    <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.21.0" />
+    <PackageVersion Include="OpenTelemetry.Exporter.Console" Version="1.21.0" />
     <!--
       Process CPU, GC, thread pool and exception counts. A game server's own numbers
       say nothing about why it went slow, and the answer is nearly always in these.
     -->
-    <PackageVersion Include="OpenTelemetry.Instrumentation.Runtime" Version="1.17.0" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.Runtime" Version="1.21.0" />
   </ItemGroup>
 
   <!-- ===== Content-addressed storage (docs/plan/03 § Serialization, docs/plan/08 § ObjectDatabase) ===== -->
@@ -106,7 +105,7 @@
       BCL-only, and the code that hashes has the content in front of it, which is
       here.
     -->
-    <PackageVersion Include="System.IO.Hashing" Version="10.0.10" />
+    <PackageVersion Include="System.IO.Hashing" Version="11.0.0" />
     <!-- Chunk compression: LZ4 for decode speed locally, Zstd for size over the
          wire. Both are pure managed, which is what makes them work under WASM. -->
     <PackageVersion Include="K4os.Compression.LZ4" Version="1.3.8" />
@@ -143,14 +142,14 @@
       dependency in the UI stack and Phase 4 exits with a sample running in a browser.
 
       ⚠ The WebAssembly path is a version-coupled static link. The package ships static archives
-      built by Emscripten 3.1.34 and 3.1.56, and .NET 10 pins Emscripten.3.1.56.Sdk; they match
-      today. A bump of either one has to be checked against the other, and the spike's RESULT.md
+      built by Emscripten 3.1.34, 3.1.56 and 6.0.2, and .NET 11's wasm workload pins
+      Emscripten.6.0.2.Sdk; they match today, and 14.4 is the first release with the 6.0.2 set. A bump of either one has to be checked against the other, and the spike's RESULT.md
       says so at more length.
     -->
-    <PackageVersion Include="HarfBuzzSharp" Version="14.2.1.1" />
-    <PackageVersion Include="HarfBuzzSharp.NativeAssets.macOS" Version="14.2.1.1" />
-    <PackageVersion Include="HarfBuzzSharp.NativeAssets.Linux" Version="14.2.1.1" />
-    <PackageVersion Include="HarfBuzzSharp.NativeAssets.Win32" Version="14.2.1.1" />
+    <PackageVersion Include="HarfBuzzSharp" Version="14.4.0.100" />
+    <PackageVersion Include="HarfBuzzSharp.NativeAssets.macOS" Version="14.4.0.100" />
+    <PackageVersion Include="HarfBuzzSharp.NativeAssets.Linux" Version="14.4.0.100" />
+    <PackageVersion Include="HarfBuzzSharp.NativeAssets.Win32" Version="14.4.0.100" />
   </ItemGroup>
 
   <!-- ===== Platform (docs/plan/01 § dependency register, docs/plan/10) ===== -->
@@ -269,13 +268,24 @@
       fix is a static libjoltc.a pinned the way MoltenVK already is, and it is not
       this project's to make.
     -->
-    <PackageVersion Include="JoltPhysicsSharp" Version="2.22.0" />
+    <PackageVersion Include="JoltPhysicsSharp" Version="2.23.0" />
   </ItemGroup>
 
   <!-- ===== Source generators / analyzers ===== -->
   <ItemGroup Label="Roslyn">
-    <PackageVersion Include="Microsoft.CodeAnalysis.Analyzers" Version="3.3.4" />
-    <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="4.11.0" />
+    <PackageVersion Include="Microsoft.CodeAnalysis.Analyzers" Version="5.9.0" />
+    <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="5.9.0" />
+    <!--
+      The workspace half, for Vixen.DocGen only: MSBuildWorkspace opens a .slnx only from Roslyn
+      5.x (dotnet/roslyn#77326). MSBuild itself is compile-only there — the locator loads the SDK's
+      own copy, and MSBuild 18.12 is what SDK 11.0.100 carries.
+    -->
+    <PackageVersion Include="Microsoft.CodeAnalysis.CSharp.Workspaces" Version="5.9.0" />
+    <PackageVersion Include="Microsoft.CodeAnalysis.Workspaces.MSBuild" Version="5.9.0" />
+    <PackageVersion Include="Microsoft.Build.Locator" Version="1.11.2" />
+    <PackageVersion Include="Microsoft.Build" Version="18.12.2" />
+    <PackageVersion Include="Microsoft.Build.Framework" Version="18.12.2" />
+    <PackageVersion Include="Microsoft.NET.StringTools" Version="18.12.2" />
   </ItemGroup>
 
   <!-- ===== Benchmarks (docs/plan/12 § Nuke `Benchmark` target) ===== -->
@@ -290,7 +300,7 @@
 
   <!-- ===== CLI ===== -->
   <ItemGroup Label="CLI">
-    <PackageVersion Include="System.CommandLine" Version="2.0.10" />
+    <PackageVersion Include="System.CommandLine" Version="3.0.0" />
   </ItemGroup>
 
   <!-- ===== Import-time image codecs (docs/plan/01 § dependency register, ADR-015) ===== -->
@@ -313,7 +323,7 @@
       size rather than about licences now: the runtime reads KTX2 with Vixen's own
       code and never decodes an authoring format.
     -->
-    <PackageVersion Include="StbImageSharp" Version="2.30.15" />
+    <PackageVersion Include="StbImageSharp" Version="2.30.16" />
 
     <!--
       Model import: FBX, glTF, OBJ, COLLADA and the rest of doc 08's ModelImporter
@@ -356,12 +366,12 @@
       which runs JIT on a server we control. That is the same position doc 17 already puts the
       editor in.
 
-      10.2.2 is the current stable release, re-verified against api.nuget.org when this landed
+      10.4.2 is the current stable release, re-verified against api.nuget.org when it moved
       rather than taken from the plan document. MIT.
     -->
-    <PackageVersion Include="Microsoft.Orleans.Sdk" Version="10.2.2" />
-    <PackageVersion Include="Microsoft.Orleans.Server" Version="10.2.2" />
-    <PackageVersion Include="Microsoft.Orleans.Client" Version="10.2.2" />
+    <PackageVersion Include="Microsoft.Orleans.Sdk" Version="10.4.2" />
+    <PackageVersion Include="Microsoft.Orleans.Server" Version="10.4.2" />
+    <PackageVersion Include="Microsoft.Orleans.Client" Version="10.4.2" />
 
     <!--
       The Kubernetes API, for ADR-019's third placement backend. Generated from the OpenAPI spec,
@@ -369,9 +379,9 @@
       judgement that went the other way for Docker: that surface is six calls over a socket and this
       one is the whole of the Kubernetes object model.
 
-      19.0.2 is the current stable release, re-verified against api.nuget.org when this landed.
+      21.0.8 is the current stable release, re-verified against api.nuget.org when it moved.
     -->
-    <PackageVersion Include="KubernetesClient" Version="19.0.2" />
+    <PackageVersion Include="KubernetesClient" Version="21.0.8" />
   </ItemGroup>
 
   <!-- ===== Test stack (docs/plan/12 § "Testing strategy") ===== -->
@@ -383,10 +393,10 @@
       executed by SOMETHING before anyone can believe it, and PostgreSQL is the dialect it is written
       in. This is that something, and it is referenced by one test project.
     -->
-    <PackageVersion Include="Npgsql" Version="9.0.4" />
+    <PackageVersion Include="Npgsql" Version="10.0.3" />
     <PackageVersion Include="xunit.v3" Version="3.2.2" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.5" />
-    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.8.1" />
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.12.0" />
     <!--
       The TRX writer for the Microsoft.Testing.Platform path (#560, Directory.Build.props).
       ⚠ Pinned to 1.x deliberately. 2.0.0 is what NuGet resolves by default and it
@@ -401,7 +411,7 @@
       Pinned at the version current when Vixen.Core.Mathematics was written, which
       is what "latest at bring-up" meant.
     -->
-    <PackageVersion Include="CsCheck" Version="4.7.0" />
+    <PackageVersion Include="CsCheck" Version="5.0.1" />
     <!--
       NSubstitute and Shouldly are the specified assertion/mocking stack
       (docs/plan/12). Added here when the first test needs them; listing unused

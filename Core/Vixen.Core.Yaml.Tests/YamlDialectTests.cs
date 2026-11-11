@@ -412,7 +412,7 @@ public sealed class YamlDialectTests {
     ///     nothing, and things carrying the characters that decide whether a scalar can go bare.
     /// </summary>
     static Gen<string> GenText() =>
-        Gen.OneOfConst(
+        Gen.OneOf(
             "Srgb",
             "ui/textures/hero",
             "vx:9e8a44c9930c64e388ca034c5fe4c426",
@@ -464,7 +464,7 @@ public sealed class YamlDialectTests {
                 }
             );
 
-    static Gen<string> GenKey() => Gen.OneOfConst("guid", "maxSize", "wrap", "u", "Body", "a b", "2048");
+    static Gen<string> GenKey() => Gen.OneOf("guid", "maxSize", "wrap", "u", "Body", "a b", "2048");
 
     static YamlCollectionStyle StyleOf(int choice) =>
         choice switch {

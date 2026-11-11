@@ -73,7 +73,7 @@ public sealed record PluginManifest {
     /// <remarks>
     ///     Defaults to <c><see cref="Id" />.dll</c> when it is not given, which is right for a
     ///     plugin whose assembly is named after itself and wrong often enough to be worth stating.
-    ///     A NuGet-shaped layout puts it under <c>lib/net10.0/</c>; see
+    ///     A NuGet-shaped layout puts it under <c>lib/net11.0/</c>; see
     ///     <see cref="PluginDiscovery" /> for where the file is looked for.
     /// </remarks>
     public string Assembly { get; init; } = string.Empty;

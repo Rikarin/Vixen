@@ -44,7 +44,7 @@
         ==============================================================================================
     -->
     <PropertyGroup>
-        <VixenCliOutputDirectory Condition="'$(VixenCliOutputDirectory)' == ''">$(MSBuildThisFileDirectory)../Vixen.Cli/bin/$(Configuration)/net10.0/</VixenCliOutputDirectory>
+        <VixenCliOutputDirectory Condition="'$(VixenCliOutputDirectory)' == ''">$(MSBuildThisFileDirectory)../Vixen.Cli/bin/$(Configuration)/net11.0/</VixenCliOutputDirectory>
         <VixenCliIsBuilt>false</VixenCliIsBuilt>
         <VixenCliIsBuilt Condition="Exists('$(VixenCliOutputDirectory)vixen.dll')">true</VixenCliIsBuilt>
     </PropertyGroup>

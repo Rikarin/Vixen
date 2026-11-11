@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <TargetFramework>net10.0</TargetFramework>
+        <TargetFramework>net11.0</TargetFramework>
         <RootNamespace>Vixen.TextureGraph.Drawing</RootNamespace>
         <Description>
             The pictures a texture graph's host draws rather than a kernel: a Source/Text node's string, shaped

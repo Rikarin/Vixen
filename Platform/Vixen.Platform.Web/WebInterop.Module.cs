@@ -12,7 +12,7 @@ namespace Vixen.Platform.Web;
 ///         <b>A separate file from the rest of the class so that a desktop test can compile it.</b>
 ///         Everything else in <c>WebInterop</c> is <c>[JSImport]</c>, which exists only in the
 ///         browser runtime pack — so <c>Vixen.Platform.Web.Tests</c>, which targets plain
-///         <c>net10.0</c>, cannot see any of it. It links this file instead, exactly as it links
+///         <c>net11.0</c>, cannot see any of it. It links this file instead, exactly as it links
 ///         <c>WebContentManifest.cs</c> and for the reason that project file gives.
 ///     </para>
 ///     <para>

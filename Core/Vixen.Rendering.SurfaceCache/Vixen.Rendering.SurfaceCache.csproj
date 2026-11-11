@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <TargetFramework>net10.0</TargetFramework>
+        <TargetFramework>net11.0</TargetFramework>
         <RootNamespace>Vixen.Rendering.SurfaceCache</RootNamespace>
         <Description>
             The surface cache of docs/plan/19 § L4: orthographic cards clustered from a mesh's

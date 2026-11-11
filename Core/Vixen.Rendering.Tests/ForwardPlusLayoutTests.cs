@@ -26,7 +26,7 @@ namespace Tests;
 ///     </para>
 /// </remarks>
 public class ForwardPlusLayoutTests {
-    static JsonElement Reflection => JsonDocument.Parse(File.ReadAllText(Path())).RootElement;
+    static JsonElement Reflection => JsonElement.Parse(File.ReadAllText(Path()));
 
     /// <summary>The checked-in reflection, found by walking up rather than by counting directories.</summary>
     /// <remarks>

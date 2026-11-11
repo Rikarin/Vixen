@@ -179,7 +179,7 @@ project's assets; it is in its code — declared by `[GameSystem]`, ordered by `
 `content build` take, and loads it through the same `GameAssemblies`.
 
 ```
-vixen doctor systems --assembly bin/Release/net10.0/Asteroids.dll
+vixen doctor systems --assembly bin/Release/net11.0/Asteroids.dll
 ```
 
 It reports the resolved run order per phase, what each system's constructor asks for, the ordering
@@ -215,7 +215,7 @@ after every rebuild.
 is in the code; how many instances of each there are is not in the code at all — it is in the levels.
 
 ```
-vixen doctor behaviors --assembly bin/Release/net10.0/Asteroids.dll --scene Assets/Scenes/Arena.vxscene
+vixen doctor behaviors --assembly bin/Release/net11.0/Asteroids.dll --scene Assets/Scenes/Arena.vxscene
 ```
 
 It reports every `Behavior` subclass in the assembly and whether a scene may name it — a behaviour

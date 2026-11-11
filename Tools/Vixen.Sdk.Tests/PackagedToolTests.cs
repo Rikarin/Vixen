@@ -87,7 +87,7 @@ public sealed class PackagedToolTests : IDisposable {
         var entries = Pack();
 
         Assert.Contains("tools/runtimes/osx-arm64/native/libmade-up.dylib", entries);
-        Assert.Contains("tools/runtimes/win-x64/lib/net10.0/MadeUp.Windows.dll", entries);
+        Assert.Contains("tools/runtimes/win-x64/lib/net11.0/MadeUp.Windows.dll", entries);
     }
 
     /// <summary>
@@ -218,7 +218,7 @@ public sealed class PackagedToolTests : IDisposable {
         Write(Path.Combine(cli, "Vixen.AssetCompiler"), "another apphost");
         Write(Path.Combine(cli, "runtimes", "osx-arm64", "native", "libmade-up.dylib"), "native");
         Write(Path.Combine(cli, "runtimes", "osx-arm64", "native", "libmade-up.pdb"), "native symbols");
-        Write(Path.Combine(cli, "runtimes", "win-x64", "lib", "net10.0", "MadeUp.Windows.dll"), "managed");
+        Write(Path.Combine(cli, "runtimes", "win-x64", "lib", "net11.0", "MadeUp.Windows.dll"), "managed");
 
         // Both sonames `Ultz.Native.Assimp` ships per RID, so the exclusion has something to choose
         // between. Real names rather than made-up ones, because the exclusion names them literally.
@@ -292,7 +292,7 @@ public sealed class PackagedToolTests : IDisposable {
              <Project Sdk="Microsoft.NET.Sdk">
                <Import Project="{sdk}/build/Vixen.Sdk.props" />
                <PropertyGroup>
-                 <TargetFramework>net10.0</TargetFramework>
+                 <TargetFramework>net11.0</TargetFramework>
                </PropertyGroup>
                <Import Project="{sdk}/build/Vixen.Sdk.targets" />
              </Project>

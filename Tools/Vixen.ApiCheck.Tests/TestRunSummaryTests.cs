@@ -17,17 +17,17 @@ namespace Vixen.ApiCheck.Tests;
 /// </remarks>
 public sealed class TestRunSummaryTests {
     const string Platform =
-        "  Passed! - Failed: 0, Passed: 272, Skipped: 2, Total: 274, Duration: 33s 767ms - Vixen.ApiCheck.Tests.dll (net10.0|x64)";
+        "  Passed! - Failed: 0, Passed: 272, Skipped: 2, Total: 274, Duration: 33s 767ms - Vixen.ApiCheck.Tests.dll (net11.0|x64)";
 
     const string VsTest =
-        "Passed!  - Failed:     0, Passed:    28, Skipped:     0, Total:    28, Duration: 1 s - Vixen.ApiCheck.Tests.dll (net10.0)";
+        "Passed!  - Failed:     0, Passed:    28, Skipped:     0, Total:    28, Duration: 1 s - Vixen.ApiCheck.Tests.dll (net11.0)";
 
     const string Red =
-        "Failed!  - Failed:     1, Passed:    43, Skipped:     0, Total:    44, Duration: 2 s - Vixen.Fuzz.Tests.dll (net10.0)";
+        "Failed!  - Failed:     1, Passed:    43, Skipped:     0, Total:    44, Duration: 2 s - Vixen.Fuzz.Tests.dll (net11.0)";
 
     [Fact]
     public void Both_runners_lines_are_read() {
-        var summaries = TestRunSummary.Parse([Platform, VsTest, Red, "Build succeeded.", "  Tests succeeded: 'x.dll' [net10.0|x64]"]);
+        var summaries = TestRunSummary.Parse([Platform, VsTest, Red, "Build succeeded.", "  Tests succeeded: 'x.dll' [net11.0|x64]"]);
 
         Assert.Equal(
             [
@@ -68,7 +68,7 @@ public sealed class TestRunSummaryTests {
         var problem = Assert.Single(
             TestRunSummary.Problems(
                 ["Vixen.Editor.Texturing.Tests"],
-                ["  Run tests: 'Vixen.Editor.Texturing.Tests.dll' [net10.0|x64]"],
+                ["  Run tests: 'Vixen.Editor.Texturing.Tests.dll' [net11.0|x64]"],
                 exitCode: 0,
                 new Dictionary<string, int> { ["Vixen.Editor.Texturing.Tests"] = 657 }
             )

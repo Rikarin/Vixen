@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <TargetFramework>net10.0</TargetFramework>
+        <TargetFramework>net11.0</TargetFramework>
         <RootNamespace>Vixen.Ui.Styling.Utilities</RootNamespace>
         <Description>
             The utility stylesheet generator: design tokens from a config asset, a scanner that finds
@@ -57,20 +57,20 @@
             debugging an assembly nobody debugs from here and would double the count for nothing;
             the two `.json` files are named individually because they are the two that are read.
         -->
-        <None Include="$(MSBuildThisFileDirectory)../../Tools/Vixen.StyleGen/bin/$(Configuration)/net10.0/*.dll"
-              Condition="Exists('$(MSBuildThisFileDirectory)../../Tools/Vixen.StyleGen/bin/$(Configuration)/net10.0/Vixen.StyleGen.dll')"
+        <None Include="$(MSBuildThisFileDirectory)../../Tools/Vixen.StyleGen/bin/$(Configuration)/net11.0/*.dll"
+              Condition="Exists('$(MSBuildThisFileDirectory)../../Tools/Vixen.StyleGen/bin/$(Configuration)/net11.0/Vixen.StyleGen.dll')"
               Pack="true"
               PackagePath="tools/"
               Visible="false" />
 
-        <None Include="$(MSBuildThisFileDirectory)../../Tools/Vixen.StyleGen/bin/$(Configuration)/net10.0/Vixen.StyleGen.deps.json"
-              Condition="Exists('$(MSBuildThisFileDirectory)../../Tools/Vixen.StyleGen/bin/$(Configuration)/net10.0/Vixen.StyleGen.deps.json')"
+        <None Include="$(MSBuildThisFileDirectory)../../Tools/Vixen.StyleGen/bin/$(Configuration)/net11.0/Vixen.StyleGen.deps.json"
+              Condition="Exists('$(MSBuildThisFileDirectory)../../Tools/Vixen.StyleGen/bin/$(Configuration)/net11.0/Vixen.StyleGen.deps.json')"
               Pack="true"
               PackagePath="tools/"
               Visible="false" />
 
-        <None Include="$(MSBuildThisFileDirectory)../../Tools/Vixen.StyleGen/bin/$(Configuration)/net10.0/Vixen.StyleGen.runtimeconfig.json"
-              Condition="Exists('$(MSBuildThisFileDirectory)../../Tools/Vixen.StyleGen/bin/$(Configuration)/net10.0/Vixen.StyleGen.runtimeconfig.json')"
+        <None Include="$(MSBuildThisFileDirectory)../../Tools/Vixen.StyleGen/bin/$(Configuration)/net11.0/Vixen.StyleGen.runtimeconfig.json"
+              Condition="Exists('$(MSBuildThisFileDirectory)../../Tools/Vixen.StyleGen/bin/$(Configuration)/net11.0/Vixen.StyleGen.runtimeconfig.json')"
               Pack="true"
               PackagePath="tools/"
               Visible="false" />
@@ -103,7 +103,7 @@
             changed nothing, because two other blockers were behind it and the measurements went the
             other way regardless.
 
-            This assembly is net10.0 and an analyzer must be netstandard, so a generator would have to
+            This assembly is net11.0 and an analyzer must be netstandard, so a generator would have to
             *link* these 5 995 lines and compile them under a second language surface. RS1035 bans
             `System.IO` inside an analyzer, so it could not write the sheet or the report. And the
             arithmetic: the process launch a generator removes is ~52 ms, once per build that changed

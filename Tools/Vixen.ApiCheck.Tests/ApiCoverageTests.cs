@@ -40,7 +40,7 @@ namespace Vixen.ApiCheck.Tests;
 ///         is not a detail. A walk from the repository root descends into
 ///         <c>.claude/worktrees</c> — a whole checkout per agent — and would compare one agent's
 ///         copy of this repository with another's. Reading the solution also gets the
-///         <c>net10.0-ios</c>, <c>-android</c> and <c>-browser</c> projects right for free: they
+///         <c>net11.0-ios</c>, <c>-android</c> and <c>-browser</c> projects right for free: they
 ///         are outside it, nothing has built them, and <c>CheckApi</c> would have nothing to read.
 ///     </para>
 /// </remarks>

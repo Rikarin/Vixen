@@ -54,7 +54,7 @@ static class AotRootingRule {
     /// <summary>The ledger of runtime assemblies the probe does not root.</summary>
     public const string LedgerFile = "Tools/Vixen.AotProbe/NotRooted.txt";
 
-    /// <summary>The two folders whose non-test <c>net10.0</c> projects a shipped game links.</summary>
+    /// <summary>The two folders whose non-test <c>net11.0</c> projects a shipped game links.</summary>
     /// <remarks>
     ///     ⚠ <c>Gameplay/</c> is in the RUNTIME profile too and is deliberately not here: #506
     ///     measured <c>Core/</c> and <c>Platform/</c>, and widening the subject set while adding the
@@ -68,12 +68,12 @@ static class AotRootingRule {
     ///     probe can root it".
     /// </summary>
     /// <remarks>
-    ///     ⚠ Generators are <c>netstandard2.1</c> and the <c>-ios</c>, <c>-android</c> and
+    ///     ⚠ Generators are <c>netstandard2.0</c> and the <c>-ios</c>, <c>-android</c> and
     ///     <c>-browser</c> heads are their own publishes — <c>CheckAotIos</c> is the gate over the
     ///     iOS one — so a plain string comparison is what keeps seventeen projects that this probe
     ///     could not root if it wanted to out of the count.
     /// </remarks>
-    public const string RuntimeFramework = "net10.0";
+    public const string RuntimeFramework = "net11.0";
 
     static readonly Regex Framework = new(
         @"<TargetFrameworks?>([^<]*)</TargetFrameworks?>",
@@ -193,7 +193,7 @@ static class AotRootingRule {
         foreach (var name in unrooted) {
             if (!ledger.Contains(name, StringComparer.Ordinal)) {
                 violations.Add(
-                    $"{name} is a net10.0 runtime assembly that Tools/Vixen.AotProbe does not root, so CheckAot "
+                    $"{name} is a net11.0 runtime assembly that Tools/Vixen.AotProbe does not root, so CheckAot "
                     + "asks nothing about it — ILC compiles only what Main happens to reach inside it, which is "
                     + "the coverage the probe's README says proves nothing. Add a TrimmerRootAssembly and its "
                     + $"ProjectReference and fix what ILC then reports, or add a line to {LedgerFile} saying why "
@@ -206,7 +206,7 @@ static class AotRootingRule {
             if (!unrooted.Contains(name, StringComparer.Ordinal)) {
                 violations.Add(
                     $"{name} is listed in {LedgerFile} and no longer needs to be — the probe roots it now, or the "
-                    + "project is gone or is no longer a net10.0 runtime assembly. Remove the line; the list can "
+                    + "project is gone or is no longer a net11.0 runtime assembly. Remove the line; the list can "
                     + "only shrink."
                 );
             }

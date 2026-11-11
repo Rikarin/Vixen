@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <TargetFramework>net10.0</TargetFramework>
+        <TargetFramework>net11.0</TargetFramework>
         <RootNamespace>Vixen.Ui.Styling</RootNamespace>
         <Description>
             VCSS: stylesheets parsed by ExCSS, and everything after parsing written here — the

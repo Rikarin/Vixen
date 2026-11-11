@@ -220,6 +220,7 @@ public sealed class UiPropertyGenerator : IIncrementalGenerator {
                 ?? ((double) value).ToString("R", CultureInfo.InvariantCulture) + "d",
             SpecialType.System_Decimal => ((decimal) value).ToString(CultureInfo.InvariantCulture) + "m",
             _ => SymbolDisplay.FormatPrimitive(value, quoteStrings: true, useHexadecimalNumbers: false)
+                ?? throw new InvalidOperationException($"'{value}' is not a primitive constant.")
         };
     }
 

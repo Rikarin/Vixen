@@ -89,8 +89,8 @@ lifecycle callbacks arrive on the UI thread and a browser's on the JS thread.
 `PlatformEventBuffer` and `StandardFileSystemHost` were the first; `TouchTracker` and
 `MobileLifecycle` are the second pair, and they are here for a sharper reason than sharing.
 
-`Vixen.Platform.iOS` and `Vixen.Platform.Android` **cannot be in `Vixen.slnx`** — a `net10.0-ios` or
-`net10.0-android` project cannot be evaluated without its workload, so its presence breaks
+`Vixen.Platform.iOS` and `Vixen.Platform.Android` **cannot be in `Vixen.slnx`** — a `net11.0-ios` or
+`net11.0-android` project cannot be evaluated without its workload, so its presence breaks
 `dotnet build` for anyone without one. Nothing in either is therefore seen by `Test`, `CheckFormat` or
 `CheckArchitecture`.
 

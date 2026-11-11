@@ -224,7 +224,7 @@ public class SymbolReaderTests {
     }
 
     [Theory]
-    [InlineData("/repo/obj/Debug/net10.0/Generated.g.cs", true)]
+    [InlineData("/repo/obj/Debug/net11.0/Generated.g.cs", true)]
     [InlineData("/repo/Core/Vixen.Core/World.cs", false)]
     [InlineData("/elsewhere/World.cs", true)]
     public void GeneratedCodeIsRecognisedByWhereItIsNot(string path, bool expected) {

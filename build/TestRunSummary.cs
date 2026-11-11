@@ -38,7 +38,7 @@ public static class TestRunSummary {
 
     /// <summary>
     ///     Both runners' summary line: Microsoft.Testing.Platform's
-    ///     <c>Passed! - Failed: 0, Passed: 272, Skipped: 2, Total: 274, Duration: … - X.dll (net10.0|x64)</c>
+    ///     <c>Passed! - Failed: 0, Passed: 272, Skipped: 2, Total: 274, Duration: … - X.dll (net11.0|x64)</c>
     ///     and VSTest's column-aligned <c>Passed!  - Failed:     0, …</c>.
     /// </summary>
     /// <remarks>

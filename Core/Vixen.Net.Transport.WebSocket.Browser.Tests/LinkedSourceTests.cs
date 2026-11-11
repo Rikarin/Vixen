@@ -9,8 +9,8 @@ namespace Vixen.Net.Transport.WebSocket.Browser.Tests;
 /// <remarks>
 ///     <para>
 ///         Everything else in this project rests on one claim — that
-///         <c>BrowserWebSocketFactory.cs</c> compiled for <c>net10.0</c> is the same code as
-///         <c>BrowserWebSocketFactory.cs</c> compiled for <c>net10.0-browser</c>. The file is
+///         <c>BrowserWebSocketFactory.cs</c> compiled for <c>net11.0</c> is the same code as
+///         <c>BrowserWebSocketFactory.cs</c> compiled for <c>net11.0-browser</c>. The file is
 ///         source-linked, so that is true of the text; it stops being true of the *behaviour* the
 ///         moment anybody adds a <c>#if</c>.
 ///     </para>
@@ -22,7 +22,7 @@ namespace Vixen.Net.Transport.WebSocket.Browser.Tests;
 ///         absence of conditional compilation is asserted rather than assumed.
 ///     </para>
 ///     <para>
-///         The other reason to keep the file unconditional is that <c>net10.0-browser</c> defines
+///         The other reason to keep the file unconditional is that <c>net11.0-browser</c> defines
 ///         <c>BROWSER</c> automatically, so an arm guarded by it is one no gate in this repository
 ///         compiles: <c>Test</c>, <c>CheckFormat</c>, <c>CheckApi</c> and <c>Pack</c> never see the
 ///         browser project at all.
@@ -53,7 +53,7 @@ public sealed class LinkedSourceTests {
         Assert.True(
             offenders.Count == 0,
             "BrowserWebSocketFactory.cs has conditional compilation in it, so this project no longer "
-            + "tests the code that ships to a browser — it tests the net10.0 arm of it, and the "
+            + "tests the code that ships to a browser — it tests the net11.0 arm of it, and the "
             + "browser arm is compiled by no gate in this repository. Either remove the condition, "
             + "or move that code somewhere a published head exercises it (nuke BrowserSmoke).\n  "
             + string.Join("\n  ", offenders)

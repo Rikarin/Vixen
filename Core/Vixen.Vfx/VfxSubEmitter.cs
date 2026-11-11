@@ -210,7 +210,7 @@ public sealed class VfxSubEmitter {
     bool Due(float age, float deltaTime) =>
         Interval <= 0f || MathF.Floor(age / Interval) > MathF.Floor((age - deltaTime) / Interval);
 
-    Vector3 Velocity(Span<Vector3> velocities, int index) =>
+    Vector3 Velocity(ReadOnlySpan<Vector3> velocities, int index) =>
         InheritVelocity == 0f || velocities.IsEmpty ? Vector3.Zero : velocities[index] * InheritVelocity;
 
     /// <summary>Spawns a run of children about a point, and moves them onto it.</summary>

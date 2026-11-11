@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <!--
-            net10.0, and the project under test is net10.0-browser. `dotnet test` has no host that
+            net11.0, and the project under test is net11.0-browser. `dotnet test` has no host that
             runs in a browser, so a browser test assembly could not be executed at all — which is
             why the three browser projects under Platform/ are covered by a published head under
             `nuke BrowserSmoke` instead.
@@ -20,7 +20,7 @@
             Platform/Vixen.Platform.Web.Tests: a ProjectReference would make this suite depend on
             the browser project having been built.
         -->
-        <TargetFramework>net10.0</TargetFramework>
+        <TargetFramework>net11.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
         <IsPackable>false</IsPackable>

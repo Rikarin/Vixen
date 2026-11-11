@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <TargetFramework>net10.0</TargetFramework>
+        <TargetFramework>net11.0</TargetFramework>
         <RootNamespace>Vixen.Editor.Terrain.Physics</RootNamespace>
         <Description>
             Feeds the sculpt tools' collision seam. `ITerrainColliders` is what Vixen.Editor.Terrain

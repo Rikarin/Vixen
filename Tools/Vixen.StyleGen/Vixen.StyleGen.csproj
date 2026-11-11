@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <TargetFramework>net10.0</TargetFramework>
+        <TargetFramework>net11.0</TargetFramework>
         <OutputType>Exe</OutputType>
         <RootNamespace>Vixen.StyleGen</RootNamespace>
         <AssemblyName>Vixen.StyleGen</AssemblyName>
@@ -52,7 +52,7 @@
             per keystroke, in each of the six projects that use the step, is the wrong way round.
 
             ⚠ **And two blockers the YamlDotNet one was hiding are still live.** This assembly is
-            net10.0 and an analyzer must be netstandard, so the only route is *linking* the 5 995
+            net11.0 and an analyzer must be netstandard, so the only route is *linking* the 5 995
             lines of `Vixen.Ui.Styling.Utilities` under a second language surface — available, unlike
             for YamlDotNet, because it is Vixen's own code and uses nothing outside the BCL, but a
             real cost that `Vixen.Ui.Markup.Generators` pays and documents. And RS1035 bans
@@ -62,7 +62,7 @@
             which erases the saving.
 
             So the build step runs where the implementation already runs — out of process, at
-            net10.0, against the shipped assembly and not a second copy of it.
+            net11.0, against the shipped assembly and not a second copy of it.
         -->
         <ProjectReference Include="..\..\Core\Vixen.Ui.Styling.Utilities\Vixen.Ui.Styling.Utilities.csproj" />
     </ItemGroup>

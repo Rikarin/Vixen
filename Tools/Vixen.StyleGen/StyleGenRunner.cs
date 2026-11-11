@@ -67,7 +67,7 @@ internal sealed record StyleGenResult(
 ///         candidate set the scanner is built to make unstable — 7 262 candidates for
 ///         <c>Vixen.Editor.Ui</c>, 7 173 of them ordinary English out of comments, so nearly any
 ///         edit changes the set and the cache never hits. Two further blockers the YamlDotNet one was
-///         hiding are also still live: this assembly is net10.0 and an analyzer must be netstandard,
+///         hiding are also still live: this assembly is net11.0 and an analyzer must be netstandard,
 ///         and RS1035 bans <c>System.IO</c> inside an analyzer, so a generator could not write the
 ///         sheet at all.
 ///     </para>

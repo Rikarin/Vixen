@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <TargetFramework>net10.0</TargetFramework>
+        <TargetFramework>net11.0</TargetFramework>
         <RootNamespace>Vixen.Graphics.Null</RootNamespace>
         <Description>
             The graphics backend with no GPU. What a dedicated server presents to nothing on, and —

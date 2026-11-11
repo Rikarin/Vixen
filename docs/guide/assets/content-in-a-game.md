@@ -37,7 +37,7 @@ the awkward cases need, and the awkward cases are where a content pipeline is ju
 `vixen content build` both take `--assembly`, and `Vixen.Sdk` passes the project's own:
 
 ```bash
-dotnet vixen content build --assembly bin/Debug/net10.0/MyGame.dll
+dotnet vixen content build --assembly bin/Debug/net11.0/MyGame.dll
 ```
 
 ⚠ **Loading is not enough; the module initializer has to be run.** A `[Component]` beside a

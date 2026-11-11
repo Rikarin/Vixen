@@ -13,7 +13,7 @@ public sealed class DeepImageTests {
     [Fact]
     [Trait("Category", "Property")]
     public void A_sixteen_bit_png_survives_a_round_trip() =>
-        Gen.Select(Gen.Int[1, 40], Gen.Int[1, 40], Gen.OneOfConst(1, 3, 4))
+        Gen.Select(Gen.Int[1, 40], Gen.Int[1, 40], Gen.OneOf(1, 3, 4))
             .SelectMany((width, height, channels) =>
                 Gen.UShort.Array[width * height * channels].Select(samples => (width, height, channels, samples))
             )
@@ -74,7 +74,7 @@ public sealed class DeepImageTests {
     [InlineData(ExrPixels.Float)]
     [InlineData(ExrPixels.Half)]
     public void An_exr_survives_a_round_trip_at_each_width(ExrPixels pixels) =>
-        Gen.Select(Gen.Int[1, 70], Gen.Int[1, 70], Gen.OneOfConst(1, 3, 4))
+        Gen.Select(Gen.Int[1, 70], Gen.Int[1, 70], Gen.OneOf(1, 3, 4))
             .SelectMany((width, height, channels) =>
                 Gen.Single[-10f, 10f].Array[width * height * channels].Select(samples => new FloatImage(width, height, channels, samples))
             )

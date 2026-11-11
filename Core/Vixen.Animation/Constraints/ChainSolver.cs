@@ -144,7 +144,7 @@ public sealed class DefaultChainSolver : IChainSolver {
     /// </remarks>
     static Vector3 Target(
         Skeleton skeleton,
-        Span<BoneTransform> local,
+        ReadOnlySpan<BoneTransform> local,
         Span<BoneTransform> model,
         in ChainSolveRequest request
     ) {
@@ -180,7 +180,7 @@ public sealed class DefaultChainSolver : IChainSolver {
     /// </remarks>
     static Vector3 Pole(
         Skeleton skeleton,
-        Span<BoneTransform> local,
+        ReadOnlySpan<BoneTransform> local,
         Span<BoneTransform> model,
         int root,
         int mid,

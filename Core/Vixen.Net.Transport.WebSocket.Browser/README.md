@@ -30,7 +30,7 @@ Two documents said it could not be.
 `Vixen.Net.Transport.WebSocket`'s own README said the browser path was owed because
 `System.Net.WebSockets` "is not available" there. It is: the `browser-wasm` runtime pack ships
 `System.Net.WebSockets.Client.dll`, and inside it is a real
-`System.Net.WebSockets.BrowserWebSocket`, compiled for `net10.0-browser` against
+`System.Net.WebSockets.BrowserWebSocket`, compiled for `net11.0-browser` against
 `System.Runtime.InteropServices.JavaScript`. It is the page's own `WebSocket` behind the ordinary
 API, written and maintained by the runtime team.
 
@@ -63,14 +63,14 @@ adaptation the seam asks for.
 
 This is the part worth reading before changing anything here.
 
-`Vixen.Net.Transport.WebSocket.Browser.Tests` targets `net10.0` and **links
+`Vixen.Net.Transport.WebSocket.Browser.Tests` targets `net11.0` and **links
 `BrowserWebSocketFactory.cs` as source**, then drives it against a real `SystemWebSocketFactory`
 server over loopback — connect, upgrade, a payload each way, and a refused connection reported as an
 event rather than thrown. Six tests, no browser, no `nuke BrowserSmoke`, in a tenth of a second.
 
 That works for exactly one reason: `ClientWebSocket` is the same API on both targets, and only the
 implementation the runtime binds differs. **So the file must contain no conditional compilation**,
-or the suite would be testing the `net10.0` arm of a file whose browser arm no gate in this
+or the suite would be testing the `net11.0` arm of a file whose browser arm no gate in this
 repository compiles — `Test`, `CheckFormat`, `CheckApi` and `Pack` never see this project at all.
 `LinkedSourceTests` asserts that absence rather than trusting it, and says so in its failure
 message.
@@ -81,7 +81,7 @@ and that belongs with `nuke BrowserSmoke`.
 
 ## Where it sits in the build
 
-Not in `Vixen.slnx` — `net10.0-browser`, like `Vixen.Platform.Web`,
+Not in `Vixen.slnx` — `net11.0-browser`, like `Vixen.Platform.Web`,
 `Vixen.Graphics.WebGPU.Browser`, `Vixen.Audio.Backend.WebAudio` and `Tools/Vixen.WebProbe`. It is
 named in `build/Build.cs`'s `BrowserProjects`, so `nuke CompileWeb` builds it; a browser project
 that is not in that list is built by nothing, which has happened before.

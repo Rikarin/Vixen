@@ -27,16 +27,15 @@ confident error gets shipped.
 
 ---
 
-## ⚠ Unresolved — four packages, read this first
+## ⚠ Unresolved — three packages, read this first
 
-These four ship no machine-readable licence and no licence file. Each carries a `licenseUrl`
+These three ship no machine-readable licence and no licence file. Each carries a `licenseUrl`
 pointing at a file in its upstream repository, which is a promise about a URL rather than a copy of a
 text, and a URL's contents can change. **Do not ship a binary distribution until these are confirmed
 from upstream and their texts are obtained.**
 
 | Package | What the package actually says | What is claimed elsewhere in this repo | What is needed |
 |---|---|---|---|
-| `StbImageSharp` 2.30.15 | **Nothing.** No `<license>` element, no `licenseUrl`, no `<copyright>`, and no licence file in the package — only two `.dll`s. Authors: `StbImageSharpTeam`. | [`Directory.Packages.props`](../../Directory.Packages.props) and `docs/overview.md` § 2.1 both say "public domain". | The claim is plausible — upstream `stb_image.h` is dual public-domain/MIT — but **the package asserts it nowhere**. Confirm from `github.com/StbSharp/StbImageSharp` and commit the text. This is the weakest link in the set: it is the only dependency whose licence rests on no artefact at all. |
 | `K4os.Compression.LZ4` 1.3.8 | `licenseUrl` → `github.com/MiloszKrajewski/K4os.Compression.LZ4/blob/master/LICENSE`. `<copyright>Milosz Krajewski</copyright>`. No licence file in the package. | `NOTICE` says MIT, and notes explicitly that this package "declares its licence in a file rather than as an SPDX expression, so it is not picked up automatically". | `NOTICE` is right that it needs recording by hand, and the note predates this file. Fetch the LICENSE and commit the text. |
 | `Antlr4.Runtime` 4.6.6 | `licenseUrl` → `raw.github.com/tunnelvisionlabs/antlr4cs/master/LICENSE.txt`. `<copyright>Copyright © Sam Harwell 2015</copyright>`, authors Sam Harwell and Terence Parr. | `NOTICE` says "BSD-3-Clause — https://github.com/antlr/antlr4". | ⚠ **The URL in `NOTICE` names the wrong project.** This is `tunnelvisionlabs/antlr4cs`, Sam Harwell's C# target, not `antlr/antlr4`. Both are BSD-3-Clause as far as is known, but the notice must attribute the work actually redistributed. |
 | `Antlr4.CodeGenerator` 4.6.6 | As above. | As above. | As above. |
@@ -112,23 +111,23 @@ Rows marked **build/test only** do not reach a shipped game or editor; the reaso
 
 | Package | Version | Licence | Source | Note |
 |---|---|---|---|---|
-| `JoltPhysicsSharp` | 2.22.0 | MIT | `nuspec` | Brings `JoltPhysics.Native` (MIT, Jorrit Rouwe) — see *Transitive dependencies* |
+| `JoltPhysicsSharp` | 2.23.0 | MIT | `nuspec` | Brings `JoltPhysics.Native` (MIT, Jorrit Rouwe) — see *Transitive dependencies* |
 
 ### UI, text and styling
 
 | Package | Version | Licence | Source | Note |
 |---|---|---|---|---|
 | `ExCSS` | 4.3.2 | MIT | `nuspec` | The VCSS front end |
-| `HarfBuzzSharp` | 14.2.1.1 | MIT | `nuspec` | ⚠ The nuspec covers the *binding*. Upstream HarfBuzz is the "Old MIT" licence, which is MIT-compatible but a distinct text; the native assets below are what carry it |
-| `HarfBuzzSharp.NativeAssets.macOS` | 14.2.1.1 | MIT | `nuspec` | Ships `libHarfBuzzSharp.dylib` |
-| `HarfBuzzSharp.NativeAssets.Linux` | 14.2.1.1 | MIT | `nuspec` | |
-| `HarfBuzzSharp.NativeAssets.Win32` | 14.2.1.1 | MIT | `nuspec` | |
+| `HarfBuzzSharp` | 14.4.0.100 | MIT | `nuspec` | ⚠ The nuspec covers the *binding*. Upstream HarfBuzz is the "Old MIT" licence, which is MIT-compatible but a distinct text; the native assets below are what carry it |
+| `HarfBuzzSharp.NativeAssets.macOS` | 14.4.0.100 | MIT | `nuspec` | Ships `libHarfBuzzSharp.dylib` |
+| `HarfBuzzSharp.NativeAssets.Linux` | 14.4.0.100 | MIT | `nuspec` | |
+| `HarfBuzzSharp.NativeAssets.Win32` | 14.4.0.100 | MIT | `nuspec` | |
 
 ### Serialization, compression and hashing
 
 | Package | Version | Licence | Source | Note |
 |---|---|---|---|---|
-| `System.IO.Hashing` | 10.0.10 | MIT | `nuspec` | |
+| `System.IO.Hashing` | 11.0.0 | MIT | `nuspec` | |
 | `K4os.Compression.LZ4` | 1.3.8 | **unresolved** (claimed MIT) | — | ⚠ See *Unresolved*. Copyright: Milosz Krajewski |
 | `ZstdSharp.Port` | 0.8.8 | MIT | `nuspec` | |
 | `YamlDotNet` | 18.1.0 | MIT | `nuspec` | Low-level scanner and parser only |
@@ -144,36 +143,41 @@ Rows marked **build/test only** do not reach a shipped game or editor; the reaso
 
 | Package | Version | Licence | Source | Note |
 |---|---|---|---|---|
-| `Microsoft.Extensions.Logging.Abstractions` | 10.0.10 | MIT | `nuspec` | |
-| `ZLogger` | 2.5.10 | MIT | `nuspec` | |
-| `OpenTelemetry` | 1.17.0 | Apache-2.0 | `nuspec` | |
-| `OpenTelemetry.Exporter.OpenTelemetryProtocol` | 1.17.0 | Apache-2.0 | `nuspec` | |
-| `OpenTelemetry.Exporter.Console` | 1.17.0 | Apache-2.0 | `nuspec` | |
-| `OpenTelemetry.Instrumentation.Runtime` | 1.17.0 | Apache-2.0 | `nuspec` | |
+| `ZLogger` | 2.6.2 | MIT | `nuspec` | |
+| `OpenTelemetry` | 1.21.0 | Apache-2.0 | `nuspec` | |
+| `OpenTelemetry.Exporter.OpenTelemetryProtocol` | 1.21.0 | Apache-2.0 | `nuspec` | |
+| `OpenTelemetry.Exporter.Console` | 1.21.0 | Apache-2.0 | `nuspec` | |
+| `OpenTelemetry.Instrumentation.Runtime` | 1.21.0 | Apache-2.0 | `nuspec` | |
 
 ### Server control plane (`Live/` only)
 
 | Package | Version | Licence | Source | Note |
 |---|---|---|---|---|
-| `Microsoft.Orleans.Sdk` | 10.2.2 | MIT | `nuspec` | |
-| `Microsoft.Orleans.Server` | 10.2.2 | MIT | `nuspec` | |
-| `Microsoft.Orleans.Client` | 10.2.2 | MIT | `nuspec` | |
-| `KubernetesClient` | 19.0.2 | Apache-2.0 | `nuspec` | |
+| `Microsoft.Orleans.Sdk` | 10.4.2 | MIT | `nuspec` | |
+| `Microsoft.Orleans.Server` | 10.4.2 | MIT | `nuspec` | |
+| `Microsoft.Orleans.Client` | 10.4.2 | MIT | `nuspec` | |
+| `KubernetesClient` | 21.0.8 | Apache-2.0 | `nuspec` | |
 
 ### Editor and tooling — import time, never in a runtime assembly
 
 | Package | Version | Licence | Source | Note |
 |---|---|---|---|---|
-| `StbImageSharp` | 2.30.15 | **unresolved** (claimed public domain) | — | ⚠ See *Unresolved*. The package declares nothing at all |
+| `StbImageSharp` | 2.30.16 | Unlicense OR MIT | `nuspec` | From 2.30.16 the package declares the expression; 2.30.15 declared nothing, which made it the one dependency whose licence rested on no artefact |
 | `Silk.NET.Assimp` | 2.23.0 | MIT | `nuspec` | Brings `Ultz.Native.Assimp` (BSD-3-Clause) — see below |
-| `System.CommandLine` | 2.0.10 | MIT | `nuspec` | |
+| `System.CommandLine` | 3.0.0 | MIT | `nuspec` | |
 
 ### Compiler front ends and generators
 
 | Package | Version | Licence | Source | Note |
 |---|---|---|---|---|
-| `Microsoft.CodeAnalysis.CSharp` | 4.11.0 | MIT | `nuspec` | |
-| `Microsoft.CodeAnalysis.Analyzers` | 3.3.4 | MIT | `nuspec` | |
+| `Microsoft.CodeAnalysis.CSharp` | 5.9.0 | MIT | `nuspec` | |
+| `Microsoft.CodeAnalysis.Analyzers` | 5.9.0 | MIT | `nuspec` | |
+| `Microsoft.CodeAnalysis.CSharp.Workspaces` | 5.9.0 | MIT | `nuspec` | **build only** — `Vixen.DocGen` |
+| `Microsoft.CodeAnalysis.Workspaces.MSBuild` | 5.9.0 | MIT | `nuspec` | **build only** — `Vixen.DocGen` |
+| `Microsoft.Build.Locator` | 1.11.2 | MIT | `nuspec` | **build only** — `Vixen.DocGen` |
+| `Microsoft.Build` | 18.12.2 | MIT | `nuspec` | **build only** — compile-time reference; the SDK's own copy is loaded |
+| `Microsoft.Build.Framework` | 18.12.2 | MIT | `nuspec` | **build only** — as above |
+| `Microsoft.NET.StringTools` | 18.12.2 | MIT | `nuspec` | **build only** — as above |
 | `Antlr4.Runtime` | 4.6.6 | **unresolved** (claimed BSD-3-Clause) | — | ⚠ See *Unresolved*. **build/test only** — a differential oracle in `Vixen.Raven.Tests` |
 | `Antlr4.CodeGenerator` | 4.6.6 | **unresolved** (claimed BSD-3-Clause) | — | ⚠ See *Unresolved*. **build/test only** |
 
@@ -185,10 +189,10 @@ Rows marked **build/test only** do not reach a shipped game or editor; the reaso
 | `BenchmarkDotNet` | 0.15.8 | MIT | `nuspec` | **build/test only** |
 | `xunit.v3` | 3.2.2 | Apache-2.0 | `nuspec` | **test only** |
 | `xunit.runner.visualstudio` | 3.1.5 | Apache-2.0 | `nuspec` | **test only** |
-| `Microsoft.NET.Test.Sdk` | 18.8.1 | MIT | `nuspec` | **test only** |
-| `Microsoft.Testing.Extensions.TrxReport` | 1.9.1 | MIT | `nuspec` | **test only** — the TRX writer for the Microsoft.Testing.Platform runner. Pinned to 1.x: xunit.v3 binds the 1.x platform |
-| `CsCheck` | 4.7.0 | Apache-2.0 | `nuspec` | **test only** |
-| `Npgsql` | 9.0.4 | PostgreSQL | `nuspec` | **test only** — one test project. The PostgreSQL licence is a permissive BSD-style text, distinct from MIT |
+| `Microsoft.NET.Test.Sdk` | 18.12.0 | MIT | `nuspec` | **test only** |
+| `Microsoft.Testing.Extensions.TrxReport` | 1.9.1 | MIT | `nuspec` | **test only** — the TRX writer for the Microsoft.Testing.Platform runner. Pinned to 1.x: xunit.v3 3.x binds the 1.x platform |
+| `CsCheck` | 5.0.1 | Apache-2.0 | `nuspec` | **test only** |
+| `Npgsql` | 10.0.3 | PostgreSQL | `nuspec` | **test only** — one test project. The PostgreSQL licence is a permissive BSD-style text, distinct from MIT |
 
 <!-- attribution:managed:end -->
 

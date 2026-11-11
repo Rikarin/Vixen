@@ -128,9 +128,9 @@ public sealed class AotProbeProjectFileTests : IDisposable {
     ///     </para>
     ///     <para>
     ///         ⚠ <b>And no technical reason separates them by target framework.</b> Re-measured
-    ///         2026-09-10: every one of the eight declares plain <c>net10.0</c>, exactly like the
-    ///         twenty-one the iOS probe does reference — the iOS probe is <c>net10.0-ios</c> and
-    ///         takes <c>net10.0</c> references happily. So "they cannot build for iOS" is not the
+    ///         2026-09-10: every one of the eight declares plain <c>net11.0</c>, exactly like the
+    ///         twenty-one the iOS probe does reference — the iOS probe is <c>net11.0-ios</c> and
+    ///         takes <c>net11.0</c> references happily. So "they cannot build for iOS" is not the
     ///         explanation, and the shape this has is the shape of references nobody added rather
     ///         than references somebody left out. ⚠ The reason tokens below are <em>inferred by
     ///         whoever wrote this test</em> and are recorded nowhere else; #961 carries the question

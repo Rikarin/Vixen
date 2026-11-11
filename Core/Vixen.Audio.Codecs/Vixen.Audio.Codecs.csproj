@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <TargetFramework>net10.0</TargetFramework>
+        <TargetFramework>net11.0</TargetFramework>
         <RootNamespace>Vixen.Audio.Codecs</RootNamespace>
         <Description>
             Ogg Vorbis and Opus behind IAudioStreamDecoder, so a five-minute track costs a megabyte

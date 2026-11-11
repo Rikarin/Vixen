@@ -9,8 +9,8 @@ namespace Vixen.Shaders.Generators;
 /// <remarks>
 ///     <para>
 ///         Hand-modelled rather than shared with <c>Vixen.Raven.Reflection</c>, and that is forced
-///         rather than chosen: a source generator targets netstandard2.1 and runs inside the C#
-///         compiler, while <c>Vixen.Raven</c> targets net10.0 — so the generator could not reference
+///         rather than chosen: a source generator targets netstandard2.0 and runs inside the C#
+///         compiler, while <c>Vixen.Raven</c> targets net11.0 — so the generator could not reference
 ///         the compiler even if the dependency were desirable. What crosses between them is the
 ///         JSON, which is a schema and not a type.
 ///     </para>

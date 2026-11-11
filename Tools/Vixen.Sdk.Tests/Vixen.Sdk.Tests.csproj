@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <TargetFramework>net10.0</TargetFramework>
+        <TargetFramework>net11.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
         <IsPackable>false</IsPackable>
@@ -34,7 +34,7 @@
             hand-written precisely so the engine does not run the generator over its own source — and
             its packing target therefore asks only for `GetTargetPath`, which does not build. Packing
             Vixen.Net with the generator unbuilt fails inside NuGet.Build.Tasks.Pack with a missing
-            bin/Debug/netstandard2.1, which reads like nothing to do with this suite.
+            bin/Debug/netstandard2.0, which reads like nothing to do with this suite.
 
             Vixen.Net.Tests passes its own PackagedGeneratorTests only because it happens to
             reference the generator for its own compilation. This says so on purpose instead.
