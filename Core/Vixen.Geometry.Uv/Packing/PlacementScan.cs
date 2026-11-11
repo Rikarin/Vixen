@@ -208,7 +208,7 @@ sealed class PlacementScan {
         }
     }
 
-    Spot Descend(Span<Spot> best) {
+    Spot Descend(ReadOnlySpan<Spot> best) {
         var winner = Spot.None;
 
         foreach (var spot in best) {
