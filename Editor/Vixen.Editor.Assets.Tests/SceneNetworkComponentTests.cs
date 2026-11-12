@@ -38,8 +38,10 @@ public sealed class SceneNetworkComponentTests {
     // ⚠ typeof and not `default(NetworkObject)`. A discarded default of an empty struct is an
     // expression with no side effects, which Roslyn is free to emit no IL for at all — and the whole
     // job of this line is to be a reference the runtime has to resolve. `ldtoken` is one.
+    // ⚠ And not `nameof`, which is a constant the compiler writes in and the runtime never resolves: Skala's fix for
+    // `typeof(NetworkObject).Name` made it one, and the tests failed whenever none before them had loaded the assembly.
     public SceneNetworkComponentTests() {
-        _ = nameof(NetworkObject);
+        _ = typeof(NetworkObject).Assembly;
     }
 
     /// <remarks>
