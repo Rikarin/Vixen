@@ -35,6 +35,14 @@ Vixen.Geometry.Remeshing.BakeImage.Pixels.get -> System.Collections.Generic.IRea
 Vixen.Geometry.Remeshing.BakeImage.Pixels.init -> System.Collections.Generic.IReadOnlyList<Vixen.Core.Mathematics.Vector4>
 Vixen.Geometry.Remeshing.BakeImage.Width.get -> int
 Vixen.Geometry.Remeshing.BakeImage.Width.init -> int
+Vixen.Geometry.Remeshing.BakeLeanRay -> readonly struct
+Vixen.Geometry.Remeshing.BakeLeanRay : System.IEquatable<Vixen.Geometry.Remeshing.BakeLeanRay>
+Vixen.Geometry.Remeshing.BakeLeanRay.BakeLeanRay() -> void
+Vixen.Geometry.Remeshing.BakeLeanRay.BakeLeanRay(Vixen.Core.Mathematics.Vector3 Point, Vixen.Core.Mathematics.Vector3 Outer) -> void
+Vixen.Geometry.Remeshing.BakeLeanRay.Outer.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Geometry.Remeshing.BakeLeanRay.Outer.init -> Vixen.Core.Mathematics.Vector3
+Vixen.Geometry.Remeshing.BakeLeanRay.Point.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Geometry.Remeshing.BakeLeanRay.Point.init -> Vixen.Core.Mathematics.Vector3
 Vixen.Geometry.Remeshing.BakeMask -> sealed record
 Vixen.Geometry.Remeshing.BakeMask : System.IEquatable<Vixen.Geometry.Remeshing.BakeMask>
 Vixen.Geometry.Remeshing.BakeMask.At(Vixen.Core.Mathematics.Vector2 uv) -> float
@@ -501,6 +509,7 @@ static Vixen.Geometry.Remeshing.MapBaker.Bake(Vixen.Geometry.EditMesh source, Vi
 static Vixen.Geometry.Remeshing.MapBaker.Bake(Vixen.Geometry.EditMesh source, Vixen.Geometry.EditMesh target, Vixen.Geometry.Remeshing.BakeSettings settings, System.Action<float>? progress, System.Threading.CancellationToken cancellationToken) -> Vixen.Geometry.Remeshing.BakedMaps
 static Vixen.Geometry.Remeshing.MapBaker.IdColour(int id) -> Vixen.Core.Mathematics.Vector3
 static Vixen.Geometry.Remeshing.MapBaker.IdColours(System.Collections.Generic.IReadOnlyList<int> ids, bool colours, Vixen.Geometry.Remeshing.IdPalette palette) -> Vixen.Core.Mathematics.Vector3[]
+static Vixen.Geometry.Remeshing.MapBaker.Leans(Vixen.Geometry.EditMesh source, Vixen.Geometry.EditMesh target, Vixen.Geometry.Remeshing.BakeSettings settings, int divisions) -> System.Collections.Generic.IReadOnlyList<Vixen.Geometry.Remeshing.BakeLeanRay>
 static Vixen.Geometry.Remeshing.MapBaker.PackedColour(int id) -> Vixen.Core.Mathematics.Vector3
 static Vixen.Geometry.Remeshing.MapBaker.Reach(Vixen.Geometry.EditMesh source, Vixen.Geometry.EditMesh target, Vixen.Geometry.Remeshing.BakeSettings settings) -> Vixen.Geometry.Remeshing.BakeReachShell
 static Vixen.Geometry.Remeshing.MeshMapPlanes.Of(Vixen.Geometry.Remeshing.BakedMaps maps) -> System.Collections.Generic.IReadOnlyList<Vixen.Geometry.Remeshing.MeshMapPlane>
