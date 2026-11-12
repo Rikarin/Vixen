@@ -198,6 +198,67 @@ public class FilterInputTests {
         );
     }
 
+    /// <summary>
+    ///     A mask step reads the mask unless told otherwise (Patina #110): a second colour's selection reads the id map
+    ///     again, not the first colour's mask, and is blended over the mask by its own blend. Untold, it reads the mask.
+    /// </summary>
+    [Fact]
+    public void A_mask_step_told_what_its_subject_reads_reads_that_and_blends_over_the_mask() {
+        var stack = Stack(
+            Base(),
+            new LayerAsset {
+                Id = "m",
+                Values = { ["roughness"] = [1f, 1f, 1f, 1f] },
+                Mask = new() {
+                    Source = LayerMaskSource.Bake,
+                    Map = "id",
+                    Effects = [
+                        new() { Node = "Analysis/Colour Select" },
+                        new() {
+                            Node = "Analysis/Colour Select",
+                            Inputs = { ["Input"] = new() { Source = LayerInputSource.Bake, Map = "id" } },
+                            Blend = LayerBlendMode.Lighten
+                        }
+                    ]
+                }
+            }
+        );
+
+        var build = LayerStackGraph.Build(stack, stack.Sets[0]);
+
+        Assert.False(build.HasErrors, string.Join("; ", build.Problems));
+        Assert.DoesNotContain(
+            build.Problems,
+            static problem => problem.Message.Contains("dropped", StringComparison.Ordinal)
+        );
+
+        var selections = build.Graph.Nodes.Where(static node => node.Type == "Analysis/Colour Select").ToList();
+        Assert.Equal(2, selections.Count);
+
+        string Reads(GraphNode selection) {
+            var edge = Assert.Single(
+                build.Graph.Edges,
+                edge => edge.To.Node == selection.Id && edge.To.Port == "Input"
+            );
+
+            return build.Graph.Nodes.Single(node => node.Id == edge.From.Node).Type;
+        }
+
+        // Both read a mesh map, the first as the mask's own base and the second because it was told to; neither reads
+        // the other's selection.
+        Assert.All(selections, selection => Assert.Equal("Source/Mesh Map", Reads(selection)));
+
+        // And the second is joined to the first by its blend, made opaque on the way as every mask operand is.
+        var at = selections[1];
+
+        while (at.Type != "Colour/Blend") {
+            var next = Assert.Single(build.Graph.Edges, edge => edge.From.Node == at.Id);
+            at = build.Graph.Nodes.Single(node => node.Id == next.To.Node);
+        }
+
+        Assert.Equal("Lighten", at.Texts["Mode"]);
+    }
+
     /// <summary>A mask is one picture, so a step reading the layers beneath names the channel it reads.</summary>
     [Fact]
     public void A_mask_step_reading_the_layers_beneath_names_its_channel() {

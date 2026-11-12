@@ -2712,7 +2712,8 @@ public static class LayerStackGraph {
         ///         names. One it does not reads, in order: the stack beneath in the channel it is named after, when its
         ///         name is one of the set's channels — which is how a material filter reads height and roughness at once;
         ///         <paramref name="cursor" />, when it is the subject; nothing, when the node does without it. Any other
-        ///         is a slot nobody has filled.
+        ///         is a slot nobody has filled. A mask step's subject is the mask in the same way: it reads something else
+        ///         only when told, and what it makes is still blended over the mask.
         ///     </para>
         ///     <para>
         ///         ⚠ <b>Every slot is decided before the node is added</b>, so an empty one leaves nothing half-wired in
@@ -2751,17 +2752,10 @@ public static class LayerStackGraph {
 
                 var own = subject is not null && string.Equals(port.Name, subject.Name, StringComparison.Ordinal);
 
-                if (mask && own) {
-                    if (inputs.ContainsKey(port.Name)) {
-                        problems.Add(
-                            LayerStackProblem.Warning(
-                                layerId,
-                                $"'{port.Name}' is the mask a step on a mask changes, so what it was told to read is "
-                                + "dropped."
-                            )
-                        );
-                    }
-
+                // ⚠ A mask step reads the mask unless it is told what else to read (Patina #110): a colour selection
+                // of a second colour reads the id map again rather than the first colour's mask, and its blend joins
+                // the two. Either way what it makes is blended over the mask, so the step still changes the mask.
+                if (mask && own && !inputs.ContainsKey(port.Name)) {
                     plan.Add((port, null, string.Empty));
 
                     continue;
