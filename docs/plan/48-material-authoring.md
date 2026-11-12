@@ -208,7 +208,7 @@ them and every one needs a golden, a sabotage and a scale-invariance check.
 
 ### B3. `MapBaker` bakes two of the ten mesh maps 🟡
 
-`MapBaker.Bake` (`MapBaker.cs:783`) fills a normal map and a signed displacement map. The seven the
+`MapBaker.Bake` (`MapBaker.cs:788`) fills a normal map and a signed displacement map. The seven the
 generators actually read — ambient occlusion, curvature, thickness, position, world-space normal, bent
 normal, ID — are **not there**, and neither is the hierarchy that would make them fast.
 
