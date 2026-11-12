@@ -418,8 +418,12 @@ public sealed class GtaoImageTests {
 
         using var owned = fixture!;
 
-        var held = Band(Render(owned, FloorUp, false, WallFalloff, false, true, 0f), SlatFoot);
-        var relaxed = Band(Render(owned, FloorUp, false, WallFalloff, false, true, Thickness), SlatFoot);
+        var held = Band(Render(owned, FloorUp, falloff: WallFalloff, slat: true), SlatFoot);
+
+        var relaxed = Band(
+            Render(owned, FloorUp, falloff: WallFalloff, slat: true, thickness: Thickness),
+            SlatFoot
+        );
 
         Assert.True(
             held < 0.75f,
@@ -478,8 +482,8 @@ public sealed class GtaoImageTests {
 
         using var owned = fixture!;
 
-        var held = Band(Render(owned, WallFacing, true, WallFalloff, false, false, 0f), 94);
-        var relaxed = Band(Render(owned, WallFacing, true, WallFalloff, false, false, Thickness), 94);
+        var held = Band(Render(owned, WallFacing, true, WallFalloff), 94);
+        var relaxed = Band(Render(owned, WallFacing, true, WallFalloff, thickness: Thickness), 94);
 
         Assert.True(
             relaxed > held,
@@ -488,10 +492,10 @@ public sealed class GtaoImageTests {
             + "stopped being refuted and the argument there should be reinstated."
         );
 
-        var slatHeld = Band(Render(owned, FloorUp, false, WallFalloff, false, true, 0f), SlatFoot);
+        var slatHeld = Band(Render(owned, FloorUp, falloff: WallFalloff, slat: true), SlatFoot);
 
         var slatRelaxed = Band(
-            Render(owned, FloorUp, false, WallFalloff, false, true, Thickness),
+            Render(owned, FloorUp, falloff: WallFalloff, slat: true, thickness: Thickness),
             SlatFoot
         );
 
@@ -538,8 +542,8 @@ public sealed class GtaoImageTests {
 
         using var owned = fixture!;
 
-        var held = Render(owned, WallFacing, false, 1f, false, false, 0f);
-        var relaxed = Render(owned, WallFacing, false, 1f, false, false, 1f);
+        var held = Render(owned, WallFacing);
+        var relaxed = Render(owned, WallFacing, thickness: 1f);
 
         // The suite's own bound for this claim, so the two halves are asserted on one scale.
         AssertUniform(relaxed, 1f, 0.02f, "an unoccluded plane under the thickness heuristic");
@@ -633,13 +637,6 @@ public sealed class GtaoImageTests {
         // projects to a line and occupies no pixels. So the wall case replaces the whole scene with a
         // floor a metre below the camera, running back to a wall four metres out — the arrangement the
         // corner case actually is, and the one where the two surfaces both cover real area.
-        var floorNormal = new Vector3(0f, 1f, 0f);
-        var floorThrough = new Vector3(0f, -FloorDrop, 0f);
-        var wallNormal = new Vector3(0f, 0f, 1f);
-        var wallThrough = new Vector3(0f, 0f, -WallDistance);
-        var slatThrough = new Vector3(0f, 0f, -SlatDistance);
-        var backdropThrough = new Vector3(0f, 0f, -Backdrop);
-
         for (var y = 0; y < Side; y++) {
             for (var x = 0; x < Side; x++) {
                 var uv = new Vector2((x + 0.5f) / Side, (y + 0.5f) / Side);
@@ -647,48 +644,7 @@ public sealed class GtaoImageTests {
                 // Clip y = +1 is the TOP and texel row zero is the top row, so the fold negates y.
                 var ndc = new Vector3(uv.X * 2f - 1f, 1f - uv.Y * 2f, 0.5f);
                 var ray = Unproject(inverse, ndc);
-
-                Vector3 hit;
-                Vector3 surface;
-
-                if (slat) {
-                    // A ledge standing on the floor, square to the camera, spanning the frame. The
-                    // measured pixel is on the floor *between* the camera and it, so a march up the
-                    // screen crosses the slat's face and comes out onto the floor behind it — which
-                    // is the one arrangement that tells a thickness heuristic from a darkness knob.
-                    var toSlat = Distance(ray, slatThrough, wallNormal);
-                    var onSlat = toSlat > 0f
-                        && ray.Y * toSlat >= -FloorDrop
-                        && ray.Y * toSlat <= -FloorDrop + SlatHeight;
-
-                    var toFloor = Distance(ray, floorThrough, floorNormal);
-                    var toBackdrop = Distance(ray, backdropThrough, wallNormal);
-
-                    // Whichever is nearest of the three, and the backdrop is what a ray above the
-                    // horizon meets — twenty metres out, so no search radius reaches it.
-                    if (onSlat) {
-                        hit = ray * toSlat;
-                        surface = wallNormal;
-                    } else if (toFloor > 0f && toFloor < toBackdrop) {
-                        hit = ray * toFloor;
-                        surface = floorNormal;
-                    } else {
-                        hit = ray * toBackdrop;
-                        surface = wallNormal;
-                    }
-                } else if (wall) {
-                    // Whichever the ray meets first. A ray heading up never meets the floor at all,
-                    // which is what makes the wall fill the top of the frame.
-                    var toWall = Distance(ray, wallThrough, wallNormal);
-                    var toFloor = Distance(ray, floorThrough, floorNormal);
-                    var onFloor = toFloor > 0f && toFloor < toWall;
-
-                    hit = ray * (onFloor ? toFloor : toWall);
-                    surface = onFloor ? floorNormal : wallNormal;
-                } else {
-                    hit = ray * Distance(ray, through, normal);
-                    surface = normal;
-                }
+                var (hit, surface) = Stage(ray, normal, through, wall, slat);
 
                 var index = y * Side + x;
                 depths[index] = DeviceDepth(projection, hit);
@@ -799,6 +755,75 @@ public sealed class GtaoImageTests {
                 Upload(commands, normalPlane);
             }
         );
+    }
+
+    /// <summary>Which surface a ray meets, and that surface's normal, for one of the three scenes.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         Lifted out of <see cref="Render" /> because it is the only branching there: one plane,
+    ///         or a floor meeting a wall, or a floor with a ledge on it and a backdrop behind. Every
+    ///         hit is a plane intersection, so the surface the fixture means and the surface the pass
+    ///         reconstructs from depth are the same surface by construction.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ The wall case is a <em>floor</em> meeting one and not a second facing plane. A plane
+    ///         at right angles to a plane the camera looks straight at is a plane the camera sees
+    ///         edge-on: it projects to a line and occupies no pixels. So it replaces the whole scene
+    ///         with a floor a metre below the camera running back to a wall four metres out, which is
+    ///         the arrangement the corner case actually is and the one where both surfaces cover real
+    ///         area.
+    ///     </para>
+    ///     <para>
+    ///         The slat case is a ledge standing on that floor, square to the camera and spanning the
+    ///         frame, with the measured pixel on the floor <em>between</em> it and the camera — so a
+    ///         march up the screen crosses the slat's face and comes out on the floor behind it. That
+    ///         is the one arrangement that tells a thickness heuristic from a darkness knob. The
+    ///         backdrop twenty metres out is what a ray above the horizon meets, so no search radius
+    ///         reaches it and no pixel is left without a depth.
+    ///     </para>
+    /// </remarks>
+    static (Vector3 Hit, Vector3 Surface) Stage(
+        Vector3 ray,
+        Vector3 normal,
+        Vector3 through,
+        bool wall,
+        bool slat
+    ) {
+        var floorNormal = new Vector3(0f, 1f, 0f);
+        var floorThrough = new Vector3(0f, -FloorDrop, 0f);
+        var facing = new Vector3(0f, 0f, 1f);
+
+        if (slat) {
+            var toSlat = Distance(ray, new(0f, 0f, -SlatDistance), facing);
+
+            var onSlat = toSlat > 0f
+                && ray.Y * toSlat >= -FloorDrop
+                && ray.Y * toSlat <= -FloorDrop + SlatHeight;
+
+            if (onSlat) {
+                return (ray * toSlat, facing);
+            }
+
+            var toFloorPastSlat = Distance(ray, floorThrough, floorNormal);
+            var toBackdrop = Distance(ray, new(0f, 0f, -Backdrop), facing);
+
+            return toFloorPastSlat > 0f && toFloorPastSlat < toBackdrop
+                ? (ray * toFloorPastSlat, floorNormal)
+                : (ray * toBackdrop, facing);
+        }
+
+        if (!wall) {
+            return (ray * Distance(ray, through, normal), normal);
+        }
+
+        // Whichever the ray meets first. A ray heading up never meets the floor at all, which is
+        // what makes the wall fill the top of the frame.
+        var toWall = Distance(ray, new(0f, 0f, -WallDistance), facing);
+        var toFloor = Distance(ray, floorThrough, floorNormal);
+
+        return toFloor > 0f && toFloor < toWall
+            ? (ray * toFloor, floorNormal)
+            : (ray * toWall, facing);
     }
 
     /// <summary>The view-space direction through a point on the near-to-far axis at a given NDC.</summary>
