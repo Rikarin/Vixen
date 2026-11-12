@@ -62,10 +62,6 @@ public class SymbolReaderTests {
     }
 
     /// <summary>
-    ///     A nested type gets its own page: a reader searching for it should not have to know
-    ///     which type it hangs off.
-    /// </summary>
-    /// <summary>
     ///     A namespace a generator owns outright is not surface, however public its types: Orleans' codecs ask for no
     ///     guide page. A namespace that only shares the name further down is a human's and stays.
     /// </summary>
@@ -90,6 +86,10 @@ public class SymbolReaderTests {
         Assert.DoesNotContain("T:OrleansCodeGen.Vixen.Live.Codec_Account", ids);
     }
 
+    /// <summary>
+    ///     A nested type gets its own page: a reader searching for it should not have to know
+    ///     which type it hangs off.
+    /// </summary>
     [Fact]
     public void PublicNestedTypesGetTheirOwnNode() {
         var nodes = Read(
