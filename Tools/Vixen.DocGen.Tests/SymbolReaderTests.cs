@@ -65,6 +65,31 @@ public class SymbolReaderTests {
     ///     A nested type gets its own page: a reader searching for it should not have to know
     ///     which type it hangs off.
     /// </summary>
+    /// <summary>
+    ///     A namespace a generator owns outright is not surface, however public its types: Orleans' codecs ask for no
+    ///     guide page. A namespace that only shares the name further down is a human's and stays.
+    /// </summary>
+    [Fact]
+    public void TypesInANamespaceAGeneratorOwnsAreNotSurface() {
+        var compilation = Fixture.Compile(
+            """
+            namespace OrleansCodeGen.Vixen.Live {
+                public sealed class Codec_Account;
+            }
+
+            namespace Fixtures.OrleansCodeGen {
+                public sealed class Kept;
+            }
+            """
+        );
+        var links = new SourceLinks(Path.GetTempPath(), "https://github.com/rikarin/Vixen", "abc123");
+
+        var ids = new SymbolReader(links).Read(compilation.Assembly, "Core", true).Select(static node => node.Id);
+
+        Assert.Contains("T:Fixtures.OrleansCodeGen.Kept", ids);
+        Assert.DoesNotContain("T:OrleansCodeGen.Vixen.Live.Codec_Account", ids);
+    }
+
     [Fact]
     public void PublicNestedTypesGetTheirOwnNode() {
         var nodes = Read(

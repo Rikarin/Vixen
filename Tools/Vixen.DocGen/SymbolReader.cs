@@ -61,7 +61,7 @@ sealed class SymbolReader(SourceLinks links) {
     static IEnumerable<INamedTypeSymbol> Types(INamespaceOrTypeSymbol container) {
         foreach (var member in container.GetMembers()) {
             switch (member) {
-                case INamespaceSymbol child:
+                case INamespaceSymbol child when !IsGeneratorOwned(child):
                     foreach (var type in Types(child)) {
                         yield return type;
                     }
@@ -85,6 +85,20 @@ sealed class SymbolReader(SourceLinks links) {
             }
         }
     }
+
+    /// <summary>Root namespaces a code generator owns outright, whose types no human declares.</summary>
+    /// <remarks>
+    ///     The rule <c>Vixen.ApiCheck</c>'s <c>ApiSurfaceReader</c> keeps, for the same reason: Orleans' codegen
+    ///     emits <em>public</em> codecs named by a hash of a method signature, which nobody writes a guide page
+    ///     for and which change name when the generator does. ⚠ Without it CheckDocs asked for a page or an
+    ///     exemption for each of Vixen.Live.Cluster's 169 codecs. A namespace and not <c>[GeneratedCode]</c>,
+    ///     which would also take a hand-declared partial a generator completes.
+    /// </remarks>
+    static readonly string[] GeneratorOwnedNamespaces = ["OrleansCodeGen"];
+
+    static bool IsGeneratorOwned(INamespaceSymbol space) =>
+        space.ContainingNamespace is { IsGlobalNamespace: true }
+        && GeneratorOwnedNamespaces.Contains(space.Name, StringComparer.Ordinal);
 
     static bool IsExtensionContainer(INamedTypeSymbol type) =>
         type.Name.Contains('<') || type.ToDisplayString().Contains("extension(", StringComparison.Ordinal);
