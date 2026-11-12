@@ -448,8 +448,8 @@ partial class Build {
                         Since
                     );
 
-                    // The Vulkan validation layer's loader path, which .runsettings used to carry and
-                    // the platform runner cannot read (#560).
+                    // The Vulkan validation layer's loader path, which dyld reads at process start and
+                    // so has to be on the process that starts the test executables.
                     ExportLayerLibraryPath();
 
                     // ⚠ Every project runs, and the verdict comes at the end (#1332). This used to throw
@@ -463,16 +463,16 @@ partial class Build {
 
                     foreach (var project in projects) {
                         var relative = RootDirectory.GetRelativePathTo(project).ToUnixRelativePath().ToString();
-                        var exitCode = 0;
-
                         Log.Information("Testing {Project}", relative);
 
-                        var output = DotNetTest(settings => settings
+                        // Built first, because the platform's target runs what is there and builds
+                        // nothing; `dotnet test` used to build on the way.
+                        DotNetBuild(settings => settings
                             .SetProjectFile(project)
                             .SetConfiguration(Configuration)
-                            .SetResultsDirectory(TestResultsDirectory)
-                            .SetProcessExitHandler(process => exitCode = process.ExitCode)
                         );
+
+                        var (output, exitCode) = RunTestAssemblies([project], string.Empty);
 
                         var trx = TestResultsDirectory / (project.NameWithoutExtension + ".trx");
                         var problems = TestRunSummary.Problems(

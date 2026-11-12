@@ -40,8 +40,9 @@ public static class TestRunSummary {
     ///     and VSTest's column-aligned <c>Passed!  - Failed:     0, …</c>.
     /// </summary>
     /// <remarks>
-    ///     ⚠ Both, because one invocation can be either: <c>Directory.Build.props</c> drops a run back
-    ///     to VSTest the moment it carries a filter, a settings file or a blame switch.
+    ///     ⚠ Both, though only the first is produced now: the tests run on the platform's v2 and
+    ///     there is no VSTest path left to fall back to. VSTest's shape is still read so a log from
+    ///     before that move parses the same way.
     /// </remarks>
     static readonly Regex Line = new(
         @"(?<verdict>Passed|Failed)!\s+-\s+Failed:\s+(?<failed>\d+),\s+Passed:\s+\d+,\s+Skipped:\s+\d+,\s+Total:\s+(?<total>\d+),.*?-\s+(?<assembly>[^\s\\/]+?)\.dll\b",

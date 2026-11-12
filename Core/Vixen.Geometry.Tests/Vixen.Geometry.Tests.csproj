@@ -11,11 +11,6 @@
 
     <ItemGroup>
         <PackageReference Include="xunit.v3" />
-        <PackageReference Include="Microsoft.NET.Test.Sdk" />
-        <PackageReference Include="xunit.runner.visualstudio">
-            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-            <PrivateAssets>all</PrivateAssets>
-        </PackageReference>
 
         <!--
             Property tests, as docs/plan/24 § Part 4 asks for and as Vixen.Core.Mathematics already

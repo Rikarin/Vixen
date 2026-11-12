@@ -337,6 +337,8 @@ public static class AffectedOwnership {
             && relative.Count(static character => character == '/') == 1)
         // Claude Code's project skill: read by the agent harness, by no .NET target (#1446).
         || relative.StartsWith(".claude/", StringComparison.Ordinal)
+        // Skala's committed baseline: read by `skala check` in the Skala workflow, by no .NET target.
+        || relative.StartsWith(".skala/", StringComparison.Ordinal)
         // ⚠ Named one by one rather than by a rule, because each was checked rather than assumed
         // (#1446). The shared generator source beside this README is owned through its importers'
         // `Compile` links; the README itself is prose nothing reads. The Mmo sample's root holds

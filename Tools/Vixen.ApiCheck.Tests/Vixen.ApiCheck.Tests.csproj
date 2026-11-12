@@ -11,11 +11,6 @@
 
     <ItemGroup>
         <PackageReference Include="xunit.v3" />
-        <PackageReference Include="Microsoft.NET.Test.Sdk" />
-        <PackageReference Include="xunit.runner.visualstudio">
-            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-            <PrivateAssets>all</PrivateAssets>
-        </PackageReference>
 
         <!-- The tests compile their own subjects, which is what makes them readable: the fixture is
              the C# whose surface is being asserted, not a binary checked in beside them. -->

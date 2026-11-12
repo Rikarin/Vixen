@@ -394,18 +394,27 @@
       in. This is that something, and it is referenced by one test project.
     -->
     <PackageVersion Include="Npgsql" Version="10.0.3" />
-    <PackageVersion Include="xunit.v3" Version="3.2.2" />
-    <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.5" />
-    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.12.0" />
     <!--
-      The TRX writer for the Microsoft.Testing.Platform path (#560, Directory.Build.props).
-      ⚠ Pinned to 1.x deliberately. 2.0.0 is what NuGet resolves by default and it
-      throws `TypeLoadException: Could not load type ... IDataConsumer from assembly
-      Microsoft.Testing.Platform, Version=2.0.0.0` before running a test, because
-      xunit.v3 3.2.2 binds the 1.x platform (xunit.v3.core.mtp-v1 depends on
-      Microsoft.Testing.Platform 1.9.1). It moves when xunit.v3 moves to mtp-v2.
+      xunit.v3 4 runs on Microsoft.Testing.Platform v2 and nothing else (it depends on
+      xunit.v3.mtp-v2), so there is no VSTest adapter or VSTest host here any more:
+      xunit.runner.visualstudio and Microsoft.NET.Test.Sdk went with the move. A test
+      assembly is an executable that hosts its own runner; global.json opts `dotnet test`
+      into driving it that way, and the build's Test target calls the platform's own
+      MSBuild target (Directory.Build.props, build/Build.TestOrder.cs).
     -->
-    <PackageVersion Include="Microsoft.Testing.Extensions.TrxReport" Version="1.9.1" />
+    <PackageVersion Include="xunit.v3" Version="4.0.3" />
+    <!--
+      The platform's extensions, at the version xunit.v3 4.0.3's platform matches. TRX is
+      what every analysis of this repository's own test cost reads; the two dump extensions
+      are what VSTest's blame collector used to be (#1434), referenced by every test project
+      so `- -crashdump` and `- -hangdump` are there when a host dies; coverage is added only to
+      a coverage build (build/Build.Coverage.cs), because its native profilers would
+      otherwise land in every test project's output.
+    -->
+    <PackageVersion Include="Microsoft.Testing.Extensions.TrxReport" Version="2.5.3" />
+    <PackageVersion Include="Microsoft.Testing.Extensions.CrashDump" Version="2.5.3" />
+    <PackageVersion Include="Microsoft.Testing.Extensions.HangDump" Version="2.5.3" />
+    <PackageVersion Include="Microsoft.Testing.Extensions.CodeCoverage" Version="18.12.0" />
     <!--
       Property-based testing (docs/plan/01 § Test, docs/plan/12 § "Property-based").
       Pinned at the version current when Vixen.Core.Mathematics was written, which

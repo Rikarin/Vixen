@@ -39,12 +39,7 @@
     </ItemGroup>
 
     <ItemGroup>
-        <PackageReference Include="xunit.v3" Version="3.2.2" />
-        <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.12.0" />
-        <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5">
-            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-            <PrivateAssets>all</PrivateAssets>
-        </PackageReference>
+        <PackageReference Include="xunit.v3" Version="4.0.3" />
 
         <!-- What compiles a scaffolded project without building one. See TemplateCompiler. The
              central 5.9.0, because the generators this project references bring it and a lower

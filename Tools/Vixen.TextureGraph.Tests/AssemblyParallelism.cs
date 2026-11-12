@@ -1,7 +1,8 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
-using Xunit;
+using Xunit.Sdk;
+using Xunit.v3;
 
 // ⚠ The whole assembly runs one test at a time, and what it buys is the only witness there is for a
 // barrier — https://github.com/Rikarin/Vixen/issues/712.
@@ -18,4 +19,4 @@ using Xunit;
 // `[Collection("Vulkan")]` over its device classes; here it is the assembly, because half of this
 // suite opens a device and a per-class attribute would be one more list to keep in step with a
 // folder.
-[assembly: CollectionBehavior(DisableTestParallelization = true)]
+[assembly: Parallelization(Mode = ParallelMode.None)]

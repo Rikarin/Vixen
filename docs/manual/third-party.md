@@ -187,10 +187,11 @@ Rows marked **build/test only** do not reach a shipped game or editor; the reaso
 |---|---|---|---|---|
 | `Nuke.Common` | 10.1.0 | MIT | `nuspec` | **build only** |
 | `BenchmarkDotNet` | 0.15.8 | MIT | `nuspec` | **build/test only** |
-| `xunit.v3` | 3.2.2 | Apache-2.0 | `nuspec` | **test only** |
-| `xunit.runner.visualstudio` | 3.1.5 | Apache-2.0 | `nuspec` | **test only** |
-| `Microsoft.NET.Test.Sdk` | 18.12.0 | MIT | `nuspec` | **test only** |
-| `Microsoft.Testing.Extensions.TrxReport` | 1.9.1 | MIT | `nuspec` | **test only** — the TRX writer for the Microsoft.Testing.Platform runner. Pinned to 1.x: xunit.v3 3.x binds the 1.x platform |
+| `xunit.v3` | 4.0.3 | Apache-2.0 | `nuspec` | **test only** |
+| `Microsoft.Testing.Extensions.TrxReport` | 2.5.3 | MIT | `nuspec` | **test only** — the TRX writer for the Microsoft.Testing.Platform runner, at the platform version xunit.v3 4 binds |
+| `Microsoft.Testing.Extensions.CrashDump` | 2.5.3 | MIT | `nuspec` | **test only** — `--crashdump`, what VSTest's blame collector was |
+| `Microsoft.Testing.Extensions.HangDump` | 2.5.3 | MIT | `nuspec` | **test only** — `--hangdump` |
+| `Microsoft.Testing.Extensions.CodeCoverage` | 18.12.0 | Microsoft .NET Library licence | `License.txt` in the package | **test only**, and only in a coverage build (`-p:VixenCoverage=true`): not redistributable source and never shipped. ⚠ It depends on `Mono.Cecil`, which is why it is not in the restore graph CheckArchitecture evaluates (ADR-002) |
 | `CsCheck` | 5.0.1 | Apache-2.0 | `nuspec` | **test only** |
 | `Npgsql` | 10.0.3 | PostgreSQL | `nuspec` | **test only** — one test project. The PostgreSQL licence is a permissive BSD-style text, distinct from MIT |
 
@@ -267,7 +268,7 @@ neither BCL nor Microsoft-published, and therefore actually add attribution, are
 | `Fractions` | BSD-3-Clause style | `nuspec + text` | `KubernetesClient` — text read: "Copyright (c) 2013-2022, Daniel Mueller" |
 | `Iced`, `Gee.External.Capstone`, `Perfolizer`, `CommandLineParser` | MIT | `nuspec` / `nuspec + text` | `BenchmarkDotNet` — **build/test only** |
 | `Octokit`, `Azure.Identity`, `Azure.Security.KeyVault.*`, `Nuke.*` | MIT | `nuspec` | `Nuke.Common` — **build only** |
-| `xunit.v3.mtp-v1` | Apache-2.0 | `nuspec` | `xunit.v3` — **test only** |
+| `xunit.v3.mtp-v2` | Apache-2.0 | `nuspec` | `xunit.v3` — **test only** |
 
 The remainder are `System.*`, `Microsoft.Extensions.*`, `Microsoft.CodeAnalysis.*`,
 `Microsoft.TestPlatform.*` and `NETStandard.Library` — the .NET platform, MIT, published by Microsoft

@@ -5,6 +5,8 @@ using Vixen.Core.Mathematics;
 using Vixen.Editor.Testing;
 using Vixen.Engine.Transforms;
 using Xunit;
+using Xunit.Sdk;
+using Xunit.v3;
 
 namespace Vixen.Editor.App.Tests;
 
@@ -272,14 +274,14 @@ public class HarnessTests {
     [Fact]
     public void This_assembly_does_not_run_its_classes_in_parallel() {
         var behaviour = typeof(HarnessTests).Assembly
-            .GetCustomAttributes(typeof(CollectionBehaviorAttribute), false)
-            .Cast<CollectionBehaviorAttribute>()
+            .GetCustomAttributes(typeof(ParallelizationAttribute), false)
+            .Cast<ParallelizationAttribute>()
             .SingleOrDefault();
 
         Assert.True(
-            behaviour is { DisableTestParallelization: true },
-            "Vixen.Editor.App.Tests must declare [assembly: CollectionBehavior(DisableTestParallelization = "
-            + "true)]. The language is process-wide, so a class that changes it changes the words an editor "
+            behaviour?.GetMode() == ParallelMode.None,
+            "Vixen.Editor.App.Tests must declare [assembly: Parallelization(Mode = ParallelMode.None)]. "
+            + "The language is process-wide, so a class that changes it changes the words an editor "
             + "another class has standing on another thread reads. See AssemblyInfo.cs."
         );
     }

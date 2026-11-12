@@ -59,7 +59,7 @@ Debug, is not a conclusion about them.
 | `CompileShaderLibrary` | `CheckShaders` — recompiles the shaders whose `.spv` is committed, from their import closure, and reports drift |
 | `GenerateApiBaseline` | `--update-api` on `CheckApi` |
 | `AotSmoke` | `CheckAot` and `CheckAotIos` |
-| `Coverage` | ✅ reports line coverage of each test project's own subject assembly and gates on nothing but its own instrument; not in CI. ⚠️ This row used to add "not on the graph", and it is: `Coverage` `DependsOn(Compile)` (`build/Build.Coverage.cs:71`). § Coverage below |
+| `Coverage` | ✅ reports line coverage of each test project's own subject assembly and gates on nothing but its own instrument; not in CI. ⚠️ This row used to add "not on the graph", and it is: `Coverage` `DependsOn(Compile)` (`build/Build.Coverage.cs:72`). § Coverage below |
 | `Sign`, `Notarize` | — |
 | `PublishAndroid`, `PublishIos` | — `CompileMobile` builds the assemblies; nothing publishes |
 
@@ -345,11 +345,11 @@ files.
   replacement it names — a direct `dotnet test --filter` — is exactly what would consume a trait.
   Were these categories ever applied, `dotnet test <project> --filter "Category=Unit"` is the command,
   and `nuke Test --filter` remains a switch that does not exist.
-  ⚠️ **But that command is now the *wrong* spelling of the lane, and the reason is
-  [#560](https://github.com/Rikarin/Vixen/issues/560).** `dotnet test --filter` builds
-  `VSTestTestCaseFilter`, and a VSTest-only switch takes the whole invocation back to VSTest — so a
-  `Speed!=Slow` lane written that way would hand back the per-assembly second the platform runner
-  just bought, on every assembly it ran. xunit's own runner takes the same question directly:
+  ⚠️ **That command was the *wrong* spelling of the lane under
+  [#560](https://github.com/Rikarin/Vixen/issues/560)**, when `dotnet test --filter` built
+  `VSTestTestCaseFilter` and took the whole invocation back to VSTest. Since the move to the
+  platform's v2 (xunit.v3 4) there is no VSTest to fall back to: `dotnet test` runs on the platform
+  and xunit reads the `FullyQualifiedName~…` filter syntax itself. xunit's own runner takes the same question directly:
   `--filter-not-trait Speed=Slow` (also `--filter-trait`, `--filter-class`, `--filter-method`,
   `--filter-query`, each with a `not` form — read off `--help` on a built test assembly on
   2026-09-06). It reaches the run through `TestingPlatformCommandLineArguments`, which is where
@@ -371,14 +371,38 @@ files.
   `GoldenImages` and `AffectedTests` call it before invoking anything. Measured on 2026-09-06 rather
   than assumed — a probe test asserting the variable's value passes through
   `dotnet msbuild -t:VSTest` when the invoking process exports it and fails when it does not, so the
-  inheritance chain through `dotnet` and MSBuild to the test executable is real. `.runsettings` still
-  exists and is still passed by `Coverage`, which is the one target still on VSTest.
-- **Each test project writes its own `.trx`,** named after the project — `--report-trx-filename` on
-  the platform path, `VSTestLogger` on `Coverage`'s, both in `Directory.Build.props`. Nuke passes a
+  inheritance chain through `dotnet` and MSBuild to the test executable is real. `.runsettings` is
+  read by no runner since the move to the platform's v2; it stays as the declaration
+  `RunSettingsTests` holds `ExportLayerLibraryPath` to, and every build target that starts test
+  executables — `Coverage` included now — calls that method.
+- **Each test project writes its own `.trx`,** named after the project — `--report-trx-filename` in
+  `Directory.Build.props`. Nuke passes a
   results *directory* and no filename: a fixed name points all eighteen projects at one path, they
   run concurrently, and the artefact CI publishes is whichever finished last. The build still fails
   on a red test — the exit code does not go through the file — but the report a human opens to find
   out *which* test is the entire point of producing one.
+
+**Since 2026-11-12 the tests run on Microsoft.Testing.Platform v2, with xunit.v3 4, and there is no
+VSTest path at all.** xunit.v3 4 depends on `xunit.v3.mtp-v2` and nothing else, and the platform's
+MSBuild package 2 refuses the `VSTest` target outright on SDK 10 and later — the target #560's
+switch re-pointed. What replaced each piece of what follows:
+
+- `Test`, `AffectedTests`, `GoldenImages`, `RemeshBytes` and `Coverage` call the platform's own
+  `InvokeTestingPlatform` target through the generated traversal (`RunTestAssemblies`,
+  build/Build.TestOrder.cs), so the node count and the longest-first order are kept. Extra switches
+  reach every assembly through `-p:VixenTestArguments`, the results directory through
+  `-p:VixenTestResultsDirectory`.
+- `global.json` opts `dotnet test` into the platform's mode. A positional project path and a
+  `FullyQualifiedName~…` filter still work — xunit reads that syntax itself.
+- `xunit.runner.visualstudio` and `Microsoft.NET.Test.Sdk` are gone; the TRX writer is 2.5.3.
+- Blame is `Microsoft.Testing.Extensions.CrashDump` / `HangDump`, in every test project.
+- `Coverage` builds each project with `-p:VixenCoverage=true`, which adds
+  `Microsoft.Testing.Extensions.CodeCoverage` to it alone (its profilers and its `Mono.Cecil`
+  dependency stay out of the graph CheckArchitecture reads), and runs it with `--coverage`.
+- `[assembly: CollectionBehavior(DisableTestParallelization = true)]` is
+  `[assembly: Parallelization(Mode = ParallelMode.None)]`.
+
+The section below is the record of #560 as it landed.
 
 **[#560](https://github.com/Rikarin/Vixen/issues/560) landed on 2026-09-06: the test assemblies run
 through Microsoft.Testing.Platform, not VSTest.** A xunit.v3 assembly is an executable that hosts its

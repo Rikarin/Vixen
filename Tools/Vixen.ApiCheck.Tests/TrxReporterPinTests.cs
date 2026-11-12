@@ -40,13 +40,25 @@ namespace Vixen.ApiCheck.Tests;
 ///     </para>
 /// </remarks>
 public class TrxReporterPinTests {
-    const string Package = "Microsoft.Testing.Extensions.TrxReport";
+    /// <summary>
+    ///     The platform extensions Directory.Build.props pins twice: the TRX writer, and since the move
+    ///     to the platform's v2 the two dump extensions that replaced VSTest's blame and the coverage
+    ///     extension that replaced its collector.
+    /// </summary>
+    public static TheoryData<string> Packages => [
+        "Microsoft.Testing.Extensions.TrxReport",
+        "Microsoft.Testing.Extensions.CrashDump",
+        "Microsoft.Testing.Extensions.HangDump",
+        "Microsoft.Testing.Extensions.CodeCoverage"
+    ];
 
-    /// <summary>Both files pin the reporter at the same version.</summary>
-    [Fact]
-    public void The_two_pins_of_the_trx_reporter_agree() {
-        var central = Pin("Directory.Packages.props", "PackageVersion");
-        var local = Pin("Directory.Build.props", "PackageReference");
+    /// <summary>Both files pin each extension at the same version.</summary>
+    /// <param name="package">The extension.</param>
+    [Theory]
+    [MemberData(nameof(Packages))]
+    public void The_two_pins_of_the_trx_reporter_agree(string package) {
+        var central = Pin(package, "Directory.Packages.props", "PackageVersion");
+        var local = Pin(package, "Directory.Build.props", "PackageReference");
 
         Assert.Equal(central, local, StringComparer.Ordinal);
     }
@@ -57,31 +69,33 @@ public class TrxReporterPinTests {
     ///     one needs a Release build of the solution and eleven minutes, which is why nobody ran it
     ///     for the two weeks a stale exemption sat on <c>master</c>. This one costs a file read.
     /// </remarks>
-    [Fact]
-    public void The_licence_manifest_documents_the_version_that_is_pinned() {
+    /// <param name="package">The extension.</param>
+    [Theory]
+    [MemberData(nameof(Packages))]
+    public void The_licence_manifest_documents_the_version_that_is_pinned(string package) {
         var manifest = File.ReadAllText(Path.Combine(RepositoryRoot(), "docs", "manual", "third-party.md"));
-        var row = manifest.Split('\n').FirstOrDefault(static line => line.Contains(Package, StringComparison.Ordinal));
+        var row = manifest.Split('\n').FirstOrDefault(line => line.Contains($"`{package}`", StringComparison.Ordinal));
 
-        Assert.True(row is not null, $"docs/manual/third-party.md has no row for {Package}.");
-        Assert.Contains(Pin("Directory.Packages.props", "PackageVersion"), row!, StringComparison.Ordinal);
+        Assert.True(row is not null, $"docs/manual/third-party.md has no row for {package}.");
+        Assert.Contains(Pin(package, "Directory.Packages.props", "PackageVersion"), row!, StringComparison.Ordinal);
     }
 
-    static string Pin(string file, string element) {
+    static string Pin(string package, string file, string element) {
         var text = File.ReadAllText(Path.Combine(RepositoryRoot(), file));
         var match = Regex.Match(
             text,
-            $"<{element}\\s+Include=\"{Regex.Escape(Package)}\"[^>]*?\\s+Version=\"(?<version>[^\"]+)\"",
+            $"<{element}\\s+Include=\"{Regex.Escape(package)}\"[^>]*?\\s+Version=\"(?<version>[^\"]+)\"",
             RegexOptions.None,
             TimeSpan.FromSeconds(5)
         );
 
-        Assert.True(match.Success, $"{file} has no <{element}> for {Package} carrying a Version.");
+        Assert.True(match.Success, $"{file} has no <{element}> for {package} carrying a Version.");
 
         var version = match.Groups["version"].Value;
 
         Assert.False(
             version.StartsWith("$(", StringComparison.Ordinal),
-            $"{file} pins {Package} at '{version}'. A property here is what makes "
+            $"{file} pins {package} at '{version}'. A property here is what makes "
             + "CheckAttributionManifest unable to read the pin — see this class's remarks."
         );
 

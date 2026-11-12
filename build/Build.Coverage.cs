@@ -43,11 +43,12 @@ using static Nuke.Common.Tools.DotNet.DotNetTasks;
 ///         measurement's clothes.
 ///     </para>
 ///     <para>
-///         <b>The collector is the one the SDK already carries.</b>
-///         <c>--collect "Code Coverage;Format=cobertura"</c> comes with <c>Microsoft.NET.Test.Sdk</c>,
-///         which every test project here references, so this adds no package and no restore. It was
-///         run on this machine against <c>Vixen.Graphics.Null.Tests</c> before being written down;
-///         the numbers in the paragraph above are that run's.
+///         <b>The collector is Microsoft.Testing.Platform's CodeCoverage extension</b>, added to a
+///         test project only by a build with <c>-p:VixenCoverage=true</c>, which this target does
+///         per project before running it with <c>--coverage --coverage-output-format cobertura</c>.
+///         It replaced VSTest's <c>Code Coverage</c> collector, which went with
+///         <c>Microsoft.NET.Test.Sdk</c> when the tests moved to the platform's v2. The numbers in
+///         the paragraph above were measured with the old collector.
 ///     </para>
 ///     <para>
 ///         ⚠️ <b>Sequential, and no <see cref="Test" />-style traversal project.</b> Instrumentation
@@ -89,32 +90,33 @@ partial class Build {
 
                     CoverageDirectory.CreateOrCleanDirectory();
 
+                    // The run environment every target that starts test executables applies; see
+                    // .runsettings, which declares it.
+                    ExportLayerLibraryPath();
+
                     var rows = new List<CoverageReport.Row>();
 
                     foreach (var project in projects) {
                         var results = CoverageDirectory / project.NameWithoutExtension;
 
-                        DotNetTest(settings => settings
-                            .SetProjectFile(project.ToString())
+                        // ⚠ Rebuilt with the coverage extension, which no other build carries
+                        // (Directory.Build.props: its profilers and its Mono.Cecil stay out of the
+                        // graph CheckArchitecture evaluates). The next ordinary build drops it again.
+                        DotNetBuild(settings => settings
+                            .SetProjectFile(project)
                             .SetConfiguration(Configuration)
-                            .EnableNoRestore()
-                            .EnableNoBuild()
-                            .SetSettingsFile(RootDirectory / ".runsettings")
-                            .SetResultsDirectory(results)
-                            // The collector `Microsoft.NET.Test.Sdk` already carries, asked for by the
-                            // name `dotnet test --collect` takes. Cobertura rather than the default
-                            // `.coverage`, which is a binary needing a second tool to read.
-                            .SetDataCollector("Code Coverage;Format=cobertura")
-                            // ⚠ And the reason this target alone still says VSTest out loud. Every other
-                            // test run here goes through Microsoft.Testing.Platform now (#560), which is
-                            // about a second and two processes per assembly cheaper — but `--collect` and
-                            // `--settings` are VSTest concepts the platform ignores with a *warning*, so a
-                            // coverage run left on that path would have produced a report of nothing and
-                            // said so in green. `Directory.Build.props` leaves the switch overridable for
-                            // exactly this, and `xunit.runner.visualstudio` is still referenced so that the
-                            // old path still exists to be asked for.
-                            .SetProperty("TestingPlatformDotnetTestSupport", false)
+                            .SetProperty("VixenCoverage", true)
                         );
+
+                        // Cobertura rather than the default `.coverage`, which is a binary needing a
+                        // second tool to read.
+                        var (_, exitCode) = RunTestAssemblies(
+                            [project],
+                            $"--coverage --coverage-output-format cobertura --coverage-output {project.NameWithoutExtension}.cobertura.xml",
+                            results
+                        );
+
+                        Assert.True(exitCode == 0, $"{project.NameWithoutExtension} exited {exitCode} under coverage.");
 
                         rows.Add(Measure(project, results));
                     }

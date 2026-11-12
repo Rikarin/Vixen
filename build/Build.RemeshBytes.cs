@@ -98,18 +98,19 @@ partial class Build {
                     // and the inherited environment has not.
                     Environment.SetEnvironmentVariable("VIXEN_REMESH_BYTES", RemeshBytesDirectory);
 
-                    DotNetTest(settings => settings
-                        .SetProjectFile(
+                    var (_, exitCode) = RunTestAssemblies(
+                        [
                             RootDirectory
                             / "Core"
                             / "Vixen.Geometry.Remeshing.Tests"
                             / "Vixen.Geometry.Remeshing.Tests.csproj"
-                        )
-                        .SetConfiguration(Configuration)
-                        .EnableNoRestore()
-                        .EnableNoBuild()
-                        .SetFilter("FullyQualifiedName~RemeshBytesTests")
-                        .SetResultsDirectory(TestResultsDirectory)
+                        ],
+                        "--filter-class *.RemeshBytesTests"
+                    );
+
+                    Assert.True(
+                        exitCode == 0,
+                        $"the RemeshBytesTests run exited {exitCode}; its TRX is in {TestResultsDirectory}."
                     );
 
                     var manifest = RemeshBytesDirectory / "manifest.txt";

@@ -298,187 +298,85 @@
     <DeterministicSourcePaths>false</DeterministicSourcePaths>
     <!--
       ============================================================================
-      Run through Microsoft.Testing.Platform rather than VSTest (#560).
+      Run on Microsoft.Testing.Platform v2, which xunit.v3 4 requires (#560 moved the
+      runs onto the platform; this is the move off its VSTest bridge).
 
       A xunit.v3 test assembly is an executable that hosts its own runner — the
-      `OutputType` in every test csproj says so. VSTest ignored that and started
-      two more processes per assembly to talk to it: measured with
-      `ps -ax -o pid,args` during a run, `vstest.console.dll` and `testhost.dll`
-      alongside the executable itself, ~1 s of protocol per assembly across 180 of
-      them. Setting `TestingPlatformDotnetTestSupport` re-points MSBuild's `VSTest`
-      target at `InvokeTestingPlatform`, which launches the assembly directly.
+      `OutputType` in every test csproj says so. Three things start it:
 
-      ⚠ **This needed no package and no csproj edit, which is the opposite of what
-      four audits of #560 concluded.** They costed the migration at 180
-      `PackageReference` additions. `Microsoft.Testing.Platform.MSBuild` 1.9.1 is
-      already in every test project's graph — `xunit.v3` 3.2.2 resolves to
-      `xunit.v3.mtp-v1` → `xunit.v3.core.mtp-v1`, which depends on it and on
-      `Microsoft.Testing.Platform` itself. Only the TRX writer is genuinely new,
-      and one item here reaches all 180 projects.
+      - `dotnet test`, which global.json opts into the platform's own mode
+        (`"test": { "runner": "Microsoft.Testing.Platform" }`). A positional project path and a
+        `FullyQualifiedName~…` filter still work — xunit.v3 4 reads that filter syntax itself —
+        and xunit's own `- -filter-class` / `- -filter-method` take `*` wildcards (switches written
+        spaced here: XML forbids a double hyphen inside a comment, which is the trap
+        Directory.Build.targets records). The TRX lands in TestResults/, which is ignored.
+      - The build's Test target, which calls `InvokeTestingPlatform` — the platform's own
+        MSBuild target — through a generated traversal, for the node count and the
+        longest-first order (build/Build.TestOrder.cs). ⚠ Not `VSTest`: on SDK 10 and later
+        Microsoft.Testing.Platform.MSBuild 2 refuses that target outright.
+      - An IDE, which speaks the platform's protocol to the executable.
 
-      ⚠ **And it stays revertible on one line**, which is why
-      `xunit.runner.visualstudio` and `Microsoft.NET.Test.Sdk` are still
-      referenced: setting `TestingPlatformDotnetTestSupport=false` on a single
-      invocation puts that invocation back on VSTest. `Coverage` relies on exactly
-      that (build/Build.Coverage.cs) — its cobertura collector is a VSTest data
-      collector, not something the platform has.
+      ⚠ There is no VSTest path left to fall back on. Blame is the platform's CrashDump and
+      HangDump extensions (`- -crashdump`, `- -hangdump`), which every test project carries;
+      coverage is its CodeCoverage extension, which only a coverage build carries.
       ============================================================================
     -->
     <!--
-      ⚠ **A VSTest-only switch on the command line takes the whole invocation back to VSTest**, and
-      this line is the difference between the inner loop working and looking like it worked.
-      `dotnet test <project>` with a test-case filter is the command CLAUDE.md hands every reader;
-      that switch sets `VSTestTestCaseFilter`, which the platform does not read, and `MTP0001` is a
-      *warning* rather than an error — so a filtered run silently became the whole assembly and
-      exited green having done far more than it was asked. (Caught here by the warning line on a
-      95-test assembly that had been asked for 8.) The settings-file and data-collector switches are
-      the same shape; `Coverage` depends on the second and asks for this explicitly rather than
-      relying on it. Falling back costs the ~1 s of VSTest protocol on one project, which is exactly
-      the run where a second does not matter. The switch names are spelled around rather than
-      written: XML forbids a double hyphen inside a comment, which is the trap the results-directory
-      note below and `Directory.Build.targets` both record.
+      What `InvokeTestingPlatform` hands every assembly: a TRX named after its project,
+      exit code 8 not counted as a failure, and the results directory and any extra
+      switches a build target asks for.
 
-      ⚠ **The blame switches are the same shape, and missing them cost a crash its only witness
-      (#1434).** A test host died with an access violation mid-run and the advice was to rerun with
-      blame so the sequence file names the test in flight; the reruns took that advice, stayed on the
-      platform, printed `MTP0001: … VSTestBlame` and wrote no sequence file and no dump. Blame, its
-      crash-dump and its hang-dump halves are all VSTest data collectors — the platform's equivalents
-      are extensions this tree does not reference — so asking for any of them means VSTest.
-    -->
-    <TestingPlatformDotnetTestSupport Condition="'$(TestingPlatformDotnetTestSupport)' == '' AND ('$(VSTestTestCaseFilter)' != '' OR '$(VSTestSetting)' != '' OR '$(VSTestCollect)' != '' OR '$(VSTestBlame)' == 'true' OR '$(VSTestBlameCrash)' == 'true' OR '$(VSTestBlameHang)' == 'true')">false</TestingPlatformDotnetTestSupport>
-    <TestingPlatformDotnetTestSupport Condition="'$(TestingPlatformDotnetTestSupport)' == ''">true</TestingPlatformDotnetTestSupport>
-    <UseMicrosoftTestingPlatformRunner Condition="'$(TestingPlatformDotnetTestSupport)' == 'true'">true</UseMicrosoftTestingPlatformRunner>
-    <!--
-      Name the TRX after the project that produced it. Left to itself the logger
-      names the file after the machine and the second it finished, which for
-      eighteen projects finishing inside the same three seconds gives a directory
-      of `_Jius-MBP_…_net11.0[4].trx` — every result present, none of them
-      attributable without opening the file. The escaped semicolon (%3b) is
-      required: an unescaped one ends the property value in MSBuild.
+      The TRX is named after the project rather than left to the platform, which names it
+      after the machine and the second it finished — eighteen projects finishing inside the
+      same three seconds gave a directory of `_Jius-MBP_…_net11.0[4].trx`, every result
+      present and none of them attributable without opening the file.
 
-      This lives here rather than in build/Build.cs because the value depends on
-      MSBuildProjectName, which only means anything inside the project being built.
-
-      ⚠ Two spellings of the same requirement, because the two runners take it
-      differently and `MTP0001` downgrades a VSTest property to a *warning* rather
-      than an error when the platform is driving. A `VSTestLogger` left set on the
-      platform path would be one warning line inside a 500-second log and eighteen
-      unattributable files — so it is set only on the path that reads it.
-    -->
-    <VSTestLogger Condition="'$(TestingPlatformDotnetTestSupport)' != 'true'">trx%3bLogFileName=$(MSBuildProjectName).trx</VSTestLogger>
-    <TestingPlatformCommandLineArguments Condition="'$(TestingPlatformDotnetTestSupport)' == 'true'">--report-trx --report-trx-filename $(MSBuildProjectName).trx</TestingPlatformCommandLineArguments>
-    <!--
-      ⚠ `VSTestResultsDirectory` is the one VSTest property the platform path still
-      reads, and it is re-routed here rather than honoured: `MTP0001` will name it,
-      and the run still writes where it was told. Without this line a TRX lands in
-      `bin/<config>/<tfm>/TestResults` and `Test`'s own count-the-TRX assertion is
-      what notices — which is the instrument working, not a reason to rely on it.
-    -->
-    <TestingPlatformCommandLineArguments Condition="'$(TestingPlatformDotnetTestSupport)' == 'true' AND '$(VSTestResultsDirectory)' != ''">$(TestingPlatformCommandLineArguments) --results-directory "$(VSTestResultsDirectory)"</TestingPlatformCommandLineArguments>
-    <!--
       ⚠ **Exit code 8 is "zero tests ran", and an assembly whose every case skips ran none.** So a
       macOS platform suite correctly skipping all twelve of its cases on Linux, and a GPU suite
-      correctly skipping all five where there is no device, were each reported as a *failed run* —
-      `Vixen.Platform.MacOS.Tests.dll : error run failed`, with `failed="0"` in the file (#1023).
-      This repository keeps writing down the opposite failure, a suite green on a day it did
-      nothing; this is the same cost from the other side, because a leg red for two harmless
-      reasons is a leg nobody reads.
-
-      ⚠ The flag #1023 proposed does not exist. The platform rejects a minimum-expected-tests of
-      zero outright — "expects a single non zero positive integer value" — so ignoring the code is
-      the only spelling available. Verified by running the built assembly both ways.
-
-      **What replaces the signal is in `Test`, not here**, because ignoring exit code 8 also
-      accepts a suite whose discovery returned nothing, which is the failure worth catching. The
-      TRX tells the two apart and the exit code cannot: a skipped case is still a case in the file,
-      so the macOS suite writes total 12 with executed 0, while a run that found no tests writes a
-      total of 0. `Test` fails on the second. Nothing else changes — a normal run's exit code is
-      untouched, measured on a five-case assembly that passes.
+      correctly skipping all five where there is no device, were each reported as a *failed run*
+      (#1023). ⚠ The platform rejects a minimum-expected-tests of zero outright, so ignoring the
+      code is the only spelling available. What replaces the signal is in `Test`: a TRX with a total
+      of zero is a suite whose discovery found nothing, and that fails.
     -->
-    <TestingPlatformCommandLineArguments Condition="'$(TestingPlatformDotnetTestSupport)' == 'true'">$(TestingPlatformCommandLineArguments) --ignore-exit-code 8</TestingPlatformCommandLineArguments>
-
-    <VSTestLogger>trx%3bLogFileName=$(MSBuildProjectName).trx</VSTestLogger>
-
-    <!--
-      The root `.runsettings`, for the command CLAUDE.md actually recommends.
-
-      ⚠ Nothing discovers this file. `dotnet test` does not look for a
-      `.runsettings` beside the solution, and until this line existed the file
-      reached exactly four call sites, all inside `build/` — `Test`,
-      `GoldenImages`, `AffectedTests` and `Coverage`. So
-      `dotnet test Platform/Vixen.Graphics.Vulkan.Tests`, which the working
-      agreement prefers over `./build.sh`, ran the Vulkan suite with the Khronos
-      validation layer enumerated and inert, and
-      `VulkanInstanceTests.ValidationIsOnWhereTheLayerIsInstalled` — which fails
-      rather than skips where a layer is installed and off — went red saying
-      nothing was wrong with the code.
-
-      ⚠ And it was invisible from a developer's own terminal, which is the half
-      worth writing down. `DYLD_LIBRARY_PATH=/opt/homebrew/lib` exported from a
-      shell profile makes that test pass whatever the settings say, so the
-      question "are the validation layers on?" answered yes here and no in an
-      IDE, in a `launchctl` session and on a runner. Measured both ways on
-      2026-09-06: green with the ambient variable, red with `DYLD_LIBRARY_PATH=`
-      in front of the same command. That is precisely the drift `.runsettings`
-      says it exists to remove, and it had removed it for four callers out of
-      five.
-
-      Here rather than in each test project for the reason `VSTestLogger` above
-      is: 178 projects cannot be relied on to remember, and the one that forgets
-      is invisible.
-
-      The four explicit callers keep working and keep winning:
-      `Microsoft.TestPlatform.targets` resolves the task's settings as
-      `ValueOrDefault($(VSTestSetting), '$(RunSettingsFilePath)')`, so a
-      `-p:VSTestSetting=` or the settings switch on the command line overrides
-      this, and this only fills in when neither was given. (⚠ Spelling that
-      switch out is not an option: XML forbids a double hyphen inside a comment,
-      which is the same trap `.runsettings` and `Directory.Build.targets` both
-      record — and it makes every project in the tree fail to evaluate with an
-      error about the XML rather than about the build.)
-
-      ⚠ It is a runsettings property, so #560's Microsoft.Testing.Platform
-      migration discards it — MTP reads no `.runsettings` at all, and
-      `_ValidateVSTestProperties` downgrades this family to warning MTP0001
-      rather than erroring. Whatever starts the test host under MTP has to set
-      the variable itself, in one place, or this comes back.
-    -->
-    <RunSettingsFilePath>$(MSBuildThisFileDirectory).runsettings</RunSettingsFilePath>
+    <TestingPlatformCommandLineArguments>$(TestingPlatformCommandLineArguments) --report-trx --report-trx-filename $(MSBuildProjectName).trx --ignore-exit-code 8</TestingPlatformCommandLineArguments>
+    <TestingPlatformCommandLineArguments Condition="'$(VixenTestResultsDirectory)' != ''">$(TestingPlatformCommandLineArguments) --results-directory "$(VixenTestResultsDirectory)"</TestingPlatformCommandLineArguments>
+    <TestingPlatformCommandLineArguments Condition="'$(VixenTestArguments)' != ''">$(TestingPlatformCommandLineArguments) $(VixenTestArguments)</TestingPlatformCommandLineArguments>
   </PropertyGroup>
 
   <!--
-    The TRX writer, for the platform path. VSTest carried a TRX logger in
-    `Microsoft.NET.Test.Sdk`; the platform does not, and every analysis this
-    repository has done of its own test cost — #552, #557, #558, #559, #863's
-    cost table — was possible only because each run leaves a file named after its
-    assembly. `TrxReport.Abstractions` arrives transitively and is not the writer.
+    The platform's extensions, in every test project: the TRX writer every analysis of this
+    repository's own test cost reads (#552, #557, #558, #559, #863), and the two dump extensions
+    that replaced VSTest's blame collector — a host that dies mid-run (#1434) is diagnosed with
+    `- -crashdump` and a hung one with `- -hangdump`, and neither is any use if it has to be added
+    to the project first.
 
-    ⚠ Pinned to 1.9.1 and it must stay on 1.x. 2.0.0 is what NuGet resolves by
-    default and it dies before running a test against xunit.v3 3.2.2 —
-    `TypeLoadException: Could not load type ... IDataConsumer from assembly
-    Microsoft.Testing.Platform, Version=2.0.0.0`, because xunit binds the 1.x
-    platform. Directory.Packages.props carries the pin.
-
-    Here rather than in 180 csproj files for the reason `VSTestLogger` is: the one
-    project that forgets is the one whose results go missing, and nothing says so.
+    ⚠ Three test projects turn central package management OFF for their own reasons —
+    `Vixen.Cli.Tests`, `Vixen.Templates.Tests` and, until it rejoined, `Vixen.DocGen.Tests` — so a
+    version-less `PackageReference` has nothing to inherit there and restore fails with `NU1015`
+    for the WHOLE solution rather than saying anything about those projects. The versioned lines
+    are for them, written out rather than read from a `$(property)` because
+    `CheckAttributionManifest` reads the pins out of `Directory.Packages.props` as TEXT; the
+    literals are held together by `TrxReporterPinTests`.
   -->
-  <!--
-    ⚠ Two test projects turn central package management OFF for their own reasons —
-    `Vixen.DocGen.Tests` and `Vixen.Templates.Tests`, each of which needs a Roslyn version the
-    central pin forbids — so a version-less `PackageReference` has nothing to inherit there and
-    restore fails with `NU1015` for the WHOLE solution rather than saying anything about those two.
-    The second line is for them.
-
-    ⚠ The version is written out rather than read from a `$(property)` shared with
-    `Directory.Packages.props`, and that is deliberate after trying it the other way:
-    `CheckAttributionManifest` reads the pinned version out of `Directory.Packages.props` as TEXT to
-    compare it with `docs/manual/third-party.md`, so an indirection there makes the licence manifest
-    unable to see what is pinned — a gate defeated by a tidier spelling. The two literals are held
-    together by `TrxReporterPinTests`, which is where a bump gets caught.
-  -->
-  <ItemGroup Condition="($(MSBuildProjectName.EndsWith('.Tests')) OR '$(MSBuildProjectName)' == 'Tests') AND '$(TestingPlatformDotnetTestSupport)' == 'true'">
+  <ItemGroup Condition="$(MSBuildProjectName.EndsWith('.Tests')) OR '$(MSBuildProjectName)' == 'Tests'">
     <PackageReference Include="Microsoft.Testing.Extensions.TrxReport" Condition="'$(ManagePackageVersionsCentrally)' != 'false'" />
-    <PackageReference Include="Microsoft.Testing.Extensions.TrxReport" Version="1.9.1" Condition="'$(ManagePackageVersionsCentrally)' == 'false'" />
+    <PackageReference Include="Microsoft.Testing.Extensions.CrashDump" Condition="'$(ManagePackageVersionsCentrally)' != 'false'" />
+    <PackageReference Include="Microsoft.Testing.Extensions.HangDump" Condition="'$(ManagePackageVersionsCentrally)' != 'false'" />
+    <PackageReference Include="Microsoft.Testing.Extensions.TrxReport" Version="2.5.3" Condition="'$(ManagePackageVersionsCentrally)' == 'false'" />
+    <PackageReference Include="Microsoft.Testing.Extensions.CrashDump" Version="2.5.3" Condition="'$(ManagePackageVersionsCentrally)' == 'false'" />
+    <PackageReference Include="Microsoft.Testing.Extensions.HangDump" Version="2.5.3" Condition="'$(ManagePackageVersionsCentrally)' == 'false'" />
+  </ItemGroup>
+
+  <!--
+    Coverage, only when a build asks for it (`-p:VixenCoverage=true`, which build/Build.Coverage.cs
+    passes). ⚠ Not in every test project, for two reasons: it lays its native profilers into every
+    output directory it reaches, and it depends on Mono.Cecil — the IL rewriter ADR-002 keeps out
+    of the restore graph CheckArchitecture evaluates. Coverage instruments IL at run time, which is
+    what VSTest's collector did too; a coverage build is the one place that happens.
+  -->
+  <ItemGroup Condition="'$(VixenCoverage)' == 'true' AND ($(MSBuildProjectName.EndsWith('.Tests')) OR '$(MSBuildProjectName)' == 'Tests')">
+    <PackageReference Include="Microsoft.Testing.Extensions.CodeCoverage" Condition="'$(ManagePackageVersionsCentrally)' != 'false'" />
+    <PackageReference Include="Microsoft.Testing.Extensions.CodeCoverage" Version="18.12.0" Condition="'$(ManagePackageVersionsCentrally)' == 'false'" />
   </ItemGroup>
 
   <!--
@@ -503,7 +401,7 @@
     required because the file is outside every project's own directory: without
     it the item keeps a relative identity that climbs out of the output folder.
 
-    Here rather than in each test project for the same reason `VSTestLogger` is:
+    Here rather than in each test project for the same reason the TRX writer is:
     178 projects cannot be relied on to remember, and the one that forgets is
     invisible.
 

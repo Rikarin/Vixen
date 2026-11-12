@@ -1,7 +1,8 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
-using Xunit;
+using Xunit.Sdk;
+using Xunit.v3;
 
 // Eight classes here build a whole VixenApplication, and each build creates a JobScheduler. A handle
 // names its scheduler by index, so `JobScheduler`'s table is a fixed eight for the process — a
@@ -12,4 +13,4 @@ using Xunit;
 // ⚠ It fails in whichever class happened to build ninth, not in the one that added the pressure —
 // so the symptom is a stranger's test going red, with a count that changes between runs. Adding a
 // seventh app-building class was enough to start it.
-[assembly: CollectionBehavior(DisableTestParallelization = true)]
+[assembly: Parallelization(Mode = ParallelMode.None)]

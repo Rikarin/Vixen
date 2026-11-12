@@ -33,18 +33,14 @@ namespace Vixen.ApiCheck.Tests;
 ///         accepted it would be green in precisely the case it exists to catch.
 ///     </para>
 ///     <para>
-///         ⚠
-///         <b>
-///             The paragraph above is the history and not the arrangement, and the difference cost
-///             an issue.
-///         </b>
-///         <c>RunSettingsFilePath</c> made <c>dotnet test &lt;one project&gt;</c> read
-///         the file for exactly as long as the runs went through VSTest. #560 moved <c>Test</c>,
-///         <c>GoldenImages</c> and <c>AffectedTests</c> onto Microsoft.Testing.Platform, which reads
-///         no settings file and downgrades the property to an MTP0001 warning — so what carries the
-///         variable now is <c>Build.ExportLayerLibraryPath</c>, and <c>Coverage</c> is the one caller
-///         the file is still kept for. Anything that reasons "it passes under the gate, so the gate
-///         passed it the file" is reasoning from a mechanism that has been gone since #560.
+///         ⚠ <b>The paragraphs above are the history and not the arrangement.</b> No test runner
+///         reads the file any more: #560 moved the runs onto Microsoft.Testing.Platform, which reads
+///         no settings file, and the move to the platform's v2 (xunit.v3 4) took the last VSTest
+///         caller, <c>Coverage</c>, with it — and with it the <c>RunSettingsFilePath</c>
+///         <c>Directory.Build.props</c> carried, which pointed nothing at anything. The file is now
+///         the declaration of the environment a run needs, and <c>Build.ExportLayerLibraryPath</c>
+///         applies it to every build target that starts test executables. This test is what holds
+///         the two to each other.
 ///     </para>
 ///     <para>
 ///         Here for the reason <see cref="TestParallelismTests" /> is: this is the assembly that
@@ -56,8 +52,7 @@ public sealed class RunSettingsTests {
     /// <summary>The environment variables the committed <c>.runsettings</c> declares.</summary>
     /// <remarks>
     ///     Read out of the file rather than written down twice, so editing the file moves the
-    ///     assertion with it. VSTest applies <c>RunConfiguration/EnvironmentVariables</c> to the test
-    ///     host on every platform, so this is not a macOS-only claim even though its subject is.
+    ///     assertion with it.
     /// </remarks>
     public static TheoryData<string, string> Declared {
         get {
@@ -88,11 +83,8 @@ public sealed class RunSettingsTests {
 
     /// <summary>The marker both mechanisms set, and nothing else does.</summary>
     /// <remarks>
-    ///     ⚠ A run's environment reaches this process by one of two routes and they are not the same
-    ///     route: <c>.runsettings</c> through VSTest, which only <c>Coverage</c> still uses, and
-    ///     <c>Build.ExportLayerLibraryPath</c> for <c>Test</c>, <c>GoldenImages</c> and
-    ///     <c>AffectedTests</c>, which run under Microsoft.Testing.Platform and read no settings file
-    ///     at all (#560). Both set this; a shell profile does not.
+    ///     <c>Build.ExportLayerLibraryPath</c> sets it for every build target that starts test
+    ///     executables; a shell profile does not.
     /// </remarks>
     const string Marker = "VIXEN_TEST_SETTINGS_APPLIED";
 
@@ -146,8 +138,8 @@ public sealed class RunSettingsTests {
             $"Nothing applied a run environment to this process ({Marker} is unset), so there is "
             + "nothing here to be right or wrong. That is what a bare `dotnet test <one project>` "
             + "does: Microsoft.Testing.Platform reads no .runsettings, and `Build."
-            + "ExportLayerLibraryPath` runs only under `./build.sh Test`, `GoldenImages` and "
-            + "`AffectedTests`. ⚠ On macOS that means the Vulkan suites in this run are unvalidated."
+            + "ExportLayerLibraryPath` runs only under the build's test targets. ⚠ On macOS that "
+            + "means the Vulkan suites in this run are unvalidated."
         );
 
         var reached = Environment.GetEnvironmentVariable(name);
@@ -158,43 +150,6 @@ public sealed class RunSettingsTests {
             value,
             reached,
             StringComparison.Ordinal
-        );
-    }
-
-    /// <summary>
-    ///     ⚠ And the property that makes that true is in the shared build file, not in one project.
-    /// </summary>
-    /// <remarks>
-    ///     The theory above is the evidence and this is the diagnosis: without it, a run started some
-    ///     other way — a <c>settings</c> switch on the command line, or an ambient export that
-    ///     happens to match — would satisfy the theory and leave the tree's 178 test projects
-    ///     unsettled. 178 projects cannot be relied on to remember, and the one that forgets is
-    ///     invisible.
-    /// </remarks>
-    [Fact]
-    public void DirectoryBuildPropsPointsEveryTestProjectAtIt() {
-        var path = Path.Combine(RepositoryRoot(), "Directory.Build.props");
-
-        var property = XDocument.Load(path)
-            .Descendants("RunSettingsFilePath")
-            .SingleOrDefault();
-
-        Assert.True(
-            property is not null,
-            $"{path} declares no RunSettingsFilePath, so `dotnet test <one project>` runs with no "
-            + "settings at all — .runsettings then reaches only the four call sites in build/ that "
-            + "name it explicitly. That is #916."
-        );
-
-        Assert.Equal("$(MSBuildThisFileDirectory).runsettings", property!.Value.Trim());
-
-        // The test profile and not the whole tree: the property is meaningless on a library, and a
-        // sibling that also carries VSTestLogger is what identifies the group without re-parsing the
-        // condition MSBuild spells it with.
-        Assert.True(
-            property.Parent?.Elements("VSTestLogger").Any() == true,
-            "RunSettingsFilePath is not in the PropertyGroup that carries VSTestLogger, so it is no "
-            + "longer scoped to test projects — check the condition it ended up under."
         );
     }
 

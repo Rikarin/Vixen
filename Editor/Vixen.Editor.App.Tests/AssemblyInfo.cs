@@ -1,7 +1,8 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
-using Xunit;
+using Xunit.Sdk;
+using Xunit.v3;
 
 // ⚠ Added for issue #365, and the race it was added for can no longer happen here. Every panel in
 // this assembly is a live consumer of `Strings`: an `@expr` in a `.vxml` that shows a word is a
@@ -21,4 +22,4 @@ using Xunit;
 // `SharedCatalogue` collection. And this assembly has run serially since #365, so an order-dependence
 // it grew since then would only show once it stopped — `IconContributionTests` records one that was
 // found. Turning parallelism back on is a measured change of its own, not a side effect of #1413.
-[assembly: CollectionBehavior(DisableTestParallelization = true)]
+[assembly: Parallelization(Mode = ParallelMode.None)]

@@ -308,51 +308,20 @@ partial class Build : NukeBuild {
             .Executes(() => {
                     TestResultsDirectory.CreateOrCleanDirectory();
 
-                    // ⚠ `dotnet msbuild -t:VSTest` rather than `dotnet test`, and the reason is the one
-                    // thing the CLI does not expose: how many assemblies may run at once. `dotnet test`
-                    // takes no `-m`, and passing MSBuild switches through it does not reach the node
-                    // count either — but `dotnet test` *is* this MSBuild target underneath, so invoking
-                    // it directly loses nothing and gains the switch. Every argument below is the
-                    // property the CLI would have set for us; they are named here rather than typed
-                    // because the typed settings are `DotNetTest`'s, and this is no longer that.
-                    //
-                    // Raw rather than through Nuke's typed MSBuild settings for the reason CheckFormat
-                    // already records: the typed shape has moved between versions and the CLI's has not.
-                    // ⚠ One interpolated string literal, not a joined list. Nuke's
-                    // `ArgumentStringHandler` quotes an interpolation hole whose value contains
-                    // whitespace, so handing it a whole pre-joined command line produced a single
-                    // quoted argument and `dotnet` looked for a command by that name — the target died
-                    // in under a second having run no assembly at all. The holes below each hold one
-                    // whitespace-free value, which is why the manual quotes around the two paths are
-                    // the ones that survive to the process.
-                    var workers = Workers > 0 ? $"-m:{Workers}" : string.Empty;
-
-                    // ⚠ A generated traversal project rather than the solution, and the reason is
-                    // scheduling and not taste: a solution build of a custom target walks each project's
+                    // ⚠ A generated traversal rather than the solution, and the reason is scheduling
+                    // and not taste: a solution build of a custom target walks each project's
                     // dependencies first, so the assembly referencing the most of the tree is dispatched
                     // last — and that assembly is, for the same reason, the slowest one. In the
                     // 2026-09-05 run it started 218 s in and was the only thing still running for the
-                    // final five and a half minutes. Nothing here needs building, so the edges buy the
-                    // schedule nothing. See Build.TestOrder.cs.
+                    // final five and a half minutes. See Build.TestOrder.cs.
                     var projects = OrderedTestProjects();
-                    var traversal = WriteTestTraversalProject(projects);
 
-                    // ⚠ Not `-p:VSTestSetting=`, and that is not a simplification. The assemblies run
-                    // through Microsoft.Testing.Platform now (#560, Directory.Build.props), which does
-                    // not read a .runsettings at all — a settings file left on this command line would
-                    // have become one MTP0001 warning inside a five-hundred-second log and Vulkan
-                    // validation would have been off. The one thing that file carried is set here
-                    // instead, on this process, because dyld reads it at process start.
+                    // ⚠ The Vulkan validation layer's loader path, which no test runner reads from a
+                    // settings file any more: dyld reads it at process start, so it is set here, on the
+                    // process that starts the test executables.
                     ExportLayerLibraryPath();
 
-                    // ⚠ The exit code is captured rather than thrown on, so that a red run still reaches
-                    // the post-condition below and says *which* assemblies are red and why, instead of
-                    // one MSBuild error line at the end of a five-hundred-second log.
-                    var exitCode = 0;
-                    var output = DotNet(
-                        $"msbuild \"{traversal}\" -t:VSTest -nologo -p:Configuration={Configuration} -p:VSTestNoBuild=true -p:VSTestResultsDirectory=\"{TestResultsDirectory}\" {workers}",
-                        exitHandler: process => exitCode = process.ExitCode
-                    );
+                    var (output, exitCode) = RunTestAssemblies(projects, string.Empty);
 
                     // ⚠ The post-condition #1360 asked for: every scheduled assembly printed a summary
                     // line, none of them red, each agreeing with its TRX — and a non-zero exit is a
@@ -522,16 +491,12 @@ partial class Build : NukeBuild {
         // driver, they write artefacts a human looks at, and `--update-golden` rewrites the
         // repository — none of which belongs behind a target whose job is to be run on every
         // save. They still run under `Test` too, so a broken picture fails a normal build.
-        DotNetTest(settings => settings
-            .SetProjectFile(
-                RootDirectory / "Platform" / "Vixen.Graphics.Golden.Tests"
-                / "Vixen.Graphics.Golden.Tests.csproj"
-            )
-            .SetConfiguration(Configuration)
-            .EnableNoRestore()
-            .EnableNoBuild()
-            .SetResultsDirectory(TestResultsDirectory)
+        var (_, exitCode) = RunTestAssemblies(
+            [RootDirectory / "Platform" / "Vixen.Graphics.Golden.Tests" / "Vixen.Graphics.Golden.Tests.csproj"],
+            string.Empty
         );
+
+        Assert.True(exitCode == 0, $"the golden suite exited {exitCode}; its TRX is in {TestResultsDirectory}.");
 
         // ⚠ What the run itself said used to be nothing at all: nine passing tests whether it
         // had rewritten five files or none, with `git status` the only record of which. The

@@ -13,7 +13,9 @@ namespace Vixen.ApiCheck.Tests;
 /// <remarks>
 ///     The lines below are copied from real runs on this tree, 2026-10-22: the platform runner's
 ///     from an unfiltered <c>dotnet test Tools/Vixen.ApiCheck.Tests</c>, VSTest's from the same
-///     project with a <c>--filter</c>, which <c>Directory.Build.props</c> sends back to VSTest.
+///     project with a <c>--filter</c>, which <c>Directory.Build.props</c> then sent back to VSTest.
+///     Nothing produces VSTest's line since the move to the platform's v2; it stays as a fixture
+///     because the reader still accepts it.
 /// </remarks>
 public sealed class TestRunSummaryTests {
     const string Platform =
