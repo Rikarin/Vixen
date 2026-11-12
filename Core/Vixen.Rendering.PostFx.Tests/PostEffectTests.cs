@@ -324,6 +324,31 @@ public class PostEffectTests : IDisposable {
         Assert.Equal(0.25f, node.Bias, 5);
     }
 
+    /// <summary>And so does its thickness heuristic, which defaults to off.</summary>
+    /// <remarks>
+    ///     ⚠ Both halves, because the default is the load-bearing one: a <c>thickness</c> that arrived
+    ///     non-zero would change the ambient term of every frame that never asked for it, and
+    ///     <c>lerp(h, c, 0f)</c> being <c>h</c> is the only reason the committed goldens still hold.
+    ///     See <see cref="AmbientOcclusionRenderer.Thickness" /> for what the knob costs when it is on.
+    /// </remarks>
+    [Fact]
+    public void Ambient_occlusion_carries_its_thickness_and_defaults_it_off() {
+        using var system = new RenderSystem();
+        var factory = new PostEffectFactory();
+
+        var bare = new SsaoAsset { Name = "Ssao", Depth = "SceneDepth", Normals = "SceneNormals" };
+
+        using var untouched = (AmbientOcclusionRenderer)factory.Create(bare, new(system))!;
+
+        Assert.Equal(0f, untouched.Thickness, 5);
+
+        var declared = bare with { Thickness = 0.25f };
+
+        using var node = (AmbientOcclusionRenderer)factory.Create(declared, new(system))!;
+
+        Assert.Equal(0.25f, node.Thickness, 5);
+    }
+
     /// <summary>
     ///     The traced pass runs at a fraction of the frame, and its own set carries only what it owns.
     /// </summary>

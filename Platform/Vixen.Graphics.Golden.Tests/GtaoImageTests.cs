@@ -141,6 +141,35 @@ public sealed class GtaoImageTests {
     /// </remarks>
     const float WallFalloff = 3f;
 
+    /// <summary>How far in front of the camera the slat scene's ledge stands.</summary>
+    const float SlatDistance = 2.5f;
+
+    /// <summary>And how tall it is — the whole point being that this is small.</summary>
+    const float SlatHeight = 0.15f;
+
+    /// <summary>The slat scene's backdrop, far enough out that no search can reach it.</summary>
+    const float Backdrop = 20f;
+
+    /// <summary>The row the slat's foot projects to, which is where its over-occlusion peaks.</summary>
+    const int SlatFoot = 108;
+
+    /// <summary>
+    ///     The <c>thickness</c> the fixtures below exercise, and what the engine recommends.
+    /// </summary>
+    /// <remarks>
+    ///     A quarter, because the measurement in <c>AThinOccluderStopsOccludingLikeAWall</c> has the
+    ///     curve all but saturated there — 0.974 of the 0.985 that <c>1.0</c> reaches — while the cost
+    ///     on a solid contact is still climbing. ⚠ It is not the shipped default, which is nought; see
+    ///     <see cref="AmbientOcclusionRenderer.Thickness" /> for why that decision is a project's.
+    /// </remarks>
+    const float Thickness = 0.25f;
+
+    /// <summary>The floor's normal, for the scenes that stage one.</summary>
+    static readonly Vector3 FloorUp = new(0f, 1f, 0f);
+
+    /// <summary>A plane square to the camera.</summary>
+    static readonly Vector3 WallFacing = new(0f, 0f, 1f);
+
     /// <summary>Opens a device, or skips — unless the environment promised one.</summary>
     static bool TryOpen(out Fixture? fixture) {
         if (Fixture.TryOpen(out fixture, out var reason)) {
@@ -356,6 +385,182 @@ public sealed class GtaoImageTests {
         );
     }
 
+    /// <summary>
+    ///     A thin occluder stops occluding like a wall, which is what <c>thickness</c> is for.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The height-field assumption, isolated.</b> A depth buffer holds one surface per
+    ///         pixel and the search reads it as a solid extending infinitely away from the camera, so
+    ///         a slat fifteen centimetres tall occludes the floor in front of it exactly as the front
+    ///         face of a four-metre wall would. The slat scene is a ledge standing on the floor with
+    ///         the measured pixel between it and the camera: a march up the screen crosses the slat's
+    ///         face and comes out on the floor behind it, and that open arc past the horizon is the
+    ///         only evidence a height field carries that the slat ended.
+    ///     </para>
+    ///     <para>
+    ///         Measured on an Apple M1 Max through MoltenVK, the floor at the slat's foot:
+    ///         <c>0.707</c> at <c>thickness</c> nought, <c>0.884</c> at 0.1, <c>0.974</c> at 0.25,
+    ///         <c>0.985</c> at 1.0 — so the curve has all but saturated by a quarter and there is
+    ///         nothing to buy above a half.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It is a differential, so the old shader cannot pass it.</b> Under the pure maximum
+    ///         both renders are the same picture and the gap is nought, which is the sabotage test this
+    ///         fixture does not need to be run separately to satisfy.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void AThinOccluderStopsOccludingLikeAWall() {
+        if (!TryOpen(out var fixture)) {
+            return;
+        }
+
+        using var owned = fixture!;
+
+        var held = Band(Render(owned, FloorUp, false, WallFalloff, false, true, 0f), SlatFoot);
+        var relaxed = Band(Render(owned, FloorUp, false, WallFalloff, false, true, Thickness), SlatFoot);
+
+        Assert.True(
+            held < 0.75f,
+            $"the floor at the slat's foot read {held:F3} under the pure maximum, which is already "
+            + "unoccluded — so this scene does not contain the defect the heuristic is for and the "
+            + "comparison below means nothing."
+        );
+
+        Assert.True(
+            relaxed > 0.93f,
+            $"with thickness {Thickness:F2} the floor at the slat's foot read {relaxed:F3}; a slat of "
+            + $"{SlatHeight:F2} m is still shadowing it like a wall."
+        );
+
+        Assert.True(
+            relaxed - held > 0.2f,
+            $"the heuristic moved the slat's over-occlusion by {relaxed - held:F3} ({held:F3} to "
+            + $"{relaxed:F3}), which is not the quarter of a plane the measurement recorded."
+        );
+    }
+
+    /// <summary>
+    ///     ⚠ And it lightens a solid contact as well, which is the price and is not nought.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>
+    ///             This fixture exists because the obvious argument for the heuristic being free is
+    ///             wrong, and it was written into this shader's comments before it was measured.
+    ///         </b>
+    ///         The argument: a solid occluder standing on the surface it occludes presents a horizon
+    ///         that <em>rises</em> along the march — a wall is higher the further up it one looks — so
+    ///         the relax branch should never fire on the arrangement a contact shadow is made of.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What the argument forgets is the falloff.</b> The cosine the march compares is the
+    ///         raw one faded toward "no horizon" by distance, and the fade is monotonic in distance
+    ///         while the rise is not fast enough to outrun it: for the corner fixture's pixel the
+    ///         attenuated cosine peaks around <c>−0.42</c> two thirds of the way up the wall and falls
+    ///         to <c>−0.46</c> by the end of the march. So the branch fires, and the contact lightens
+    ///         from <c>0.833</c> to <c>0.863</c> at <c>thickness</c> 0.25.
+    ///     </para>
+    ///     <para>
+    ///         What is asserted is therefore the <em>selectivity</em> rather than the innocence: the
+    ///         slat moves nine times as far as the solid contact does. That ratio is the whole case
+    ///         for the heuristic, and an implementation that drifted toward a uniform lightening
+    ///         knob — the thing this repository keeps catching — would fail here while passing the
+    ///         fixture above.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void AndItLightensASolidContactToo() {
+        if (!TryOpen(out var fixture)) {
+            return;
+        }
+
+        using var owned = fixture!;
+
+        var held = Band(Render(owned, WallFacing, true, WallFalloff, false, false, 0f), 94);
+        var relaxed = Band(Render(owned, WallFacing, true, WallFalloff, false, false, Thickness), 94);
+
+        Assert.True(
+            relaxed > held,
+            $"the solid contact read {held:F3} and {relaxed:F3} — if the heuristic truly does not "
+            + "reach a wall standing on its own floor, the claim in this fixture's remarks has "
+            + "stopped being refuted and the argument there should be reinstated."
+        );
+
+        var slatHeld = Band(Render(owned, FloorUp, false, WallFalloff, false, true, 0f), SlatFoot);
+
+        var slatRelaxed = Band(
+            Render(owned, FloorUp, false, WallFalloff, false, true, Thickness),
+            SlatFoot
+        );
+
+        Assert.True(
+            (slatRelaxed - slatHeld) > (relaxed - held) * 5f,
+            $"the slat moved {slatRelaxed - slatHeld:F3} and the solid contact {relaxed - held:F3}, "
+            + "so this is lightening everything rather than discriminating a thin occluder — which "
+            + "is a darkness knob wearing a heuristic's name."
+        );
+    }
+
+    /// <summary>
+    ///     And an unoccluded plane is <em>pixel-identical</em> at every thickness, not merely close.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         An unoccluded surface has to read exactly one, and the relaxation is a second place
+    ///         that could break it — applied where there was no occluder it would pull the horizon off
+    ///         the tangent plane and darken a plane that occludes nothing. It cannot, and the reason is
+    ///         structural rather than numerical: on an unoccluded plane every sample lies in the
+    ///         tangent plane and is rejected by <c>bias</c>, so every sample contributes "no horizon"
+    ///         and the relaxation is <c>lerp(−1, −1, t)</c> — <c>−1</c> at every step and every
+    ///         <c>t</c>.
+    ///     </para>
+    ///     <para>
+    ///         <b>So the assertion is equality and not a tolerance</b>, which is the stronger claim
+    ///         and the one the structure actually supports. Measured at nought against <c>1.0</c>, the
+    ///         hardest relaxation the knob allows.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ The plane is uniform to <c>0.9882</c> rather than to <c>1.0000</c>, at the first pixel
+    ///         inside this suite's margin — the frame corner, where the march walks off the viewport
+    ///         and stops early. That is pre-existing and is why
+    ///         <see cref="AFlatPlaneFacingTheCameraIsCompletelyUnoccluded" /> carries a tolerance of
+    ///         0.02; it is identical to four decimal places at thickness nought, 0.25 and 1.0, which
+    ///         is what makes equality here safe to assert at all.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void AnUnoccludedPlaneIsUntouchedByTheHeuristic() {
+        if (!TryOpen(out var fixture)) {
+            return;
+        }
+
+        using var owned = fixture!;
+
+        var held = Render(owned, WallFacing, false, 1f, false, false, 0f);
+        var relaxed = Render(owned, WallFacing, false, 1f, false, false, 1f);
+
+        // The suite's own bound for this claim, so the two halves are asserted on one scale.
+        AssertUniform(relaxed, 1f, 0.02f, "an unoccluded plane under the thickness heuristic");
+
+        var margin = Side / 8;
+
+        for (var y = margin; y < Side - margin; y++) {
+            for (var x = margin; x < Side - margin; x++) {
+                var a = held.Pixels[held.Offset(x, y)];
+                var b = relaxed.Pixels[relaxed.Offset(x, y)];
+
+                Assert.True(
+                    a == b,
+                    $"({x}, {y}) read {a / 255f:F4} under the pure maximum and {b / 255f:F4} at "
+                    + "thickness 1.0 — the relaxation has reached a surface with no occluder on it, "
+                    + "so it is no longer only relaxing horizons that were found."
+                );
+            }
+        }
+    }
+
     /// <summary>The picture, so the shape of the contact shadow is pinned and not only its ends.</summary>
     /// <remarks>
     ///     ⚠ Its tolerance is not <see cref="Tolerance.Edges" />. The signal is a soft gradient across
@@ -404,7 +609,9 @@ public sealed class GtaoImageTests {
         Vector3 normal,
         bool wall = false,
         float falloff = 1f,
-        bool bentNormal = false
+        bool bentNormal = false,
+        bool slat = false,
+        float thickness = 0f
     ) {
         var device = fixture.Device;
 
@@ -430,6 +637,8 @@ public sealed class GtaoImageTests {
         var floorThrough = new Vector3(0f, -FloorDrop, 0f);
         var wallNormal = new Vector3(0f, 0f, 1f);
         var wallThrough = new Vector3(0f, 0f, -WallDistance);
+        var slatThrough = new Vector3(0f, 0f, -SlatDistance);
+        var backdropThrough = new Vector3(0f, 0f, -Backdrop);
 
         for (var y = 0; y < Side; y++) {
             for (var x = 0; x < Side; x++) {
@@ -442,7 +651,32 @@ public sealed class GtaoImageTests {
                 Vector3 hit;
                 Vector3 surface;
 
-                if (wall) {
+                if (slat) {
+                    // A ledge standing on the floor, square to the camera, spanning the frame. The
+                    // measured pixel is on the floor *between* the camera and it, so a march up the
+                    // screen crosses the slat's face and comes out onto the floor behind it — which
+                    // is the one arrangement that tells a thickness heuristic from a darkness knob.
+                    var toSlat = Distance(ray, slatThrough, wallNormal);
+                    var onSlat = toSlat > 0f
+                        && ray.Y * toSlat >= -FloorDrop
+                        && ray.Y * toSlat <= -FloorDrop + SlatHeight;
+
+                    var toFloor = Distance(ray, floorThrough, floorNormal);
+                    var toBackdrop = Distance(ray, backdropThrough, wallNormal);
+
+                    // Whichever is nearest of the three, and the backdrop is what a ray above the
+                    // horizon meets — twenty metres out, so no search radius reaches it.
+                    if (onSlat) {
+                        hit = ray * toSlat;
+                        surface = wallNormal;
+                    } else if (toFloor > 0f && toFloor < toBackdrop) {
+                        hit = ray * toFloor;
+                        surface = floorNormal;
+                    } else {
+                        hit = ray * toBackdrop;
+                        surface = wallNormal;
+                    }
+                } else if (wall) {
                     // Whichever the ray meets first. A ray heading up never meets the floor at all,
                     // which is what makes the wall fill the top of the frame.
                     var toWall = Distance(ray, wallThrough, wallNormal);
@@ -526,6 +760,10 @@ public sealed class GtaoImageTests {
             // One, so the picture is the estimator's own answer. `intensity` is a power the artist
             // dials, and a fixture that took anything else would be asserting about `pow`.
             Intensity = 1f,
+
+            // Nought everywhere but the two fixtures that are about it, so every other assertion
+            // here is made against what ships.
+            Thickness = thickness,
             Modules = describer,
             Device = device,
             Samplers = samplers,

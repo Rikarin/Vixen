@@ -137,9 +137,25 @@
               "ArrayStride": 0,
               "MatrixStride": 0,
               "DefaultValue": "0.1"
+            },
+            {
+              "Name": "thickness",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 1,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 160,
+              "Size": 4,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": "0"
             }
           ],
-          "Size": 160,
+          "Size": 176,
           "IsWritable": false,
           "IsDynamicOffset": false
         },
@@ -380,6 +396,24 @@
       "ArrayStride": 0,
       "MatrixStride": 0,
       "DefaultValue": "0.1"
+    },
+    {
+      "Name": "thickness",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 160,
+      "Size": 4,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": "0"
     }
   ],
   "RequiredCapabilities": [],

@@ -101,6 +101,40 @@ shader Ssao {
     /// only the contacts, where it used to lighten everything.
     var bias: float = 0.1f
 
+    /// How far a sample past an occluder pulls the horizon back down, in [0, 1].
+    ///
+    /// The depth buffer holds one surface per pixel, and the search below reads it as a solid that
+    /// extends infinitely *away* from the camera: the largest cosine wins and nothing found later
+    /// lowers it. So a slat, a railing or a leaf occludes everything behind it as though it were the
+    /// front face of a wall — and the surface behind it darkens the *nearer* the occluder stands to
+    /// the camera, which is the opposite of what a thin thing does to the light reaching it.
+    ///
+    /// Jimenez et al. 2016 § 4.3's thickness heuristic, and it is a heuristic rather than a fix:
+    /// when a later sample along the march stands *lower* than the horizon already found, the
+    /// horizon is pulled toward it by this fraction instead of holding at the maximum. Open arc past
+    /// an occluder is evidence that the occluder ended, and it is the only such evidence a height
+    /// field carries.
+    ///
+    /// ⚠ **Nought reproduces the pure maximum exactly** — `lerp(h, c, 0f)` is `h` — so the shipped
+    /// value is the behaviour every committed golden was recorded against, and this knob is opt-in
+    /// rather than a silent change to every frame.
+    ///
+    /// ⚠ **And it cannot tell a thin occluder from a solid one whose screen extent merely ended.**
+    /// Both read as open arc past a horizon, so this lightens a real contact shadow as well as a
+    /// slat's false one. The argument that it does not — that a wall standing on the floor it
+    /// occludes presents a horizon which *rises* along the march, so the relax branch cannot fire
+    /// there — was written here before it was measured, and **it is wrong**: the cosine compared is
+    /// the raw one faded toward no-horizon by distance, and the fade outruns the rise in the upper
+    /// third of the march. `GtaoImageTests.AndItLightensASolidContactToo` holds that refutation so
+    /// nobody reinstates the argument.
+    ///
+    /// What the measurement does say is that it is strongly *selective*. On an M1 Max through
+    /// MoltenVK, at 0.25: the floor at a 15 cm slat's foot goes 0.707 → 0.974, and the corner
+    /// fixture's solid contact 0.833 → 0.863. Nine to one, and the curve has all but saturated by a
+    /// quarter — 1.0 reaches only 0.985 on the slat. An unoccluded plane reads exactly one at every
+    /// value, because `bias` rejects every sample on it and the relax is then `lerp(-1, -1, t)`.
+    var thickness: float = 0f
+
     stream var uv: float2
 
     [VertexShader]
@@ -253,6 +287,11 @@ shader Ssao {
     /// answer when nothing stopped the search: the angle straight back past the camera, which no
     /// hemisphere reaches and which the integral reads as no occlusion at all.
     ///
+    /// ⚠ The largest *unless* `thickness` is above nought, which is the one thing in here that is a
+    /// heuristic and not a derivation. See that parameter: past the horizon it has found, the march
+    /// lets open arc pull the horizon back down, because a height field's single surface otherwise
+    /// reads every occluder as infinitely deep. At the shipped nought this is the plain maximum.
+    ///
     /// ⚠ Returns a cosine from the *view vector*, not from the tangent plane. `bias` and the falloff
     /// still speak in elevation above the surface, because that is the frame in which "this sample is
     /// not really an occluder" is a sentence — but what the integral is handed is the camera's angle.
@@ -304,8 +343,27 @@ shader Ssao {
             // is the surface itself under a texel of depth rounding, not something standing on it.
             // The march's first sample is one depth texel out (see above) and at one texel the
             // reconstructed neighbour and the G-buffer's normal disagree by quantisation alone.
+            // The horizon this sample stands at, or none at all. Both are answers the heuristic
+            // below needs: a sample that clears `bias` says how high the horizon is here, and one
+            // that does not says the arc is *open* here.
+            //
+            // ⚠ The open answer is why the rejection is a value rather than a `continue`. Under the
+            // pure maximum a rejected sample and a skipped sample are the same thing, so the guard
+            // could short-circuit; under `thickness` they are not, because open arc *past* an
+            // occluder is exactly the evidence that the occluder was thin.
+            var cosine = -1f
+
             if (dot(towards, n) > bias) {
-                maxCosine = max(maxCosine, lerp(-1f, dot(towards, toCamera), attenuation))
+                cosine = lerp(-1f, dot(towards, toCamera), attenuation)
+            }
+
+            // The running maximum where the horizon rises, and a relaxation toward the sample where
+            // it falls. At `thickness` nought the second branch leaves `maxCosine` untouched and
+            // this is the plain maximum the search has always taken, bit for bit.
+            if (cosine > maxCosine) {
+                maxCosine = cosine
+            } else {
+                maxCosine = lerp(maxCosine, cosine, thickness)
             }
         }
 

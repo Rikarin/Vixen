@@ -85,6 +85,8 @@ Vixen.Rendering.PostFx.AmbientOcclusionRenderer.Scale.get -> float
 Vixen.Rendering.PostFx.AmbientOcclusionRenderer.Scale.set -> float
 Vixen.Rendering.PostFx.AmbientOcclusionRenderer.Steps.get -> int
 Vixen.Rendering.PostFx.AmbientOcclusionRenderer.Steps.set -> int
+Vixen.Rendering.PostFx.AmbientOcclusionRenderer.Thickness.get -> float
+Vixen.Rendering.PostFx.AmbientOcclusionRenderer.Thickness.set -> float
 Vixen.Rendering.PostFx.AmbientOcclusionRenderer.View.get -> Vixen.Rendering.RenderView?
 Vixen.Rendering.PostFx.AmbientOcclusionRenderer.View.set -> Vixen.Rendering.RenderView?
 Vixen.Rendering.PostFx.AntialiasingMode -> enum : int
@@ -1373,6 +1375,8 @@ Vixen.Rendering.PostFx.SsaoAsset.Scale.init -> float
 Vixen.Rendering.PostFx.SsaoAsset.SsaoAsset() -> void
 Vixen.Rendering.PostFx.SsaoAsset.Steps.get -> int
 Vixen.Rendering.PostFx.SsaoAsset.Steps.init -> int
+Vixen.Rendering.PostFx.SsaoAsset.Thickness.get -> float
+Vixen.Rendering.PostFx.SsaoAsset.Thickness.init -> float
 Vixen.Rendering.PostFx.SsaoAsset.View.get -> string
 Vixen.Rendering.PostFx.SsaoAsset.View.init -> string
 Vixen.Rendering.PostFx.StandardFrameAsset -> sealed record
@@ -1980,6 +1984,7 @@ Vixen.Shaders.Generated.SsaoConstants.ProjectionScale -> Vixen.Core.Mathematics.
 Vixen.Shaders.Generated.SsaoConstants.Radius -> float
 Vixen.Shaders.Generated.SsaoConstants.SsaoConstants() -> void
 Vixen.Shaders.Generated.SsaoConstants.TexelSize -> Vixen.Core.Mathematics.Vector2
+Vixen.Shaders.Generated.SsaoConstants.Thickness -> float
 Vixen.Shaders.Generated.SsaoConstants.View -> Vixen.Core.Mathematics.Matrix4x4
 Vixen.Shaders.Generated.SsaoKeys -> static class
 Vixen.Shaders.Generated.TaaConstants -> struct
@@ -2235,10 +2240,10 @@ const Vixen.Shaders.Generated.SmaaKeys.SourceBinding = 1 -> uint
 const Vixen.Shaders.Generated.SmaaKeys.SourceSet = 2 -> int
 const Vixen.Shaders.Generated.SmaaKeys.WeightsBinding = 3 -> uint
 const Vixen.Shaders.Generated.SmaaKeys.WeightsSet = 2 -> int
-const Vixen.Shaders.Generated.SsaoConstants.Size = 160 -> int
+const Vixen.Shaders.Generated.SsaoConstants.Size = 176 -> int
 const Vixen.Shaders.Generated.SsaoKeys.ConstantBufferBinding = 0 -> uint
 const Vixen.Shaders.Generated.SsaoKeys.ConstantBufferSet = 2 -> int
-const Vixen.Shaders.Generated.SsaoKeys.ConstantBufferSize = 160 -> int
+const Vixen.Shaders.Generated.SsaoKeys.ConstantBufferSize = 176 -> int
 const Vixen.Shaders.Generated.SsaoKeys.DepthBufferBinding = 1 -> uint
 const Vixen.Shaders.Generated.SsaoKeys.DepthBufferSet = 2 -> int
 const Vixen.Shaders.Generated.SsaoKeys.NormalBufferBinding = 2 -> uint
@@ -2739,6 +2744,7 @@ static readonly Vixen.Shaders.Generated.SsaoKeys.ProjectionScale -> Vixen.Shader
 static readonly Vixen.Shaders.Generated.SsaoKeys.Radius -> Vixen.Shaders.ParameterKey<float>
 static readonly Vixen.Shaders.Generated.SsaoKeys.Steps -> Vixen.Shaders.PermutationKey<int>
 static readonly Vixen.Shaders.Generated.SsaoKeys.TexelSize -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector2>
+static readonly Vixen.Shaders.Generated.SsaoKeys.Thickness -> Vixen.Shaders.ParameterKey<float>
 static readonly Vixen.Shaders.Generated.SsaoKeys.UsedPermutationKeys -> Vixen.Shaders.ParameterKey[]
 static readonly Vixen.Shaders.Generated.SsaoKeys.View -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Matrix4x4>
 static readonly Vixen.Shaders.Generated.TaaKeys.Current -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>

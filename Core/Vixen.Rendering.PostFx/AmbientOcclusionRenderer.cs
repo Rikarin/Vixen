@@ -137,6 +137,53 @@ public sealed class AmbientOcclusionRenderer() : PostEffectRenderer(
     /// </remarks>
     public float Bias { get; set; } = 0.1f;
 
+    /// <summary>How far a sample past an occluder pulls its horizon back down, in [0, 1].</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <strong>The height-field assumption, dialled.</strong> A depth buffer holds one surface
+    ///         per pixel, and the march reads it as a solid extending infinitely away from the camera:
+    ///         the largest horizon wins and nothing found later lowers it. A slat, a railing or a leaf
+    ///         therefore occludes everything behind it as though it were the front face of a wall, and
+    ///         the surface behind it darkens the <em>nearer</em> the occluder stands to the camera —
+    ///         the opposite of what a thin thing does to the light that reaches past it.
+    ///     </para>
+    ///     <para>
+    ///         Jimenez et al. 2016 § 4.3's thickness heuristic. Above nought, a later sample standing
+    ///         lower than the horizon already found pulls that horizon toward itself by this fraction
+    ///         rather than being discarded, because open arc past an occluder is the only evidence a
+    ///         height field carries that the occluder ended.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Nought is the default and is the pure maximum exactly</b>, not an approximation of
+    ///         it — so every committed golden and every shipped tier is unchanged until a project asks
+    ///         for this. It is opt-in because the heuristic cannot distinguish a thin occluder from a
+    ///         solid one whose screen extent merely ended, and the second is what a contact shadow is
+    ///         made of.
+    ///     </para>
+    ///     <para>
+    ///         ⚠
+    ///         <b>
+    ///             It lightens a real contact shadow too, and the argument that it would not is
+    ///             wrong.
+    ///         </b>
+    ///         That argument — a wall standing on the floor it occludes presents a horizon
+    ///         which rises along the march, so the relax branch cannot fire on it — forgets that the
+    ///         cosine being compared is faded toward no-horizon by distance, and the fade outruns the
+    ///         rise in the upper third of the march.
+    ///         <c>GtaoImageTests.AndItLightensASolidContactToo</c> keeps that refuted.
+    ///     </para>
+    ///     <para>
+    ///         <strong>What it is, measured, is strongly selective.</strong> On an M1 Max through
+    ///         MoltenVK at 0.25: the floor at a 15 cm slat's foot goes <c>0.707</c> → <c>0.974</c>
+    ///         while the corner fixture's solid contact goes <c>0.833</c> → <c>0.863</c> — nine to
+    ///         one. The curve has all but saturated by a quarter, <c>1.0</c> reaching only
+    ///         <c>0.985</c> on the slat, so a quarter is the value to reach for. An unoccluded plane
+    ///         reads exactly one at every value, <see cref="Bias" /> having rejected every sample on
+    ///         it before the relaxation can see one.
+    ///     </para>
+    /// </remarks>
+    public float Thickness { get; set; }
+
     /// <summary>What fraction of the frame it runs at.</summary>
     public float Scale { get; set; } = 0.5f;
 
@@ -193,6 +240,7 @@ public sealed class AmbientOcclusionRenderer() : PostEffectRenderer(
         parameters.Set(SsaoKeys.Intensity, Intensity);
         parameters.Set(SsaoKeys.Falloff, Falloff);
         parameters.Set(SsaoKeys.Bias, Bias);
+        parameters.Set(SsaoKeys.Thickness, Thickness);
 
         Read(bindings, SsaoKeys.DepthBufferBinding, Depth);
         Read(bindings, SsaoKeys.NormalBufferBinding, Normals);

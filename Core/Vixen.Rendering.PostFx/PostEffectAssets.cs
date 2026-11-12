@@ -1270,6 +1270,7 @@ public sealed class PostEffectFactory : ISceneRendererFactory, ICompositorAssetT
             Intensity = declared.Intensity,
             Falloff = declared.Falloff,
             Bias = declared.Bias,
+            Thickness = declared.Thickness,
             Scale = declared.Scale,
             Modules = builder.Modules,
             Device = builder.Device,

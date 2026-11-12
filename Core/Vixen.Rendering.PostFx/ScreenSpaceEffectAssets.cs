@@ -581,6 +581,13 @@ public sealed record SsaoAsset : ISceneRendererAsset {
     /// </remarks>
     public float Bias { get; init; } = 0.1f;
 
+    /// <summary>How far a sample past an occluder pulls its horizon back down, in [0, 1].</summary>
+    /// <remarks>
+    ///     The thickness heuristic, nought by default and therefore the pure maximum — see
+    ///     <see cref="AmbientOcclusionRenderer.Thickness" /> for what it buys and what it costs.
+    /// </remarks>
+    public float Thickness { get; init; }
+
     /// <summary>Resolution scale — half by default, which is where this effect belongs.</summary>
     public float Scale { get; init; } = 0.5f;
 }
