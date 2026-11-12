@@ -3,6 +3,7 @@
 
 using Vixen.Core.Imaging;
 using Vixen.Graphics.Vulkan;
+using Vixen.NodeGraph;
 using Vixen.TextureGraph;
 using Vixen.Texturing;
 using Vixen.Texturing.Layers;
@@ -722,6 +723,55 @@ public class MaskStackTests(ITestOutputHelper output) {
             .ToArray();
 
         Assert.Equal([3f, 9f], alphas);
+    }
+
+    /// <summary>
+    ///     A paint entry over a selection of two colours keeps both rules (Patina #72 and #110): the entry composites
+    ///     over the id map by its coverage, and the second colour's step, told what to read, reads the id map rather
+    ///     than the mask, while the first reads the mask the entries make.
+    /// </summary>
+    /// <remarks>
+    ///     Structural, for the reason <see cref="A_paint_entry_over_a_picture_composites_by_its_coverage" /> gives.
+    ///     ⚠ The first colour reads the paint entry too, since a mask's steps run over its entries (doc 48 § D10):
+    ///     a stroke there is selected as a colour, and the second colour never sees it.
+    /// </remarks>
+    [Fact]
+    public void A_paint_entry_under_a_selection_of_two_colours_keeps_its_coverage_and_the_second_its_map() {
+        var stack = Masked(
+            new() {
+                Source = LayerMaskSource.Bake,
+                Map = "id",
+                Layers = [new() { Source = LayerMaskSource.Paint, Paint = "Masked.l.mask.vxpaint" }],
+                Effects = [
+                    new() { Node = "Analysis/Colour Select" },
+                    new() {
+                        Node = "Analysis/Colour Select",
+                        Inputs = { ["Input"] = new() { Source = LayerInputSource.Bake, Map = "id" } },
+                        Blend = LayerBlendMode.Lighten
+                    }
+                ]
+            }
+        );
+
+        var build = LayerStackGraph.Build(stack, stack.Sets[0]);
+
+        Assert.False(build.HasErrors, string.Join("; ", build.Problems));
+
+        GraphNode Into(GraphNode node, string port) {
+            var edge = Assert.Single(build.Graph.Edges, edge => edge.To.Node == node.Id && edge.To.Port == port);
+
+            return build.Graph.Nodes.Single(held => held.Id == edge.From.Node);
+        }
+
+        var selections = build.Graph.Nodes.Where(static node => node.Type == "Analysis/Colour Select").ToList();
+        Assert.Equal(2, selections.Count);
+        Assert.Equal("Source/Mesh Map", Into(selections[1], "Input").Type);
+
+        var entries = Into(selections[0], "Input");
+        Assert.Equal("Colour/Blend", entries.Type);
+        var covered = Into(entries, "Foreground");
+        Assert.Equal("Colour/Channel Shuffle", covered.Type);
+        Assert.Equal("FirstAlpha", covered.Texts["Alpha From"]);
     }
 
     /// <summary>A stack of one white layer under the given mask.</summary>
