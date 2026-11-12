@@ -2098,6 +2098,8 @@ Vixen.Raven.Syntax.RangeExpressionSyntax.WithLeft(Vixen.Raven.Syntax.ExpressionS
 Vixen.Raven.Syntax.RangeExpressionSyntax.WithOperatorToken(Vixen.Core.Syntax.SyntaxToken operatorToken) -> Vixen.Raven.Syntax.RangeExpressionSyntax
 Vixen.Raven.Syntax.RangeExpressionSyntax.WithRight(Vixen.Raven.Syntax.ExpressionSyntax right) -> Vixen.Raven.Syntax.RangeExpressionSyntax
 Vixen.Raven.Syntax.RavenSyntaxExtensions -> static class
+Vixen.Raven.Syntax.RavenSyntaxExtensions.extension(Vixen.Core.Syntax.SyntaxToken) -> static extension
+Vixen.Raven.Syntax.RavenSyntaxExtensions.extension(Vixen.Core.Syntax.SyntaxToken).Kind.get -> Vixen.Raven.Syntax.SyntaxKind
 Vixen.Raven.Syntax.RavenSyntaxNode -> abstract class
 Vixen.Raven.Syntax.RavenSyntaxNode : Vixen.Core.Syntax.SyntaxNode
 Vixen.Raven.Syntax.RavenSyntaxNode.Kind.get -> Vixen.Raven.Syntax.SyntaxKind

@@ -45,7 +45,7 @@ Vixen.Net.Audio.NetworkAudioSourceReplicator.Priority.get -> int
 Vixen.Net.Audio.NetworkAudioSourceReplicator.TypeId.get -> uint
 Vixen.Net.Audio.NetworkAudioSourceReplicator.TypeName.get -> string
 Vixen.Net.Audio.NetworkAudioSourceReplicator.Write(Vixen.Ecs.World world, Vixen.Core.Entity entity, ref Vixen.Net.Messaging.BitWriter writer) -> void
-Vixen.Net.Audio.NetworkAudioTrigger -> struct
+Vixen.Net.Audio.NetworkAudioTrigger -> readonly struct
 Vixen.Net.Audio.NetworkAudioTrigger : Vixen.Ecs.ITagComponent
 Vixen.Net.Audio.NetworkAudioTrigger.NetworkAudioTrigger() -> void
 override Vixen.Net.Audio.NetworkAudioApplySystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle

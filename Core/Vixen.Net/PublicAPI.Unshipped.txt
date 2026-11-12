@@ -380,7 +380,7 @@ Vixen.Net.Prediction.InputLog<T>.Redundancy.get -> int
 Vixen.Net.Prediction.InputLog<T>.Redundancy.init -> int
 Vixen.Net.Prediction.InputLog<T>.TryGet(Vixen.Net.Tick tick, out T input) -> bool
 Vixen.Net.Prediction.InputLog<T>.TryWrite(System.Span<byte> buffer, out System.ReadOnlySpan<byte> payload) -> bool
-Vixen.Net.Prediction.Predicted -> struct
+Vixen.Net.Prediction.Predicted -> readonly struct
 Vixen.Net.Prediction.Predicted : Vixen.Ecs.ITagComponent
 Vixen.Net.Prediction.Predicted.Predicted() -> void
 Vixen.Net.Prediction.PredictedOwnershipSystem -> sealed class
@@ -578,7 +578,7 @@ Vixen.Net.Replication.NetworkIdAllocator.Count.get -> uint
 Vixen.Net.Replication.NetworkIdAllocator.NetworkIdAllocator() -> void
 Vixen.Net.Replication.NetworkIdAllocator.Next() -> Vixen.Net.Replication.NetworkId
 Vixen.Net.Replication.NetworkIdAllocator.Reserve(int count) -> Vixen.Net.Replication.NetworkId
-Vixen.Net.Replication.NetworkInstance -> struct
+Vixen.Net.Replication.NetworkInstance -> readonly struct
 Vixen.Net.Replication.NetworkInstance : Vixen.Ecs.ITagComponent
 Vixen.Net.Replication.NetworkInstance.NetworkInstance() -> void
 Vixen.Net.Replication.NetworkPrefabId -> readonly struct

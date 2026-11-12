@@ -3,7 +3,7 @@ Vixen.Core.Diagnostics.ConsoleSink -> sealed class
 Vixen.Core.Diagnostics.ConsoleSink : Vixen.Core.Diagnostics.LogRecordSink
 Vixen.Core.Diagnostics.ConsoleSink.CategoryWidth.get -> int
 Vixen.Core.Diagnostics.ConsoleSink.CategoryWidth.set -> int
-Vixen.Core.Diagnostics.ConsoleSink.ConsoleSink(Microsoft.Extensions.Logging.LogLevel? minimumLevel = 2, Vixen.Core.Diagnostics.LogFilter? filter = null) -> void
+Vixen.Core.Diagnostics.ConsoleSink.ConsoleSink(Microsoft.Extensions.Logging.LogLevel minimumLevel = Microsoft.Extensions.Logging.LogLevel.Information, Vixen.Core.Diagnostics.LogFilter? filter = null) -> void
 Vixen.Core.Diagnostics.ConsoleSink.ShowTimestamps.get -> bool
 Vixen.Core.Diagnostics.ConsoleSink.ShowTimestamps.set -> bool
 Vixen.Core.Diagnostics.ConsoleSink.StandardErrorThreshold.get -> Microsoft.Extensions.Logging.LogLevel
@@ -12,7 +12,7 @@ Vixen.Core.Diagnostics.ConsoleSink.UseColour.get -> bool
 Vixen.Core.Diagnostics.ConsoleSink.UseColour.set -> bool
 Vixen.Core.Diagnostics.EventSourceSink -> sealed class
 Vixen.Core.Diagnostics.EventSourceSink : Vixen.Core.Diagnostics.LogRecordSink
-Vixen.Core.Diagnostics.EventSourceSink.EventSourceSink(Microsoft.Extensions.Logging.LogLevel? minimumLevel = 0, Vixen.Core.Diagnostics.LogFilter? filter = null) -> void
+Vixen.Core.Diagnostics.EventSourceSink.EventSourceSink(Microsoft.Extensions.Logging.LogLevel minimumLevel = Microsoft.Extensions.Logging.LogLevel.Trace, Vixen.Core.Diagnostics.LogFilter? filter = null) -> void
 Vixen.Core.Diagnostics.IRemoteLogTransport -> interface
 Vixen.Core.Diagnostics.IRemoteLogTransport.IsConnected.get -> bool
 Vixen.Core.Diagnostics.IRemoteLogTransport.Send(System.ReadOnlySpan<byte> payload) -> void
@@ -59,6 +59,7 @@ Vixen.Core.Diagnostics.LogRecordSink.LogRecordSink(Vixen.Core.Diagnostics.LogFil
 Vixen.Core.Diagnostics.LogRecordSink.TimeProvider.get -> System.TimeProvider
 Vixen.Core.Diagnostics.LogRecordSink.TimeProvider.set -> System.TimeProvider
 Vixen.Core.Diagnostics.LogSink -> abstract class
+Vixen.Core.Diagnostics.LogSink : Microsoft.Extensions.Logging.ILoggerProvider
 Vixen.Core.Diagnostics.LogSink : System.IDisposable
 Vixen.Core.Diagnostics.LogSink.ClearCategoryLevels() -> void
 Vixen.Core.Diagnostics.LogSink.Dispose() -> void
@@ -73,7 +74,7 @@ Vixen.Core.Diagnostics.LogSink.SetCategoryLevel(string categoryPrefix, Microsoft
 Vixen.Core.Diagnostics.LogSink.ShouldWrite(string category, Microsoft.Extensions.Logging.LogLevel level, Microsoft.Extensions.Logging.EventId eventId, out int suppressedCount) -> bool
 Vixen.Core.Diagnostics.PlatformSink -> sealed class
 Vixen.Core.Diagnostics.PlatformSink : Vixen.Core.Diagnostics.LogRecordSink
-Vixen.Core.Diagnostics.PlatformSink.PlatformSink(string tag = "Vixen", Microsoft.Extensions.Logging.LogLevel minimumLevel = 2, Vixen.Core.Diagnostics.LogFilter? filter = null) -> void
+Vixen.Core.Diagnostics.PlatformSink.PlatformSink(string tag = "Vixen", Microsoft.Extensions.Logging.LogLevel minimumLevel = Microsoft.Extensions.Logging.LogLevel.Information, Vixen.Core.Diagnostics.LogFilter? filter = null) -> void
 Vixen.Core.Diagnostics.PlatformSink.Tag.get -> string
 Vixen.Core.Diagnostics.Profiler -> static class
 Vixen.Core.Diagnostics.Profiler.Scope -> readonly ref struct
@@ -119,7 +120,7 @@ Vixen.Core.Diagnostics.RemoteSink : Vixen.Core.Diagnostics.LogRecordSink
 Vixen.Core.Diagnostics.RemoteSink.DroppedCount.get -> long
 Vixen.Core.Diagnostics.RemoteSink.Flush(System.TimeSpan timeout) -> bool
 Vixen.Core.Diagnostics.RemoteSink.PendingCount.get -> int
-Vixen.Core.Diagnostics.RemoteSink.RemoteSink(Vixen.Core.Diagnostics.IRemoteLogTransport transport, int capacity = 4096, Microsoft.Extensions.Logging.LogLevel minimumLevel = 2, Vixen.Core.Diagnostics.LogFilter? filter = null) -> void
+Vixen.Core.Diagnostics.RemoteSink.RemoteSink(Vixen.Core.Diagnostics.IRemoteLogTransport transport, int capacity = 4096, Microsoft.Extensions.Logging.LogLevel minimumLevel = Microsoft.Extensions.Logging.LogLevel.Information, Vixen.Core.Diagnostics.LogFilter? filter = null) -> void
 Vixen.Core.Diagnostics.RingBufferSink -> sealed class
 Vixen.Core.Diagnostics.RingBufferSink : Vixen.Core.Diagnostics.LogRecordSink
 Vixen.Core.Diagnostics.RingBufferSink.Capacity.get -> int
@@ -135,8 +136,8 @@ Vixen.Core.Diagnostics.TraceExporter -> static class
 Vixen.Core.Diagnostics.ZLoggerFileSink -> sealed class
 Vixen.Core.Diagnostics.ZLoggerFileSink : Vixen.Core.Diagnostics.LogSink
 Vixen.Core.Diagnostics.ZLoggerFileSink.DirectoryPath.get -> string
-Vixen.Core.Diagnostics.ZLoggerFileSink.ZLoggerFileSink(System.Func<System.DateTimeOffset, int, string> filePathSelector, int rollingSizeKilobytes = 65536, Microsoft.Extensions.Logging.LogLevel minimumLevel = 2, Vixen.Core.Diagnostics.LogFilter? filter = null) -> void
-Vixen.Core.Diagnostics.ZLoggerFileSink.ZLoggerFileSink(string directoryPath, string fileNamePrefix = "vixen", int rollingSizeKilobytes = 65536, Microsoft.Extensions.Logging.LogLevel minimumLevel = 2, Vixen.Core.Diagnostics.LogFilter? filter = null) -> void
+Vixen.Core.Diagnostics.ZLoggerFileSink.ZLoggerFileSink(System.Func<System.DateTimeOffset, int, string> filePathSelector, int rollingSizeKilobytes = 65536, Microsoft.Extensions.Logging.LogLevel minimumLevel = Microsoft.Extensions.Logging.LogLevel.Information, Vixen.Core.Diagnostics.LogFilter? filter = null) -> void
+Vixen.Core.Diagnostics.ZLoggerFileSink.ZLoggerFileSink(string directoryPath, string fileNamePrefix = "vixen", int rollingSizeKilobytes = 65536, Microsoft.Extensions.Logging.LogLevel minimumLevel = Microsoft.Extensions.Logging.LogLevel.Information, Vixen.Core.Diagnostics.LogFilter? filter = null) -> void
 abstract Vixen.Core.Diagnostics.LogRecordSink.Write(Vixen.Core.Diagnostics.LogRecord record) -> void
 abstract Vixen.Core.Diagnostics.LogSink.CreateLogger(string categoryName) -> Microsoft.Extensions.Logging.ILogger
 const Vixen.Core.Diagnostics.ConsoleSink.DefaultCategoryWidth = 28 -> int

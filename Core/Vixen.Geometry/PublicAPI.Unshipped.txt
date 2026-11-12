@@ -89,13 +89,13 @@ Vixen.Geometry.MeshData.BoneIndices.set -> int[]
 Vixen.Geometry.MeshData.BoneWeights.get -> float[]
 Vixen.Geometry.MeshData.BoneWeights.set -> float[]
 Vixen.Geometry.MeshData.Bounds.get -> Vixen.Core.Mathematics.BoundingBox
-Vixen.Geometry.MeshData.Colours.get -> Vixen.Core.Mathematics.Vector4[]
-Vixen.Geometry.MeshData.Colours.set -> Vixen.Core.Mathematics.Vector4[]
 Vixen.Geometry.MeshData.Bounds.set -> Vixen.Core.Mathematics.BoundingBox
 Vixen.Geometry.MeshData.ClusterPages.get -> Vixen.Core.AssetReference
 Vixen.Geometry.MeshData.ClusterPages.set -> Vixen.Core.AssetReference
 Vixen.Geometry.MeshData.Clusters.get -> Vixen.Core.AssetReference
 Vixen.Geometry.MeshData.Clusters.set -> Vixen.Core.AssetReference
+Vixen.Geometry.MeshData.Colours.get -> Vixen.Core.Mathematics.Vector4[]
+Vixen.Geometry.MeshData.Colours.set -> Vixen.Core.Mathematics.Vector4[]
 Vixen.Geometry.MeshData.Indices.get -> int[]
 Vixen.Geometry.MeshData.Indices.set -> int[]
 Vixen.Geometry.MeshData.IsClustered.get -> bool

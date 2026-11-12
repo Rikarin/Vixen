@@ -42,7 +42,7 @@ Vixen.Net.Engine.NetworkModule.Nest<TModule>(TModule module, string name) -> TMo
 Vixen.Net.Engine.NetworkModule.NetworkModule() -> void
 Vixen.Net.Engine.NetworkModule.Seal(string path = "") -> void
 Vixen.Net.Engine.NetworkModule.Write(ref Vixen.Net.Messaging.BitWriter writer) -> void
-Vixen.Net.Engine.NetworkObject -> struct
+Vixen.Net.Engine.NetworkObject -> readonly struct
 Vixen.Net.Engine.NetworkObject : Vixen.Ecs.ITagComponent
 Vixen.Net.Engine.NetworkObject.NetworkObject() -> void
 Vixen.Net.Engine.NetworkPrefab -> sealed record
@@ -130,7 +130,7 @@ Vixen.Net.Engine.NetworkSpawner.Spawn(Vixen.Ecs.World world, string address, Vix
 Vixen.Net.Engine.NetworkSpawner.SpawnedCount.get -> long
 Vixen.Net.Engine.NetworkSpawner.UnresolvedDespawns.get -> int
 Vixen.Net.Engine.NetworkSpawner.UnresolvedRules.get -> int
-Vixen.Net.Engine.NetworkTeleport -> struct
+Vixen.Net.Engine.NetworkTeleport -> readonly struct
 Vixen.Net.Engine.NetworkTeleport : Vixen.Ecs.ITagComponent
 Vixen.Net.Engine.NetworkTeleport.NetworkTeleport() -> void
 Vixen.Net.Engine.NetworkTransformApplySystem -> sealed class
@@ -200,7 +200,7 @@ Vixen.Net.Engine.Players.PlayerMoveInput.PlayerMoveInput() -> void
 Vixen.Net.Engine.Players.PlayerMoveInput.Roundtrip() -> Vixen.Net.Engine.Players.PlayerMoveInput
 Vixen.Net.Engine.Players.PlayerMoveInput.ToIntent() -> Vixen.Engine.Players.MoveIntent
 Vixen.Net.Engine.Players.PlayerMoveInput.Write(ref Vixen.Net.Messaging.BitWriter writer) -> void
-Vixen.Net.Engine.Players.PlayerPawn -> struct
+Vixen.Net.Engine.Players.PlayerPawn -> readonly struct
 Vixen.Net.Engine.Players.PlayerPawn : Vixen.Ecs.ITagComponent
 Vixen.Net.Engine.Players.PlayerPawn.PlayerPawn() -> void
 Vixen.Net.Engine.Players.PlayerSpawner -> sealed class

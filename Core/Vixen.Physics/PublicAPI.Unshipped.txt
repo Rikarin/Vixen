@@ -365,7 +365,7 @@ Vixen.Physics.Ecs.PhysicsSyncSystem : Vixen.Ecs.Systems.SystemBase
 Vixen.Physics.Ecs.PhysicsSyncSystem.Access.get -> Vixen.Ecs.Systems.SystemAccess
 Vixen.Physics.Ecs.PhysicsSyncSystem.PhysicsSyncSystem(Vixen.Physics.Ecs.PhysicsScene scene) -> void
 Vixen.Physics.Ecs.PhysicsSystems -> static class
-Vixen.Physics.Ecs.PhysicsTeleport -> struct
+Vixen.Physics.Ecs.PhysicsTeleport -> readonly struct
 Vixen.Physics.Ecs.PhysicsTeleport : Vixen.Ecs.ITagComponent
 Vixen.Physics.Ecs.PhysicsTeleport.PhysicsTeleport() -> void
 Vixen.Physics.Ecs.PhysicsWritebackSystem -> sealed class

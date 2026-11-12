@@ -18,7 +18,7 @@ Vixen.Net.Physics.BodyPose.Position.get -> Vixen.Core.Mathematics.Vector3
 Vixen.Net.Physics.BodyPose.Position.init -> Vixen.Core.Mathematics.Vector3
 Vixen.Net.Physics.BodyPose.Rotation.get -> Vixen.Core.Mathematics.Quaternion
 Vixen.Net.Physics.BodyPose.Rotation.init -> Vixen.Core.Mathematics.Quaternion
-Vixen.Net.Physics.LagCompensated -> struct
+Vixen.Net.Physics.LagCompensated -> readonly struct
 Vixen.Net.Physics.LagCompensated : Vixen.Ecs.ITagComponent
 Vixen.Net.Physics.LagCompensated.LagCompensated() -> void
 Vixen.Net.Physics.LagCompensationSettings -> sealed record

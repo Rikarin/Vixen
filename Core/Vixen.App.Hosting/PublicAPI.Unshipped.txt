@@ -10,7 +10,7 @@ Vixen.App.AppArguments.FrameRateLimit.get -> int?
 Vixen.App.AppArguments.GpuProfiling.get -> bool
 Vixen.App.AppArguments.Headless.get -> bool
 Vixen.App.AppArguments.LogFilePath.get -> string?
-Vixen.App.AppArguments.LogLevel.get -> Microsoft.Extensions.Logging.LogLevel??
+Vixen.App.AppArguments.LogLevel.get -> Microsoft.Extensions.Logging.LogLevel?
 Vixen.App.AppArguments.LooseContentPath.get -> string?
 Vixen.App.AppArguments.MaxFrames.get -> int?
 Vixen.App.AppArguments.Offscreen.get -> bool
@@ -55,8 +55,8 @@ Vixen.App.AppConfig.Headless.set -> bool
 Vixen.App.AppConfig.HeadlessFallbackReason.get -> string?
 Vixen.App.AppConfig.LogFileDirectory.get -> string?
 Vixen.App.AppConfig.LogFileDirectory.set -> string?
-Vixen.App.AppConfig.LogLevel.get -> Microsoft.Extensions.Logging.LogLevel?
-Vixen.App.AppConfig.LogLevel.set -> Microsoft.Extensions.Logging.LogLevel?
+Vixen.App.AppConfig.LogLevel.get -> Microsoft.Extensions.Logging.LogLevel
+Vixen.App.AppConfig.LogLevel.set -> Microsoft.Extensions.Logging.LogLevel
 Vixen.App.AppConfig.LogToConsole.get -> bool
 Vixen.App.AppConfig.LogToConsole.set -> bool
 Vixen.App.AppConfig.LooseContentPath.get -> string?

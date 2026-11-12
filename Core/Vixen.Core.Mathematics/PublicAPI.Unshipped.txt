@@ -376,6 +376,7 @@ Vixen.Core.Mathematics.TriangleTree -> sealed class
 Vixen.Core.Mathematics.TriangleTree.Bounds.get -> Vixen.Core.Mathematics.BoundingBox
 Vixen.Core.Mathematics.TriangleTree.Closest(Vixen.Core.Mathematics.Vector3 point) -> Vixen.Core.Mathematics.ClosestTriangle
 Vixen.Core.Mathematics.TriangleTree.DistanceSquared(Vixen.Core.Mathematics.Vector3 point) -> float
+Vixen.Core.Mathematics.TriangleTree.Overlapping(Vixen.Core.Mathematics.Vector3 centre, float radius, System.Collections.Generic.List<int> into) -> void
 Vixen.Core.Mathematics.TriangleTree.Raycast(Vixen.Core.Mathematics.Vector3 origin, Vixen.Core.Mathematics.Vector3 direction) -> Vixen.Core.Mathematics.TriangleHit
 Vixen.Core.Mathematics.TriangleTree.Raycast(Vixen.Core.Mathematics.Vector3 origin, Vixen.Core.Mathematics.Vector3 direction, out bool backface) -> bool
 Vixen.Core.Mathematics.TriangleTree.TriangleCount.get -> int
@@ -956,4 +957,3 @@ static Vixen.Core.Mathematics.Vector4.operator ==(Vixen.Core.Mathematics.Vector4
 static Vixen.Core.Mathematics.Viewport.NearEqual(Vixen.Core.Mathematics.Viewport left, Vixen.Core.Mathematics.Viewport right, float tolerance = 1E-06) -> bool
 static Vixen.Core.Mathematics.Viewport.operator !=(Vixen.Core.Mathematics.Viewport left, Vixen.Core.Mathematics.Viewport right) -> bool
 static Vixen.Core.Mathematics.Viewport.operator ==(Vixen.Core.Mathematics.Viewport left, Vixen.Core.Mathematics.Viewport right) -> bool
-Vixen.Core.Mathematics.TriangleTree.Overlapping(Vixen.Core.Mathematics.Vector3 centre, float radius, System.Collections.Generic.List<int> into) -> void

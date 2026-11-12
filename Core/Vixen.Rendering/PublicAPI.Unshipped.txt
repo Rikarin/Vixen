@@ -1655,7 +1655,7 @@ Vixen.Rendering.Ecs.SpherePostProcessShape.Contains(Vixen.Core.Mathematics.Vecto
 Vixen.Rendering.Ecs.SpherePostProcessShape.Radii.get -> Vixen.Core.Mathematics.Vector3
 Vixen.Rendering.Ecs.SpherePostProcessShape.SpherePostProcessShape() -> void
 Vixen.Rendering.Ecs.SpherePostProcessShape.SpherePostProcessShape(in Vixen.Core.Mathematics.Matrix4x4 transform, Vixen.Core.Mathematics.Vector3 radii) -> void
-Vixen.Rendering.Ecs.StaticShadowCaster -> struct
+Vixen.Rendering.Ecs.StaticShadowCaster -> readonly struct
 Vixen.Rendering.Ecs.StaticShadowCaster : Vixen.Ecs.ITagComponent
 Vixen.Rendering.Ecs.StaticShadowCaster.StaticShadowCaster() -> void
 Vixen.Rendering.Ecs.VfxEmitter -> struct
