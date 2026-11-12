@@ -528,7 +528,7 @@ partial class Build {
     ///         initialisers in this repository that build something else.
     ///     </para>
     /// </remarks>
-    const int ConstructedCeiling = 8;
+    const int ConstructedCeiling = 7;
 
     /// <summary>Applies <see cref="ConstructedCeiling" />.</summary>
     /// <param name="text">Every source file, by path.</param>
