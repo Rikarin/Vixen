@@ -2540,7 +2540,10 @@ public static class LayerStackGraph {
                     continue;
                 }
 
-                if (entry.Lane != LayerMaskLane.Red && entry.Source != LayerMaskSource.Anchor) {
+                // A paint entry over others composites by what its strokes covered, so its lane is read in Covered.
+                var covers = cursor is not null && entry.Source == LayerMaskSource.Paint;
+
+                if (entry.Lane != LayerMaskLane.Red && entry.Source != LayerMaskSource.Anchor && !covers) {
                     wire = Laned(wire, entry.Lane);
                 }
 
@@ -2568,7 +2571,7 @@ public static class LayerStackGraph {
                 blend.SetValue("Opacity", entry.Opacity);
 
                 graph.Connect(Opaque(beneath).Port, new(blend.Id, "Background"));
-                graph.Connect(Opaque(wire).Port, new(blend.Id, "Foreground"));
+                graph.Connect((covers ? Covered(wire, entry.Lane) : Opaque(wire)).Port, new(blend.Id, "Foreground"));
 
                 // A composite of two opaque operands is opaque — `Blend`'s alpha rule is
                 // `αb + (1 − αb)·αs`, which is 1 whenever both are — so a three-entry stack forces
@@ -2605,6 +2608,35 @@ public static class LayerStackGraph {
             graph.Connect(slot.Port, new(node.Id, "First"));
 
             return new(new PortRef(node.Id, "Out"), true);
+        }
+
+        /// <summary>
+        ///     A paint entry over other entries as a grey whose alpha is what its strokes covered, so that a stroke
+        ///     changes only what it touches and the picture beneath shows everywhere else (Patina #72).
+        /// </summary>
+        /// <param name="slot">The paint entry's canvas.</param>
+        /// <param name="lane">The lane it is read for.</param>
+        /// <returns>A slot a compositor reads by its coverage.</returns>
+        /// <remarks>
+        ///     ⚠ <b>The one exception to <see cref="Opaque" />'s rule, and the reason is the rule's own.</b> #874
+        ///     forces an operand opaque because its alpha is nobody's choice: a bitmap's, a bake's or a generator's.
+        ///     A mask canvas in a stack is the one picture whose alpha is the artist's, laid down by the brush, and a
+        ///     canvas nobody has painted is transparent. Forced opaque, it was black wherever no stroke landed, so a
+        ///     paint entry over a generator hid the generator everywhere. At the bottom it is still forced, by
+        ///     <see cref="Mask" />, since nothing is beneath it to show through.
+        /// </remarks>
+        MaskSlot Covered(MaskSlot slot, LayerMaskLane lane) {
+            var from = Lane(lane);
+            var node = Add("Colour/Channel Shuffle");
+
+            node.SetText("Red From", from);
+            node.SetText("Green From", from);
+            node.SetText("Blue From", from);
+            node.SetText("Alpha From", "FirstAlpha");
+
+            graph.Connect(slot.Port, new(node.Id, "First"));
+
+            return new(new PortRef(node.Id, "Out"), false);
         }
 
         /// <summary>The shuffle source that reads a lane of the first input.</summary>

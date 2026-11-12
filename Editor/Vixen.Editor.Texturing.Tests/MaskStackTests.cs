@@ -689,6 +689,41 @@ public class MaskStackTests(ITestOutputHelper output) {
         );
     }
 
+    /// <summary>
+    ///     A paint entry over other entries composites by what its strokes covered, the one operand #874 leaves its
+    ///     alpha (Patina #72): a canvas nobody has painted is transparent, and forced opaque it was black, hiding the
+    ///     picture beneath wherever no stroke landed.
+    /// </summary>
+    /// <remarks>
+    ///     Structural for the reason the test above gives. The two Bitmaps are told apart by what reads them: the bake
+    ///     at the bottom is still forced (alpha from <c>One</c>, selector 9), and the canvas over it keeps its own
+    ///     (<c>FirstAlpha</c>, selector 3).
+    /// </remarks>
+    [Fact]
+    public void A_paint_entry_over_a_picture_composites_by_its_coverage() {
+        var stack = Masked(
+            new() {
+                Source = LayerMaskSource.Bake,
+                Map = "normal",
+                Layers = [new() { Source = LayerMaskSource.Paint, Paint = "Masked.l.mask.vxpaint" }]
+            }
+        );
+
+        var compilation = LayerStackCompiler.Compile(stack, stack.Sets[0]);
+
+        Assert.Empty(compilation.Problems);
+        Assert.NotNull(compilation.Plan);
+
+        var bitmaps = Ops(compilation.Plan, "Bitmap").Select(static op => op.Output).ToHashSet();
+        var alphas = Ops(compilation.Plan, "ChannelShuffle")
+            .Where(op => bitmaps.Contains(op.Inputs[0]))
+            .Select(static op => op.Find("sourceA")!.Value.Value)
+            .Order()
+            .ToArray();
+
+        Assert.Equal([3f, 9f], alphas);
+    }
+
     /// <summary>A stack of one white layer under the given mask.</summary>
     static LayerStackAsset Masked(MaskAsset mask) =>
         new() {
