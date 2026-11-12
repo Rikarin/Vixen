@@ -258,4 +258,53 @@ public sealed class BakeCorrectionTests {
             Assert.True(Vector3.Distance(caged.Inner[corner], point - new Vector3(0f, 0f, 0.1f)) < 1e-5f);
         }
     }
+
+    /// <summary>
+    ///     The lean a preview draws is the bake's: across a hard fold, a full skew casts every ray inside a face along
+    ///     that face's own normal, a skew map at zero leaves them on the averaged direction that leans over the fold, and
+    ///     no skew leans nothing, so there is nothing to draw.
+    /// </summary>
+    [Fact]
+    public void The_lean_inside_a_face_is_the_bakes_own_skew() {
+        var fold = new EditMesh();
+        Span<int> flat = [
+            fold.AddPosition(new(0f, 0f, 0f)),
+            fold.AddPosition(new(1f, 0f, 0f)),
+            fold.AddPosition(new(1f, 1f, 0f)),
+            fold.AddPosition(new(0f, 1f, 0f))
+        ];
+        Span<int> side = [flat[1], fold.AddPosition(new(1f, 0f, -1f)), fold.AddPosition(new(1f, 1f, -1f)), flat[2]];
+        fold.AddFace(flat);
+        fold.AddFace(side);
+        fold.SetNormals(
+            [
+                Vector3.UnitZ, Vector3.UnitZ, Vector3.UnitZ, Vector3.UnitZ, Vector3.UnitX, Vector3.UnitX, Vector3.UnitX,
+                Vector3.UnitX
+            ]
+        );
+        fold.SetTexCoords(
+            [
+                new(0f, 0f), new(0.5f, 0f), new(0.5f, 1f), new(0f, 1f), new(0.5f, 0f), new(1f, 0f), new(1f, 1f),
+                new(0.5f, 1f)
+            ]
+        );
+        BakeSettings settings = new() { Resolution = 16, Units = BakeUnits.Absolute, SearchRadius = 0.2f };
+
+        Vector3 Along(BakeLeanRay ray) => (ray.Outer - ray.Point) / 0.2f;
+        bool OnTop(BakeLeanRay ray) => ray.Point.X < 0.999f;
+
+        Assert.Empty(MapBaker.Leans(fold, fold, settings, 4));
+
+        var full = MapBaker.Leans(fold, fold, settings with { Skew = 1f }, 4);
+        Assert.Equal(12, full.Count);
+        Assert.All(
+            full,
+            ray => Assert.True(Vector3.Distance(Along(ray), OnTop(ray) ? Vector3.UnitZ : Vector3.UnitX) < 1e-4f)
+        );
+
+        var unmapped = MapBaker.Leans(fold, fold, settings with { Skew = 1f, SkewMap = new(1, [0f]) }, 4);
+        Assert.Equal(12, unmapped.Count);
+        Assert.Contains(unmapped, ray => OnTop(ray) && Along(ray).X > 0.05f);
+        Assert.All(unmapped, ray => Assert.InRange(Along(ray).Length(), 0.999f, 1.001f));
+    }
 }

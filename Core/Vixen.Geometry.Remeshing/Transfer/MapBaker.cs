@@ -706,6 +706,11 @@ public sealed record BakedMaps {
 /// <param name="Inner">Where it stops looking: the rear distance behind the target.</param>
 public sealed record BakeReachShell(IReadOnlyList<Vector3> Outer, IReadOnlyList<Vector3> Inner);
 
+/// <summary>One ray inside a face of the target as the bake leans it, which is what a preview draws of the skew.</summary>
+/// <param name="Point">Where on the target the ray crosses it.</param>
+/// <param name="Outer">Where it comes from: as far out as the front distance, or the cage, along the leaned direction.</param>
+public readonly record struct BakeLeanRay(Vector3 Point, Vector3 Outer);
+
 /// <summary>docs/plan/41 § D12's bake: the output's normal, cast at the source, into the atlas.</summary>
 /// <remarks>
 ///     <para>
@@ -1029,22 +1034,7 @@ public static class MapBaker {
     ///     </para>
     /// </remarks>
     public static BakeReachShell Reach(EditMesh source, EditMesh target, BakeSettings settings) {
-        ArgumentNullException.ThrowIfNull(source);
-        ArgumentNullException.ThrowIfNull(target);
-        ArgumentNullException.ThrowIfNull(settings);
-
-        if (settings.Cage is { } cage && !SameLayout(cage, target)) {
-            throw new ArgumentException(
-                "The cage does not have the target's faces, so its points have no partner on the target.",
-                nameof(settings)
-            );
-        }
-
-        var bounds = source.Bounds;
-        var diagonal = source.PositionCount > 0 ? Vector3.Distance(bounds.Minimum, bounds.Maximum) : 0f;
-        var unit = settings.Units is BakeUnits.Absolute ? 1f : diagonal;
-        var front = unit * MathF.Max(settings.SearchRadius, 0f);
-        var rear = unit * MathF.Max(settings.RearDistance ?? settings.SearchRadius, 0f);
+        var (front, rear) = Reaching(source, target, settings);
         var shading = target.Normals.Length == target.CornerCount
             ? target.Normals.ToArray()
             : BakeCharts.Geometric(target);
@@ -1077,6 +1067,133 @@ public static class MapBaker {
         }
 
         return new(outer, inner);
+    }
+
+    /// <summary>
+    ///     Rays inside the target's faces as <see cref="BakeSettings.Skew" /> leans them: what a preview draws so a
+    ///     person sees the skew, and its map, where they apply.
+    /// </summary>
+    /// <param name="source">The high-resolution surface, for the size relative distances are fractions of.</param>
+    /// <param name="target">The surface baked onto.</param>
+    /// <param name="settings">The skew and its map, the distances, the units, the cage and the distance map.</param>
+    /// <param name="divisions">
+    ///     How finely each triangle of a face is sampled: the rays are at the points of a triangular grid of this
+    ///     many steps a side that lie inside it, one at three, three at four, six at five.
+    /// </param>
+    /// <returns>The rays, triangle by triangle; none when nothing leans.</returns>
+    /// <exception cref="ArgumentNullException">Any reference argument is null.</exception>
+    /// <exception cref="ArgumentException">The cage does not have the target's faces.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="divisions" /> is under three.</exception>
+    /// <remarks>
+    ///     ⚠ <b>The direction the bake casts, from the same numbers</b>: the averaged ray direction and the target's
+    ///     own normal, each blended over the triangle as the texel bake blends them, leaned by the skew times the skew
+    ///     map read where the point lies on the atlas, by <see cref="Leaned" />, which the bake calls too. Where
+    ///     <see cref="Reach" /> is exact at the corners and straight between, these show what happens inside.
+    /// </remarks>
+    public static IReadOnlyList<BakeLeanRay> Leans(
+        EditMesh source,
+        EditMesh target,
+        BakeSettings settings,
+        int divisions
+    ) {
+        var (front, _) = Reaching(source, target, settings);
+        ArgumentOutOfRangeException.ThrowIfLessThan(divisions, 3);
+
+        if (settings.Skew <= 0f) {
+            return [];
+        }
+
+        var shading = target.Normals.Length == target.CornerCount
+            ? target.Normals.ToArray()
+            : BakeCharts.Geometric(target);
+        var along = BakeCharts.Averaged(target, shading);
+        var mapped = target.TexCoords.Length == target.CornerCount;
+        List<BakeLeanRay> rays = [];
+
+        for (var face = 0; face < target.FaceCount; face++) {
+            var entry = target.Faces[face];
+            var loop = target.CornersOf(face).ToArray();
+            var shell = settings.Cage?.CornersOf(face).ToArray();
+
+            for (var at = 2; at < entry.Count; at++) {
+                int[] fan = [0, at - 1, at];
+                Vector3[] points = [..fan.Select(corner => target.Positions[loop[corner]])];
+                Vector3[] smooth = [..fan.Select(corner => along[entry.Start + corner])];
+                Vector3[] normals = [..fan.Select(corner => shading[entry.Start + corner])];
+                Vector3[] places = mapped
+                    ? [..fan.Select(corner => new Vector3(target.TexCoords[entry.Start + corner], 0f))]
+                    : [Vector3.Zero, Vector3.Zero, Vector3.Zero];
+                Vector3[]? cage = shell is null
+                    ? null
+                    : [..fan.Select(corner => settings.Cage!.Positions[shell[corner]])];
+                var facing = ScaleSafe.Unit(Vector3.Cross(points[1] - points[0], points[2] - points[0]));
+
+                for (var i = 1; i < divisions - 1; i++) {
+                    for (var j = 1; i + j < divisions; j++) {
+                        var weights = new Vector3(i, j, divisions - i - j) / divisions;
+                        var point = Blend(points, weights);
+                        var ray = ScaleSafe.Unit(Blend(smooth, weights));
+                        var normal = ScaleSafe.Unit(Blend(normals, weights));
+                        var uv = Blend(places, weights);
+                        var place = new Vector2(uv.X, uv.Y);
+                        var lean = settings.Skew * (settings.SkewMap is { } map && mapped ? map.At(place) : 1f);
+                        var direction = Leaned(
+                            ray.LengthSquared() > 0f ? ray : facing,
+                            normal.LengthSquared() > 0f ? normal : facing,
+                            lean
+                        );
+                        var stretch = settings.DistanceMap is { } distance && mapped ? 2f * distance.At(place) : 1f;
+                        var reach = cage is null ? front : Vector3.Distance(Blend(cage, weights), point);
+
+                        rays.Add(new(point, point + direction * (reach * stretch)));
+                    }
+                }
+            }
+        }
+
+        return rays;
+    }
+
+    static Vector3 Blend(Vector3[] corners, Vector3 weights) =>
+        corners[0] * weights.X + corners[1] * weights.Y + corners[2] * weights.Z;
+
+    /// <summary>
+    ///     A ray's direction once the skew leans it: from the smoothed direction towards the target's own normal by
+    ///     <paramref name="lean" />, at most all the way.
+    /// </summary>
+    /// <param name="smooth">The averaged direction, continuous across a hard edge, as a unit vector.</param>
+    /// <param name="along">The target's own normal there, as a unit vector.</param>
+    /// <param name="lean">The skew times its map, where zero leaves the smoothed direction.</param>
+    /// <returns>The direction, as a unit vector.</returns>
+    internal static Vector3 Leaned(Vector3 smooth, Vector3 along, float lean) {
+        if (lean <= 0f) {
+            return smooth;
+        }
+
+        var leaned = ScaleSafe.Unit(Vector3.Lerp(smooth, along, MathF.Min(lean, 1f)));
+
+        return leaned.LengthSquared() > 0f ? leaned : along;
+    }
+
+    /// <summary>The front and rear distances in the bake's units, once the arguments and the cage are checked.</summary>
+    static (float Front, float Rear) Reaching(EditMesh source, EditMesh target, BakeSettings settings) {
+        ArgumentNullException.ThrowIfNull(source);
+        ArgumentNullException.ThrowIfNull(target);
+        ArgumentNullException.ThrowIfNull(settings);
+
+        if (settings.Cage is { } cage && !SameLayout(cage, target)) {
+            throw new ArgumentException(
+                "The cage does not have the target's faces, so its points have no partner on the target.",
+                nameof(settings)
+            );
+        }
+
+        var bounds = source.Bounds;
+        var diagonal = source.PositionCount > 0 ? Vector3.Distance(bounds.Minimum, bounds.Maximum) : 0f;
+        var unit = settings.Units is BakeUnits.Absolute ? 1f : diagonal;
+
+        return (unit * MathF.Max(settings.SearchRadius, 0f),
+            unit * MathF.Max(settings.RearDistance ?? settings.SearchRadius, 0f));
     }
 
     /// <summary>Divides a channel by its largest covered value, so that one reads one.</summary>

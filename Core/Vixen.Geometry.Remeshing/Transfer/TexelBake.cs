@@ -336,13 +336,7 @@ sealed class TexelBake(
 
         var lean = settings.Skew * (settings.SkewMap?.At(place / resolution) ?? 1f);
 
-        if (lean <= 0f) {
-            return smooth;
-        }
-
-        var leaned = ScaleSafe.Unit(Vector3.Lerp(smooth, along, MathF.Min(lean, 1f)));
-
-        return leaned.LengthSquared() > 0f ? leaned : along;
+        return MapBaker.Leaned(smooth, along, lean);
     }
 
     SourceSample Cast(

@@ -4,7 +4,7 @@ slug: engine/map-baking
 kind: guide
 area: Engine
 summary: Casting the output's normal at the source to fill an atlas with a normal map, a displacement map and seven more mesh maps, on the CPU, with no device anywhere.
-api: [T:Vixen.Geometry.Remeshing.MapBaker, T:Vixen.Geometry.Remeshing.BakeSettings, T:Vixen.Geometry.Remeshing.BakedMaps, T:Vixen.Geometry.Remeshing.BakeSpace, T:Vixen.Geometry.Remeshing.MeshMaps, T:Vixen.Geometry.Remeshing.BakeMask, T:Vixen.Geometry.Remeshing.BakeParts, T:Vixen.Geometry.Remeshing.MeshMapKind, T:Vixen.Geometry.Remeshing.MeshMapPlane, T:Vixen.Geometry.Remeshing.MeshMapPlanes, T:Vixen.Interchange.FlatModel, T:Vixen.Geometry.MikkTSpace, T:Vixen.Geometry.Remeshing.BakeUnits, T:Vixen.Geometry.Remeshing.OcclusionFalloff, T:Vixen.Geometry.Remeshing.OcclusionDistribution, T:Vixen.Geometry.Remeshing.BakeIdSource, T:Vixen.Geometry.Remeshing.IdPalette, T:Vixen.Geometry.Remeshing.HeightRange, T:Vixen.Geometry.Remeshing.BakeRounding, T:Vixen.Geometry.Remeshing.RoundedEdges, T:Vixen.Geometry.Remeshing.BakeColours, T:Vixen.Geometry.Remeshing.BakeImage, T:Vixen.Geometry.Remeshing.BakeReachShell]
+api: [T:Vixen.Geometry.Remeshing.MapBaker, T:Vixen.Geometry.Remeshing.BakeSettings, T:Vixen.Geometry.Remeshing.BakedMaps, T:Vixen.Geometry.Remeshing.BakeSpace, T:Vixen.Geometry.Remeshing.MeshMaps, T:Vixen.Geometry.Remeshing.BakeMask, T:Vixen.Geometry.Remeshing.BakeParts, T:Vixen.Geometry.Remeshing.MeshMapKind, T:Vixen.Geometry.Remeshing.MeshMapPlane, T:Vixen.Geometry.Remeshing.MeshMapPlanes, T:Vixen.Interchange.FlatModel, T:Vixen.Geometry.MikkTSpace, T:Vixen.Geometry.Remeshing.BakeUnits, T:Vixen.Geometry.Remeshing.OcclusionFalloff, T:Vixen.Geometry.Remeshing.OcclusionDistribution, T:Vixen.Geometry.Remeshing.BakeIdSource, T:Vixen.Geometry.Remeshing.IdPalette, T:Vixen.Geometry.Remeshing.HeightRange, T:Vixen.Geometry.Remeshing.BakeRounding, T:Vixen.Geometry.Remeshing.RoundedEdges, T:Vixen.Geometry.Remeshing.BakeColours, T:Vixen.Geometry.Remeshing.BakeImage, T:Vixen.Geometry.Remeshing.BakeReachShell, T:Vixen.Geometry.Remeshing.BakeLeanRay]
 tags: [geometry, retopology, remesh, bake, normal-map, displacement, atlas, ambient-occlusion, curvature, mesh-maps, cage, hard-edge, supersampling]
 since: 0.1
 status: preview
@@ -139,6 +139,9 @@ the place lighter or darker, as the skew is.
 
 `MapBaker.Reach` gives the two ends of every target corner's ray, from the same averaged directions,
 distances, cage and distance map the bake uses, so a preview drawn from it shows the bake's own reach.
+The skew leans a ray inside a face, which corners cannot show: `MapBaker.Leans` gives rays at the points of
+a triangular grid inside each triangle, each a `BakeLeanRay` from the target out along the direction the bake
+casts there, the skew and its map applied by the same arithmetic the texel bake calls.
 
 ### Rounded edges
 
